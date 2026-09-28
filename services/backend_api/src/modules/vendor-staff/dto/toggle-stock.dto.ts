@@ -7,5 +7,5 @@ export class ToggleStockDto {
     example: false,
   })
   @IsBoolean()
-  isInStock: boolean;
+  isInStock!: boolean;
 }

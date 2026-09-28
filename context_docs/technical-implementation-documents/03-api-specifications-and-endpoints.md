@@ -119,7 +119,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Body*: `{ "isOnline": boolean, "latitude": 23.7808, "longitude": 90.4190 }`.
   - *Invariant*: Returns `400 Bad Request` if attempting to go offline with an active delivery.
 - **`POST /riders/orders/:id/claim`**
-  - *Action*: Acquires atomic Redis mutex `SET lock:order_claim:${id} ${riderId} NX EX 45`.
+  - *Action*: Acquires atomic Redis mutex `SET lock:order_claim:${id} ${riderId} NX EX 10`.
   - *Success*: Assigns courier, updates status (`RIDER_ASSIGNED`), and alerts kitchen.
 - **`POST /orders/:id/pickup`**: Confirms parcel pickup at store; transitions order to `DISPATCHED`.
 - **`POST /orders/:id/deliver`**

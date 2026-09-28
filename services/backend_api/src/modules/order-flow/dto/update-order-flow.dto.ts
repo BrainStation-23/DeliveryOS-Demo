@@ -13,7 +13,7 @@ export class UpdateOrderFlowDto {
     example: OrderFlowMode.RIDER_FIRST,
   })
   @IsEnum(OrderFlowMode)
-  mode: OrderFlowMode;
+  mode!: OrderFlowMode;
 
   @ApiPropertyOptional({
     description: 'Timeout in seconds before searching in wider radius or alerting dispatch',

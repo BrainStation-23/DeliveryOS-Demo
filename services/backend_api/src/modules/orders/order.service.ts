@@ -14,7 +14,7 @@ import { CheckoutDto, DeliveryMethod } from './dto/checkout.dto';
 import { ValidateReorderDto } from './dto/validate-reorder.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { assertTransition } from './order-state.machine';
-import { OrderStatus, PaymentMethod, PaymentStatus, Prisma, SettlementStatus, UserRole } from '@prisma/client';
+import { Order, OrderStatus, PaymentMethod, PaymentStatus, Prisma, SettlementStatus, UserRole } from '@prisma/client';
 
 import { TrackingGateway } from '../realtime/tracking.gateway';
 import { OrderFlowService } from '../order-flow/order-flow.service';
@@ -31,7 +31,7 @@ export interface OrderAddressSnapshot {
   latitude?: number;
   longitude?: number;
   deliveryNote?: string | null;
-  [key: string]: Prisma.InputJsonValue | undefined;
+  [key: string]: Prisma.InputJsonValue | null | undefined;
 }
 
 export interface OrderVariantSnapshot {
@@ -132,7 +132,7 @@ export class OrderService {
         const openTime = todayHours.openTime.length === 5 ? `${todayHours.openTime}:00` : todayHours.openTime;
         const closeTime = todayHours.closeTime.length === 5 ? `${todayHours.closeTime}:00` : todayHours.closeTime;
 
-        let isOpen = false;
+        let isOpen: boolean;
         if (openTime <= closeTime) {
           isOpen = currentTime >= openTime && currentTime <= closeTime;
         } else {
@@ -169,7 +169,9 @@ export class OrderService {
       }
 
       // Check Spatial Coverage via PostGIS
-      const coverageQuery: any[] = await this.prisma.$queryRaw`
+      const coverageQuery = await this.prisma.$queryRaw<
+        Array<{ distanceKm: string | number; isWithinCoverage: boolean }>
+      >`
         SELECT 
           ROUND((ST_Distance(
             CAST(ST_SetSRID(ST_MakePoint(${vendor.longitude}, ${vendor.latitude}), 4326) AS geography),
@@ -327,7 +329,7 @@ export class OrderService {
     const netVendorPayable = Math.round((netSubtotal - commissionAmount) * 100) / 100;
 
     // 8. Execute Atomic ACID Transaction with deterministic sequential order number
-    let order: any;
+    let order: Order | null = null;
     let attempts = 0;
     while (attempts < 3) {
       attempts++;
@@ -406,6 +408,18 @@ export class OrderService {
       }
     }
 
+    if (!order) {
+      throw new HttpException(
+        {
+          success: false,
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          error: 'ORDER_CREATION_FAILED',
+          message: 'Order could not be created after order number retries',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
     // Trigger Dispatch FSM based on active mode (RIDER_FIRST vs VENDOR_FIRST)
     await this.orderFlowService.handleOrderPlaced(order.id);
 
@@ -442,8 +456,15 @@ export class OrderService {
     const vendor = previousOrder.vendor;
     const isStoreOperational = vendor.isActive && !vendor.isBusy;
 
-    const validItems: any[] = [];
-    const unavailableItems: any[] = [];
+    const validItems: Array<{
+      productId: string;
+      name: string;
+      currentBasePrice: number;
+      quantity: number;
+      variantId: string | null;
+      isAvailable: boolean;
+    }> = [];
+    const unavailableItems: Array<{ productId: string; name: string; reason: string }> = [];
 
     for (const item of previousOrder.orderItems) {
       const product = await this.prisma.product.findUnique({
@@ -462,7 +483,7 @@ export class OrderService {
 
       // Check variant if applicable
       let variantOk = true;
-      const variantSnap = item.variantSnapshot as any;
+      const variantSnap = item.variantSnapshot as unknown as OrderVariantSnapshot | null;
       if (variantSnap?.id) {
         const variant = product.variants.find((v) => v.id === variantSnap.id);
         if (!variant || !variant.isInStock) {
@@ -591,7 +612,7 @@ export class OrderService {
       throw new ForbiddenException('You do not have permission to view live tracking for this order');
     }
 
-    const destSnap = order.deliveryAddressSnapshot as any;
+    const destSnap = order.deliveryAddressSnapshot as unknown as OrderAddressSnapshot;
     const storeLocation = {
       id: order.vendor.id,
       name: order.vendor.name,

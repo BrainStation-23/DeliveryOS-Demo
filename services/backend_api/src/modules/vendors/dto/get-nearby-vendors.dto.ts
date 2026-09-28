@@ -8,13 +8,13 @@ export class GetNearbyVendorsDto {
   @Type(() => Number)
   @IsNumber()
   @IsLatitude()
-  lat: number;
+  lat!: number;
 
   @ApiProperty({ example: 90.4043, description: 'Customer current longitude' })
   @Type(() => Number)
   @IsNumber()
   @IsLongitude()
-  lng: number;
+  lng!: number;
 
   @ApiPropertyOptional({ enum: VendorVertical, description: 'Filter by vendor vertical' })
   @IsOptional()

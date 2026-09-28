@@ -5,7 +5,7 @@ export class RegisterDeviceTokenDto {
   @ApiProperty({ description: 'FCM Device Registration Token' })
   @IsString()
   @IsNotEmpty()
-  fcmToken: string;
+  fcmToken!: string;
 
   @ApiProperty({ description: 'Device Operating System / Platform', required: false, example: 'android' })
   @IsString()

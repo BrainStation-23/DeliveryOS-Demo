@@ -23,13 +23,13 @@ export class CheckoutItemDto {
   @ApiProperty({ example: 'b1a2c3d4-5555-4abc-8888-1234567890ab', description: 'Product UUID' })
   @IsUUID()
   @IsNotEmpty()
-  productId: string;
+  productId!: string;
 
   @ApiProperty({ example: 2, description: 'Quantity of this item (min 1)' })
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  quantity: number;
+  quantity!: number;
 
   @ApiPropertyOptional({ example: 'v1a2c3d4-6666-4abc-8888-1234567890ab', description: 'Selected ProductVariant UUID' })
   @IsOptional()
@@ -47,7 +47,7 @@ export class CheckoutDto {
   @ApiProperty({ example: 'c1f7a4e2-9012-4abc-9999-1234567890ab', description: 'Vendor Outlet UUID' })
   @IsUUID()
   @IsNotEmpty()
-  vendorId: string;
+  vendorId!: string;
 
   @ApiPropertyOptional({ example: 'a9b8c7d6-1111-2222-3333-444455556666', description: 'Saved CustomerAddress UUID' })
   @IsOptional()
@@ -79,5 +79,5 @@ export class CheckoutDto {
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CheckoutItemDto)
-  items: CheckoutItemDto[];
+  items!: CheckoutItemDto[];
 }

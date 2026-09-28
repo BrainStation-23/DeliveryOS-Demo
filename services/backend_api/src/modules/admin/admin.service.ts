@@ -22,6 +22,18 @@ import {
 import { OrderService } from '../orders/order.service';
 import { AdminCancelOrderDto } from './dto/admin-cancel-order.dto';
 
+export interface OrderFlowSettingPayload {
+  mode: OrderFlowMode;
+  rider_search_timeout_seconds: number;
+}
+
+export interface DeliveryFeeSettingPayload {
+  mode: 'FIXED_FLAT' | 'DISTANCE_TIERED';
+  flatFee: number;
+  baseFee: number;
+  perKmRate: number;
+}
+
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
@@ -687,11 +699,13 @@ export class AdminService {
     ]);
 
     return {
-      orderFlow: (orderFlowSetting?.value as any) || {
+      orderFlow:
+        (orderFlowSetting?.value as unknown as OrderFlowSettingPayload | null) || {
         mode: OrderFlowMode.RIDER_FIRST,
         rider_search_timeout_seconds: 90,
       },
-      deliveryFee: (deliveryFeeSetting?.value as any) || {
+      deliveryFee:
+        (deliveryFeeSetting?.value as unknown as DeliveryFeeSettingPayload | null) || {
         mode: 'FIXED_FLAT',
         flatFee: 50.0,
         baseFee: 40.0,
@@ -742,7 +756,7 @@ export class AdminService {
   // 9. Financial Settlements & CSV Export
   // ===========================================================================
   async getSettlementStatements(startDate?: Date, endDate?: Date) {
-    const where: any = {};
+    const where: Prisma.CommissionLedgerWhereInput = {};
     if (startDate || endDate) {
       where.createdAt = {};
       if (startDate) where.createdAt.gte = startDate;
@@ -1061,7 +1075,7 @@ export class AdminService {
    * 13. Financial Cash Deposits Administration
    */
   async getCashDeposits(status?: string) {
-    const where: any = {};
+    const where: Prisma.CashDepositWhereInput = {};
     if (status) {
       where.status = status;
     }

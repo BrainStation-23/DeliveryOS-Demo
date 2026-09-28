@@ -119,7 +119,7 @@ await prisma.$transaction(async (tx) => {
 
 ### B. Redis Atomic Lock for Order Claims (Prevents Race Conditions)
 ```typescript
-const acquired = await redis.set(`lock:order_claim:${orderId}`, riderId, 'NX', 'EX', 45);
+const acquired = await redis.set(`lock:order_claim:${orderId}`, riderId, 'NX', 'EX', 10);
 if (!acquired) throw new ConflictException('Order already accepted by another rider');
 ```
 

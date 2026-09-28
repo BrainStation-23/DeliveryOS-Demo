@@ -131,10 +131,8 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
 
     const availableRiders: Array<{ riderId: string; distanceKm: number }> = [];
 
-    for (const item of rawResults) {
-      // item is [riderId, distanceString]
-      const riderId = Array.isArray(item) ? item[0] : item;
-      const distanceKm = Array.isArray(item) ? parseFloat(item[1]) : 0;
+    for (const [riderId, distance] of rawResults) {
+      const distanceKm = parseFloat(distance);
 
       // Check if rider is currently busy on an active delivery
       const isBusy = await this.redis.get(`rider:active_order:${riderId}`);

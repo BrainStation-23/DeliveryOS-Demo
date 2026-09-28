@@ -13,6 +13,7 @@ import { TrackingGateway } from '../realtime/tracking.gateway';
 import { OrderFlowService } from '../order-flow/order-flow.service';
 import { assertTransition } from '../orders/order-state.machine';
 import { DeliveryFeeService } from '../promotions/pricing/delivery-fee.service';
+import type { OrderAddressSnapshot } from '../orders/order.service';
 
 @Injectable()
 export class RiderService {
@@ -341,7 +342,9 @@ export class RiderService {
     });
 
     return orders.map((order) => {
-      const address = (order.deliveryAddressSnapshot as any)?.addressLine || 'Customer Address';
+      const address =
+        (order.deliveryAddressSnapshot as unknown as OrderAddressSnapshot | null)?.addressLine ||
+        'Customer Address';
       const itemsSummary = order.orderItems.map((i) => `${i.quantity}x ${i.productNameSnapshot}`).join(', ');
       return {
         id: order.id,

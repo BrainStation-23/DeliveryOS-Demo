@@ -49,10 +49,10 @@ export class HealthController {
       await this.prisma.$queryRaw`SELECT 1`;
       healthStatus.services.database = 'up';
       healthStatus.details!.dbLatencyMs = Date.now() - dbStart;
-    } catch (err: any) {
+    } catch (err) {
       isHealthy = false;
       healthStatus.services.database = 'down';
-      healthStatus.details!.error = `Database check failed: ${err?.message || err}`;
+      healthStatus.details!.error = `Database check failed: ${err instanceof Error ? err.message : String(err)}`;
     }
 
     // 2. Check Redis In-Memory Cache Connection
@@ -66,11 +66,11 @@ export class HealthController {
         isHealthy = false;
         healthStatus.services.redis = 'down';
       }
-    } catch (err: any) {
+    } catch (err) {
       isHealthy = false;
       healthStatus.services.redis = 'down';
       healthStatus.details!.error = (healthStatus.details!.error ? `${healthStatus.details!.error}; ` : '') +
-        `Redis check failed: ${err?.message || err}`;
+        `Redis check failed: ${err instanceof Error ? err.message : String(err)}`;
     }
 
     healthStatus.status = isHealthy ? 'healthy' : 'unhealthy';

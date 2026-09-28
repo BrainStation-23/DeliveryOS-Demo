@@ -7,7 +7,7 @@ export class DeliverOrderDto {
     example: true,
   })
   @IsBoolean()
-  codCashCollected: boolean;
+  codCashCollected!: boolean;
 
   @ApiPropertyOptional({
     description: 'Amount in cash collected from customer',

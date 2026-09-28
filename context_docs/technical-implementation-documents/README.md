@@ -27,7 +27,7 @@ Authoritative technical blueprints, relational database schemas, REST API contra
 ### 2.2 Data Persistence & Spatial Engine
 - **Relational ACID Storage**: PostgreSQL 16 enforcing strict relational integrity, UUID primary keys, and transaction-wrapped order creation.
 - **PostGIS Spatial Engine**: Native spatial data types (`GEOGRAPHY(Point, 4326)`) and GiST spatial indexes enabling sub-millisecond radius checks (`ST_DWithin`) and distance calculation (`ST_Distance`).
-- **Redis In-Memory Engine**: Redis 7.2 handling high-frequency courier GPS coordinates (`GEOADD`, `GEOSEARCH`), 45-second atomic mutex claim locks (`SET NX EX 45`), and order numbering counters.
+- **Redis In-Memory Engine**: Redis 7.2 handling high-frequency courier GPS coordinates (`GEOADD`, `GEOSEARCH`), 10-second atomic mutex claim locks (`SET NX EX 10`), and order numbering counters.
 
 ### 2.3 Order Lifecycle & Dispatch Engine
 - **Configurable FSM Sequences**: Dual-mode state machine governed by `order_flow_mode`:

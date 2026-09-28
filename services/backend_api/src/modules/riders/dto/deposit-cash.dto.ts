@@ -5,7 +5,7 @@ export class DepositCashDto {
   @ApiProperty({ description: 'Amount of cash deposited in BDT', example: 500 })
   @IsNumber()
   @IsPositive()
-  amount: number;
+  amount!: number;
 
   @ApiPropertyOptional({ description: 'Optional deposit reference number or bank slip id' })
   @IsOptional()

@@ -1,0 +1,20 @@
+{
+  "name": "deliveryos",
+  "version": "1.4.5",
+  "private": true,
+  "description": "DeliveryOS monorepo root — repo-level quality gate and tooling orchestration (no workspaces: each app manages its own dependencies)",
+  "scripts": {
+    "prepare": "husky",
+    "verify": "npm run verify:backend && npm run verify:web && npm run verify:mobile",
+    "verify:backend": "npm run typecheck --prefix services/backend_api && npm run lint --prefix services/backend_api && npm run build --prefix services/backend_api",
+    "verify:web": "npm run typecheck --prefix apps/admin_portal && npm run typecheck --prefix apps/vendor_portal",
+    "verify:mobile": "cd apps/customer_app && flutter pub get && flutter analyze && flutter test && cd ../rider_app && flutter pub get && flutter analyze && flutter test"
+  },
+  "lint-staged": {
+    "services/backend_api/**/*.ts": "npm run lint --prefix services/backend_api"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.0"
+  }
+}

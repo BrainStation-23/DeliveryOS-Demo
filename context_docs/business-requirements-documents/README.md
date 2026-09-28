@@ -54,7 +54,7 @@ Authoritative business specifications, commercial rules, user journeys, operatio
 - **Shift Duty Switch**: High-contrast `Online` / `Offline` toggle with **In-Flight Duty Lock** preventing going offline while carrying active orders.
 - **Background Telemetry**: Native Android foreground service and iOS background updates streaming coordinates every 10 meters.
 - **Proximity Broadcast Alert**: 45-second animated countdown modal with heavy haptic impact and pulsating system alert sound.
-- **Atomic Mutex Claim**: High-speed Redis `SET NX EX 45` lock securing trip assignment to the first responding courier.
+- **Atomic Mutex Claim**: High-speed Redis `SET NX EX 10` lock securing trip assignment to the first responding courier.
 - **3-Step Fulfillment Flow**:
   - *Step 1*: Claim broadcast, navigate to store, and confirm pickup (`POST /orders/:id/pickup`).
   - *Step 2*: Navigate to customer doorstep coordinates using native turn-by-turn navigation.

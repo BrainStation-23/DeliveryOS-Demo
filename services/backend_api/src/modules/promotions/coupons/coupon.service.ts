@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { DiscountType } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { ValidateCouponDto } from './dto/validate-coupon.dto';

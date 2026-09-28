@@ -123,7 +123,7 @@ npx prisma migrate dev
 npm run prisma:seed
 ```
 The seed script generates:
-- **Super Admin**: `admin@deliveryos.local` (Password: `admin123`)
+- **Super Admin**: phone `+8801700000001` (login via OTP; dev mock OTP is `123456` via `SMS_MOCK_STATIC_OTP`)
 - **Vendor Outlets**: Pizza Roma (Restaurant), Daily Fresh (Supermarket)
 - **Menu Items & Variants**: Pizzas, beverages, groceries with topping options
 - **Coupons & Banners**: `WELCOME50` coupon and promotional carousels
@@ -146,7 +146,7 @@ cd apps/admin_portal
 npm install
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) (Login: `admin@deliveryos.local` / `admin123`).
+Open [http://localhost:3000](http://localhost:3000) (Login: phone `+8801700000001`, dev mock OTP `123456`).
 
 **Vendor Kitchen Display System (Port 3001)**:
 ```bash
@@ -243,7 +243,7 @@ flowchart TD
 - **Clean Code Standard**: Express intent through self-documenting names. Add code comments **only** for complex algorithms, subtle business invariants, or tricky edge cases per `AGENT_RULES.md § 3.6`.
 
 ### 3. Phase 3: Verification & Living Document Sync
-- **Automated Verification**: Run `npm run typecheck`, `npm run build`, and test suites (`npm run track1:test`, etc.) for backend/portals; run `flutter analyze` (0 errors) and `flutter test` for mobile apps.
+- **Automated Verification**: Run the repo quality gate `npm run verify` (backend `typecheck` + `lint` + `build`, both portal typechecks, `flutter analyze` + `flutter test` for both apps). Run integration suites via `npm run test` in `services/backend_api` when a live Postgres/Redis stack is available.
 - **Living Document Sync**: Immediately update [`FEATURES.md`](FEATURES.md) (line-level capability catalog), [`CHANGELOG.md`](CHANGELOG.md) (roadmap deliverables & release notes), and ADRs if architectural decisions evolved.
 - **Git Invariant**: **NO auto-commits** (commit only upon explicit user command); **NO auto-push** (execute only local commits).
 

@@ -54,7 +54,7 @@ Governed by `order_flow_mode` ([ADR-002](context_docs/architecture-decision-reco
   - Displays outlet name, distance to outlet, customer delivery zone, and delivery remuneration.
   - Haptic feedback (`HapticFeedback.heavyImpact()`) and system alert sound pulsating every 3 seconds.
   - 45-second animated countdown bar shifting green ➔ amber ➔ urgent red (final 10 seconds).
-  - One-tap claim button acquires Redis mutex lock (`SET NX EX 45`).
+  - One-tap claim button acquires Redis mutex lock (`SET NX EX 10`).
 - **Store Pickup Execution**:
   - Direct turn-by-turn navigation handoff to Google Maps / Apple Maps.
   - One-tap direct store phone dialer button (`tel:`).

@@ -3,7 +3,7 @@ import Redis from 'ioredis';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
-  private client: Redis;
+  private client!: Redis;
 
   onModuleInit() {
     const redisUrl = process.env.REDIS_URL || 'redis://:redispassword@localhost:6380';
@@ -56,7 +56,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     longitude: number,
     latitude: number,
     radiusKm: number,
-  ): Promise<any[]> {
+  ): Promise<Array<[member: string, distanceKm: string]>> {
     // Redis 6.2+ GEOSEARCH with distance in ascending order
     return this.client.geosearch(
       key,
@@ -68,7 +68,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       'km',
       'WITHDIST',
       'ASC',
-    ) as Promise<any[]>;
+    ) as unknown as Promise<Array<[member: string, distanceKm: string]>>;
   }
 
   async acquireLock(

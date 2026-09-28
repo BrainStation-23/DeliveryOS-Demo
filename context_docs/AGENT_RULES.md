@@ -103,7 +103,7 @@ When generating code, you must strictly uphold these inviolable business rules:
 
 ### 3.5 Mobile Applications (Flutter 3.x)
 - **Architecture**: Feature-First Clean Architecture (Presentation, Domain, Data).
-- **State Management**: Riverpod 2.x (`AsyncNotifierProvider` / `StateNotifierProvider`).
+- **State Management**: Riverpod 3.x (`NotifierProvider` / `AsyncNotifier`).
 - **Localization**: JSON translation dictionaries (`en.json`, `ar.json`, `bn.json`) with auto-mirroring RTL directionality for Arabic.
 - **Battery Preservation**: Throttled GPS beaconing (every 5–8 seconds only when rider status is `Online`).
 
@@ -163,6 +163,7 @@ Before marking any engineering task as complete, verify that:
 - [ ] No hardcoded credentials or API keys exist in the source code (use `.env`).
 - [ ] Code is clean and self-documenting with **zero redundant comments on basic or obvious logic**.
 - [ ] The implementation aligns 100% with the requirements in `context_docs/`.
+- [ ] Any changed constant, enum value, or invariant has been grep-checked across `context_docs/` and `FEATURES.md`, and drifted documentation updated.
 
 ---
 

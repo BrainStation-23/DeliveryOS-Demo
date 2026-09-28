@@ -16,7 +16,7 @@ This document provides a line-level, granular breakdown of every operational fea
 | **Super Admin Master Console** | React 18, Vite, Leaflet OSM | Platform Operations & Dispatchers | [§ 5. Super Admin Operations Console](#5-super-admin-operations-console-appsadmin_portal) |
 | **Backend Core & Realtime** | NestJS 10, Prisma, Socket.IO | Automated Services & Gateways | [§ 6. Backend API & Engine Services](#6-backend-api--engine-services-servicesbackend_api) |
 | **Data & Spatial Storage** | PostgreSQL 16, PostGIS 3.4, Redis 7.2 | Database Layer | [§ 7. Data Persistence & Spatial Engine](#7-data-persistence--spatial-storage-engine) |
-| **Automated Test Suites** | TypeScript, Jest, tsx, Flutter Test | Engineering & QA | [§ 8. Automated Test & Static Analysis Suite](#8-automated-test--static-analysis-suite) |
+| **Automated Test Suites** | TypeScript (strict), tsx integration scripts, ESLint, Flutter Test | Engineering & QA | [§ 8. Automated Test & Static Analysis Suite](#8-automated-test--static-analysis-suite) |
 | **Traceability Matrix** | All Sub-projects | Architects & Developers | [§ 9. Cross-Reference Index](#9-cross-reference-index-traceability-matrix) |
 
 ---
@@ -145,7 +145,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **45-Second Dispatch Alert**: Full-screen modal popping up on incoming order broadcast (`IncomingTripModal`).
 - **Audio Chime & Repeating Haptic Pulse**: Dual sensory alerts playing `SystemSound.alert` and `HapticFeedback.heavyImpact()` pulsing every 3 seconds until claimed or dismissed.
 - **Dynamic Countdown Progress Bar**: Animated linear bar changing from green to urgent red in the final 10 seconds.
-- **Atomic One-Tap Claim**: Calls `POST /riders/orders/:id/claim` backed by Redis `SET NX EX 45` mutex lock ensuring zero double-assignment ([ADR-004](context_docs/architecture-decision-records/ADR-004-atomic-dispatch-claim-mutex.md)).
+- **Atomic One-Tap Claim**: Calls `POST /riders/orders/:id/claim` backed by Redis `SET NX EX 10` mutex lock ensuring zero double-assignment ([ADR-004](context_docs/architecture-decision-records/ADR-004-atomic-dispatch-claim-mutex.md)).
 
 ### 3.4. 3-Step Sequential Fulfillment Workflow
 - **Step 1: Pick Up Food** (`_buildStep1PickUp` in `ActiveTripScreen`):
@@ -379,7 +379,7 @@ This document provides a line-level, granular breakdown of every operational fea
 
 ### 7.2. Redis 7.2 In-Memory Operations
 - **Geospatial Courier Tracking**: Couriers stored in Redis GEO keys (`riders:locations`) updated via `GEOADD` every 10 meters.
-- **Atomic Dispatch Mutex**: First-come-first-serve order claiming backed by `SET resource_lock token NX EX 45` ([ADR-004](context_docs/architecture-decision-records/ADR-004-atomic-dispatch-claim-mutex.md)).
+- **Atomic Dispatch Mutex**: First-come-first-serve order claiming backed by `SET resource_lock token NX EX 10` ([ADR-004](context_docs/architecture-decision-records/ADR-004-atomic-dispatch-claim-mutex.md)).
 - **Sub-100ms Query Invalidation**: High-speed cache invalidations signaling React Query and Riverpod clients.
 
 ---

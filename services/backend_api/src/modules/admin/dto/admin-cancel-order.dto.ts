@@ -12,5 +12,5 @@ export class AdminCancelOrderDto {
   @IsNotEmpty()
   @MinLength(5)
   @MaxLength(500)
-  reason: string;
+  reason!: string;
 }

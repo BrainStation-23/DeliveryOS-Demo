@@ -109,8 +109,8 @@ To prevent duplicate order claims, the backend executes an atomic **Redis Distri
 async function claimOrder(orderId: string, riderId: string, isRiderFirst: boolean): Promise<boolean> {
   const lockKey = `lock:order_claim:${orderId}`;
   
-  // 1. Acquire exclusive lock for 45 seconds (broadcast duration)
-  const acquired = await redis.set(lockKey, riderId, 'NX', 'EX', 45);
+  // 1. Acquire exclusive claim mutex (10-second TTL)
+  const acquired = await redis.set(lockKey, riderId, 'NX', 'EX', 10);
   if (!acquired) {
     throw new ConflictException('This order has already been claimed by another courier.');
   }

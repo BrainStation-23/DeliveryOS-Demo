@@ -7,7 +7,7 @@ import {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AcceptOrderDto } from './dto/accept-order.dto';
 import { RejectOrderDto } from './dto/reject-order.dto';
-import { OrderStatus, PermissionScope, User, UserRole } from '@prisma/client';
+import { OrderStatus, PermissionScope, Prisma, User, UserRole } from '@prisma/client';
 import { TrackingGateway } from '../realtime/tracking.gateway';
 import { OrderFlowService } from '../order-flow/order-flow.service';
 import { assertTransition } from '../orders/order-state.machine';
@@ -106,7 +106,7 @@ export class VendorStaffService {
       }
     }
 
-    const whereClause: any = {
+    const whereClause: Prisma.OrderWhereInput = {
       status: {
         in: [
           OrderStatus.PLACED,
@@ -575,7 +575,7 @@ export class VendorStaffService {
       await this.prisma.vendorOperatingHour.upsert({
         where: {
           vendorId_dayOfWeek: {
-            vendorId,
+            vendorId: targetVendorId,
             dayOfWeek: h.dayOfWeek,
           },
         },
@@ -585,7 +585,7 @@ export class VendorStaffService {
           isClosed: h.isClosed,
         },
         create: {
-          vendorId,
+          vendorId: targetVendorId,
           dayOfWeek: h.dayOfWeek,
           openTime: h.openTime,
           closeTime: h.closeTime,
@@ -691,7 +691,7 @@ export class VendorStaffService {
    * 12. Get Sales Ledger & Commission Breakdown
    */
   async getSalesLedger(user: User, vendorId?: string) {
-    let targetVendorIds: string[] = [];
+    let targetVendorIds: string[];
 
     if (vendorId && vendorId !== 'ALL') {
       await this.validateStaffOutletAccess(user, vendorId);

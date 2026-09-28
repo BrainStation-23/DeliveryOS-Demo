@@ -30,7 +30,7 @@ graph TD
 | :--- | :--- | :--- | :---: |
 | **Phase 1: Foundation & Database** | Monorepo layout, Docker Compose (PostgreSQL 16 + PostGIS, Redis 7), 22 Prisma models, spatial GiST indexes, idempotent seed script (`seed.ts`). | `docker compose up -d`, `prisma migrate dev`, `prisma db seed` pass cleanly. | **Completed** (`[x]`) |
 | **Phase 2: Core Backend Modules** | Phone OTP auth (`AuthModule`), spatial store discovery (`VendorModule`, `GeoModule`), coupon & pricing engine (`BannerModule`, `CouponModule`), ACID order checkout (`OrderModule`), vendor staff & rider APIs. | REST endpoints conform to standard JSON envelope; double-entry ledgers balance to 0.00 BDT. | **Completed** (`[x]`) |
-| **Phase 3: Realtime & Dispatch** | Socket.IO gateway (`TrackingGateway`), room subscriptions, dual dispatch sequences (`RIDER_FIRST` vs `VENDOR_FIRST`), Redis mutex lock (`SET NX EX 45`), throttled live GPS coordinate streaming. | Concurrent claim test yields 1 OK + 1 Conflict (409); live coordinates broadcast under 200ms. | **Completed** (`[x]`) |
+| **Phase 3: Realtime & Dispatch** | Socket.IO gateway (`TrackingGateway`), room subscriptions, dual dispatch sequences (`RIDER_FIRST` vs `VENDOR_FIRST`), Redis mutex lock (`SET NX EX 10`), throttled live GPS coordinate streaming. | Concurrent claim test yields 1 OK + 1 Conflict (409); live coordinates broadcast under 200ms. | **Completed** (`[x]`) |
 | **Phase 4: Dedicated Web Portals** | Super Admin Portal (Port 3000, Indigo theme) with Leaflet live fleet radar; Vendor KDS Portal (Port 3001, Amber theme) with 3-lane Kanban, in-memory Web Audio chime, stock toggles. | Subpath proxying `/` vs `/vendor/` via Nginx; `npm run build` exits 0 with 0 errors across both apps. | **Completed** (`[x]`) |
 | **Phase 5: Customer Mobile App** | Flutter 3.19+ app, interactive Google Map pin picker, debounced instant search, single-vendor cart guard, geofence radius check, 6-stage order tracking stepper, 1-tap re-order. | `flutter analyze` (0 errors), `flutter test` (100% pass), responsive on 320px–430px viewports. | **Completed** (`[x]`) |
 | **Phase 6: Rider Mobile App** | Courier onboarding, shift duty switch with in-flight lock, 45s broadcast alert modal with haptic feedback, 3-step fulfillment, native maps navigation handoff, COD safety limit. | `flutter analyze` (0 errors), `flutter test` (100% pass), background GPS beaconing verified. | **Completed** (`[x]`) |
@@ -67,6 +67,20 @@ graph TD
 ---
 
 ## 📜 Part 2: Platform Release History
+
+## [1.4.6] - 2026-09-28
+
+### Changed — Wave 0: Engineering Quality Gate (Production Readiness Plan)
+- **Single Verify Entrypoint**: Added root `package.json` with `npm run verify` (backend typecheck + ESLint + build, both portal typechecks, `flutter analyze` + `flutter test` for both apps); added `typecheck`, `lint`, and aggregated `test` (18 integration suites) scripts to `services/backend_api`.
+- **Strict Mode Enforcement**: Migrated backend `tsconfig.json` to full `"strict": true` and eliminated all 18 explicit `any` usages in backend `src/` (typed Redis GEOSEARCH tuples, Prisma where-inputs, JSONB snapshot casts, typed `$queryRaw` coverage rows).
+- **Static Analysis**: Added ESLint 9 flat config (`services/backend_api/eslint.config.mjs`) with `no-explicit-any: error` on `src/`; seed/script tooling tracked as warning-level tech debt.
+- **CI Pipeline**: Added `.github/workflows/ci.yml` running the root `verify` gate on every PR and push to `main` (Node 20 + Flutter stable).
+- **Commit Hooks**: Added Husky + lint-staged pre-commit hook running backend ESLint on staged files.
+- **Phase-1 Tooling**: Added `/grill-me` workspace command (`.zcode/commands/grill-me.md`) operationalizing the Zero Assumptions Protocol as a plan-interrogation gate.
+- **Documentation Truth Sync**: Corrected FEATURES.md test-stack claim (Jest → tsx integration scripts + ESLint), Redis claim-lock TTL drift (`EX 45` → `EX 10` per code), AGENT_RULES Riverpod version (2.x → 3.x), and stale README seed credentials (OTP phone login instead of non-existent password auth); added a living-docs grep item to the DoD checklist.
+
+### Fixed
+- **Vendor Operating Hours (strict-mode find)**: `updateOperatingHours` upsert used the possibly-undefined `vendorId` parameter instead of the resolved `targetVendorId`, which broke master-scope staff updates with no explicit outlet (`vendor-staff.service.ts`).
 
 ## [1.4.5] - 2026-09-26
 

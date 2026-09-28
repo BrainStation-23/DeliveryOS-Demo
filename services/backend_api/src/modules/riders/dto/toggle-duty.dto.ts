@@ -7,5 +7,5 @@ export class ToggleDutyDto {
     example: true,
   })
   @IsBoolean()
-  isOnline: boolean;
+  isOnline!: boolean;
 }

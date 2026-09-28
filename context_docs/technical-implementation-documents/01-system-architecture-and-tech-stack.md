@@ -83,7 +83,7 @@ graph TD
 - **Backend Application Services**:
   - **Runtime & Framework**: Node.js 20 LTS / NestJS 10.x with TypeScript 5.x.
   - **API Protocols**: RESTful JSON API (`/api/v1`) with Swagger/OpenAPI; Socket.IO 4.7+ (`/events`).
-  - **Concurrency Engine**: Redis distributed mutex (`SET NX EX 45`) for atomic order claiming.
+  - **Concurrency Engine**: Redis distributed mutex (`SET NX EX 10`) for atomic order claiming.
 - **Data & Storage Tier**:
   - **Relational Database**: PostgreSQL 16.x (ACID transactions, foreign key cascades).
   - **Spatial Engine**: PostGIS 3.4+ (`GEOGRAPHY(Point, 4326)`, `ST_DWithin`, GiST indexing).

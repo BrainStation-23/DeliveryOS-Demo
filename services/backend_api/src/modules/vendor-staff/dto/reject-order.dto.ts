@@ -17,7 +17,7 @@ export class RejectOrderDto {
   })
   @IsEnum(VendorRejectReasonCode)
   @IsNotEmpty()
-  reasonCode: VendorRejectReasonCode;
+  reasonCode!: VendorRejectReasonCode;
 
   @ApiPropertyOptional({
     example: 'Special seasoning is currently unavailable',

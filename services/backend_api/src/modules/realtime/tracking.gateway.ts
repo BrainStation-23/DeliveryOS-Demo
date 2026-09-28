@@ -53,7 +53,7 @@ export class TrackingGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   private readonly logger = new Logger(TrackingGateway.name);
 
@@ -347,7 +347,9 @@ export class TrackingGateway
     newStatus: string,
     metadata?: Record<string, unknown>,
   ) {
-    let vendorId = (metadata?.vendorId as string) || (metadata?.vendor as any)?.id;
+    let vendorId =
+      (metadata?.vendorId as string | undefined) ||
+      (metadata?.vendor as { id?: string } | undefined)?.id;
     if (!vendorId && this.prisma) {
       try {
         const order = await this.prisma.order.findUnique({

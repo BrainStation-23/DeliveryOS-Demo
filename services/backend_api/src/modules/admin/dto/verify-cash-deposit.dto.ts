@@ -13,7 +13,7 @@ export class VerifyCashDepositDto {
     example: CashDepositAction.APPROVE,
   })
   @IsEnum(CashDepositAction)
-  action: CashDepositAction;
+  action!: CashDepositAction;
 
   @ApiPropertyOptional({
     description: 'Optional admin verification note or audit trail',
