@@ -17,14 +17,14 @@ echo "=================================================================="
 
 if [ "$MODE" == "--stop" ]; then
   echo "🛑 Stopping all DeliveryOS local containers..."
-  docker compose -f "$PROJECT_ROOT/deploy/docker-compose.yml" down 2>/dev/null || true
+  docker compose --env-file "$PROJECT_ROOT/.env" -f "$PROJECT_ROOT/deploy/docker-compose.yml" down 2>/dev/null || true
   echo "✅ All containers stopped."
   exit 0
 fi
 
 if [ "$MODE" == "--docker" ]; then
   echo "🚀 Launching complete 6-container Docker stack (DB, Redis, Backend, Admin Portal, Vendor Portal, Nginx)..."
-  docker compose -f "$PROJECT_ROOT/deploy/docker-compose.yml" up -d --build
+  docker compose --env-file "$PROJECT_ROOT/.env" -f "$PROJECT_ROOT/deploy/docker-compose.yml" up -d --build
   echo ""
   echo "Waiting 5 seconds for services to initialize..."
   sleep 5
@@ -34,7 +34,7 @@ fi
 
 # Default: Ensure core database & cache containers are up
 echo "🐘 Starting core PostgreSQL (PostGIS) & Redis containers..."
-docker compose -f "$PROJECT_ROOT/deploy/docker-compose.yml" up -d postgres redis
+docker compose --env-file "$PROJECT_ROOT/.env" -f "$PROJECT_ROOT/deploy/docker-compose.yml" up -d postgres redis
 
 echo ""
 echo "Waiting for services to become healthy..."

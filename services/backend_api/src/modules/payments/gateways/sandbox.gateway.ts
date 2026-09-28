@@ -49,7 +49,7 @@ export class SandboxGatewayAdapter implements IPaymentGateway {
       .update(`${transactionId}:${orderId}:${amount}:${testStatus}`)
       .digest('hex');
 
-    const isValid = signature === expected || signature === 'sandbox-bypass-valid';
+    const isValid = signature === expected;
     const status: PaymentStatus =
       isValid && (testStatus === 'PAID' || testStatus === 'SUCCESS') ? PaymentStatus.PAID : PaymentStatus.FAILED;
 

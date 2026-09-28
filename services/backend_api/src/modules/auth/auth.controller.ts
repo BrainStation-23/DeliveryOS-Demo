@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -14,6 +15,7 @@ export class AuthController {
 
   @Post('otp/request')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Request SMS OTP for login / registration' })
   @ApiResponse({ status: 200, description: 'OTP dispatched successfully' })
   async requestOtp(@Body() dto: RequestOtpDto) {
@@ -26,6 +28,7 @@ export class AuthController {
 
   @Post('otp/verify')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Verify SMS OTP and receive JWT tokens' })
   @ApiResponse({ status: 200, description: 'Authentication successful' })
   async verifyOtp(@Body() dto: VerifyOtpDto) {
@@ -41,8 +44,9 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current authenticated user profile' })
   async getProfile(@CurrentUser() user: User) {
+    const { fcmToken, devicePlatform, ...profile } = user;
     return {
-      data: user,
+      data: profile,
     };
   }
 }

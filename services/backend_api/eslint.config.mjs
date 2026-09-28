@@ -8,16 +8,19 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     rules: {
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', ignoreRestSiblings: true }],
     },
   },
   {
     // Seed and integration-script tooling still carries `any` and dead locals; tracked as tech debt.
-    files: ['prisma/**/*.ts', 'scripts/**/*.ts'],
+    // Plain .js harnesses aren't type-checked, so no-undef is meaningless there.
+    files: ['prisma/**/*.ts', 'scripts/**/*.ts', 'scripts/**/*.js'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': 'warn',
       'no-useless-assignment': 'warn',
+      'no-undef': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
 );

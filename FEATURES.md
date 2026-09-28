@@ -367,6 +367,13 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Offset Formula**: Deducts courier-collected COD cash from accumulated delivery pay (`Math.max(0, deliveryEarnings - codCollected)`).
 - **Protection**: Prevents platform financial losses by ensuring couriers holding cash are not double-paid during settlement batches.
 
+### 6.7. Production Security & Hardening
+- **Fail-Fast Configuration**: Boot-time Joi validation requires `JWT_SECRET`/`JWT_REFRESH_SECRET` (min 32 chars), `DATABASE_URL`, `REDIS_URL`; mock SMS, static OTP, and the sandbox gateway are forbidden in `NODE_ENV=production` ([ADR-012](context_docs/architecture-decision-records/ADR-012-production-security-hardening-and-fail-fast-config.md)).
+- **Transport Hardening**: Helmet security headers, origin-whitelist CORS (HTTP + Socket.IO), Swagger gated to non-production, global rate limiting (100 req/min) with tightened OTP/webhook/geo limits.
+- **Realtime Room Authorization**: `order:join` verified per caller role against order ownership (customer/rider/outlet/master scope); denied joins receive an explicit error event.
+- **Observability**: Structured JSON logging (winston) with `x-request-id` correlation middleware; global exception filter logs stack traces with request context; graceful shutdown hooks; `prisma migrate deploy` on container start.
+- **Non-Root Containers**: Backend runs as `node`; portals use `nginxinc/nginx-unprivileged` on port 8080; production edge terminates TLS via Let's Encrypt with certbot auto-renewal (`deploy/README.md`).
+
 ---
 
 ## 7. Data Persistence & Spatial Storage Engine

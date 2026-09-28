@@ -57,7 +57,7 @@ export class BkashGatewayAdapter implements IPaymentGateway {
       .update(JSON.stringify({ transactionId, orderId, amount }))
       .digest('hex');
 
-    const isValid = signature === calculatedSignature || signature === 'test-signature' || !process.env.BKASH_APP_KEY;
+    const isValid = signature === calculatedSignature;
 
     const isSuccess = statusCode === '0000' || statusCode === 'PAID';
     const status: PaymentStatus = isValid && isSuccess ? PaymentStatus.PAID : PaymentStatus.FAILED;

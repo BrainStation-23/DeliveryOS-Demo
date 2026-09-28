@@ -13,6 +13,7 @@ import { RedisService } from '../../common/redis/redis.service';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ISmsService, SMS_SERVICE } from './sms/sms.interface';
+import { requiredEnv } from '../../common/config/env';
 import { AccountStatus, UserRole } from '@prisma/client';
 
 @Injectable()
@@ -37,10 +38,9 @@ export class AuthService {
       );
     }
 
-    // Generate 6-digit OTP
     const isMock = process.env.SMS_PROVIDER === 'mock' || !process.env.SMS_PROVIDER;
-    const staticOtp = process.env.SMS_MOCK_STATIC_OTP || '123456';
-    const otp = isMock ? staticOtp : Math.floor(100000 + Math.random() * 900000).toString();
+    const staticOtp = process.env.SMS_MOCK_STATIC_OTP;
+    const otp = isMock && staticOtp ? staticOtp : Math.floor(100000 + Math.random() * 900000).toString();
 
     // Cache OTP in Redis for 5 minutes (300 seconds)
     const otpKey = `otp:${phone}`;
@@ -75,9 +75,9 @@ export class AuthService {
     const { phone, otp, fullName } = dto;
     const otpKey = `otp:${phone}`;
     const cachedOtp = await this.redis.get(otpKey);
-    const staticOtp = process.env.SMS_MOCK_STATIC_OTP || '123456';
+    const staticOtp = process.env.SMS_MOCK_STATIC_OTP;
     const isMock = process.env.SMS_PROVIDER === 'mock' || !process.env.SMS_PROVIDER;
-    const allowStatic = process.env.NODE_ENV !== 'production' || isMock || process.env.ALLOW_STATIC_OTP === 'true';
+    const allowStatic = process.env.NODE_ENV !== 'production' && isMock;
 
     const isValid = (cachedOtp && cachedOtp === otp) || (allowStatic && otp === staticOtp);
 
@@ -128,8 +128,8 @@ export class AuthService {
     }
 
     // Generate JWT Tokens
-    const secret = process.env.JWT_SECRET || 'deliveryos-jwt-secret-key-32chars-minimum-dev';
-    const refreshSecret = process.env.JWT_REFRESH_SECRET || 'deliveryos-refresh-secret-key-32chars-dev';
+    const secret = requiredEnv('JWT_SECRET');
+    const refreshSecret = requiredEnv('JWT_REFRESH_SECRET');
 
     const accessToken = jwt.sign(
       {

@@ -23,6 +23,7 @@ Because DeliveryOS development is **AI-driven**, this ADR framework serves as a 
 | **[ADR-009](./ADR-009-deterministic-financial-accounting-ledger.md)** | Deterministic Floating-Point Math & Double-Entry Commission Settlement Ledger | **Accepted** | 2026-09-22 | Financial Ledger / Commission |
 | **[ADR-010](./ADR-010-ai-driven-engineering-governance-and-no-auto-commits.md)** | Autonomous AI Engineering Governance, Type Invariants & Version Control Boundaries | **Accepted** | 2026-09-22 | AI Governance / Quality Invariants |
 | **[ADR-011](./ADR-011-multi-gateway-online-payment-and-webhook-idempotency.md)** | Multi-Gateway Online Payment Architecture, Webhook Idempotency & Payment-Gated Order Dispatch | **Accepted** | 2026-09-24 | Payments / State Machine / Settlement |
+| **[ADR-012](./ADR-012-production-security-hardening-and-fail-fast-config.md)** | Production Security Hardening — Fail-Fast Configuration, Rate Limiting & Authenticated Realtime Rooms | **Accepted** | 2026-09-28 | Security / Ingress / Observability |
 
 ---
 

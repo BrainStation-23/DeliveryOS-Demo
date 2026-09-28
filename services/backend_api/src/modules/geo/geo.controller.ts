@@ -1,9 +1,11 @@
 import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { GeoService } from './geo.service';
 
 @ApiTags('Geolocation')
 @Controller('geo')
+@Throttle({ default: { limit: 30, ttl: 60_000 } })
 export class GeoController {
   constructor(private readonly geoService: GeoService) {}
 

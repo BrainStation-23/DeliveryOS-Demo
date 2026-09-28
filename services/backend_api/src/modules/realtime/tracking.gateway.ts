@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import * as jwt from 'jsonwebtoken';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
+import { requiredEnv, getAllowedOrigins } from '../../common/config/env';
 import { PermissionScope, UserRole } from '@prisma/client';
 
 export interface NewOrderRealtimePayload {
@@ -47,7 +48,7 @@ export interface DispatchBroadcastPayload {
 
 @WebSocketGateway({
   namespace: '/events',
-  cors: { origin: '*' },
+  cors: { origin: getAllowedOrigins(), credentials: true },
 })
 export class TrackingGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
@@ -89,7 +90,7 @@ export class TrackingGateway
         return;
       }
 
-      const secret = process.env.JWT_SECRET || 'deliveryos-jwt-secret-key-32chars-minimum-dev';
+      const secret = requiredEnv('JWT_SECRET');
       const decoded = jwt.verify(token, secret) as { sub: string; role: string };
 
       const user = await this.prisma.user.findUnique({
@@ -174,10 +175,69 @@ export class TrackingGateway
   @SubscribeMessage('order:join')
   async handleJoinOrder(client: Socket, payload: { orderId: string }) {
     if (!payload?.orderId) return;
+
+    const user = client.data?.user;
+    if (!user) {
+      client.emit('error', { message: 'Authentication not ready; reconnect and retry' });
+      return;
+    }
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: payload.orderId },
+      select: {
+        customerId: true,
+        vendorId: true,
+        riderId: true,
+        vendor: { select: { brandId: true } },
+      },
+    });
+
+    if (!order || !this.canAccessOrder(user, order)) {
+      this.logger.warn(
+        `Client ${client.id} (User: ${user?.phone || 'unknown'}) denied join to order_${payload.orderId}`,
+      );
+      client.emit('error', { message: 'Not authorized to subscribe to this order' });
+      return;
+    }
+
     const room = `order_${payload.orderId}`;
     await client.join(room);
     this.logger.log(`Client ${client.id} joined dynamic order room: ${room}`);
     return { event: 'order:joined', room };
+  }
+
+  private canAccessOrder(
+    user: {
+      id: string;
+      role: UserRole;
+      rider?: { id: string } | null;
+      vendorStaff?: Array<{ scope: PermissionScope; vendorId: string | null; brandId: string | null }>;
+    },
+    order: {
+      customerId: string;
+      vendorId: string;
+      riderId: string | null;
+      vendor: { brandId: string | null } | null;
+    },
+  ): boolean {
+    switch (user.role) {
+      case UserRole.SUPER_ADMIN:
+        return true;
+      case UserRole.CUSTOMER:
+        return order.customerId === user.id;
+      case UserRole.RIDER:
+        return Boolean(order.riderId) && order.riderId === (user.rider?.id || user.id);
+      case UserRole.VENDOR_ADMIN:
+        return Boolean(
+          user.vendorStaff?.some((staff) =>
+            staff.scope === PermissionScope.PARTICULAR_OUTLET
+              ? staff.vendorId === order.vendorId
+              : Boolean(staff.brandId) && staff.brandId === order.vendor?.brandId,
+          ),
+        );
+      default:
+        return false;
+    }
   }
 
   @SubscribeMessage('order:leave')

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 import { PrismaService } from '../prisma/prisma.service';
+import { requiredEnv } from '../config/env';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -20,7 +21,7 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     const token = authHeader.split(' ')[1];
-    const secret = process.env.JWT_SECRET || 'deliveryos-jwt-secret-key-32chars-minimum-dev';
+    const secret = requiredEnv('JWT_SECRET');
 
     try {
       const decoded = jwt.verify(token, secret) as { sub: string; role: string };

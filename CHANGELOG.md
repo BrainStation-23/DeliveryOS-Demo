@@ -68,6 +68,20 @@ graph TD
 
 ## 📜 Part 2: Platform Release History
 
+## [1.4.7] - 2026-09-28
+
+### Changed — Wave 1: Security & Deployability Blockers (Production Readiness Plan)
+- **Fail-Fast Environment Contract**: Boot-time Joi validation (`JWT_SECRET`/`JWT_REFRESH_SECRET` min 32 chars, `DATABASE_URL`, `REDIS_URL` required); `SMS_MOCK_STATIC_OTP`, `ALLOW_STATIC_OTP`, and mock SMS forbidden in production; all hardcoded secret fallbacks removed from code, compose files, and `.env.example` ([ADR-012](context_docs/architecture-decision-records/ADR-012-production-security-hardening-and-fail-fast-config.md)).
+- **Webhook Fail-Closed**: Removed all payment webhook bypass signatures (`test-signature`, `sandbox-bypass-valid`) and skip-on-missing-credentials branches; sandbox gateway rejected per request in production.
+- **Realtime Room Authorization**: `order:join` now verifies caller ownership (customer/assigned rider/vendor outlet/master scope) — cross-customer room joins rejected with an explicit error event.
+- **Transport Hardening**: Helmet, origin-whitelist CORS (HTTP + WebSocket, `CORS_ORIGINS`), global rate limiting via `@nestjs/throttler` (OTP 5/min, verify 10/min, webhook 30/min, geo 30/min), Swagger gated to non-production, `GET /auth/me` no longer leaks `fcmToken`/`devicePlatform`.
+- **Observability**: winston structured JSON logging with `AsyncLocalStorage` request-id middleware (`x-request-id` on responses); global exception filter logs status/path/requestId/stack; `app.enableShutdownHooks()` for graceful SIGTERM drains.
+- **Deploy Correctness**: `docker-compose.prod.yml` now boots — TLS via envsubst template (`deploy/nginx-templates/`) + certbot renewal service, secrets required with `${VAR:?}` fail-fast, JSON log rotation + memory limits on all services, documented first-boot TLS issuance in `deploy/README.md`; compose secrets load from repo root via `--env-file ../.env` (wired into `scripts/start-local.sh`).
+- **Non-Root Containers**: Backend `USER node`; portals moved to `nginxinc/nginx-unprivileged` on internal port 8080 (compose healthchecks and edge upstreams updated); backend container applies `prisma migrate deploy` on every start.
+
+### Fixed
+- **Timezone-dependent vendor hours gate**: identified during verification — operating-hours checks compare server-UTC clock against vendor-local hours (pre-existing; scheduled for Wave 3 with the money-path test suite).
+
 ## [1.4.6] - 2026-09-28
 
 ### Changed — Wave 0: Engineering Quality Gate (Production Readiness Plan)

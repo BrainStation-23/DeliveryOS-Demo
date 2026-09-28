@@ -58,6 +58,9 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       case SupportedPaymentGateway.SSLCOMMERZ:
         return this.sslcommerzGateway;
       case SupportedPaymentGateway.SANDBOX:
+        if (process.env.NODE_ENV === 'production') {
+          throw new BadRequestException('Sandbox payment gateway is disabled in production');
+        }
         return this.sandboxGateway;
       default:
         throw new BadRequestException(`Unsupported payment gateway: "${gateway}"`);

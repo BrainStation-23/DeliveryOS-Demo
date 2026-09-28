@@ -38,9 +38,12 @@ COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/clie
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
 
+RUN chown -R node:node /app
+USER node
+
 EXPOSE 4000
 
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
   CMD curl -f http://localhost:4000/api/v1/health || exit 1
 
-CMD ["node", "dist/src/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main.js"]

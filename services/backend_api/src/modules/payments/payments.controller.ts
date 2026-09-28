@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
@@ -31,6 +32,7 @@ export class PaymentsController {
   }
 
   @Post('webhook/:gateway')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiOperation({ summary: 'Instant Payment Notification (IPN) webhook callback from payment provider' })
   async handleWebhook(
     @Param('gateway') gateway: string,

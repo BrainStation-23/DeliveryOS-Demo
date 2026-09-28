@@ -9,6 +9,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { VendorService } from './vendor.service';
 import { GetNearbyVendorsDto } from './dto/get-nearby-vendors.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
@@ -54,6 +55,7 @@ export class VendorController {
 
   @Post('validate-address-coverage')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiOperation({ summary: 'Validate if an address coordinate is within outlet delivery coverage' })
   @ApiResponse({ status: 200, description: 'Address is strictly within coverage radius' })
   @ApiResponse({ status: 422, description: 'Address is outside outlet coverage radius' })

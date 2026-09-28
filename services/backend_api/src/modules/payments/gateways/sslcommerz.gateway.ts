@@ -54,7 +54,7 @@ export class SslCommerzGatewayAdapter implements IPaymentGateway {
       .update(`${transactionId}:${orderId}:${amount}:${this.storePassword}`)
       .digest('hex');
 
-    const isValid = verifySign === calculatedHash || verifySign === 'test-signature' || !process.env.SSLCOMMERZ_STORE_ID;
+    const isValid = verifySign === calculatedHash;
     const isSuccess = sslStatus === 'VALID' || sslStatus === 'VALIDATED' || sslStatus === 'PAID';
     const status: PaymentStatus = isValid && isSuccess ? PaymentStatus.PAID : PaymentStatus.FAILED;
 
