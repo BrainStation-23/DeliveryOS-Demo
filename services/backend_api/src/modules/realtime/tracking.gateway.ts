@@ -8,6 +8,7 @@ import {
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
+import { RedisAdapter } from '@socket.io/redis-adapter';
 import * as jwt from 'jsonwebtoken';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
@@ -63,8 +64,14 @@ export class TrackingGateway
     private readonly redis: RedisService,
   ) {}
 
-  afterInit() {
-    this.logger.log('📡 TrackingGateway initialized on namespace /events');
+  async afterInit() {
+    // Fan events across API replicas via Redis pub/sub (single-replica safe).
+    // Nest injects the namespace here; its `adapter` property takes an Adapter
+    // instance (the typed `Server.adapter()` method never exists at runtime).
+    const [pubClient, subClient] = await this.redis.getAdapterClients();
+    const namespace = this.server as unknown as { adapter: unknown; name?: string };
+    namespace.adapter = new RedisAdapter(namespace, pubClient, subClient);
+    this.logger.log('📡 TrackingGateway initialized on namespace /events (Redis adapter)');
   }
 
   /**

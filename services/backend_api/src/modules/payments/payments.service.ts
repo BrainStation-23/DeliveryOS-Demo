@@ -9,7 +9,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { OrderStatus, PaymentMethod, PaymentStatus, Prisma } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { RedisService } from '../../common/redis/redis.service';
 import { OrderFlowService } from '../order-flow/order-flow.service';
 import { TrackingGateway } from '../realtime/tracking.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -22,9 +24,11 @@ import { IPaymentGateway, RefundResult } from './interfaces/payment-gateway.inte
 export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PaymentsService.name);
   private expirationInterval: NodeJS.Timeout | null = null;
+  private readonly sweepInstanceId = randomUUID();
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
     private readonly orderFlowService: OrderFlowService,
     private readonly trackingGateway: TrackingGateway,
     private readonly notificationsService: NotificationsService,
@@ -33,14 +37,25 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
-    // 15-minute background sweep for unpaid orders
+    // 15-minute background sweep for unpaid orders. The Redis lock lets only
+    // one replica run each tick when the API is scaled horizontally.
     this.expirationInterval = setInterval(() => {
-      this.sweepExpiredPayments().catch((err: unknown) => {
+      this.runSweepIfLeader().catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : 'Unknown error';
         this.logger.error(`Sweep expired payments failed: ${msg}`);
       });
     }, 60000);
     this.expirationInterval.unref();
+  }
+
+  private async runSweepIfLeader(): Promise<void> {
+    const acquired = await this.redis.acquireLock(
+      'lock:sweep:expired-payments',
+      this.sweepInstanceId,
+      55,
+    );
+    if (!acquired) return;
+    await this.sweepExpiredPayments();
   }
 
   onModuleDestroy() {

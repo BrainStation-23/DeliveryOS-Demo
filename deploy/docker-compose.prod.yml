@@ -28,7 +28,6 @@ services:
   # 1. PostgreSQL 16 with PostGIS 3.4 (Official Image)
   postgres:
     image: postgis/postgis:16-3.4-alpine
-    container_name: deliveryos_prod_db
     restart: always
     environment:
       POSTGRES_DB: ${DB_NAME:-deliveryos}
@@ -54,7 +53,6 @@ services:
   # 2. Redis 7.2 Cache & Real-Time Pub/Sub
   redis:
     image: redis:7.2-alpine
-    container_name: deliveryos_prod_redis
     restart: always
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
@@ -62,7 +60,7 @@ services:
     volumes:
       - prod_redisdata:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$REDIS_PASSWORD redis-cli ping | grep PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -84,7 +82,6 @@ services:
     build:
       context: ../services/backend_api
       dockerfile: Dockerfile
-    container_name: deliveryos_prod_api
     restart: always
     depends_on:
       postgres:
@@ -134,7 +131,6 @@ services:
     build:
       context: ../apps/admin_portal
       dockerfile: Dockerfile
-    container_name: deliveryos_prod_admin_portal
     restart: always
     depends_on:
       - backend
@@ -157,7 +153,6 @@ services:
     build:
       context: ../apps/vendor_portal
       dockerfile: Dockerfile
-    container_name: deliveryos_prod_vendor_portal
     restart: always
     depends_on:
       - backend
@@ -182,7 +177,6 @@ services:
   # 6. Production Nginx Reverse Proxy with Let's Encrypt SSL
   nginx:
     image: nginx:1.25-alpine
-    container_name: deliveryos_prod_nginx
     restart: always
     ports:
       - "80:80"

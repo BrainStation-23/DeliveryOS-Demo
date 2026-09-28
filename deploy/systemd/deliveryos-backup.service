@@ -1,0 +1,11 @@
+[Unit]
+Description=DeliveryOS nightly database backup
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/deliveryos
+ExecStart=/opt/deliveryos/scripts/backup-db.sh
+# Offsite target, e.g. s3://deliveryos-backups/prod or rclone:r2/deliveryos
+Environment=BACKUP_OFFSITE_TARGET=
+EnvironmentFile=-/opt/deliveryos/.env

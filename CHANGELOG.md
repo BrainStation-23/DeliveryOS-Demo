@@ -68,6 +68,17 @@ graph TD
 
 ## 📜 Part 2: Platform Release History
 
+## [1.7.0] - 2026-09-28
+
+### Added — Wave 4: Release Readiness (Production Readiness Plan)
+- **Mobile Release Engineering**: release signing wired via `android/key.properties` (gitignored; debug fallback for contributor checkouts) in both apps, ProGuard rules in place, branded launcher + adaptive icons and colored splash generated for both apps (per-app primary colors, `scripts/generate-app-icons.cjs`), and `scripts/build-android.sh` producing dart-define-injected release AABs; the full release process lives in `docs/RELEASE.md` ([ADR-015](context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md) index).
+- **Horizontal-Scaling Readiness**: Socket.IO gateway fanned across replicas via the Redis adapter (dedicated pub/sub connections), background sweeps (payment expiry + dispatch escalation) leader-locked per tick with short-TTL Redis mutexes, `container_name` de-pinned from the production compose, and the JWT guard caches user lookups in Redis (30s TTL) to remove the per-request database hit ([ADR-015](context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md)).
+- **Data Safety**: `scripts/backup-db.sh` gained env-gated offsite upload (S3 or rclone) with local-copy-always retention; new `scripts/restore-db.sh` with confirmation gate — **restore verified live** (post-backup data change reverted by the restore); systemd timer units in `deploy/systemd/`.
+
+### Changed
+- **KSA region mode deferred** (decision D3: Bangladesh is the launch market) — `REGION_MODE` plumbing from Wave 3 remains; KSA localization tracked as post-launch.
+- **Local hardening**: dev Postgres/Redis ports now bind to `127.0.0.1` only; Redis healthchecks authenticate via `REDISCLI_AUTH` instead of the CLI `-a` flag; the last credential-bearing Redis URL fallback was removed from the backend (completing the ADR-012 fail-fast sweep).
+
 ## [1.6.0] - 2026-09-28
 
 ### Added — Wave 3: Hardening, Data Integrity & Error UX (Production Readiness Plan)

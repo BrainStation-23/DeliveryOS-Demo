@@ -1,12 +1,16 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
+import { requiredEnv } from '../config/env';
 
 @Injectable()
-export class RedisService implements OnModuleInit, OnModuleDestroy {
-  private client!: Redis;
+export class RedisService implements OnModuleDestroy {
+  // Created eagerly in the constructor: the WebSocket gateway's afterInit runs
+  // before Nest's onModuleInit hooks and already needs the client.
+  private readonly client: Redis;
+  private readonly adapterClients: Redis[] = [];
 
-  onModuleInit() {
-    const redisUrl = process.env.REDIS_URL || 'redis://:redispassword@localhost:6380';
+  constructor() {
+    const redisUrl = requiredEnv('REDIS_URL');
     this.client = new Redis(redisUrl, {
       maxRetriesPerRequest: 3,
       retryStrategy(times) {
@@ -17,6 +21,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   getClient(): Redis {
     return this.client;
+  }
+
+  async getAdapterClients(): Promise<[Redis, Redis]> {
+    // Duplicates auto-connect on creation
+    const [pub, sub] = [this.client.duplicate(), this.client.duplicate()];
+    this.adapterClients.push(pub, sub);
+    return [pub, sub];
   }
 
   async get(key: string): Promise<string | null> {
@@ -94,6 +105,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    for (const client of this.adapterClients) {
+      client.disconnect();
+    }
     if (this.client) {
       await this.client.quit();
     }

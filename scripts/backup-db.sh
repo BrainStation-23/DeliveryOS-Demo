@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # DeliveryOS — Automated PostgreSQL Database Backup Script
-# Task 7.2: Daily / On-Demand Backup & 7-Day Retention
+# Daily / On-Demand Backup, 7-Day Local Retention, Optional Offsite Upload
+#
+# Offsite upload (optional, one of):
+#   BACKUP_OFFSITE_TARGET=s3://bucket/path   → requires AWS CLI
+#   BACKUP_OFFSITE_TARGET=rclone:remote/path → requires rclone
+# Schedule with cron/systemd (see deploy/README.md § Backups).
 # ==============================================================================
 
 set -euo pipefail
@@ -12,8 +17,17 @@ BACKUP_DIR="$PROJECT_ROOT/backups"
 TIMESTAMP="$(date +"%Y%m%d_%H%M%S")"
 BACKUP_FILE="$BACKUP_DIR/deliveryos_backup_${TIMESTAMP}.sql.gz"
 CONTAINER_NAME="${DB_CONTAINER:-deliveryos_db}"
+
+# Load DB credentials from the repo-root .env when not exported
+if [ -z "${DB_PASSWORD:-}" ] && [ -f "$PROJECT_ROOT/.env" ]; then
+  # shellcheck disable=SC1091
+  set -a
+  . "$PROJECT_ROOT/.env"
+  set +a
+fi
 DB_NAME="${DB_NAME:-deliveryos}"
 DB_USER="${DB_USER:-postgres}"
+: "${DB_PASSWORD:?DB_PASSWORD is required (export it or define it in .env)}"
 
 mkdir -p "$BACKUP_DIR"
 
@@ -33,7 +47,7 @@ if ! docker ps --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
 fi
 
 echo "📦 Dumping database and compressing with gzip..."
-docker exec -e PGPASSWORD="${DB_PASSWORD:-secretpassword}" "$CONTAINER_NAME" pg_dump -h localhost -U "$DB_USER" -d "$DB_NAME" --clean --if-exists | gzip > "$BACKUP_FILE"
+docker exec -e PGPASSWORD="$DB_PASSWORD" "$CONTAINER_NAME" pg_dump -h localhost -U "$DB_USER" -d "$DB_NAME" --clean --if-exists | gzip > "$BACKUP_FILE"
 
 # Verify backup was created and has non-zero size
 if [ -s "$BACKUP_FILE" ]; then
@@ -45,7 +59,27 @@ else
   exit 1
 fi
 
-# Retention policy: Purge backups older than 7 days
+# Offsite upload (env-gated; the local copy always remains)
+TARGET="${BACKUP_OFFSITE_TARGET:-}"
+if [ -n "$TARGET" ]; then
+  echo "☁️  Uploading backup offsite to $TARGET ..."
+  case "$TARGET" in
+    s3://*)
+      aws s3 cp "$BACKUP_FILE" "$TARGET/$(basename "$BACKUP_FILE")" --only-show-errors \
+        && echo "✅ Offsite upload complete (S3)." \
+        || echo "⚠️  Offsite S3 upload FAILED — local copy retained." ;;
+    rclone:*)
+      rclone copy "$BACKUP_FILE" "$TARGET" \
+        && echo "✅ Offsite upload complete (rclone)." \
+        || echo "⚠️  Offsite rclone upload FAILED — local copy retained." ;;
+    *)
+      echo "⚠️  Unknown BACKUP_OFFSITE_TARGET scheme — skipping offsite upload." ;;
+  esac
+else
+  echo "ℹ️  BACKUP_OFFSITE_TARGET not set — local-only backup."
+fi
+
+# Retention policy: Purge local backups older than 7 days
 echo "🧹 Applying 7-day retention cleanup policy..."
 DELETED_COUNT=0
 while IFS= read -r old_file; do

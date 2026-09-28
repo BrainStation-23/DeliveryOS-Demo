@@ -39,7 +39,7 @@ services:
       - deliveryos_pgdata:/var/lib/postgresql/data
       - ./init-postgis.sql:/docker-entrypoint-initdb.d/10-postgis.sql:ro
     ports:
-      - "${DB_PORT:-5433}:5432"
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-deliveryos}"]
       interval: 5s
@@ -61,9 +61,9 @@ services:
     volumes:
       - deliveryos_redisdata:/data
     ports:
-      - "${REDIS_PORT:-6380}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6380}:6379"
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$REDIS_PASSWORD redis-cli ping | grep PONG"]
       interval: 5s
       timeout: 5s
       retries: 5

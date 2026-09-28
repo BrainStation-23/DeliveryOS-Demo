@@ -393,6 +393,11 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Code Splitting**: route-level `React.lazy` + Suspense in both portals; vendor portal `manualChunks`; Flutter banners/outlet images via `cached_network_image`.
 - **Media Uploads**: `POST /admin/uploads` (SUPER_ADMIN multipart, validated image types + 5 MB cap) with a local storage driver served at `/uploads`; admin banner form uploads directly and persists across deploys via a named volume.
 
+### 6.10. Release Readiness & Scaling
+- **Mobile Releases**: `key.properties`-driven release signing with debug fallback, ProGuard rules, branded launcher/adaptive icons + splash (per-app colors), and `scripts/build-android.sh` dart-define-injected release AABs; process in `docs/RELEASE.md`.
+- **Scaling Readiness**: Socket.IO Redis adapter (multi-replica event fan-out), leader-locked background sweeps (payment expiry, dispatch escalation), de-pinned prod container names, and a 30s Redis cache on JWT-guard user lookups ([ADR-015](context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md)).
+- **Data Safety**: backup script with env-gated S3/rclone offsite upload + 7-day retention, confirmation-gated restore script (restore verified live), and systemd timer units. Two environments only: dev (local Docker) and production.
+
 ---
 
 ## 7. Data Persistence & Spatial Storage Engine

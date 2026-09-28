@@ -50,12 +50,12 @@ Wave 2 of the [Production Readiness Plan](../../docs/PRODUCTION_READINESS_PLAN.m
 ## Consequences
 
 **Positive**
-- Login, payment, refund, dispatch, and tracking are exercised against real third-party systems in staging; token theft exposure drops from a 7-day plaintext window to a 15-minute Keystore-backed token.
+- Login, payment, refund, dispatch, and tracking are exercised against real third-party systems in production; token theft exposure drops from a 7-day plaintext window to a 15-minute Keystore-backed token.
 - Webhook replays and cancellation races are structurally impossible to double-settle.
 - Riders receive dispatch alerts with the app backgrounded; customer tracking no longer receives fabricated positions.
 
 **Negative / Trade-offs**
-- Staging/production now require real credentials (SSLCommerz, SMS provider, Firebase service account) — the fail-fast config from ADR-012 enforces this.
+- Production now requires real credentials (SSLCommerz, SMS provider, Firebase service account) — the fail-fast config from ADR-012 enforces this.
 - 15-minute access tokens make an offline client silently re-authenticate on its first call after expiry (handled transparently by all clients).
 - The foreground service adds a persistent notification (required by Android for background location).
 - Flutter unit tests skip platform channels (secure storage and background service degrade to in-memory/no-op paths).

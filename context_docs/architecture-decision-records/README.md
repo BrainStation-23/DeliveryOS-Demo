@@ -26,6 +26,7 @@ Because DeliveryOS development is **AI-driven**, this ADR framework serves as a 
 | **[ADR-012](./ADR-012-production-security-hardening-and-fail-fast-config.md)** | Production Security Hardening — Fail-Fast Configuration, Rate Limiting & Authenticated Realtime Rooms | **Accepted** | 2026-09-28 | Security / Ingress / Observability |
 | **[ADR-013](./ADR-013-real-world-integration-stack.md)** | Real-World Integration Stack — SMS, SSLCommerz, FCM Push, Token Rotation & Background Telemetry | **Accepted** | 2026-09-28 | Integrations / Auth / Mobile |
 | **[ADR-014](./ADR-014-unit-tests-and-error-monitoring.md)** | Unit Test Toolchain (Jest) & Error Monitoring (Sentry) | **Accepted** | 2026-09-28 | Quality / Observability |
+| **[ADR-015](./ADR-015-horizontal-scaling-readiness.md)** | Horizontal-Scaling Readiness for the Single-VPS Topology | **Accepted** | 2026-09-28 | Infrastructure / Realtime / Concurrency |
 
 ---
 

@@ -52,5 +52,28 @@ The backend container runs `prisma migrate deploy` on every start (see `services
 All services rotate their JSON logs (`json-file`, 10 MB × 3 files). The API emits structured JSON logs with an `x-request-id` correlation id on every request (also set as a response header).
 
 ## 6. Backups
+## 6. Backups
 
-Run `scripts/backup-db.sh` on a schedule (cron/systemd timer) and copy `backups/*.sql.gz` off the VPS (S3/R2 upload is Wave 4).
+`scripts/backup-db.sh` dumps + gzips the database, optionally uploads offsite, and prunes local copies after 7 days.
+
+**Offsite upload** — set one of these (rclone is recommended for Cloudflare R2):
+
+```bash
+BACKUP_OFFSITE_TARGET=rclone:r2/deliveryos   # requires `rclone config` on the host
+BACKUP_OFFSITE_TARGET=s3://deliveryos-backups/prod   # requires AWS CLI + credentials
+```
+
+**Scheduling** — install the provided systemd units (or an equivalent crontab):
+
+```bash
+sudo cp deploy/systemd/deliveryos-backup.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now deliveryos-backup.timer
+```
+
+Cron equivalent: `15 3 * * * cd /opt/deliveryos && BACKUP_OFFSITE_TARGET=... ./scripts/backup-db.sh`
+
+**Restore** — `scripts/restore-db.sh backups/<file>.sql.gz` (prompts for confirmation; the target database is replaced). Test a restore after the first real backup.
+
+## 7. Scaling notes
+
+The stack is single-replica by default. Horizontal readiness is built in (ADR-015): the Socket.IO gateway fans events through the Redis adapter, background sweeps take a distributed leader lock per tick, and the edge proxy holds no session state. To run a second backend replica: remove `container_name`/port bindings for `backend`, run `docker compose up -d --scale backend=2`, and keep Postgres/Redis at 1.

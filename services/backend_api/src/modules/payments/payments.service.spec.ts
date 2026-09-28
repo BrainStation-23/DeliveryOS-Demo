@@ -54,6 +54,7 @@ function buildService(options: {
 
   const service = new PaymentsService(
     prisma as never,
+    { acquireLock: jest.fn().mockResolvedValue(true) } as never,
     orderFlowService as never,
     trackingGateway,
     notificationsService as never,

@@ -12,6 +12,7 @@ import { RedisService } from '../../common/redis/redis.service';
 import { TrackingGateway } from '../realtime/tracking.gateway';
 import { OrderFlowMode, UpdateOrderFlowDto } from './dto/update-order-flow.dto';
 import { OrderStatus, PaymentMethod, PaymentStatus, UserRole } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { assertClaimable, assertTransition } from '../orders/order-state.machine';
 import { DeliveryFeeService } from '../promotions/pricing/delivery-fee.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -30,6 +31,17 @@ interface AddressSnapshot {
 export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OrderFlowService.name);
   private escalationTimer: NodeJS.Timeout | null = null;
+  private readonly sweepInstanceId = randomUUID();
+
+  private async runEscalationIfLeader(): Promise<void> {
+    const acquired = await this.redis.acquireLock(
+      'lock:sweep:dispatch-escalation',
+      this.sweepInstanceId,
+      25,
+    );
+    if (!acquired) return;
+    await this.evaluateDispatchEscalations();
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -40,9 +52,10 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
-    // Background scanner for unassigned dispatch escalation (runs every 30s)
+    // Background scanner for unassigned dispatch escalation (runs every 30s).
+    // The Redis lock lets only one replica run each tick when scaled.
     this.escalationTimer = setInterval(() => {
-      this.evaluateDispatchEscalations().catch((err: unknown) => {
+      this.runEscalationIfLeader().catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : 'Unknown error';
         this.logger.error(`Error in dispatch escalation scanner: ${msg}`);
       });

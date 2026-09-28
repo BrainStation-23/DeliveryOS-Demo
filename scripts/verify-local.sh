@@ -32,7 +32,10 @@ fi
 
 # 3. Check Redis 7.2 (Port 6380)
 echo -n "⚡ Checking Redis 7.2 In-Memory Cache (Port 6380)... "
-PONG=$(docker exec deliveryos_redis redis-cli -a redispassword ping 2>/dev/null || echo "FAIL")
+if [ -z "${REDIS_PASSWORD:-}" ] && [ -f "$PROJECT_ROOT/.env" ]; then
+  REDIS_PASSWORD="$(grep -E '^REDIS_PASSWORD=' "$PROJECT_ROOT/.env" | cut -d= -f2-)"
+fi
+PONG=$(docker exec -e REDISCLI_AUTH="${REDIS_PASSWORD:-}" deliveryos_redis redis-cli ping 2>/dev/null || echo "FAIL")
 if [[ "$PONG" == *"PONG"* ]]; then
   echo "✅ Healthy (deliveryos_redis up on port 6380)"
 else

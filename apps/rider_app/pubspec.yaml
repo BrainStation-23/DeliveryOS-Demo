@@ -29,9 +29,26 @@ dependencies:
   socket_io_client: ^3.1.6
 
 dev_dependencies:
+  flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.3
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
 
 flutter:
   uses-material-design: true
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo.png"
+  adaptive_icon_background: "#1E3A8A"
+  adaptive_icon_foreground: "assets/logo-foreground.png"
+
+flutter_native_splash:
+  color: "#1E3A8A"
+  image: "assets/logo-foreground.png"
+  android_12:
+    color: "#1E3A8A"
+    image: "assets/logo-foreground.png"
+  fullscreen: false
