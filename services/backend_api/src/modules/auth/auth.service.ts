@@ -6,8 +6,10 @@ import {
   Inject,
   Injectable,
   Logger,
+  UnauthorizedException,
 } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { RequestOtpDto } from './dto/request-otp.dto';
@@ -42,9 +44,9 @@ export class AuthService {
     const staticOtp = process.env.SMS_MOCK_STATIC_OTP;
     const otp = isMock && staticOtp ? staticOtp : Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Cache OTP in Redis for 5 minutes (300 seconds)
+    // Cache OTP in Redis for 2 minutes
     const otpKey = `otp:${phone}`;
-    await this.redis.set(otpKey, otp, 300);
+    await this.redis.set(otpKey, otp, 120);
 
     // Increment rate limit counter with 5 min expiry
     const newAttempts = attempts ? parseInt(attempts, 10) + 1 : 1;
@@ -79,14 +81,27 @@ export class AuthService {
     const isMock = process.env.SMS_PROVIDER === 'mock' || !process.env.SMS_PROVIDER;
     const allowStatic = process.env.NODE_ENV !== 'production' && isMock;
 
-    const isValid = (cachedOtp && cachedOtp === otp) || (allowStatic && otp === staticOtp);
+    // Brute-force lockout: 5 failed verifications invalidate the code
+    const attemptsKey = `otp_attempts:${phone}`;
+    const attempts = parseInt((await this.redis.get(attemptsKey)) || '0', 10);
+    if (cachedOtp && attempts >= 5) {
+      await this.redis.del(otpKey);
+      await this.redis.del(attemptsKey);
+      throw new BadRequestException('Too many invalid attempts. Please request a new OTP.');
+    }
+
+    const isValid = (cachedOtp && cachedOtp === otp) || (allowStatic && Boolean(staticOtp) && otp === staticOtp);
 
     if (!isValid) {
+      if (cachedOtp) {
+        await this.redis.set(attemptsKey, (attempts + 1).toString(), 120);
+      }
       throw new BadRequestException('Invalid or expired OTP code');
     }
 
     // Remove OTP from Redis
     await this.redis.del(otpKey);
+    await this.redis.del(attemptsKey);
 
     // Find or create user
     let user = await this.prisma.user.findUnique({
@@ -127,7 +142,7 @@ export class AuthService {
       throw new ForbiddenException('Your account has been suspended. Please contact support.');
     }
 
-    // Generate JWT Tokens
+    // Generate JWT Tokens (access: short-lived; refresh: rotating jti stored in Redis)
     const secret = requiredEnv('JWT_SECRET');
     const refreshSecret = requiredEnv('JWT_REFRESH_SECRET');
 
@@ -136,18 +151,24 @@ export class AuthService {
         sub: user.id,
         phone: user.phone,
         role: user.role,
+        type: 'access',
       },
       secret,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' } as jwt.SignOptions,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '15m' } as jwt.SignOptions,
     );
 
+    const refreshJti = randomUUID();
+    const refreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '30d';
     const refreshToken = jwt.sign(
       {
         sub: user.id,
+        type: 'refresh',
+        jti: refreshJti,
       },
       refreshSecret,
-      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d' } as jwt.SignOptions,
+      { expiresIn: refreshExpiresIn } as jwt.SignOptions,
     );
+    await this.redis.set(`auth:refresh:${refreshJti}`, user.id, this.parseDurationToSeconds(refreshExpiresIn));
 
     return {
       user: {
@@ -160,5 +181,79 @@ export class AuthService {
       accessToken,
       refreshToken,
     };
+  }
+
+  /**
+   * Rotate a refresh token: validates jti against the Redis revocation store,
+   * revokes the presented token, and issues a fresh pair.
+   */
+  async refreshTokens(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+    let decoded: { sub: string; type?: string; jti?: string };
+    try {
+      decoded = jwt.verify(refreshToken, requiredEnv('JWT_REFRESH_SECRET')) as typeof decoded;
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    if (decoded.type !== 'refresh' || !decoded.jti || !decoded.sub) {
+      throw new UnauthorizedException('Malformed refresh token');
+    }
+
+    const storeKey = `auth:refresh:${decoded.jti}`;
+    const storedUserId = await this.redis.get(storeKey);
+    if (!storedUserId || storedUserId !== decoded.sub) {
+      throw new UnauthorizedException('Refresh token has been revoked');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: decoded.sub } });
+    if (!user || user.status !== 'ACTIVE') {
+      await this.redis.del(storeKey);
+      throw new UnauthorizedException('User account not found or inactive');
+    }
+
+    await this.redis.del(storeKey);
+
+    const secret = requiredEnv('JWT_SECRET');
+    const refreshSecret = requiredEnv('JWT_REFRESH_SECRET');
+
+    const accessToken = jwt.sign(
+      { sub: user.id, phone: user.phone, role: user.role, type: 'access' },
+      secret,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '15m' } as jwt.SignOptions,
+    );
+
+    const refreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '30d';
+    const nextJti = randomUUID();
+    const nextRefreshToken = jwt.sign(
+      { sub: user.id, type: 'refresh', jti: nextJti },
+      refreshSecret,
+      { expiresIn: refreshExpiresIn } as jwt.SignOptions,
+    );
+    await this.redis.set(`auth:refresh:${nextJti}`, user.id, this.parseDurationToSeconds(refreshExpiresIn));
+
+    return { accessToken, refreshToken: nextRefreshToken };
+  }
+
+  /** Revoke a refresh token (logout). Idempotent. */
+  async logout(refreshToken: string): Promise<void> {
+    try {
+      const decoded = jwt.verify(refreshToken, requiredEnv('JWT_REFRESH_SECRET')) as {
+        type?: string;
+        jti?: string;
+      };
+      if (decoded.type === 'refresh' && decoded.jti) {
+        await this.redis.del(`auth:refresh:${decoded.jti}`);
+      }
+    } catch {
+      // Invalid or already-expired tokens are inherently logged out
+    }
+  }
+
+  private parseDurationToSeconds(duration: string): number {
+    const match = /^(\d+)([smhd])$/.exec(duration.trim());
+    if (!match) return 30 * 24 * 60 * 60;
+    const value = parseInt(match[1], 10);
+    const unitSeconds: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400 };
+    return value * (unitSeconds[match[2]] ?? 86400);
   }
 }

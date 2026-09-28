@@ -4,6 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '@prisma/client';
@@ -28,7 +29,7 @@ export class AuthController {
 
   @Post('otp/verify')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiOperation({ summary: 'Verify SMS OTP and receive JWT tokens' })
   @ApiResponse({ status: 200, description: 'Authentication successful' })
   async verifyOtp(@Body() dto: VerifyOtpDto) {
@@ -36,6 +37,29 @@ export class AuthController {
     return {
       message: 'Authentication successful',
       data: result,
+    };
+  }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Exchange a valid refresh token for a rotated token pair' })
+  @ApiResponse({ status: 200, description: 'New access and refresh tokens issued' })
+  async refresh(@Body() dto: RefreshTokenDto) {
+    const result = await this.authService.refreshTokens(dto.refreshToken);
+    return {
+      message: 'Token refresh successful',
+      data: result,
+    };
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Revoke a refresh token (idempotent logout)' })
+  async logout(@Body() dto: RefreshTokenDto) {
+    await this.authService.logout(dto.refreshToken);
+    return {
+      message: 'Logged out successfully',
     };
   }
 

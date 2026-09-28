@@ -502,6 +502,8 @@ model Payment {
   currency        String        @default("BDT") @db.VarChar(10)
   status          PaymentStatus @default(PENDING)
   gatewayResponse Json?         @map("gateway_response")
+  refundId        String?       @map("refund_id") @db.VarChar(100)
+  refundedAt      DateTime?     @map("refunded_at") @db.Timestamptz
   paidAt          DateTime?     @map("paid_at") @db.Timestamptz
   failedAt        DateTime?     @map("failed_at") @db.Timestamptz
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz

@@ -68,6 +68,21 @@ graph TD
 
 ## 📜 Part 2: Platform Release History
 
+## [1.5.0] - 2026-09-28
+
+### Added — Wave 2: Real-World Integration Stack (Production Readiness Plan)
+- **Auth Lifecycle**: `POST /auth/refresh` with rotating `jti` tokens + Redis revocation store, `POST /auth/logout`, 15-minute access tokens, refresh-token-as-access rejection in the JWT guard, OTP verification lockout after 5 failed attempts and a 2-minute OTP lifetime ([ADR-013](context_docs/architecture-decision-records/ADR-013-real-world-integration-stack.md)).
+- **Real SMS Provider**: `ssl_wireless` (SMS Plus v3) transport behind the `SMS_SERVICE` token, selected by `SMS_PROVIDER` (mock remains dev-only).
+- **Real SSLCommerz Gateway**: live Session API initiation, server-to-server webhook verification (Order Validation / TrxID APIs, fail-closed), real Refund API execution in the cancellation path with `payments.refund_id`/`refunded_at` persistence; bKash stub adapter removed (single-gateway strategy).
+- **Push Notifications**: `firebase-admin` with lazy service-account init (log-only fallback in dev), FCM multicast delivery, device-token registration wired in both Flutter apps (Firebase options via `--dart-define`), customer notification-tap navigation to order tracking.
+- **Rider Background Telemetry**: `flutter_background_service` foreground service keeps GPS flowing while backgrounded; synthetic-coordinate fallback deleted (GPS failures surface as status messages); HTTP position sync throttled to 30s intervals; app-lifecycle socket/GPS resume.
+
+### Changed
+- **Client Token Handling**: web portals gained a single-flight 401 refresh-and-replay interceptor with boot-time expiry checks and server-side logout revocation; Flutter apps rotate tokens inside the Dio interceptor and store them in `flutter_secure_storage` (plaintext migration included).
+- **Payment Flow (Customer App)**: checkout now hosts the real gateway session in a WebView with status polling; gateway selection via `PAYMENT_GATEWAY` dart-define (SANDBOX in debug, SSLCOMMERZ in release).
+- **Mobile Build Config**: `API_BASE_URL`/`SOCKET_BASE_URL`/`GOOGLE_MAPS_API_KEY` injected via `--dart-define` — no localhost URLs in release builds.
+- OTP verify rate limit relaxed to 30/min per IP (the 5-attempt code lockout remains the brute-force guard) to accommodate multi-suite integration runs.
+
 ## [1.4.7] - 2026-09-28
 
 ### Changed — Wave 1: Security & Deployability Blockers (Production Readiness Plan)

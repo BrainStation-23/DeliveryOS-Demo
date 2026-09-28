@@ -219,11 +219,10 @@ FIREBASE_PROJECT_ID="deliveryos-prod"
 FIREBASE_CLIENT_EMAIL="firebase-adminsdk@deliveryos-prod.iam.gserviceaccount.com"
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqh..."
 
-# SMS Gateway (Twilio / Mock)
-SMS_PROVIDER="TWILIO" # "TWILIO" | "MOCK"
-TWILIO_ACCOUNT_SID="AC..."
-TWILIO_AUTH_TOKEN="..."
-TWILIO_PHONE_NUMBER="+1..."
+# SMS Gateway (SSL Wireless / Mock)
+SMS_PROVIDER="ssl_wireless" # "ssl_wireless" | "mock"
+SMS_SSLW_API_TOKEN="..."
+SMS_SSLW_SID="..."
 
 # Media Storage (AWS S3 / Cloudflare R2)
 STORAGE_PROVIDER="S3" # "S3" | "R2"

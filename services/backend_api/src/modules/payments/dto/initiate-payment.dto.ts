@@ -2,7 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export enum SupportedPaymentGateway {
-  BKASH = 'BKASH',
   SSLCOMMERZ = 'SSLCOMMERZ',
   SANDBOX = 'SANDBOX',
 }
@@ -14,7 +13,7 @@ export class InitiatePaymentDto {
 
   @ApiProperty({
     enum: SupportedPaymentGateway,
-    default: SupportedPaymentGateway.BKASH,
+    default: SupportedPaymentGateway.SSLCOMMERZ,
     description: 'Target payment gateway provider',
   })
   @IsEnum(SupportedPaymentGateway)

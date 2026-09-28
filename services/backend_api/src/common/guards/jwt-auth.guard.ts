@@ -24,7 +24,10 @@ export class JwtAuthGuard implements CanActivate {
     const secret = requiredEnv('JWT_SECRET');
 
     try {
-      const decoded = jwt.verify(token, secret) as { sub: string; role: string };
+      const decoded = jwt.verify(token, secret) as { sub: string; role: string; type?: string };
+      if (decoded.type === 'refresh') {
+        throw new UnauthorizedException('Refresh tokens cannot be used for API access');
+      }
       const user = await this.prisma.user.findUnique({
         where: { id: decoded.sub },
         include: {

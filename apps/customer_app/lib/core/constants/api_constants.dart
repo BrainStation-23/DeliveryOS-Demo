@@ -1,8 +1,26 @@
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 
 class ApiConstants {
+  /// Release builds must pass API_BASE_URL via --dart-define
+  /// (e.g. --dart-define=API_BASE_URL=https://api.deliveryos.example.com/api/v1).
+  static const String _definedBaseUrl = String.fromEnvironment('API_BASE_URL');
+  static const String _definedSocketUrl = String.fromEnvironment('SOCKET_BASE_URL');
+
+  /// Online payment gateway: SANDBOX in debug builds, SSLCOMMERZ in release
+  /// (override with --dart-define=PAYMENT_GATEWAY=SSLCOMMERZ).
+  static String get paymentGateway {
+    const defined = String.fromEnvironment('PAYMENT_GATEWAY');
+    if (defined.isNotEmpty) return defined;
+    return kDebugMode ? 'SANDBOX' : 'SSLCOMMERZ';
+  }
+
+  /// Google Maps SDK key (required for release map rendering):
+  /// --dart-define=GOOGLE_MAPS_API_KEY=AIza...
+  static const String googleMapsApiKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY');
+
   static String get baseUrl {
+    if (_definedBaseUrl.isNotEmpty) return _definedBaseUrl;
     if (kIsWeb) {
       return 'http://localhost:4000/api/v1';
     }
@@ -13,6 +31,7 @@ class ApiConstants {
   }
 
   static String get socketUrl {
+    if (_definedSocketUrl.isNotEmpty) return _definedSocketUrl;
     if (kIsWeb) {
       return 'http://localhost:4000';
     }

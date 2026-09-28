@@ -9,6 +9,7 @@ import '../../addresses/providers/address_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/presentation/phone_input_screen.dart';
 import '../../location/providers/location_provider.dart';
+import '../../orders/presentation/payment_webview_screen.dart';
 import '../../tracking/presentation/order_tracking_screen.dart';
 import '../domain/cart_item_model.dart';
 import '../providers/cart_provider.dart';
@@ -111,6 +112,19 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       final isOnline = result['paymentMethod'] == 'ONLINE_GATEWAY';
       final paymentSession = result['paymentSession'] as Map<String, dynamic>?;
 
+      // Real payment flow: host the gateway session and poll until settled
+      var paymentResult = PaymentWebViewResult.paid;
+      final paymentUrl = paymentSession?['paymentUrl'] as String?;
+      final transactionId = paymentSession?['transactionId'] as String?;
+      if (isOnline && paymentUrl != null && transactionId != null && mounted) {
+        paymentResult = await PaymentWebViewScreen.launch(
+          context,
+          paymentUrl: paymentUrl,
+          transactionId: transactionId,
+        );
+      }
+      if (!mounted) return;
+
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -119,14 +133,28 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           title: Row(
             children: [
               Icon(
-                isOnline ? Icons.payment_rounded : Icons.check_circle_rounded,
-                color: isOnline ? AppColors.primary : AppColors.secondary,
+                isOnline && paymentResult != PaymentWebViewResult.paid
+                    ? Icons.schedule_rounded
+                    : isOnline
+                        ? Icons.verified_rounded
+                        : Icons.check_circle_rounded,
+                color: isOnline && paymentResult != PaymentWebViewResult.paid
+                    ? AppColors.warning
+                    : isOnline
+                        ? AppColors.primary
+                        : AppColors.secondary,
                 size: 28,
               ),
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                isOnline ? 'Online Payment Session' : 'Order Confirmed!',
-                style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w900),
+              Expanded(
+                child: Text(
+                  isOnline && paymentResult != PaymentWebViewResult.paid
+                      ? 'Order Placed — Payment Pending'
+                      : isOnline
+                          ? 'Payment Confirmed!'
+                          : 'Order Confirmed!',
+                  style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w900),
+                ),
               ),
             ],
           ),

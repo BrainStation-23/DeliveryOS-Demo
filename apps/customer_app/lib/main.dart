@@ -4,15 +4,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/constants/app_colors.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/localization/language_provider.dart';
+import 'core/notifications/push_notification_service.dart';
 import 'core/storage/local_storage.dart';
 import 'features/auth/domain/user_model.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/home/presentation/home_screen.dart';
 import 'features/splash/presentation/splash_screen.dart';
+import 'features/tracking/presentation/order_tracking_screen.dart';
 
-void main() async {
+final GlobalKey<NavigatorState> customerNavigatorKey = GlobalKey<NavigatorState>();
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final localStorage = await LocalStorage.init();
+
+  await PushNotificationService(localStorage).initialize();
+
+  // Notification taps surface in-app: subscribe the home shell once it mounts
+  orderNotificationTaps.stream.listen((orderId) {
+    final navigator = customerNavigatorKey.currentState;
+    if (navigator != null) {
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => OrderTrackingScreen(orderId: orderId, orderNumber: ''),
+        ),
+      );
+    }
+  });
 
   runApp(
     ProviderScope(
@@ -46,6 +64,7 @@ class _CustomerAppState extends ConsumerState<CustomerApp> {
     final authState = ref.watch(authProvider);
 
     return MaterialApp(
+      navigatorKey: customerNavigatorKey,
       title: 'DeliveryOS',
       debugShowCheckedModeBanner: false,
       locale: currentLocale,

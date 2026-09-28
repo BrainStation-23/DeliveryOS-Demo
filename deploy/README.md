@@ -10,7 +10,7 @@ Create a `.env` next to the compose files (see repo-root `.env.example` as the b
 |---|---|
 | `DB_PASSWORD`, `REDIS_PASSWORD` | Strong, generated passwords (e.g. `openssl rand -hex 24`) |
 | `JWT_SECRET`, `JWT_REFRESH_SECRET` | Minimum 32 characters each |
-| `SMS_PROVIDER` | Real provider id (e.g. `ssl_wireless`, `twilio`); `mock` is rejected in production |
+| `SMS_PROVIDER` | `ssl_wireless` (SMS Plus v3); `mock` is rejected in production. Needs `SMS_SSLW_API_TOKEN` + `SMS_SSLW_SID` |
 | `DOMAIN` | TLS hostname, e.g. `api.deliveryos.example.com` |
 | `ACME_EMAIL` | Let's Encrypt account email |
 | `CORS_ORIGINS` | Defaults to `https://$DOMAIN`; add extra origins comma-separated |

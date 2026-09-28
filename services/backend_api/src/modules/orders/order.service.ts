@@ -20,6 +20,7 @@ import { TrackingGateway } from '../realtime/tracking.gateway';
 import { OrderFlowService } from '../order-flow/order-flow.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PaymentsService } from '../payments/payments.service';
 
 export interface OrderAddressSnapshot {
   type: string;
@@ -82,6 +83,7 @@ export class OrderService {
     private readonly orderFlowService: OrderFlowService,
     private readonly redis: RedisService,
     private readonly notificationsService: NotificationsService,
+    private readonly paymentsService: PaymentsService,
   ) {}
 
   /**
@@ -796,6 +798,26 @@ export class OrderService {
   ) {
     // 1. Assert state machine transition legality
     assertTransition(order.status, OrderStatus.CANCELLED);
+
+    // 2. Execute gateway refund BEFORE the DB reconciliation so a failed refund
+    //    aborts the cancellation and the operator sees the gateway error.
+    if (order.paymentStatus === PaymentStatus.PAID) {
+      const refund = await this.paymentsService.refundForOrder(order.id, reason);
+      if (refund && !refund.success) {
+        this.logger.error(
+          `Gateway refund failed for Order ${order.orderNumber}; cancellation aborted: ${JSON.stringify(refund.raw)}`,
+        );
+        throw new HttpException(
+          {
+            success: false,
+            statusCode: HttpStatus.BAD_GATEWAY,
+            error: 'REFUND_FAILED',
+            message: 'Payment refund failed at the gateway. The order was NOT cancelled; retry or reconcile manually.',
+          },
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+    }
 
     const riderIdToRelease = order.riderId;
     const riderUserId = order.rider?.userId;

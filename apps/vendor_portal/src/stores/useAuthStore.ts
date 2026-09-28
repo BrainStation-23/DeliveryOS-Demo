@@ -1,10 +1,9 @@
 import { create } from 'zustand';
-import apiClient from '../services/apiClient';
+import apiClient, { VENDOR_TOKEN_KEY, VENDOR_REFRESH_KEY, VENDOR_USER_KEY, ensureFreshToken, isTokenExpired } from '../services/apiClient';
 import { User, UserRole, PermissionScope } from '../types/auth';
 import { connectSocket, disconnectSocket } from '../services/socket';
 
-export const VENDOR_TOKEN_KEY = 'deliveryos_vendor_token';
-export const VENDOR_USER_KEY = 'deliveryos_vendor_user';
+export { VENDOR_TOKEN_KEY, VENDOR_USER_KEY };
 
 const getInitialVendorToken = (): string | null => {
   try {
@@ -45,9 +44,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize: () => {
     const { token, user } = get();
-    if (token && user) {
-      connectSocket();
+    if (!token || !user) return;
+
+    if (isTokenExpired(token)) {
+      // Access token expired: rotate silently or end the session
+      ensureFreshToken()
+        .then((fresh) => {
+          if (fresh) {
+            set({ token: fresh });
+            connectSocket();
+          } else {
+            get().logout();
+          }
+        })
+        .catch(() => get().logout());
+      return;
     }
+
+    connectSocket();
   },
 
   login: async (phone: string, password: string) => {
@@ -60,6 +74,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       const payload = response.data?.data || response.data;
       const accessToken = payload.accessToken || payload.token;
+      const refreshToken = payload.refreshToken;
       const userData = payload.user;
 
       if (!accessToken || !userData) {
@@ -101,6 +116,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       };
 
       localStorage.setItem(VENDOR_TOKEN_KEY, accessToken);
+      if (refreshToken) {
+        localStorage.setItem(VENDOR_REFRESH_KEY, refreshToken);
+      }
       localStorage.setItem(VENDOR_USER_KEY, JSON.stringify(formattedUser));
 
       set({
@@ -120,7 +138,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: () => {
+    const refreshToken = localStorage.getItem(VENDOR_REFRESH_KEY);
+    if (refreshToken) {
+      // Revoke server-side; fire-and-forget so logout is instant
+      apiClient.post('/api/v1/auth/logout', { refreshToken }).catch(() => undefined);
+    }
     localStorage.removeItem(VENDOR_TOKEN_KEY);
+    localStorage.removeItem(VENDOR_REFRESH_KEY);
     localStorage.removeItem(VENDOR_USER_KEY);
     disconnectSocket();
     set({

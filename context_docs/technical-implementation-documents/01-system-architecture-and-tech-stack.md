@@ -38,7 +38,7 @@ graph TD
     subgraph ExternalServices["External Providers"]
         GMAPS["Google Maps Platform<br/>Places & Reverse Geocoding"]
         FCM["Firebase Cloud Messaging<br/>Push Notifications"]
-        SMS["SMS Gateway (Twilio / Local)<br/>OTP Verification"]
+        SMS["SMS Gateway (SSL Wireless / Local)<br/>OTP Verification"]
         PAY["Payment Gateways<br/>bKash / Moyasar / Stripe"]
     end
 

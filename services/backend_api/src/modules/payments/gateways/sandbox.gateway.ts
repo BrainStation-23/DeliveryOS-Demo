@@ -5,6 +5,8 @@ import {
   IPaymentGateway,
   PaymentInitiationParams,
   PaymentInitiationResult,
+  RefundParams,
+  RefundResult,
   WebhookValidationResult,
 } from '../interfaces/payment-gateway.interface';
 
@@ -67,4 +69,11 @@ export class SandboxGatewayAdapter implements IPaymentGateway {
     this.logger.log(`[SANDBOX] Querying status for ${transactionId}`);
     return PaymentStatus.PAID;
   }
+
+  async refund(params: RefundParams): Promise<RefundResult> {
+    const refundId = `SND-REF-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    this.logger.log(`[SANDBOX] Simulated refund of ${params.amount} for Trx ${params.transactionId} (Ref: ${refundId})`);
+    return { success: true, refundId, raw: { simulated: true, refund_ref_id: refundId } };
+  }
 }
+

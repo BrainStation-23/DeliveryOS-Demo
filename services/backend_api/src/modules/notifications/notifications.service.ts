@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import type { Messaging } from 'firebase-admin/messaging';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RegisterDeviceTokenDto } from './dto/register-device-token.dto';
 import { UserRole } from '@prisma/client';
@@ -10,26 +11,38 @@ export interface PushNotificationPayload {
 }
 
 @Injectable()
-export class NotificationsService {
+export class NotificationsService implements OnModuleInit {
   private readonly logger = new Logger(NotificationsService.name);
-  private firebaseInitialized = false;
+  private firebaseMessaging: Messaging | null = null;
 
-  constructor(private readonly prisma: PrismaService) {
-    this.initializeFirebase();
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
-  private initializeFirebase(): void {
+  /**
+   * Initialize Firebase Admin from a service-account JSON (inline env var or file
+   * path). Without it, the service degrades to structured log-only dispatch so
+   * local development does not require Firebase credentials.
+   */
+  async onModuleInit(): Promise<void> {
+    const inlineJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     const credsPath = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (credsPath) {
-      try {
-        // Dynamic import to avoid hard crash if firebase-admin package is optional in dev
-        this.logger.log(`Initializing Firebase Admin from service account at ${credsPath}`);
-        this.firebaseInitialized = true;
-      } catch (err) {
-        this.logger.warn(`Failed to initialize Firebase Admin: ${(err as Error).message}. Falling back to dev logger.`);
+    if (!inlineJson && !credsPath) {
+      this.logger.warn('FIREBASE_SERVICE_ACCOUNT_JSON not configured. Push notifications are log-only.');
+      return;
+    }
+
+    try {
+      const { getApps, initializeApp, cert } = await import('firebase-admin/app');
+      const { getMessaging } = await import('firebase-admin/messaging');
+      if (!getApps().length) {
+        initializeApp({
+          credential: cert(credsPath ? credsPath : JSON.parse(inlineJson as string)),
+        });
+        this.logger.log('Firebase Admin initialized — FCM push is live.');
       }
-    } else {
-      this.logger.log('FIREBASE_SERVICE_ACCOUNT not configured. Push notifications will be dispatched via structured console logger.');
+      this.firebaseMessaging = getMessaging();
+    } catch (err) {
+      this.logger.error(`Firebase Admin init failed: ${(err as Error).message}. Push notifications are log-only.`);
+      this.firebaseMessaging = null;
     }
   }
 
@@ -105,21 +118,31 @@ export class NotificationsService {
   }
 
   /**
-   * Low-level dispatcher: real FCM or structured fallback
+   * Low-level dispatcher: real FCM multicast when Firebase is configured,
+   * structured log-only otherwise (development).
    */
   private async dispatchPush(tokens: string[], payload: PushNotificationPayload): Promise<boolean> {
     this.logger.log(
       `[Push Notification] Dispatched to ${tokens.length} target(s) | Title: "${payload.title}" | Body: "${payload.body}" | Data: ${JSON.stringify(payload.data || {})}`,
     );
 
-    if (!this.firebaseInitialized) {
+    if (!this.firebaseMessaging) {
       return true;
     }
 
     try {
-      // In production with Firebase Admin initialized:
-      // await admin.messaging().sendEachForMulticast({ tokens, notification: { title: payload.title, body: payload.body }, data: payload.data });
-      return true;
+      const response = await this.firebaseMessaging.sendEachForMulticast({
+        tokens,
+        notification: { title: payload.title, body: payload.body },
+        data: payload.data || {},
+        android: { priority: 'high' },
+      });
+      if (response.failureCount > 0) {
+        this.logger.warn(
+          `FCM dispatch partial failure: ${response.failureCount}/${tokens.length} failed (first: ${response.responses.find((r) => !r.success)?.error?.message})`,
+        );
+      }
+      return response.successCount > 0;
     } catch (err) {
       this.logger.error(`Error sending push notification via Firebase: ${(err as Error).message}`);
       return false;

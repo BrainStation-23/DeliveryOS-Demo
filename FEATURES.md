@@ -374,6 +374,14 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Observability**: Structured JSON logging (winston) with `x-request-id` correlation middleware; global exception filter logs stack traces with request context; graceful shutdown hooks; `prisma migrate deploy` on container start.
 - **Non-Root Containers**: Backend runs as `node`; portals use `nginxinc/nginx-unprivileged` on port 8080; production edge terminates TLS via Let's Encrypt with certbot auto-renewal (`deploy/README.md`).
 
+### 6.8. Real-World Integration Stack
+- **Auth Lifecycle**: Rotating refresh tokens (`POST /auth/refresh`, Redis jti revocation store, 15-minute access TTL), server-side logout, 5-attempt OTP verification lockout, 2-minute OTP lifetime ([ADR-013](context_docs/architecture-decision-records/ADR-013-real-world-integration-stack.md)).
+- **SMS Provider**: `ssl_wireless` (SMS Plus v3) live transport selected via `SMS_PROVIDER`; mock transport is dev-only.
+- **SSLCommerz Gateway**: real Session API initiation, server-to-server webhook verification (Order Validation / TrxID APIs), Refund API execution on cancellation with `payments.refund_id` persistence; atomic `PENDING→PAID` claim inside the webhook transaction blocks concurrent replay side effects.
+- **FCM Push**: lazy `firebase-admin` init (log-only fallback without credentials), multicast delivery for dispatch broadcast, rider assignment, payment verification, and order status changes; device-token registration from both mobile apps.
+- **Client Token Storage**: `flutter_secure_storage` (Keystore/Keychain) with plaintext migration in both apps; single-flight 401 refresh-and-replay interceptors in both portals and both apps.
+- **Background Telemetry**: rider foreground service keeps GPS streaming while backgrounded; synthetic-coordinate fallback removed; HTTP sync throttled to 30s; lifecycle-aware socket reconnect.
+
 ---
 
 ## 7. Data Persistence & Spatial Storage Engine

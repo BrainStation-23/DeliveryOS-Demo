@@ -24,6 +24,7 @@ Because DeliveryOS development is **AI-driven**, this ADR framework serves as a 
 | **[ADR-010](./ADR-010-ai-driven-engineering-governance-and-no-auto-commits.md)** | Autonomous AI Engineering Governance, Type Invariants & Version Control Boundaries | **Accepted** | 2026-09-22 | AI Governance / Quality Invariants |
 | **[ADR-011](./ADR-011-multi-gateway-online-payment-and-webhook-idempotency.md)** | Multi-Gateway Online Payment Architecture, Webhook Idempotency & Payment-Gated Order Dispatch | **Accepted** | 2026-09-24 | Payments / State Machine / Settlement |
 | **[ADR-012](./ADR-012-production-security-hardening-and-fail-fast-config.md)** | Production Security Hardening — Fail-Fast Configuration, Rate Limiting & Authenticated Realtime Rooms | **Accepted** | 2026-09-28 | Security / Ingress / Observability |
+| **[ADR-013](./ADR-013-real-world-integration-stack.md)** | Real-World Integration Stack — SMS, SSLCommerz, FCM Push, Token Rotation & Background Telemetry | **Accepted** | 2026-09-28 | Integrations / Auth / Mobile |
 
 ---
 

@@ -26,6 +26,19 @@ export interface WebhookValidationResult {
   rawResponse: Record<string, unknown>;
 }
 
+export interface RefundParams {
+  transactionId: string;
+  bankTranId?: string | null;
+  amount: number;
+  remarks?: string;
+}
+
+export interface RefundResult {
+  success: boolean;
+  refundId: string | null;
+  raw: Record<string, unknown>;
+}
+
 export interface IPaymentGateway {
   readonly name: string;
   initiatePayment(params: PaymentInitiationParams): Promise<PaymentInitiationResult>;
@@ -34,4 +47,5 @@ export interface IPaymentGateway {
     headers: Record<string, string>,
   ): Promise<WebhookValidationResult>;
   queryTransaction(transactionId: string): Promise<PaymentStatus>;
+  refund(params: RefundParams): Promise<RefundResult>;
 }

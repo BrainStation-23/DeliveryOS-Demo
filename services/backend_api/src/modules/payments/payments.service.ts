@@ -13,11 +13,10 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { OrderFlowService } from '../order-flow/order-flow.service';
 import { TrackingGateway } from '../realtime/tracking.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
-import { BkashGatewayAdapter } from './gateways/bkash.gateway';
 import { SslCommerzGatewayAdapter } from './gateways/sslcommerz.gateway';
 import { SandboxGatewayAdapter } from './gateways/sandbox.gateway';
 import { InitiatePaymentDto, SupportedPaymentGateway } from './dto/initiate-payment.dto';
-import { IPaymentGateway } from './interfaces/payment-gateway.interface';
+import { IPaymentGateway, RefundResult } from './interfaces/payment-gateway.interface';
 
 @Injectable()
 export class PaymentsService implements OnModuleInit, OnModuleDestroy {
@@ -29,7 +28,6 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     private readonly orderFlowService: OrderFlowService,
     private readonly trackingGateway: TrackingGateway,
     private readonly notificationsService: NotificationsService,
-    private readonly bkashGateway: BkashGatewayAdapter,
     private readonly sslcommerzGateway: SslCommerzGatewayAdapter,
     private readonly sandboxGateway: SandboxGatewayAdapter,
   ) {}
@@ -53,8 +51,6 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
   private getGatewayAdapter(gateway: string): IPaymentGateway {
     switch (gateway.toUpperCase()) {
-      case SupportedPaymentGateway.BKASH:
-        return this.bkashGateway;
       case SupportedPaymentGateway.SSLCOMMERZ:
         return this.sslcommerzGateway;
       case SupportedPaymentGateway.SANDBOX:
@@ -155,36 +151,28 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       throw new UnauthorizedException('Invalid payment signature or tamper detected');
     }
 
-    // Locate matching payment record
-    const payment = await this.prisma.payment.findFirst({
-      where: {
-        OR: [
-          ...(validation.transactionId ? [{ transactionId: validation.transactionId }] : []),
-          ...(validation.orderId ? [{ orderId: validation.orderId }] : []),
-        ],
-      },
-      include: {
-        order: { select: { id: true, orderNumber: true, customerId: true, paymentStatus: true } },
-      },
-    });
+    // Atomic idempotency: locate the payment and claim the PENDING→PAID/FAILED
+    // transition inside a single guarded update so concurrent webhook replays
+    // cannot double-run side effects.
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findFirst({
+        where: {
+          OR: [
+            ...(validation.transactionId ? [{ transactionId: validation.transactionId }] : []),
+            ...(validation.orderId ? [{ orderId: validation.orderId }] : []),
+          ],
+        },
+        include: {
+          order: { select: { id: true, orderNumber: true, customerId: true, paymentStatus: true } },
+        },
+      });
 
-    if (!payment) {
-      this.logger.warn(
-        `Webhook received for unknown payment: Trx=${validation.transactionId}, Order=${validation.orderId}`,
-      );
-      throw new NotFoundException('No matching payment transaction found');
-    }
+      if (!payment) {
+        return { payment: null as typeof payment, alreadyProcessed: false };
+      }
 
-    // Idempotent guard
-    if (payment.status === PaymentStatus.PAID) {
-      this.logger.log(`Payment ${payment.transactionId} already confirmed as PAID. Skipping duplicate processing.`);
-      return { success: true, message: 'Payment already processed', transactionId: payment.transactionId };
-    }
-
-    // Atomic database update
-    await this.prisma.$transaction(async (tx) => {
-      await tx.payment.update({
-        where: { id: payment.id },
+      const claimed = await tx.payment.updateMany({
+        where: { id: payment.id, status: PaymentStatus.PENDING },
         data: {
           status: validation.status,
           gatewayResponse: validation.rawResponse as Prisma.InputJsonValue,
@@ -193,13 +181,37 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         },
       });
 
+      if (claimed.count === 0) {
+        return { payment, alreadyProcessed: true };
+      }
+
       if (validation.status === PaymentStatus.PAID) {
         await tx.order.update({
           where: { id: payment.orderId },
           data: { paymentStatus: PaymentStatus.PAID },
         });
       }
+
+      return { payment, alreadyProcessed: false };
     });
+
+    if (!outcome.payment) {
+      this.logger.warn(
+        `Webhook received for unknown payment: Trx=${validation.transactionId}, Order=${validation.orderId}`,
+      );
+      throw new NotFoundException('No matching payment transaction found');
+    }
+
+    if (outcome.alreadyProcessed) {
+      this.logger.log(`Payment ${outcome.payment.transactionId} already processed. Skipping duplicate webhook.`);
+      return {
+        success: true,
+        message: 'Payment already processed',
+        transactionId: outcome.payment.transactionId,
+      };
+    }
+
+    const payment = outcome.payment;
 
     if (validation.status === PaymentStatus.PAID) {
       this.logger.log(`Payment confirmed PAID for Order ${payment.order.orderNumber} (Trx: ${payment.transactionId})`);
@@ -265,7 +277,50 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 4. Sweep Expired Unpaid Online Orders (> 15 minutes)
+   * 4. Execute gateway refund for a PAID payment (cancellation reconciliation)
+   */
+  async refundForOrder(orderId: string, remarks?: string): Promise<RefundResult | null> {
+    const payment = await this.prisma.payment.findFirst({
+      where: { orderId, status: PaymentStatus.PAID },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!payment) {
+      return null;
+    }
+
+    const adapter = this.getGatewayAdapter(payment.gateway);
+    const gatewayResponse = (payment.gatewayResponse ?? {}) as {
+      bank_tran_id?: string;
+      val_id?: string;
+      refund?: Record<string, unknown>;
+    };
+
+    const result: RefundResult = await adapter.refund({
+      transactionId: payment.transactionId || '',
+      bankTranId: gatewayResponse.bank_tran_id || gatewayResponse.val_id || null,
+      amount: Number(payment.amount),
+      remarks: remarks || `DeliveryOS refund for transaction ${payment.transactionId}`,
+    });
+
+    if (result.success) {
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          refundId: result.refundId,
+          refundedAt: new Date(),
+          gatewayResponse: { ...gatewayResponse, refund: result.raw } as Prisma.InputJsonValue,
+        },
+      });
+      this.logger.log(`Refund executed for Order ${orderId} (Ref: ${result.refundId})`);
+    } else {
+      this.logger.error(`Refund FAILED for Order ${orderId}: ${JSON.stringify(result.raw)}`);
+    }
+
+    return result;
+  }
+
+  /**
+   * 5. Sweep Expired Unpaid Online Orders (> 15 minutes)
    */
   async sweepExpiredPayments() {
     const cutoff = new Date(Date.now() - 15 * 60 * 1000);

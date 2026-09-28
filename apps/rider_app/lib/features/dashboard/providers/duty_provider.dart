@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/network/socket_service.dart';
+import '../../../core/services/background_location_service.dart';
 import '../../../core/storage/local_storage.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -12,6 +13,8 @@ import '../domain/duty_models.dart';
 class RiderDutyNotifier extends Notifier<RiderDutyState> {
   Timer? _beaconTimer;
   StreamSubscription<Position>? _positionSubscription;
+  StreamSubscription<Map<String, dynamic>>? _backgroundLocationSubscription;
+  DateTime? _lastHttpSync;
 
   @override
   RiderDutyState build() {
@@ -108,6 +111,8 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
 
     if (targetState) {
       _startGpsBeaconing();
+      await BackgroundLocationService.start();
+      _bindBackgroundLocationStream();
       state = state.copyWith(
         isOnline: true,
         isBeaconing: true,
@@ -116,6 +121,7 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
       );
     } else {
       stopBeaconing();
+      await BackgroundLocationService.stop();
       state = state.copyWith(
         isOnline: false,
         isBeaconing: false,
@@ -126,6 +132,33 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
     }
 
     return true;
+  }
+
+  /// Foreground-service fixes (phone pocketed / screen off) flow through the
+  /// same telemetry path as the in-app position stream.
+  void _bindBackgroundLocationStream() {
+    if (_backgroundLocationSubscription != null) return;
+    try {
+      _backgroundLocationSubscription =
+          BackgroundLocationService.locationUpdates.listen((fix) {
+        if (!state.isOnline) return;
+        final latitude = (fix['latitude'] as num?)?.toDouble();
+        final longitude = (fix['longitude'] as num?)?.toDouble();
+        final speed = (fix['speed'] as num?)?.toDouble() ?? 0.0;
+        if (latitude == null || longitude == null) return;
+        state = state.copyWith(
+          latitude: latitude,
+          longitude: longitude,
+          speed: speed,
+          bearing: (fix['bearing'] as num?)?.toDouble() ?? state.bearing,
+          lastBeaconTimestamp: DateTime.now(),
+          isBeaconing: true,
+        );
+        _dispatchTelemetryToBackend(latitude, longitude, speed);
+      });
+    } catch (_) {
+      // Background service unsupported (e.g. tests / non-mobile) — skip
+    }
   }
 
   void _startGpsBeaconing() {
@@ -151,38 +184,20 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
           );
           _dispatchTelemetryToBackend(position.latitude, position.longitude, position.speed);
         },
-        onError: (_) {
-          _startFallbackBeaconTimer();
+        onError: (error) {
+          // Never fabricate coordinates: surface the GPS failure instead
+          state = state.copyWith(
+            isBeaconing: false,
+            statusMessage: 'GPS signal unavailable — check location settings',
+          );
         },
       );
     } catch (_) {
-      _startFallbackBeaconTimer();
-    }
-  }
-
-  void _startFallbackBeaconTimer() {
-    _beaconTimer?.cancel();
-    _beaconTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!state.isOnline) {
-        _beaconTimer?.cancel();
-        return;
-      }
-
-      final newLat = 23.7925 + ((DateTime.now().second % 10) - 5) * 0.0001;
-      final newLng = 90.4078 + ((DateTime.now().second % 8) - 4) * 0.0001;
-      final speed = state.activeOrderId != null ? 28.0 : 0.0;
-
       state = state.copyWith(
-        latitude: newLat,
-        longitude: newLng,
-        speed: speed,
-        bearing: (state.bearing + 15) % 360,
-        lastBeaconTimestamp: DateTime.now(),
-        isBeaconing: true,
+        isBeaconing: false,
+        statusMessage: 'GPS unavailable — check location settings',
       );
-
-      _dispatchTelemetryToBackend(newLat, newLng, speed);
-    });
+    }
   }
 
   Future<void> _dispatchTelemetryToBackend(double lat, double lng, double speed) async {
@@ -197,17 +212,22 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
         activeOrderId: state.activeOrderId,
       );
 
-      // 2. HTTP persistent state sync
-      final dio = ref.read(dioClientProvider);
-      await dio.patch(
-        ApiConstants.toggleDuty,
-        data: {
-          'isOnline': true,
-          'latitude': lat,
-          'longitude': lng,
-          'speed': speed,
-        },
-      );
+      // 2. HTTP persistent state sync, throttled to one call per 30 seconds
+      final now = DateTime.now();
+      final lastSync = _lastHttpSync;
+      if (lastSync == null || now.difference(lastSync).inSeconds >= 30) {
+        _lastHttpSync = now;
+        final dio = ref.read(dioClientProvider);
+        await dio.patch(
+          ApiConstants.toggleDuty,
+          data: {
+            'isOnline': true,
+            'latitude': lat,
+            'longitude': lng,
+            'speed': speed,
+          },
+        );
+      }
     } catch (_) {
       // Telemetry dispatch
     }

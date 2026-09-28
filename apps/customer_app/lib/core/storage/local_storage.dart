@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LocalStorage {
@@ -10,20 +11,75 @@ class LocalStorage {
   static const String _keySavedLocation = 'saved_delivery_location';
 
   final SharedPreferences _prefs;
+  final FlutterSecureStorage _secure;
 
-  LocalStorage(this._prefs);
+  String? _accessTokenCache;
+  String? _refreshTokenCache;
+
+  LocalStorage(this._prefs, {FlutterSecureStorage? secureStorage})
+      : _secure = secureStorage ?? const FlutterSecureStorage();
 
   static Future<LocalStorage> init() async {
     final prefs = await SharedPreferences.getInstance();
-    return LocalStorage(prefs);
+    final storage = LocalStorage(prefs);
+    await storage._migrateTokensToSecureStorage();
+    return storage;
   }
 
-  String? getAccessToken() => _prefs.getString(_keyToken);
-  Future<bool> setAccessToken(String token) => _prefs.setString(_keyToken, token);
-  Future<bool> removeAccessToken() => _prefs.remove(_keyToken);
+  /// Loads tokens from Keystore/Keychain-backed storage, migrating any legacy
+  /// plaintext SharedPreferences values into secure storage and purging them.
+  Future<void> _migrateTokensToSecureStorage() async {
+    try {
+      _accessTokenCache = await _secure.read(key: _keyToken);
+      _refreshTokenCache = await _secure.read(key: _keyRefreshToken);
 
-  String? getRefreshToken() => _prefs.getString(_keyRefreshToken);
-  Future<bool> setRefreshToken(String token) => _prefs.setString(_keyRefreshToken, token);
+      final legacyAccess = _prefs.getString(_keyToken);
+      final legacyRefresh = _prefs.getString(_keyRefreshToken);
+      if (_accessTokenCache == null && legacyAccess != null) {
+        await setAccessToken(legacyAccess);
+      }
+      if (_refreshTokenCache == null && legacyRefresh != null) {
+        await setRefreshToken(legacyRefresh);
+      }
+      if (legacyAccess != null || legacyRefresh != null) {
+        await _prefs.remove(_keyToken);
+        await _prefs.remove(_keyRefreshToken);
+      }
+    } catch (_) {
+      // Platform channel unavailable (unit tests) — keep prefs-backed fallback
+      _accessTokenCache ??= _prefs.getString(_keyToken);
+      _refreshTokenCache ??= _prefs.getString(_keyRefreshToken);
+    }
+  }
+
+  String? getAccessToken() => _accessTokenCache ?? _prefs.getString(_keyToken);
+  Future<void> setAccessToken(String token) async {
+    _accessTokenCache = token;
+    try {
+      await _secure.write(key: _keyToken, value: token);
+    } catch (_) {
+      await _prefs.setString(_keyToken, token);
+    }
+  }
+
+  Future<void> removeAccessToken() async {
+    _accessTokenCache = null;
+    try {
+      await _secure.delete(key: _keyToken);
+    } catch (_) {
+      await _prefs.remove(_keyToken);
+    }
+  }
+
+  String? getRefreshToken() => _refreshTokenCache ?? _prefs.getString(_keyRefreshToken);
+  Future<void> setRefreshToken(String token) async {
+    _refreshTokenCache = token;
+    try {
+      await _secure.write(key: _keyRefreshToken, value: token);
+    } catch (_) {
+      await _prefs.setString(_keyRefreshToken, token);
+    }
+  }
 
   String getLanguage() => _prefs.getString(_keyLanguage) ?? 'en';
   Future<bool> setLanguage(String langCode) => _prefs.setString(_keyLanguage, langCode);
@@ -58,8 +114,15 @@ class LocalStorage {
       _prefs.setString(_keySavedLocation, jsonEncode(location));
 
   Future<void> clearSession() async {
-    await _prefs.remove(_keyToken);
-    await _prefs.remove(_keyRefreshToken);
+    _accessTokenCache = null;
+    _refreshTokenCache = null;
+    try {
+      await _secure.delete(key: _keyToken);
+      await _secure.delete(key: _keyRefreshToken);
+    } catch (_) {
+      await _prefs.remove(_keyToken);
+      await _prefs.remove(_keyRefreshToken);
+    }
     await _prefs.remove(_keyUser);
     await _prefs.setBool(_keyIsGuest, false);
   }

@@ -302,7 +302,7 @@ class CartNotifier extends Notifier<CartState> {
               ApiConstants.initiatePayment,
               data: {
                 'orderId': orderId,
-                'gateway': 'SANDBOX',
+                'gateway': ApiConstants.paymentGateway,
               },
             );
             if (payRes.statusCode == 200 || payRes.statusCode == 201) {
