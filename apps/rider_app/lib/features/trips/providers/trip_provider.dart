@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/constants/map_defaults.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
@@ -62,20 +63,23 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
         final data = payload['data'] is Map<String, dynamic>
             ? payload['data'] as Map<String, dynamic>
             : payload;
+        // Contact details and precise coordinates are unknown at broadcast
+        // time — they are hydrated from the claim response. Empty phones keep
+        // the call buttons disabled instead of dialing a fake number.
         final store = TripStoreMeta(
           id: data['vendorId']?.toString() ?? 'store-01',
           name: data['vendorName']?.toString() ?? 'Restaurant',
           address: data['vendorAddress']?.toString() ?? 'Dhaka',
-          phone: '+8801700000001',
-          latitude: 23.7925,
-          longitude: 90.4078,
+          phone: '',
+          latitude: MapDefaults.centerLatitude,
+          longitude: MapDefaults.centerLongitude,
         );
         final customer = TripCustomerMeta(
           name: 'Customer',
           address: data['deliveryArea']?.toString() ?? 'Delivery Address',
-          phone: '+8801700000005',
-          latitude: 23.7940,
-          longitude: 90.4030,
+          phone: '',
+          latitude: MapDefaults.centerLatitude,
+          longitude: MapDefaults.centerLongitude,
         );
         final trip = TripOrder(
           id: data['orderId']?.toString() ?? '',
@@ -183,6 +187,7 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
 
     state = state.copyWith(isClaiming: true, clearError: true);
 
+    Map<String, dynamic> claimedPayload = {};
     try {
       final dio = ref.read(dioClientProvider);
       final response = await dio.post('${ApiConstants.claimOrder}/${trip.id}/claim');
@@ -193,6 +198,7 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
         );
         return false;
       }
+      claimedPayload = response.data['data'] as Map<String, dynamic>? ?? {};
     } catch (e) {
       state = state.copyWith(
         isClaiming: false,
@@ -201,9 +207,29 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
       return false;
     }
 
+    // Hydrate real contact + coordinate data from the claimed order
+    final vendor = claimedPayload['vendor'] as Map<String, dynamic>? ?? {};
+    final addressSnapshot = claimedPayload['deliveryAddressSnapshot'] as Map<String, dynamic>? ?? {};
+    final hydratedStore = TripStoreMeta(
+      id: trip.store.id,
+      name: vendor['name']?.toString() ?? trip.store.name,
+      address: vendor['addressText']?.toString() ?? trip.store.address,
+      phone: vendor['contactPhone']?.toString() ?? trip.store.phone,
+      latitude: (vendor['latitude'] as num?)?.toDouble() ?? trip.store.latitude,
+      longitude: (vendor['longitude'] as num?)?.toDouble() ?? trip.store.longitude,
+    );
+    final hydratedCustomer = TripCustomerMeta(
+      name: trip.customer.name,
+      address: addressSnapshot['addressLine']?.toString() ?? trip.customer.address,
+      phone: claimedPayload['customerPhoneSnapshot']?.toString() ?? trip.customer.phone,
+      latitude: (addressSnapshot['latitude'] as num?)?.toDouble() ?? trip.customer.latitude,
+      longitude: (addressSnapshot['longitude'] as num?)?.toDouble() ?? trip.customer.longitude,
+    );
     final claimedTrip = trip.copyWith(
       currentStep: TripStep.pickup,
       status: 'RIDER_ASSIGNED',
+      store: hydratedStore,
+      customer: hydratedCustomer,
     );
 
     // Join order room for real-time lifecycle and cancellation events

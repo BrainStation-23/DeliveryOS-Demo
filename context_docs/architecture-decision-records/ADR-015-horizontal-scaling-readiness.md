@@ -38,6 +38,5 @@ Launch traffic fits one replica, but a flash sale or rider-fleet growth must not
 - The prod compose no longer exposes stable container names — operational scripts must use `docker compose exec` / service names or set `DB_CONTAINER`.
 
 ## Related
-- [Production Readiness Plan — Wave 4](../../docs/PRODUCTION_READINESS_PLAN.md)
 - [ADR-004](./ADR-004-atomic-dispatch-claim-mutex.md) (the same Redis lock pattern now guards sweeps)
 - [ADR-012](./ADR-012-production-security-hardening-and-fail-fast-config.md) (required-`REDIS_URL` posture)

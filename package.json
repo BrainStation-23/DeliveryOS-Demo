@@ -10,11 +10,7 @@
     "verify:web": "npm run typecheck --prefix apps/admin_portal && npm run typecheck --prefix apps/vendor_portal",
     "verify:mobile": "cd apps/customer_app && flutter pub get && flutter analyze && flutter test && cd ../rider_app && flutter pub get && flutter analyze && flutter test"
   },
-  "lint-staged": {
-    "services/backend_api/**/*.ts": "npm run lint --prefix services/backend_api"
-  },
   "devDependencies": {
-    "husky": "^9.1.7",
-    "lint-staged": "^15.5.0"
+    "husky": "^9.1.7"
   }
 }

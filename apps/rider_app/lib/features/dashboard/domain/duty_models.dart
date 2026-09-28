@@ -1,3 +1,5 @@
+import '../../../core/constants/map_defaults.dart';
+
 class RiderCompletedTrip {
   final String orderId;
   final String orderNumber;
@@ -46,8 +48,8 @@ class RiderDutyState {
   RiderDutyState({
     this.isOnline = false,
     this.isBeaconing = false,
-    this.latitude = 23.7925,
-    this.longitude = 90.4078,
+    this.latitude = MapDefaults.centerLatitude,
+    this.longitude = MapDefaults.centerLongitude,
     this.speed = 0.0,
     this.bearing = 0.0,
     this.todayTrips = 0,

@@ -82,7 +82,7 @@ class PickupStepCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   OutlinedButton.icon(
-                    onPressed: () => makeDirectPhoneCall(trip.store.phone),
+                    onPressed: trip.store.phone.isEmpty ? null : () => makeDirectPhoneCall(trip.store.phone),
                     icon: const Icon(Icons.phone_rounded, size: 18),
                     label: Text(
                       'Call Store',

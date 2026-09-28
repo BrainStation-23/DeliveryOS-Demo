@@ -6,7 +6,7 @@
 ---
 
 ## Context & Problem Statement
-Wave 2 of the [Production Readiness Plan](../../docs/PRODUCTION_READINESS_PLAN.md) found that the platform's three load-bearing external loops were simulated:
+The production-readiness hardening effort (2026-09) found that the platform's three load-bearing external loops were simulated:
 
 1. **Authentication had no lifecycle**: refresh tokens were issued but never usable (no `/auth/refresh`), access tokens lived for 7 days, and mobile clients stored them in plaintext `SharedPreferences`.
 2. **Payments were fabricated end-to-end**: the SSLCommerz adapter invented transaction IDs and payment URLs, its webhook "verification" was a homemade MD5 that did not match the gateway's real scheme, and concurrent IPN replays could double-run side effects. Cancelling a PAID order only flipped a DB flag — no money ever moved.
@@ -61,6 +61,5 @@ Wave 2 of the [Production Readiness Plan](../../docs/PRODUCTION_READINESS_PLAN.m
 - Flutter unit tests skip platform channels (secure storage and background service degrade to in-memory/no-op paths).
 
 ## Related
-- [Production Readiness Plan — Wave 2](../../docs/PRODUCTION_READINESS_PLAN.md)
 - [ADR-011](./ADR-011-multi-gateway-online-payment-and-webhook-idempotency.md) (payment-gated dispatch invariant, now backed by a real gateway)
 - [ADR-012](./ADR-012-production-security-hardening-and-fail-fast-config.md) (fail-closed webhook posture)

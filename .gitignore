@@ -58,5 +58,6 @@ pnpm-debug.log*
 **/android/app/*.jks
 **/android/app/*.keystore
 
-# Operator-local working document (kept out of the repo by decision)
-docs/PRODUCTION_READINESS_PLAN.md
+
+# ZCode tooling config (local)
+.zcodeignore

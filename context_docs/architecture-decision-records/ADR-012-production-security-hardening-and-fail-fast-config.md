@@ -6,7 +6,7 @@
 ---
 
 ## Context & Problem Statement
-Wave 1 of the [Production Readiness Plan](../../docs/PRODUCTION_READINESS_PLAN.md) identified security gaps that made the platform unsafe for real traffic:
+The production-readiness hardening effort (2026-09) identified security gaps that made the platform unsafe for real traffic:
 
 1. **Forgeable credentials**: JWT secrets had hardcoded fallbacks in three code paths and as Docker Compose defaults, allowing anyone with repo access to mint admin tokens.
 2. **Fail-open webhooks**: Payment adapters accepted literal bypass signatures (`test-signature`, `sandbox-bypass-valid`) and treated missing gateway credentials as "skip verification" — any unsigned webhook could mark orders `PAID`.
@@ -57,6 +57,5 @@ Wave 1 of the [Production Readiness Plan](../../docs/PRODUCTION_READINESS_PLAN.m
 - Non-root nginx portals changed their internal port to 8080 (compose healthchecks and edge upstreams updated together).
 
 ## Related
-- [Production Readiness Plan — Wave 1](../../docs/PRODUCTION_READINESS_PLAN.md)
 - [ADR-011](./ADR-011-multi-gateway-online-payment-and-webhook-idempotency.md) (webhook verification now fail-closed)
 - [ADR-005](./ADR-005-micro-frontends-and-subpath-routing.md) (edge routing now TLS-terminated)

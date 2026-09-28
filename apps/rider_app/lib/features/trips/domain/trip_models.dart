@@ -1,3 +1,5 @@
+import '../../../core/constants/map_defaults.dart';
+
 enum TripStep {
   accept, // Step 0: Broadcast alert
   pickup, // Step 1: Claimed, navigating to store to pick up food
@@ -61,8 +63,8 @@ class TripStoreMeta {
       name: "Sultan's Dine - Banani",
       address: 'House 42, Road 11, Block D, Banani, Dhaka',
       phone: '+8801711223344',
-      latitude: 23.7925,
-      longitude: 90.4078,
+      latitude: MapDefaults.centerLatitude,
+      longitude: MapDefaults.centerLongitude,
       instructions: 'Enter via side gate; collect from designated DeliveryOS counter.',
     );
   }
@@ -89,9 +91,9 @@ class TripCustomerMeta {
     return TripCustomerMeta(
       name: 'Tanvir Ahmed',
       address: 'House 14, Road 7, Block F, Banani, Dhaka',
-      phone: '+8801700000005',
-      latitude: 23.7940,
-      longitude: 90.4030,
+      phone: '',
+      latitude: MapDefaults.centerLatitude,
+      longitude: MapDefaults.centerLongitude,
       deliveryNotes: 'Lift to 4th floor, Flat 4B. Ring doorbell twice.',
     );
   }
@@ -132,13 +134,13 @@ class TripOrder {
     double? payout,
     bool? isCod,
     double? totalAmount,
+    TripStoreMeta? store,
+    TripCustomerMeta? customer,
   }) {
     return TripOrder(
       id: id,
       orderNumber: orderNumber,
       status: status ?? this.status,
-      store: store,
-      customer: customer,
       itemsCount: itemsCount,
       itemsSummary: itemsSummary,
       isCod: isCod ?? this.isCod,
@@ -146,6 +148,8 @@ class TripOrder {
       payout: payout ?? this.payout,
       distanceKm: distanceKm,
       currentStep: currentStep ?? this.currentStep,
+      store: store ?? this.store,
+      customer: customer ?? this.customer,
     );
   }
 
@@ -161,16 +165,16 @@ class TripOrder {
         id: storeRaw['id'] as String? ?? 'store-01',
         name: storeRaw['name'] as String? ?? "Sultan's Dine",
         address: storeRaw['address'] as String? ?? 'Banani, Dhaka',
-        phone: storeRaw['phone'] as String? ?? '+8801711223344',
-        latitude: (storeRaw['latitude'] as num?)?.toDouble() ?? 23.7925,
-        longitude: (storeRaw['longitude'] as num?)?.toDouble() ?? 90.4078,
+        phone: storeRaw['phone'] as String? ?? '',
+        latitude: (storeRaw['latitude'] as num?)?.toDouble() ?? MapDefaults.centerLatitude,
+        longitude: (storeRaw['longitude'] as num?)?.toDouble() ?? MapDefaults.centerLongitude,
       ),
       customer: TripCustomerMeta(
         name: json['customerName'] as String? ?? 'Customer',
         address: addressRaw['addressLine'] as String? ?? 'Banani, Dhaka',
-        phone: json['customerPhone'] as String? ?? '+8801700000005',
-        latitude: (addressRaw['latitude'] as num?)?.toDouble() ?? 23.7940,
-        longitude: (addressRaw['longitude'] as num?)?.toDouble() ?? 90.4030,
+        phone: json['customerPhone'] as String? ?? '',
+        latitude: (addressRaw['latitude'] as num?)?.toDouble() ?? MapDefaults.centerLatitude,
+        longitude: (addressRaw['longitude'] as num?)?.toDouble() ?? MapDefaults.centerLongitude,
         deliveryNotes: json['customerNotes'] as String?,
       ),
       itemsCount: (json['itemsCount'] as num?)?.toInt() ?? 2,

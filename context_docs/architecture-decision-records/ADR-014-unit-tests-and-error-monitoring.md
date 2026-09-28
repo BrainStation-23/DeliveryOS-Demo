@@ -6,7 +6,7 @@
 ---
 
 ## Context & Problem Statement
-Wave 3 of the [Production Readiness Plan](../../docs/PRODUCTION_READINESS_PLAN.md) required two capability additions that introduce new dependencies:
+The production-readiness hardening effort (2026-09) required two capability additions that introduce new dependencies:
 
 1. **Money-path unit tests**: the backend's integration suites are excellent but require a live Postgres/Redis stack, so CI could not run any backend tests. Pure-logic invariants (FSM transitions, timezone-correct operating hours, coupon limit races, webhook idempotency claims) need fast, dependency-free tests that run in every build.
 2. **Error monitoring**: structured logs and request IDs (ADR-012) help when someone is looking, but production failures in five deployable artifacts (backend, two portals, two Flutter apps) must proactively reach an operator with stack traces, release, and context.
@@ -41,5 +41,4 @@ Wave 3 of the [Production Readiness Plan](../../docs/PRODUCTION_READINESS_PLAN.m
 - Sentry without a configured DSN is inert — configuring it is an operational prerequisite for the monitoring benefit, listed in `.env.example`.
 
 ## Related
-- [Production Readiness Plan — Wave 3](../../docs/PRODUCTION_READINESS_PLAN.md)
 - [ADR-012](./ADR-012-production-security-hardening-and-fail-fast-config.md) (structured logging foundation this builds on)

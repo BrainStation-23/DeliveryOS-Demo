@@ -82,7 +82,7 @@ class DeliveryStepCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   OutlinedButton.icon(
-                    onPressed: () => makeDirectPhoneCall(trip.customer.phone),
+                    onPressed: trip.customer.phone.isEmpty ? null : () => makeDirectPhoneCall(trip.customer.phone),
                     icon: const Icon(Icons.phone_rounded, size: 18),
                     label: Text(
                       'Call Customer',
