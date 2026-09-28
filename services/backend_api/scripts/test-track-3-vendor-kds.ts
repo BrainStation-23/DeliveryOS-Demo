@@ -1,4 +1,4 @@
-import { PrismaClient, OrderStatus, PaymentMethod, PaymentStatus, UserRole } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { io, Socket } from 'socket.io-client';
 
 const API_BASE = process.env.API_BASE_URL || 'http://localhost:4000/api/v1';

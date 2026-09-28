@@ -76,6 +76,13 @@ Future<void> openNativeTurnByTurnNavigation(double lat, double lng) async {
 
 - **Foreground Telemetry Service**: Configured in `AndroidManifest.xml` via `FOREGROUND_SERVICE_LOCATION`, streaming 10-meter GPS updates via WebSockets when in the background.
 
+### 1.4 Secure Token Storage & Mobile Release Engineering (ADR-013, ADR-015)
+- **Token Security**: JWT tokens are persisted via `flutter_secure_storage` (Android Keystore / iOS Keychain) with automatic transparent migration from legacy SharedPreferences.
+- **Single-Flight Refresh Interceptor**: Intercepts 401s, executes single-flight token rotation via `POST /auth/refresh`, and replays failed queries or triggers logout.
+- **Release Signing & ProGuard**: Configured via `android/key.properties` (gitignored; debug keystore fallback for contributors) with ProGuard rules referenced.
+- **Release Packaging**: `scripts/build-android.sh` produces release Android App Bundles (AAB) with dart-define injected base URLs, Maps keys, and payment gateways (`docs/RELEASE.md`).
+- **Error Monitoring**: Sentry Flutter captures fatal errors and unhandled exceptions, wired with `--dart-define=SENTRY_DSN`.
+
 ---
 
 ## 2. React 18 SPA Architecture (Admin & Vendor Portals)
@@ -183,3 +190,8 @@ export function playOrderAlarmChime(): void {
 - Implemented in `apps/admin_portal/src/components/dispatch/LiveFleetMap.tsx`.
 - Custom `DivIcon` markers styled with Tailwind: Emerald (Idle), Sky (Delivering), Amber ($\ge 80\%$ Cash Limit), Slate (Offline).
 - Marker popups provide direct SPA navigation links (`navigate('/orders?orderNumber=...')`), preserving active WebSocket connections.
+
+### 2.4 Code Splitting & Sentry Error Boundaries (ADR-014)
+- **Route-Level Lazy Loading**: Both React SPAs employ `React.lazy` with Suspense fallbacks across all top-level routes, dramatically optimizing initial payload weight.
+- **Vendor Chunking**: Vite builds separate large third-party dependencies (`@tanstack/react-query`, `leaflet`, `lucide-react`) into standalone cacheable chunks via `manualChunks`.
+- **Error Boundaries**: Every screen is guarded by Sentry error boundaries (`@sentry/react`) wrapping fallback UI primitives and capturing unexpected runtime render exceptions with request-id context.

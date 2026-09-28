@@ -176,6 +176,12 @@ async function claimOrder(orderId: string, riderId: string, isRiderFirst: boolea
 └────────────────────────────────────────────────────────┘
 ```
 
+### 5.1 Leader-Locked Background Sweeps (ADR-015)
+To ensure background cron sweeps (unpaid payment expiry at 15 minutes, dispatch radius escalation) do not execute concurrently across scaled replicas, each cron tick acquires a short-TTL Redis distributed mutex:
+- **Payment Expiry Mutex**: `SET lock:cron:payment-expiry 1 NX EX 25`
+- **Dispatch Escalation Mutex**: `SET lock:cron:dispatch-escalation 1 NX EX 25`
+Only the replica acquiring the mutex processes the tick, guaranteeing race-free escalation and cancellation side effects.
+
 ---
 
 ## 6. Financial Ledger Settlement & COD Offset Engine

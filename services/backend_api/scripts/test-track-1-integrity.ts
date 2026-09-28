@@ -1,4 +1,4 @@
-import { PrismaClient, OrderStatus, PaymentMethod, PaymentStatus, SettlementStatus, UserRole } from '@prisma/client';
+import { PrismaClient, OrderStatus, PaymentMethod, PaymentStatus, SettlementStatus } from '@prisma/client';
 
 const API_BASE = process.env.API_BASE_URL || 'http://localhost:4000/api/v1';
 const prisma = new PrismaClient();
@@ -205,7 +205,6 @@ async function runTrack1IntegrityTests() {
     }
 
     const orderId = validCheckout.data?.data?.orderId || validCheckout.data?.data?.id || validCheckout.data?.orderId;
-    const orderNumber = validCheckout.data?.data?.orderNumber || validCheckout.data?.orderNumber;
 
     if (!orderId) {
       throw new Error(`Order ID not found in checkout response: ${JSON.stringify(validCheckout.data)}`);
@@ -357,7 +356,7 @@ async function runTrack1IntegrityTests() {
     );
     const rejectDepositId = rejectDepositRes.data?.data?.deposit?.id;
 
-    const rejectActionRes = await requestJson(
+    await requestJson(
       `${API_BASE}/admin/finance/cash-deposits/${rejectDepositId}/verify`,
       'PATCH',
       { action: 'REJECT', notes: 'Slip number invalid' },

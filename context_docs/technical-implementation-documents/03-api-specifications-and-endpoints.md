@@ -23,17 +23,25 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 ## 2. Granular API Endpoints Catalog
 
 ### 2.1 Authentication & User Session Module (`/auth`)
-- **`POST /auth/phone-login`**
-  - *Guard*: Public (Throttled: 3 req / 15 min).
+- **`POST /auth/otp/request`**
+  - *Guard*: Public (Throttled: 5 req / min per IP).
   - *Body*: `{ "phone": "+8801700000000", "role": "CUSTOMER" }` (role: `CUSTOMER` | `RIDER` | `VENDOR_ADMIN`).
   - *Response*: `{ "referenceId": "otp-uuid" }`.
-- **`POST /auth/verify-otp`**
-  - *Guard*: Public.
+- **`POST /auth/otp/verify`**
+  - *Guard*: Public (Throttled: 30 req / min per IP; 5-attempt brute-force lockout).
   - *Body*: `{ "phone": "+8801700000000", "otp": "123456" }`.
   - *Response*: `{ "accessToken": "jwt...", "refreshToken": "jwt...", "user": { "id": "...", "phone": "...", "role": "..." } }`.
+- **`POST /auth/refresh`**
+  - *Guard*: Public (Throttled: 30 req / min).
+  - *Body*: `{ "refreshToken": "jwt..." }`.
+  - *Response*: `{ "accessToken": "jwt...", "refreshToken": "jwt..." }` (single-use rotating jti with Redis revocation store).
+- **`POST /auth/logout`**
+  - *Guard*: Public (Idempotent).
+  - *Body*: `{ "refreshToken": "jwt..." }`.
+  - *Response*: `{ "message": "Logged out successfully" }`.
 - **`GET /auth/me`**
   - *Guard*: `JwtAuthGuard`.
-  - *Response*: Hydrated user session with permissions, scopes, and profile data.
+  - *Response*: Hydrated user session with permissions, scopes, and profile data (device tokens omitted).
 - **`POST /auth/device-token`**
   - *Guard*: `JwtAuthGuard`.
   - *Body*: `{ "fcmToken": "fcm-string", "devicePlatform": "ANDROID" | "IOS" | "WEB" }`.
@@ -44,7 +52,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Response*: Array of `{ "id": "...", "title": "...", "imageUrl": "...", "linkType": "OUTLET" | "CATEGORY", "targetId": "..." }`.
 - **`GET /vendors/nearby`**
   - *Guard*: Public.
-  - *Query*: `lat` (float), `lng` (float), `vertical` (optional: `FOOD` | `GROCERY` | `SUPER_SHOP` | `PHARMACY`).
+  - *Query*: `lat` (float), `lng` (float), `vertical` (optional: `FOOD` | `GROCERY` | `SUPER_SHOP` | `PHARMACY`), `limit` (optional int: 1–100, default 50).
   - *Action*: Executes PostGIS `ST_DWithin` returning outlets where user is within `delivery_radius_km`.
 - **`GET /vendors/search`**
   - *Guard*: Public.
@@ -54,9 +62,9 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Guard*: Public.
   - *Response*: Outlet categories and active products with `isInStock = true`.
 - **`POST /vendors/validate-address-coverage`**
-  - *Guard*: `JwtAuthGuard` (`CUSTOMER`).
-  - *Body*: `{ "vendorId": "uuid", "addressId": "uuid" }`.
-  - *Response*: `{ "isWithinCoverage": true, "distanceKm": 2.4, "deliveryFee": 50.0 }`.
+  - *Guard*: Public (Throttled: 30 req / min).
+  - *Body*: `{ "vendorId": "uuid", "latitude": 23.7808, "longitude": 90.4190 }`.
+  - *Response*: `{ "isWithinCoverage": true, "distanceKm": 2.4, "deliveryFee": 50.0, "isActive": true, "isBusy": false }`.
 - **`POST /coupons/validate`**
   - *Guard*: `JwtAuthGuard` (`CUSTOMER`).
   - *Body*: `{ "code": "PILOT50", "cartSubtotal": 500.0, "vendorId": "uuid" }`.
@@ -82,7 +90,8 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Response*: `{ "isStoreOpen": true, "unavailableItemIds": [], "updatedItems": [...] }`.
 - **`GET /orders/history`**
   - *Guard*: `JwtAuthGuard` (`CUSTOMER`).
-  - *Response*: Chronological list of user's past order receipts.
+  - *Query*: `page` (int, default 1), `limit` (int, default 10).
+  - *Response*: Paginated envelope `{ "items": [...], "total": 12, "page": 1, "limit": 10, "totalPages": 2 }`.
 - **`GET /orders/:id/live-tracking`**
   - *Guard*: `JwtAuthGuard` (`CUSTOMER`).
   - *Response*: Current status, stepper step, courier coordinates (`lat`, `lng`, `bearing`), and ETA.
@@ -113,30 +122,38 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`PUT /vendor/operating-hours`**: Body `{ "operatingHours": [{ "dayOfWeek": 0, "openTime": "09:00", "closeTime": "22:00", "isClosed": false }] }`.
 - **`GET /vendor/sales?vendorId=...&dateFilter=TODAY`**: Returns sales volume, completed orders, commission, and net payable.
 
-### 2.4 Rider Fleet Operations Module (`/riders`, `/orders`)
-- **`GET /riders/profile`**: Returns courier status, vehicle, cash in hand, and max safety limit.
-- **`PATCH /riders/duty`**
-  - *Body*: `{ "isOnline": boolean, "latitude": 23.7808, "longitude": 90.4190 }`.
+### 2.4 Rider Fleet Operations Module (`/rider`)
+- **`GET /rider/profile`**: Returns courier status, vehicle, cash in hand, and max safety limit.
+- **`PATCH /rider/duty`**
+  - *Body*: `{ "isOnline": boolean }`.
   - *Invariant*: Returns `400 Bad Request` if attempting to go offline with an active delivery.
-- **`POST /riders/orders/:id/claim`**
+- **`POST /rider/orders/:id/claim`**
   - *Action*: Acquires atomic Redis mutex `SET lock:order_claim:${id} ${riderId} NX EX 10`.
   - *Success*: Assigns courier, updates status (`RIDER_ASSIGNED`), and alerts kitchen.
-- **`POST /orders/:id/pickup`**: Confirms parcel pickup at store; transitions order to `DISPATCHED`.
-- **`POST /orders/:id/deliver`**
+- **`PATCH /rider/orders/:id/pickup`**: Confirms parcel pickup at store counter; transitions order to `DISPATCHED`.
+- **`PATCH /rider/orders/:id/deliver`**
   - *Body*: `{ "codCashCollected": boolean, "amountCollected": 500.0 }`.
   - *Action*: Validates COD cash receipt, transitions order to `DELIVERED`, and updates ledgers.
-- **`POST /orders/:id/issue`**
-  - *Body*: `{ "reason": "Customer unreachable at doorstep after 5 min wait" }`.
+- **`POST /rider/orders/:id/report-issue`**
+  - *Body*: `{ "reason": "Customer unreachable at delivery address" }`.
   - *Action*: Unlocks courier, reports doorstep failure, and alerts Dispatch HQ.
-- **`GET /riders/trips?timeframe=TODAY`**: Returns completed deliveries, payout earnings, and collected cash.
-- **`POST /riders/deposit-cash`**: Body `{ "amount": 2500.0, "referenceNo": "DEP-104", "note": "Banani Hub" }`.
+- **`GET /rider/trips`**: Returns completed delivery trips, payout earnings, and collected cash.
+- **`POST /rider/cash/deposit`**: Body `{ "amount": 2500.0, "notes": "Banani Hub" }`.
+- **`GET /rider/cash/deposits`**: Returns history of submitted cash deposits.
 
 ### 2.5 Super Admin Master Governance Module (`/admin`)
+- **`POST /admin/uploads`**
+  - *Guard*: `JwtAuthGuard` + `RolesGuard` (`SUPER_ADMIN`).
+  - *Body*: `multipart/form-data` with `file` (JPEG/PNG/WebP/GIF, max 5 MB).
+  - *Response*: `{ "url": "/uploads/promo-banner.webp", "filename": "...", "size": 104857 }`.
 - **`GET /admin/overview`**: Platform KPIs (gross revenue, active orders, online fleet, pending applicants).
-- **`GET /admin/orders`**: Paginated orders monitor filterable by status, outlet, date range, or `orderNumber`.
+- **`GET /admin/fleet`**: Real-time fleet radar feed with GPS coordinates, online states, and cash safety margins.
+- **`GET /admin/orders`**
+  - *Query*: `status` (optional), `page` (int, default 1), `limit` (int, default 10).
+  - *Response*: Paginated orders `{ "items": [...], "total": 120, "page": 1, "limit": 10, "totalPages": 12 }`.
 - **`POST /admin/orders/:id/force-assign`**: Body `{ "riderId": "uuid" }` (bypasses automated dispatch).
 - **`POST /admin/orders/:id/cancel`**: Body `{ "reason": "Min 5 char audit reason" }` (reverses ledger and voids holds).
-- **`GET /admin/riders`**: Fleet list and radar feed (`approvalStatus=ALL | PENDING | APPROVED`).
+- **`GET /admin/riders`**: Fleet list (`approvalStatus=ALL | PENDING | APPROVED`, `isOnline=true|false`).
 - **`PATCH /admin/riders/:id/approval`**: Body `{ "isApproved": boolean }`.
 - **`PATCH /admin/riders/:id/cash-limit`**: Body `{ "maxCashLimit": 8000.0 }`.
 - **`GET /admin/vendors`** / **`POST /admin/vendors`** / **`PATCH /admin/vendors/:id`**: Complete vendor CRUD.
@@ -146,16 +163,23 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`PATCH /admin/settings/order-flow`**: Body `{ "mode": "RIDER_FIRST" | "VENDOR_FIRST" }`.
 - **`PATCH /admin/settings/delivery-fee`**: Body `{ "mode": "FIXED_FLAT" | "DISTANCE_TIERED", "flatRate": 50.0, ... }`.
 - **`GET /admin/finance/settlement-export?format=csv`**: Downloads RFC 4180 CSV settlement file.
-- **`POST /admin/finance/settlement-cycle`**: Triggers batch settlement cycle for pending orders.
-- **`PATCH /admin/finance/cash-deposits/:id/verify`**: Body `{ "status": "APPROVED" | "REJECTED" }`.
+- **`POST /admin/finance/settle-cycle`**: Triggers batch settlement cycle for pending orders.
+- **`GET /admin/finance/settlement-batches`**: Lists historical settlement batches.
+- **`GET /admin/finance/cash-deposits`**: Lists courier cash deposits awaiting verification.
+- **`PATCH /admin/finance/cash-deposits/:id/verify`**: Body `{ "action": "APPROVE" | "REJECT", "notes": "..." }`.
 
 ### 2.6 Payments Module (`/payments`)
-- **`POST /payments/initiate`**: Body `{ "orderId": "uuid", "gateway": "BKASH" | "MOYASAR" | "STRIPE" }`. Returns redirect URL.
-- **`POST /payments/webhook/:gateway`**: Public HMAC verified webhook endpoint. Idempotently marks payment `PAID`.
-- **`GET /payments/status/:transactionId`**: Checks status of transaction session.
+- **`POST /payments/initiate`**
+  - *Guard*: `JwtAuthGuard` (`CUSTOMER`).
+  - *Body*: `{ "orderId": "uuid", "gateway": "SSLCOMMERZ" | "SANDBOX", "redirectUrl": "..." }`.
+  - *Response*: `{ "redirectUrl": "https://sandbox.sslcommerz.com/...", "transactionId": "..." }`.
+- **`POST /payments/webhook/:gateway`**: Public HMAC verified webhook endpoint. Idempotently marks payment `PAID` via atomic update.
+- **`GET /payments/status/:transactionId`**: Checks status of transaction session (`PENDING`, `PAID`, `FAILED`).
+- **`GET /payments/callback/:gateway`**: Browser redirect return URL after payment attempt with query parameters `status` and `transactionId`.
 
-### 2.7 Saved Addresses & Utilities (`/addresses`, `/health`, `/geo`)
-- **`GET /addresses`** / **`POST /addresses`** / **`PUT /addresses/:id`** / **`DELETE /addresses/:id`**: Full address book CRUD.
-- **`PATCH /addresses/:id/default`**: Sets default address.
+### 2.7 Saved Addresses & Utilities (`/customers`, `/health`, `/geo`)
+- **`GET /customers/addresses`** / **`POST /customers/addresses`** / **`PUT /customers/addresses/:id`** / **`DELETE /customers/addresses/:id`**: Customer delivery address book CRUD.
+- **`PATCH /customers/addresses/:id/default`**: Sets default delivery address.
+- **`GET /customers/profile`** / **`PUT /customers/profile`**: Customer profile management.
 - **`GET /health`**: Health check probe returning PostgreSQL and Redis connection status.
 - **`GET /geo/reverse-geocode?lat=...&lng=...`**: Reverse geocoding cached in Redis for 24 hours.

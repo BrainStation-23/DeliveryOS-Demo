@@ -27,7 +27,7 @@
 | **Granular Master System Feature Catalog** | [`FEATURES.md`](../FEATURES.md) |
 | **Engineering Roadmap, Milestones & Changelog** | [`CHANGELOG.md`](../CHANGELOG.md) |
 | **Non-Technical Master Product Overview** | `BRD-00` (`00-master-product-overview.md`) |
-| **Architecture Decision Records (ADR Index)** | [`ADR Index`](./architecture-decision-records/README.md) (`ADR-001` through `ADR-011`) |
+| **Architecture Decision Records (ADR Index)** | [`ADR Index`](./architecture-decision-records/README.md) (`ADR-001` through `ADR-015`) |
 | **Monorepo Topology, Ingress & Routing** | `ADR-001`, `ADR-005` + `TID-01`, `TID-07` |
 | **Design System Tokens & Governance (Flutter/React)** | `AGENT_RULES.md` (§ 3.7) + `CHANGELOG.md` (v1.4.3) + `apps/*/constants/` |
 | **Order Flow FSM (`RIDER_FIRST` vs `VENDOR_FIRST`)** | `ADR-002` + `TID-05` + `BRD-03` |
@@ -41,6 +41,11 @@
 | **Vendor Catalog, Menu, Variants & Stockout Toggles**| `BRD-05` (Sec 5) + `TID-03` (Sec 4.3) + `TID-02` |
 | **Immutable JSONB Snapshots & Financial Ledgers** | `ADR-008`, `ADR-009` + `TID-02` + `BRD-03` |
 | **Multi-Gateway Payment & Webhook Idempotency** | `ADR-011` + `TID-03` (Sec 7) + `TID-04` |
+| **Production Security Hardening & Fail-Fast Config**| `ADR-012` + `deploy/README.md` + `services/backend_api` |
+| **Real-World Integrations (SMS, SSLCommerz, FCM, Auth)**| `ADR-013` + `TID-03` + `apps/customer_app` + `apps/rider_app` |
+| **Money-Path Unit Tests & Sentry Error Monitoring** | `ADR-014` + `services/backend_api` (Jest) + `apps/*/` |
+| **Horizontal Scaling, Leader Locks & Data Safety** | `ADR-015` + `deploy/docker-compose.prod.yml` + `scripts/backup-db.sh` |
+| **Mobile Release Engineering & Play Disclosures** | `docs/RELEASE.md` + `scripts/build-android.sh` |
 | **Financial Settlement Cycles & Net COD Cash Offset**| `ADR-009` + `TID-03` (Sec 6.6) + `BRD-07` |
 | **AI Governance, Invariants & No-Auto-Commits** | `ADR-010` + `AGENT_RULES.md` + `README.md` |
 | **Authentication, OTP, JWT, Role Guards** | `TID-03` (API Specs: Sec 2) + `TID-02` (Users table) |

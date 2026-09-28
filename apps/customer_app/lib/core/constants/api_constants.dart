@@ -41,7 +41,7 @@ class ApiConstants {
     return 'http://localhost:4000';
   }
 
-  static const String sendOtp = '/auth/otp/send';
+  static const String sendOtp = '/auth/otp/request';
   static const String verifyOtp = '/auth/otp/verify';
   static const String refreshAuth = '/auth/refresh';
   static const String registerDeviceToken = '/auth/device-token';
@@ -52,7 +52,7 @@ class ApiConstants {
   static String vendorCatalog(String id) => '/vendors/$id/catalog';
   static const String activeBanners = '/banners/active';
   static const String validateCoupon = '/coupons/validate';
-  static const String cartValidateCoverage = '/cart/validate-address-coverage';
+  static const String cartValidateCoverage = '/vendors/validate-address-coverage';
 
   static const String customerAddresses = '/customers/addresses';
   static const String customerProfile = '/customers/profile';

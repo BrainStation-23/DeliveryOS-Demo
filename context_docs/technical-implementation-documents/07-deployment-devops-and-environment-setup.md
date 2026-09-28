@@ -24,7 +24,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./init-postgis.sql:/docker-entrypoint-initdb.d/10-postgis.sql
     ports:
-      - "${DB_PORT:-5433}:5432"
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
     networks:
       - deliveryos_network
 
@@ -37,7 +37,7 @@ services:
     volumes:
       - redisdata:/data
     ports:
-      - "${REDIS_PORT:-6380}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6380}:6379"
     networks:
       - deliveryos_network
 
@@ -190,15 +190,17 @@ REDIS_PORT=6380
 REDIS_PASSWORD="redispassword"
 
 # JWT Authentication Secrets
-JWT_ACCESS_SECRET="super-secret-access-token-key"
-JWT_ACCESS_EXPIRATION="1d"
-JWT_REFRESH_SECRET="super-secret-refresh-token-key"
+JWT_ACCESS_SECRET="super-secret-access-token-key-min-32-chars-long"
+JWT_ACCESS_EXPIRATION="15m"
+JWT_REFRESH_SECRET="super-secret-refresh-token-key-min-32-chars-long"
 JWT_REFRESH_EXPIRATION="30d"
 
-# Regional Settings (SAR vs BDT)
-DEFAULT_REGION="BD" # "BD" | "KSA"
-DEFAULT_CURRENCY="BDT" # "BDT" | "SAR"
-CURRENCY_SYMBOL="৳" # "৳" | "﷼"
+# Regional Settings & CORS
+REGION_MODE="BD" # "BD" (Asia/Dhaka) | "KSA" (Asia/Riyadh)
+DEFAULT_CURRENCY="BDT"
+CURRENCY_SYMBOL="৳"
+CORS_ORIGINS="http://localhost:3000,http://localhost:3001,http://localhost:8080"
+SWAGGER_ENABLED=false
 
 # Default Delivery Fee Settings
 DELIVERY_FEE_MODE="FIXED_FLAT" # "FIXED_FLAT" | "DISTANCE_TIERED"
@@ -214,7 +216,13 @@ RIDER_SEARCH_TIMEOUT_SECONDS=90
 # Google Maps API
 GOOGLE_MAPS_API_KEY="AIzaSy..."
 
-# Push Notifications (Firebase)
+# Online Payment Gateway (SSLCommerz)
+PAYMENT_GATEWAY="SSLCOMMERZ" # "SSLCOMMERZ" | "SANDBOX"
+SSLCOMMERZ_STORE_ID="deliveryos_live"
+SSLCOMMERZ_STORE_PASSWORD="password"
+SSLCOMMERZ_IS_LIVE=false
+
+# Push Notifications (Firebase Admin SDK)
 FIREBASE_PROJECT_ID="deliveryos-prod"
 FIREBASE_CLIENT_EMAIL="firebase-adminsdk@deliveryos-prod.iam.gserviceaccount.com"
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqh..."
@@ -224,12 +232,8 @@ SMS_PROVIDER="ssl_wireless" # "ssl_wireless" | "mock"
 SMS_SSLW_API_TOKEN="..."
 SMS_SSLW_SID="..."
 
-# Media Storage (AWS S3 / Cloudflare R2)
-STORAGE_PROVIDER="S3" # "S3" | "R2"
-AWS_ACCESS_KEY_ID="..."
-AWS_SECRET_ACCESS_KEY="..."
-AWS_REGION="ap-southeast-1"
-S3_BUCKET_NAME="deliveryos-assets"
+# Error Monitoring (Sentry)
+SENTRY_DSN="https://...@sentry.io/..."
 ```
 
 ---

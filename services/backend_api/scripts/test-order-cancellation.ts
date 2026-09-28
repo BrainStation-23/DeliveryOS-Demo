@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import { PrismaClient, PaymentMethod, PaymentStatus, OrderStatus, UserRole } from '@prisma/client';
+import { PrismaClient, PaymentStatus, OrderStatus } from '@prisma/client';
 import { SandboxGatewayAdapter } from '../src/modules/payments/gateways/sandbox.gateway';
 
 const API_BASE = 'http://localhost:4000/api/v1';
@@ -43,7 +43,6 @@ async function runCancellationTests() {
       otp: '123456',
     });
     const customerToken = customerAuth.data.data.accessToken;
-    const customerId = customerAuth.data.data.user.id;
 
     // Super Admin (+8801700000001 from seed)
     await postJson(`${API_BASE}/auth/otp/request`, { phone: '+8801700000001' });

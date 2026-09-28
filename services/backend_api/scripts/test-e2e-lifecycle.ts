@@ -324,7 +324,6 @@ async function runE2ELifecycleTest() {
     const commissionLedger = dbOrder.commission;
     const riderTripLedger = dbOrder.riderTrip;
 
-    const netFoodSubtotal = Number(commissionLedger.grossAmount);
     const commissionRate = Number(commissionLedger.commissionRate);
     const commissionAmount = Number(commissionLedger.commissionAmount);
     const netVendorPayable = Number(commissionLedger.netVendorPayable);

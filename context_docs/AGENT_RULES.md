@@ -18,7 +18,7 @@ context_docs/
 │
 ├── architecture-decision-records/                # Permanent architectural & engineering decisions
 │   ├── README.md                                # Master ADR Index, lifecycle & AI protocol
-│   └── ADR-001 through ADR-011                  # System, FSM, GIS, Concurrency, Governance & Payment ADRs
+│   └── ADR-001 through ADR-015                  # System, FSM, GIS, Concurrency, Governance, Payments, Security, Integrations, Testing & Scaling ADRs
 │
 ├── business-requirements-documents/             # Business logic, user journeys & operations
 │   ├── 00-master-product-overview.md            # Plain-English platform guide & commercial model

@@ -1,5 +1,3 @@
-const { io } = require('socket.io-client');
-
 const API = 'http://localhost:4000/api/v1';
 
 async function login(phone) {

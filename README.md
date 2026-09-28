@@ -28,9 +28,12 @@ DeliveryOS/
 │   └── backend_api/        # Core API & Telemetry Engine (NestJS 10, PostgreSQL 16 + PostGIS, Redis 7.2)
 │
 ├── deploy/
-│   ├── docker-compose.yml  # Local multi-container topology (PostGIS, Redis, App Services, Nginx)
-│   ├── init-postgis.sql    # Spatial extension bootstrap
-│   └── nginx/              # Unified subpath reverse proxy configuration
+│   ├── docker-compose.yml       # Local multi-container topology (PostGIS, Redis, App Services, Nginx)
+│   ├── docker-compose.prod.yml  # Production topology (TLS certbot renewal, non-root containers)
+│   ├── init-postgis.sql         # Spatial extension bootstrap
+│   ├── nginx.local.conf         # Local unified reverse proxy configuration
+│   ├── nginx-templates/        # Production TLS reverse proxy template
+│   └── systemd/                 # Automated database backup service & timer units
 │
 └── context_docs/           # Authoritative living specifications & AI governance suite
 ```
@@ -71,7 +74,9 @@ flowchart TD
 
     subgraph External["External Cloud Integrations"]
         MAPS["🗺️ Google Maps Platform & OSM<br/>(Places, Leaflet Radar & Routing)"]
-        PAY["💳 Payment Gateways<br/>(bKash, SSLCommerz, Sandbox, COD)"]
+        PAY["💳 Payment Gateways<br/>(SSLCommerz Session/Refunds, Sandbox, COD)"]
+        NOTIF["📲 Messaging & Push<br/>(SSL Wireless SMS, Firebase Cloud Messaging)"]
+        OBS["🛡️ Observability & Monitoring<br/>(Sentry Error Tracking & Winston JSON Logs)"]
     end
 
     %% Ingress Traffic
@@ -347,3 +352,7 @@ All authoritative system rules, business workflows, technical specifications, an
    - [`ADR-009`](./context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md): Deterministic Financial Accounting Ledger
    - [`ADR-010`](./context_docs/architecture-decision-records/ADR-010-ai-driven-engineering-governance-and-no-auto-commits.md): AI-Driven Engineering Governance & No-Auto-Commits
    - [`ADR-011`](./context_docs/architecture-decision-records/ADR-011-multi-gateway-online-payment-and-webhook-idempotency.md): Multi-Gateway Payment & Webhook Idempotency
+   - [`ADR-012`](./context_docs/architecture-decision-records/ADR-012-production-security-hardening-and-fail-fast-config.md): Production Security Hardening, Fail-Fast Configuration & Authenticated Realtime Rooms
+   - [`ADR-013`](./context_docs/architecture-decision-records/ADR-013-real-world-integration-stack.md): Real-World Integration Stack — SMS, SSLCommerz, FCM Push, Token Rotation & Background Telemetry
+   - [`ADR-014`](./context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md): Unit Test Toolchain (Jest) & Error Monitoring (Sentry)
+   - [`ADR-015`](./context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md): Horizontal-Scaling Readiness & Data Safety

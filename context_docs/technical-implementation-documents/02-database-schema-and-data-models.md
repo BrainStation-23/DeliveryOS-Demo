@@ -421,6 +421,8 @@ CREATE TABLE payments (
     currency VARCHAR(10) NOT NULL DEFAULT 'BDT',
     status payment_status NOT NULL DEFAULT 'PENDING',
     gateway_response JSONB,
+    refund_id VARCHAR(100),
+    refunded_at TIMESTAMP WITH TIME ZONE,
     paid_at TIMESTAMP WITH TIME ZONE,
     failed_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

@@ -42,6 +42,7 @@ graph TD
     transports: ["websocket"]
   });
   ```
+- **Horizontal Scaling & Pub/Sub Fan-Out (ADR-015)**: The Socket.IO gateway attaches `@socket.io/redis-adapter` with dedicated Redis pub/sub clients, fanning events across multiple backend instances without sticky-session coupling.
 
 ---
 
@@ -63,11 +64,12 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
 
 ### 3.1 Client-to-Server Dynamic Actions
 
-#### `join:order` / `leave:order`
+#### `order:join` / `order:leave`
 - **Direction**: Client ➔ Server
-- **Senders**: Customer App, Rider App
+- **Senders**: Customer App, Rider App, Vendor KDS, Admin Console
 - **Payload**: `{ "orderId": "uuid" }`
 - **Action**: Binds or unbinds socket to `order_{orderId}` room during active screen lifecycle.
+- **Authorization Guard (ADR-012)**: Server validates order ownership against the caller's authenticated identity (`customerId`, assigned `riderId`, outlet/brand `vendorStaff`, or `SUPER_ADMIN`). Cross-customer subscriptions are strictly rejected with an explicit error event.
 
 #### `rider:location:update`
 - **Direction**: Client ➔ Server

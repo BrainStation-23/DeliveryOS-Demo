@@ -433,6 +433,7 @@ The platform is guarded by a comprehensive suite of automated verification scrip
 | **Web Portal KDS Tests** | `npm run test:kds` | 3-lane Kanban progression, prep countdown timers, synthesized audio chime loop |
 | **Customer App Flutter Tests** | `flutter test` | Riverpod providers, cart conflict modal, stepper layout, design system token tests |
 | **Rider App Flutter Tests** | `flutter test` | Duty toggle lock, 3-step fulfillment flow, 5-min SOP modal, design system token tests |
+| **Money-Path Unit Tests** | `npm run test:unit` | Jest suite pinning ADR-002 FSM transitions, region-time operating hours, atomic coupon claims, and webhook idempotency |
 | **Static Code Analysis** | `npm run typecheck` / `flutter analyze` | Zero TypeScript errors (`strict: true`), zero Flutter analyzer warnings |
 
 ---
@@ -458,3 +459,10 @@ The platform is guarded by a comprehensive suite of automated verification scrip
 | **Rider Duty In-Flight Lock** | `apps/rider_app/lib/features/dashboard/presentation/rider_dashboard_screen.dart` | `BRD-06` (Sec 2) | [ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md) |
 | **Rider Hub Cash Deposits** | `apps/rider_app/lib/features/earnings/presentation/rider_earnings_screen.dart` | `BRD-06` (Sec 6) | [ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md) |
 | **Design System Tokens** | `apps/*/lib/core/constants/` + `apps/*/tailwind.config.js` | `AGENT_RULES.md` (§ 3.7) | [ADR-010](context_docs/architecture-decision-records/ADR-010-ai-driven-engineering-governance-and-no-auto-commits.md) |
+| **Security Hardening & Fail-Fast** | `services/backend_api/src/common/config/` | `TID-07` + `deploy/README.md` | [ADR-012](context_docs/architecture-decision-records/ADR-012-production-security-hardening-and-fail-fast-config.md) |
+| **Real SMS & Push Integrations** | `services/backend_api/src/modules/notifications/` | `TID-01` + `TID-03` | [ADR-013](context_docs/architecture-decision-records/ADR-013-real-world-integration-stack.md) |
+| **SSLCommerz & Token Rotation** | `services/backend_api/src/modules/payments/` + `auth/` | `TID-03` + `TID-06` | [ADR-013](context_docs/architecture-decision-records/ADR-013-real-world-integration-stack.md) |
+| **Money-Path Unit Test Suite** | `services/backend_api/src/**/*.spec.ts` | `TID-01` | [ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md) |
+| **Sentry Monitoring Across Apps** | All 5 sub-projects | `TID-01` + `TID-06` | [ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md) |
+| **Horizontal Scaling & Data Safety**| `deploy/docker-compose.prod.yml` + `scripts/` | `TID-07` | [ADR-015](context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md) |
+| **Mobile Release Engineering** | `scripts/build-android.sh` + `android/` | `TID-06` + `docs/RELEASE.md` | [ADR-015](context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md) |

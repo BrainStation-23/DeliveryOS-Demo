@@ -32,14 +32,15 @@ graph TD
     subgraph DataTier["Data & Cache Tier"]
         DB[("PostgreSQL 16 + PostGIS 3.4<br/>ACID Relational & Spatial Storage")]
         CACHE[("Redis 7.2 In-Memory<br/>Geo Indexes, Mutexes & Pub/Sub")]
-        STORAGE[("AWS S3 / Cloudflare R2<br/>Media & Photos Storage")]
+        STORAGE[("Local Disk & Volume<br/>/uploads Media & S3/rclone DB Backups")]
     end
 
     subgraph ExternalServices["External Providers"]
         GMAPS["Google Maps Platform<br/>Places & Reverse Geocoding"]
         FCM["Firebase Cloud Messaging<br/>Push Notifications"]
-        SMS["SMS Gateway (SSL Wireless / Local)<br/>OTP Verification"]
-        PAY["Payment Gateways<br/>bKash / Moyasar / Stripe"]
+        SMS["SMS Gateway (SSL Wireless SMS Plus v3)<br/>OTP Verification"]
+        PAY["Payment Gateways<br/>SSLCommerz / Sandbox / COD"]
+        OBS["Observability<br/>Sentry & Winston JSON Logs"]
     end
 
     CA -->|HTTPS / WSS| NGINX
@@ -62,6 +63,7 @@ graph TD
     API --> FCM
     API --> SMS
     API --> PAY
+    API --> OBS
 ```
 
 ---
@@ -84,13 +86,15 @@ graph TD
   - **Runtime & Framework**: Node.js 20 LTS / NestJS 10.x with TypeScript 5.x.
   - **API Protocols**: RESTful JSON API (`/api/v1`) with Swagger/OpenAPI; Socket.IO 4.7+ (`/events`).
   - **Concurrency Engine**: Redis distributed mutex (`SET NX EX 10`) for atomic order claiming.
-- **Data & Storage Tier**:
   - **Relational Database**: PostgreSQL 16.x (ACID transactions, foreign key cascades).
   - **Spatial Engine**: PostGIS 3.4+ (`GEOGRAPHY(Point, 4326)`, `ST_DWithin`, GiST indexing).
-  - **In-Memory Cache & Pub/Sub**: Redis 7.2+ (`GEOADD`, `GEOSEARCH`, Pub/Sub bus).
-  - **Object Storage**: AWS S3 / Cloudflare R2 for dish photos and merchant banners.
+  - **In-Memory Cache & Pub/Sub**: Redis 7.2+ (`GEOADD`, `GEOSEARCH`, Socket.IO Redis adapter, cron mutexes).
+  - **Media & File Storage**: Local volume driver mounted at `/uploads` (`POST /admin/uploads`) served statically via Nginx; automated PostgreSQL backups with S3/rclone offsite upload.
+- **Observability & Error Monitoring**:
+  - **Telemetry & Logs**: Winston structured JSON logs with `AsyncLocalStorage` `x-request-id` correlation.
+  - **Error Tracking**: Sentry error tracking integrated across NestJS backend, both React web portals, and both Flutter mobile apps.
 - **Edge Ingress**:
-  - **Reverse Proxy**: Nginx 1.25+ Alpine (Port 8080 local ingress, subpath routing, WebSocket upgrades).
+  - **Reverse Proxy**: Nginx 1.25+ Alpine (Port 8080 local ingress, production Let's Encrypt TLS termination with certbot auto-renewal, subpath routing, WebSocket upgrades).
 
 ---
 

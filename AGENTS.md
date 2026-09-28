@@ -21,7 +21,7 @@ All authoritative system rules, business workflows, technical specifications, an
 3. **[Quick Reference & Context Router](./context_docs/QUICK_REFERENCE.md)** — Token-efficient task-to-document routing table (load 1–2 files only).
 4. **[Master System Feature Catalog](./FEATURES.md)** — Line-level, granular breakdown of every capability across all 5 sub-projects.
 5. **[Changelog, Milestones & Engineering Roadmap](./CHANGELOG.md)** — Step-by-step engineering roadmap, active milestone tracker, and standardized Keep a Changelog (SemVer) release history.
-6. **[Architecture Decision Records (ADR)](./context_docs/architecture-decision-records/README.md)** — Permanent architectural contracts and state machines (`ADR-001` through `ADR-011`).
+6. **[Architecture Decision Records (ADR)](./context_docs/architecture-decision-records/README.md)** — Permanent architectural contracts and state machines (`ADR-001` through `ADR-015`).
 7. **[Business Requirements Documents (BRD)](./context_docs/business-requirements-documents/README.md)** — Core business rules, user journeys, and personas (`BRD-00` through `BRD-07`).
 8. **[Technical Implementation Documents (TID)](./context_docs/technical-implementation-documents/README.md)** — System architecture, schemas, APIs, and devops (`TID-01` through `TID-07`).
 
