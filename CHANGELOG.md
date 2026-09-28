@@ -68,6 +68,23 @@ graph TD
 
 ## 📜 Part 2: Platform Release History
 
+## [1.6.0] - 2026-09-28
+
+### Added — Wave 3: Hardening, Data Integrity & Error UX (Production Readiness Plan)
+- **Money-Path Unit Tests**: Jest + ts-jest (`npm run test:unit`, 18 tests) covering the ADR-002 FSM (legal/illegal transitions, claimability), timezone-correct operating-hours math (same-day + overnight windows, Asia/Dhaka rollover), coupon eligibility guards, and the webhook idempotency claim (first-process / concurrent-replay skip / unknown 404). Unit tests now run inside the root `verify` gate, so CI executes backend tests without a live database ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)).
+- **Error Monitoring**: env-gated Sentry across all five artifacts — backend (`SENTRY_DSN`, unexpected-5xx capture with request-id context in the exceptions filter), both portals (`VITE_SENTRY_DSN`, Sentry boundary wrapping the branded boundary), both Flutter apps (`SENTRY_DSN` dart-define, debug/release environments).
+- **Pagination**: customer order history and the admin live-orders queue moved to `page/limit` envelopes (`{items,total,page,limit,totalPages}`) with the portal `Table` pagination controls finally wired; nearby-vendors discovery capped via a validated `limit` (default 50, max 100).
+- **Frontend Error UX**: every admin mutation now surfaces failures via `onError` + Alert (13 mutations), queries render `QueryErrorBanner` on `isError` instead of masquerading as empty data (10 pages), native `confirm()`/`alert()` replaced with the Modal/Alert kit, and the KDS board shows a persistent reconnect banner when the realtime socket drops.
+- **Timezone Fix**: vendor operating-hours checks compare against the active region's wall clock (`Asia/Dhaka`/`Asia/Riyadh` via `REGION_MODE`) instead of the server's UTC clock — extraction into a pure, unit-tested helper (`region-time.ts`).
+
+### Changed
+- **Data Integrity**: coupon usage increments in checkout now claim atomically (`UPDATE ... WHERE currentUses < usageLimit` with rollback on conflict), eliminating the read-then-increment oversell race.
+- **Dispatch Radar**: `rider:location` GPS events patch the cached fleet directly (throttled to 5s) instead of invalidating queries per beacon; unassigned-order pins now render at real vendor pickup coordinates (vendor lat/lng added to the admin live-order payload) — synthetic geometric offsets deleted.
+- **Code Splitting**: route-level `React.lazy` in both portals with Suspense fallbacks; vendor portal gained `manualChunks` (vendor/icons) matching the admin portal's bundle strategy.
+- **Flutter**: banner/outlet images moved to `cached_network_image` with placeholder + error fallbacks.
+- **Test Hygiene**: the vendor-discovery suite now manages its fixture vendors' `isActive` state (setup + restore), removing order-dependence on prior suites' data mutations.
+- **Media Uploads**: `POST /admin/uploads` (SUPER_ADMIN multipart) with a local storage driver — validated image types + 5 MB cap, static serving at `/uploads` (prod compose volume + edge nginx route), and a direct Upload control in the admin banner form.
+
 ## [1.5.0] - 2026-09-28
 
 ### Added — Wave 2: Real-World Integration Stack (Production Readiness Plan)

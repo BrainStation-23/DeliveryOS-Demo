@@ -13,7 +13,7 @@ import {
   ArrowRight,
   Clock,
 } from 'lucide-react';
-import adminApi, { FleetRider } from '../../services/adminApi';
+import adminApi, { AdminOrder, FleetRider } from '../../services/adminApi';
 import { getSocket } from '../../services/socket';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -25,6 +25,8 @@ import { LiveFleetMap } from '../../components/dispatch/LiveFleetMap';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatCard } from '../../components/common/StatCard';
 import { EmptyState } from '../../components/common/EmptyState';
+import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
+import { extractApiError } from '../../utils/apiError';
 
 export const AdminDispatchPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -41,17 +43,20 @@ export const AdminDispatchPage: React.FC = () => {
     searchRadiusKm: number;
   } | null>(null);
 
-  const { data: fleet = [], isLoading, refetch } = useQuery({
+  const { data: fleet = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-fleet'],
     queryFn: adminApi.getFleet,
     refetchInterval: 30000,
   });
 
-  const { data: unassignedOrders = [] } = useQuery({
+  const { data: unassignedData } = useQuery({
     queryKey: ['admin-unassigned-orders'],
-    queryFn: () => adminApi.getOrders('PLACED'),
+    queryFn: () => adminApi.getOrders('PLACED', 1, 50),
     refetchInterval: 30000,
   });
+  const unassignedOrders: AdminOrder[] = unassignedData?.items ?? [];
+
+  const lastLocationPatchRef = React.useRef(0);
 
   useEffect(() => {
     const socket = getSocket();
@@ -59,6 +64,41 @@ export const AdminDispatchPage: React.FC = () => {
     const handleFleetAndOrderEvent = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-fleet'] });
       queryClient.invalidateQueries({ queryKey: ['admin-unassigned-orders'] });
+    };
+
+    // GPS events stream continuously — patch the cached fleet rows directly
+    // (throttled) instead of refetching per beacon.
+    const handleRiderLocation = (payload: {
+      data?: {
+        riderId: string;
+        latitude: number;
+        longitude: number;
+        speed?: number;
+        hasActiveOrder?: boolean;
+        activeOrderId?: string | null;
+      };
+    }) => {
+      const fix = payload?.data;
+      if (!fix) return;
+      const now = Date.now();
+      if (now - lastLocationPatchRef.current < 5000) return;
+      lastLocationPatchRef.current = now;
+
+      queryClient.setQueryData<FleetRider[]>(['admin-fleet'], (current) =>
+        (current ?? []).map((rider) =>
+          rider.id === fix.riderId
+            ? {
+                ...rider,
+                latitude: fix.latitude,
+                longitude: fix.longitude,
+                activeOrder:
+                  fix.hasActiveOrder && fix.activeOrderId && rider.activeOrder?.id === fix.activeOrderId
+                    ? rider.activeOrder
+                    : rider.activeOrder,
+              }
+            : rider,
+        ),
+      );
     };
 
     const handleEscalated = (payload: { data?: { orderNumber: string; tier: number; agingSeconds: number; searchRadiusKm: number } }) => {
@@ -71,34 +111,40 @@ export const AdminDispatchPage: React.FC = () => {
     socket.on('order:new', handleFleetAndOrderEvent);
     socket.on('order:status:changed', handleFleetAndOrderEvent);
     socket.on('dispatch:broadcast', handleFleetAndOrderEvent);
-    socket.on('rider:location', handleFleetAndOrderEvent);
+    socket.on('rider:location', handleRiderLocation);
     socket.on('dispatch:escalated', handleEscalated);
 
     return () => {
       socket.off('order:new', handleFleetAndOrderEvent);
       socket.off('order:status:changed', handleFleetAndOrderEvent);
       socket.off('dispatch:broadcast', handleFleetAndOrderEvent);
-      socket.off('rider:location', handleFleetAndOrderEvent);
+      socket.off('rider:location', handleRiderLocation);
       socket.off('dispatch:escalated', handleEscalated);
     };
   }, [queryClient]);
+
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   const updateCashLimitMutation = useMutation({
     mutationFn: ({ id, limit }: { id: string; limit: number }) =>
       adminApi.updateRiderCashLimit(id, limit),
     onSuccess: () => {
+      setMutationError(null);
       queryClient.invalidateQueries({ queryKey: ['admin-fleet'] });
       setIsCashModalOpen(false);
       setSelectedRider(null);
     },
+    onError: (err) => setMutationError(extractApiError(err, 'Failed to update the cash safety limit.')),
   });
 
   const toggleApprovalMutation = useMutation({
     mutationFn: ({ id, isApproved }: { id: string; isApproved: boolean }) =>
       adminApi.setRiderApproval(id, isApproved),
     onSuccess: () => {
+      setMutationError(null);
       queryClient.invalidateQueries({ queryKey: ['admin-fleet'] });
     },
+    onError: (err) => setMutationError(extractApiError(err, 'Courier approval update failed.')),
   });
 
   const filteredFleet = fleet.filter((r) => {
@@ -142,6 +188,12 @@ export const AdminDispatchPage: React.FC = () => {
           </Button>
         }
       />
+
+      {mutationError && (
+        <Alert type="error" message={mutationError} onDismiss={() => setMutationError(null)} />
+      )}
+
+      {isError && <QueryErrorBanner error={error} onRetry={() => refetch()} />}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard

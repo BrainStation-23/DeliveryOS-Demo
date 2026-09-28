@@ -51,7 +51,10 @@ export const VendorDashboardPage: React.FC = () => {
 
   const {
     isLoading,
+    isError,
+    error,
     refetch,
+    isSocketConnected,
     newOrders,
     inPreparationOrders,
     readyOrders,
@@ -70,6 +73,27 @@ export const VendorDashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-5">
+      {(!isSocketConnected || isError) && (
+        <div
+          role="alert"
+          className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+        >
+          <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500 animate-pulse" />
+          {isError
+            ? 'Order board failed to load — showing the last known state. '
+            : 'Live connection lost — new-order alerts are paused. '}
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-200"
+          >
+            Retry now
+          </button>
+          {!isSocketConnected && !isError && (
+            <span className="font-normal">Polling every 15s in the meantime.</span>
+          )}
+        </div>
+      )}
       <PageHeader
         title={t('kds.title')}
         description={`${outletDisplayName} • Real-time kitchen order board & preparation dispatcher`}

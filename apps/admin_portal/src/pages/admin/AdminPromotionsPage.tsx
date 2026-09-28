@@ -12,17 +12,27 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
+import { Alert } from '../../components/ui/Alert';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/common/PageHeader';
 import { EmptyState } from '../../components/common/EmptyState';
+import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
+import { extractApiError } from '../../utils/apiError';
 
 export const AdminPromotionsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'BANNERS' | 'COUPONS'>('BANNERS');
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const [isCreateBannerModalOpen, setIsCreateBannerModalOpen] = useState(false);
   const [bannerTitle, setBannerTitle] = useState('');
   const [bannerImageUrl, setBannerImageUrl] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [bannerSortOrder, setBannerSortOrder] = useState('0');
 
   const [isCreateCouponModalOpen, setIsCreateCouponModalOpen] = useState(false);
@@ -34,12 +44,24 @@ export const AdminPromotionsPage: React.FC = () => {
   const [maxDiscount, setMaxDiscount] = useState('100');
   const [usageLimit, setUsageLimit] = useState('500');
 
-  const { data: banners = [], isLoading: isLoadingBanners } = useQuery({
+  const {
+    data: banners = [],
+    isLoading: isLoadingBanners,
+    isError: isBannersError,
+    error: bannersError,
+    refetch: refetchBanners,
+  } = useQuery({
     queryKey: ['admin-banners'],
     queryFn: adminApi.getBanners,
   });
 
-  const { data: coupons = [], isLoading: isLoadingCoupons } = useQuery({
+  const {
+    data: coupons = [],
+    isLoading: isLoadingCoupons,
+    isError: isCouponsError,
+    error: couponsError,
+    refetch: refetchCoupons,
+  } = useQuery({
     queryKey: ['admin-coupons'],
     queryFn: adminApi.getCoupons,
   });
@@ -53,17 +75,20 @@ export const AdminPromotionsPage: React.FC = () => {
       setBannerImageUrl('');
       setBannerSortOrder('0');
     },
+    onError: (err) => setActionError(extractApiError(err, 'Failed to create promotional banner.')),
   });
 
   const toggleBannerMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       adminApi.updateBanner(id, { isActive }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-banners'] }),
+    onError: (err) => setActionError(extractApiError(err, 'Failed to update banner status.')),
   });
 
   const deleteBannerMutation = useMutation({
     mutationFn: adminApi.deleteBanner,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-banners'] }),
+    onError: (err) => setActionError(extractApiError(err, 'Failed to delete promotional banner.')),
   });
 
   const createCouponMutation = useMutation({
@@ -78,17 +103,20 @@ export const AdminPromotionsPage: React.FC = () => {
       setMaxDiscount('100');
       setUsageLimit('500');
     },
+    onError: (err) => setActionError(extractApiError(err, 'Failed to create promotional coupon.')),
   });
 
   const toggleCouponMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       adminApi.updateCoupon(id, { isActive }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-coupons'] }),
+    onError: (err) => setActionError(extractApiError(err, 'Failed to update coupon status.')),
   });
 
   const deleteCouponMutation = useMutation({
     mutationFn: adminApi.deleteCoupon,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-coupons'] }),
+    onError: (err) => setActionError(extractApiError(err, 'Failed to delete coupon code.')),
   });
 
   return (
@@ -117,6 +145,10 @@ export const AdminPromotionsPage: React.FC = () => {
           )
         }
       />
+
+      {actionError && (
+        <Alert type="error" message={actionError} onDismiss={() => setActionError(null)} className="mb-4" />
+      )}
 
       <div className="flex border-b border-slate-200 dark:border-slate-800">
         <button
@@ -149,6 +181,8 @@ export const AdminPromotionsPage: React.FC = () => {
             <div className="py-16 text-center">
               <LoadingSpinner size="lg" label="Loading promotional banners..." />
             </div>
+          ) : isBannersError ? (
+            <QueryErrorBanner error={bannersError} onRetry={() => refetchBanners()} />
           ) : banners.length === 0 ? (
             <EmptyState
               icon={ImageIcon}
@@ -219,11 +253,13 @@ export const AdminPromotionsPage: React.FC = () => {
                         variant="ghost"
                         size="sm"
                         className="text-xs h-7 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
-                        onClick={() => {
-                          if (confirm('Delete this promotional banner?')) {
-                            deleteBannerMutation.mutate(banner.id);
-                          }
-                        }}
+                        onClick={() =>
+                          setConfirmState({
+                            title: 'Delete Promotional Banner',
+                            message: 'Delete this promotional banner?',
+                            onConfirm: () => deleteBannerMutation.mutate(banner.id),
+                          })
+                        }
                         leftIcon={<Trash2 className="h-3.5 w-3.5" />}
                       >
                         Delete
@@ -243,6 +279,8 @@ export const AdminPromotionsPage: React.FC = () => {
             <div className="py-16 text-center">
               <LoadingSpinner size="lg" label="Loading coupons..." />
             </div>
+          ) : isCouponsError ? (
+            <QueryErrorBanner error={couponsError} onRetry={() => refetchCoupons()} />
           ) : coupons.length === 0 ? (
             <EmptyState
               icon={Tag}
@@ -325,11 +363,13 @@ export const AdminPromotionsPage: React.FC = () => {
                             variant="ghost"
                             size="sm"
                             className="text-xs h-7 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
-                            onClick={() => {
-                              if (confirm(`Delete coupon code ${coupon.code}?`)) {
-                                deleteCouponMutation.mutate(coupon.id);
-                              }
-                            }}
+                            onClick={() =>
+                              setConfirmState({
+                                title: 'Delete Coupon Code',
+                                message: `Delete coupon code ${coupon.code}?`,
+                                onConfirm: () => deleteCouponMutation.mutate(coupon.id),
+                              })
+                            }
                             leftIcon={<Trash2 className="h-3.5 w-3.5" />}
                           >
                             Delete
@@ -386,13 +426,43 @@ export const AdminPromotionsPage: React.FC = () => {
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Image URL (Creative Asset)
+              Banner Image (Upload or paste a URL)
             </label>
-            <Input
-              value={bannerImageUrl}
-              onChange={(e) => setBannerImageUrl(e.target.value)}
-              placeholder="https://images.unsplash.com/..."
-            />
+            <div className="flex gap-2">
+              <Input
+                value={bannerImageUrl}
+                onChange={(e) => setBannerImageUrl(e.target.value)}
+                placeholder="https://… or upload a file"
+              />
+              <label
+                className={`inline-flex shrink-0 items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${
+                  isUploadingImage ? 'opacity-50 pointer-events-none' : ''
+                }`}
+              >
+                {isUploadingImage ? 'Uploading…' : 'Upload'}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  disabled={isUploadingImage}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!file) return;
+                    setIsUploadingImage(true);
+                    try {
+                      const url = await adminApi.uploadImage(file);
+                      setBannerImageUrl(url);
+                      setActionError(null);
+                    } catch (err) {
+                      setActionError(extractApiError(err, 'Image upload failed.'));
+                    } finally {
+                      setIsUploadingImage(false);
+                    }
+                  }}
+                />
+              </label>
+            </div>
           </div>
 
           <div>
@@ -529,6 +599,31 @@ export const AdminPromotionsPage: React.FC = () => {
             </div>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!confirmState}
+        onClose={() => setConfirmState(null)}
+        title={confirmState?.title}
+        footer={
+          <div className="flex justify-end gap-2 w-full">
+            <Button variant="outline" size="sm" onClick={() => setConfirmState(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={() => {
+                confirmState?.onConfirm();
+                setConfirmState(null);
+              }}
+            >
+              Delete
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-slate-600 dark:text-slate-300">{confirmState?.message}</p>
       </Modal>
     </div>
   );

@@ -19,6 +19,20 @@ async function runVendorDiscoveryTest() {
     throw new Error('Gulshan store not found in database. Please run seed script first.');
   }
 
+  // The discovery test asserts specific fixtures appear in nearby results; make
+  // sure prior test runs that toggled vendor state don't break the invariant.
+  const fixtures = ['Burger Point — Gulshan Branch', 'FreshMart Daily — Gulshan Hub'];
+  const originalStates = new Map<string, boolean>();
+  for (const name of fixtures) {
+    const vendor = await prisma.vendor.findFirst({ where: { name } });
+    if (vendor) {
+      originalStates.set(vendor.id, vendor.isActive);
+      if (!vendor.isActive) {
+        await prisma.vendor.update({ where: { id: vendor.id }, data: { isActive: true } });
+      }
+    }
+  }
+
   const app = await NestFactory.create(AppModule, { logger: false });
   app.setGlobalPrefix('api/v1');
   app.useGlobalInterceptors(new TransformInterceptor());
@@ -129,6 +143,11 @@ async function runVendorDiscoveryTest() {
     console.log('🎉 Task 2.2: Geofencing & Discovery Verification PASSED!');
     console.log('====================================================');
   } finally {
+    for (const [vendorId, wasActive] of originalStates) {
+      if (!wasActive) {
+        await prisma.vendor.update({ where: { id: vendorId }, data: { isActive: false } });
+      }
+    }
     await app.close();
     await prisma.$disconnect();
   }

@@ -68,7 +68,7 @@ export class VendorService {
    * 1. Get Nearby Outlets filtered by customer coordinate via PostGIS ST_DWithin
    */
   async getNearbyVendors(dto: GetNearbyVendorsDto) {
-    const { lat, lng, vertical } = dto;
+    const { lat, lng, vertical, limit = 50 } = dto;
 
     const verticalFilter = vertical
       ? Prisma.sql`AND v.vertical = ${vertical}::"VendorVertical"`
@@ -102,7 +102,8 @@ export class VendorService {
           v.delivery_radius_km * 1000
         )
         ${verticalFilter}
-      ORDER BY "distanceKm" ASC;
+      ORDER BY "distanceKm" ASC
+      LIMIT ${limit};
     `;
 
     const feeConfig = await this.deliveryFeeService.getConfig();

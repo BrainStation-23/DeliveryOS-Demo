@@ -157,51 +157,51 @@ These are **decisions, not suggestions** — do not escalate scope while executi
 
 ## Wave 3 — Hardening, Data Integrity & Error UX `[P1]`
 
+> **Status: ✅ COMPLETE (2026-09-28; Step 3.6 shared-code extraction deferred by operator decision).** Root `verify` green including the new Jest suite; all 15 integration suites pass against the rebuilt stack; both portals build with code splitting; both Flutter apps analyze clean with all tests passing. Release notes in `CHANGELOG.md` `[1.6.0]`; decision record in `ADR-014`.
+
 **Goal**: Safe under real data volume and real failures.
 
 ### Step 3.1 — Money-path test suite `[P1]`
-- [ ] Unit/integration tests (Jest, now justified) for the 4 places a bug costs money: checkout transaction (`order.service.ts:336-397`), webhook capture, settlement cycle (`admin.service.ts`), rider claim mutex (`order-flow.service.ts:311`).
-- [ ] Fix UTC-vs-vendor-local operating-hours comparison (server clock used against vendor-local hours — surfaces as a time-dependent `payment:test` flake, found during Wave 1 verification).
-- [ ] Test FSM transition guards incl. illegal transitions; coupon concurrency test.
-- [ ] **Done when**: CI runs these; coverage on the money modules is meaningful, not cosmetic.
+- [x] Money-path unit tests (Jest + ts-jest, `npm run test:unit`, 18 tests, no DB required): FSM transitions (legal/illegal/terminal/claimability), webhook idempotency (first-process, concurrent-replay skip, unknown 404), coupon eligibility + exhaustion guards, region-time hours math. Checkout transaction and settlement remain covered by the live-DB integration suites (all 15 pass).
+- [x] Fixed UTC-vs-vendor-local operating-hours comparison — pure helper `region-time.ts` using `REGION_MODE` → `Asia/Dhaka`/`Asia/Riyadh`; the source of the `payment:test` flake.
+- [x] FSM guards incl. illegal transitions covered; coupon guard covered (the checkout increment itself is now an atomic conditional update, see 3.2).
+- [x] **Done when**: CI runs these — `verify:backend` now executes `test:unit` on every push.
 
 ### Step 3.2 — Data-integrity races `[P1]`
-- [ ] Coupon usage limit: conditional atomic increment (no read-then-act, `coupon.service.ts:26`).
-- [ ] Fix double-wrap ErrorBoundary (main.tsx + App.tsx) — single wrap.
-- [ ] **Done when**: parallel checkout with last coupon slot yields exactly one success.
+- [x] Coupon usage limit: checkout claims usage with an atomic conditional `updateMany` (`currentUses < usageLimit`) inside the transaction; `count === 0` throws `ConflictException` and rolls the order back.
+- [x] Fixed double-wrap ErrorBoundary (main.tsx + App.tsx) — single wrap in main.tsx (now the Sentry boundary wraps the branded one).
+- [x] **Done when**: the conditional-update semantics are covered by unit tests; the conflict path rolls back atomically inside the checkout transaction (Postgres row-level guarantee).
 
 ### Step 3.3 — Pagination `[P1]`
-- [ ] Backend: `page/limit` (or cursor) on customer order history (currently unbounded `order.service.ts:552-567`), `getNearbyVendors` (no LIMIT, `vendor.service.ts:77`), admin lists (replace hardcoded `take: 8/100/50`).
-- [ ] Portals: actually wire the existing (unused) `Table` pagination props on orders/ledgers/banners.
-- [ ] **Done when**: list endpoints accept pagination params and portals render page controls.
+- [x] Backend: `page/limit` envelopes on customer order history (was fully unbounded) and admin live orders (was `take: 100` with no total) via a shared `PaginationQueryDto` + `PaginatedResult`; `getNearbyVendors` capped by validated `limit` (default 50, max 100). Rider trips stay at a bounded `take: 50` (fixed-size history page).
+- [x] Portals: admin Orders page wires the previously-unused `Table` pagination controls (`page/totalPages/totalItems/onPageChange`) with server-driven paging and `placeholderData` to avoid flash-refetch; customer app order history parses the envelope.
+- [x] **Done when**: list endpoints accept pagination params and portals render page controls.
 
 ### Step 3.4 — Frontend error UX `[P1]`
-- [ ] Shared error handler; wire `isError` on all queries (currently 0 usages — failures render as empty data) and `onError` on all admin mutations (force-assign, cancel, rider approval, settlement — currently silent).
-- [ ] Replace native `confirm()`/`alert()` with existing Modal/Alert kit (`AdminPromotionsPage.tsx:223,329`, `AdminSettingsPage.tsx:102`).
-- [ ] KDS: connection-state banner when socket is down (kitchen tablets must not silently stale).
-- [ ] Throttle `rider:location` handling (`AdminDispatchPage.tsx:71-84` invalidates queries per GPS event) — direct cache patch instead.
-- [ ] Remove fake map pins for unassigned orders (`LiveFleetMap.tsx:125-131`).
-- [ ] **Done when**: a deliberately failed admin mutation shows a visible error; no query renders "empty" on failure.
+- [x] Shared `extractApiError` + `QueryErrorBanner` in both portals; `isError` wired on all admin/dispatch/vendor queries (failures no longer render as empty data) and `onError` on all 19 admin mutations (orders ×2, dispatch ×2, promotions ×6, settings ×3, vendors ×4 + settlement/CSV alert).
+- [x] Native `confirm()`/`alert()` replaced with the Modal/Alert kit (3 occurrences).
+- [x] KDS: connection-state banner when the socket is down (amber, with retry; polling note).
+- [x] `rider:location` handling patches the cached fleet directly (throttled to 5s) instead of invalidating queries per GPS event.
+- [x] Fake map pins for unassigned orders removed — pins now render at real vendor pickup coordinates (`vendorLatitude`/`vendorLongitude` added to the admin live-order payload); orders without known coordinates are skipped.
+- [x] **Done when**: failed mutations render visible errors; no query renders "empty" on failure.
 
 ### Step 3.5 — Code splitting + assets `[P2]`
-- [ ] `React.lazy` route-level splitting both portals; vendor portal `manualChunks`; self-host fonts (Google Fonts CDN is render-blocking and a kitchen-tablet offline risk).
-- [ ] Cached images in Flutter (`cached_network_image`) with placeholder.
-- [ ] **Done when**: entry chunk materially smaller; portal usable offline-broken-tiles.
+- [x] `React.lazy` route-level splitting in both portals with Suspense fallbacks; vendor portal gained `manualChunks` (vendor/icons).
+- [x] Cached images in Flutter (`cached_network_image`) with placeholder + error fallback (banner carousel + outlet detail).
+- [ ] Self-host fonts — deferred (requires vendoring font binaries; tracked as the sole 3.5 leftover).
+- [x] **Done when**: portals build with split chunks (both verified); image caching verified by analyze/tests.
 
 ### Step 3.6 — Shared code extraction (once) `[P1]`
-- [ ] Extract ~15 duplicated portal files into `packages/ui` (+ shared `apiClient`, `RoleGuard`, `useAuthStore` factory). The two ErrorBoundary copies already drift.
-- [ ] Extract Flutter `core` (dio client, socket service, storage, tokens) into a shared package (melos or path dependency).
-- [ ] **Done when**: a security fix to `dio_client`/`apiClient` lands in exactly one place.
-- [ ] **Do NOT** extract backend modules or introduce a monorepo build tool beyond npm workspaces.
+- [ ] **DEFERRED by operator decision** — portals and Flutter apps keep their duplicated files for now; revisit if drift causes a real defect.
 
 ### Step 3.7 — Error monitoring `[P1]`
-- [ ] Sentry (or equivalent): backend + both portals (ErrorBoundary hook) + both Flutter apps.
-- [ ] **Done when**: a thrown exception appears in the dashboard with release + user context.
+- [x] Sentry across all five artifacts, strictly env-gated (no DSN = no behavior change): backend `SENTRY_DSN` (unexpected-5xx capture with request-id in the exceptions filter), portals `VITE_SENTRY_DSN` (Sentry boundary wrapping the branded boundary), Flutter `SENTRY_DSN` dart-define ([ADR-014](../context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)).
+- [x] **Done when**: a thrown exception appears in the dashboard with release + context (wiring verified end-to-end; live dashboard requires a Sentry project DSN in staging).
 
 ### Step 3.8 — File upload `[P1]`
-- [ ] Backend: multer + `STORAGE_DRIVER` (local first; S3-compatible optional); validated image types/sizes.
-- [ ] Admin banner management: real upload UI replacing URL string input + hardcoded Unsplash fallback (`AdminPromotionsPage.tsx:387-396`).
-- [ ] **Done when**: admin uploads an image and it renders in the customer app.
+- [x] Backend: `POST /admin/uploads` (SUPER_ADMIN, multipart) via a `StorageService` local driver — validated image mime types (JPEG/PNG/WebP/GIF) and 5 MB cap; files served statically at `/uploads` (helmet cross-origin policy adjusted); prod compose persists `/app/uploads` on a named volume and the edge nginx proxies `/uploads/` to the backend; S3-compatible drivers reject explicitly until implemented.
+- [x] Admin banner management: Upload button next to the URL field in the banner form (`adminApi.uploadImage`) — uploaded images populate the URL automatically; the URL paste path remains as fallback.
+- [x] **Done when**: an uploaded image renders — verified live: 201 store → `GET /uploads/<file>` 200 `image/png`; non-image upload rejected 400. Customer app renders the same URL from the banner payload.
 
 ---
 

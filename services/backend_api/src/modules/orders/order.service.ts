@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   HttpException,
   HttpStatus,
@@ -21,6 +22,8 @@ import { OrderFlowService } from '../order-flow/order-flow.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentsService } from '../payments/payments.service';
+import { getCurrentRegionTimeParts, isWithinOperatingHours } from '../../common/utils/region-time';
+import { PaginatedResult, PaginationQueryDto, toPaginatedResult } from '../../common/dto/pagination.dto';
 
 export interface OrderAddressSnapshot {
   type: string;
@@ -115,10 +118,9 @@ export class OrderService {
       );
     }
 
-    // Operating Hours Validation Guard
+    // Operating Hours Validation Guard (vendor-local region time, not server UTC)
     if (vendor.operatingHours && vendor.operatingHours.length > 0) {
-      const now = new Date();
-      const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      const { dayOfWeek: currentDay, timeHHmmss: currentTime } = getCurrentRegionTimeParts();
       const todayHours = vendor.operatingHours.find((h) => h.dayOfWeek === currentDay);
 
       if (todayHours) {
@@ -126,23 +128,7 @@ export class OrderService {
           throw new BadRequestException(`Vendor "${vendor.name}" is scheduled closed today`);
         }
 
-        const currentHour = now.getHours().toString().padStart(2, '0');
-        const currentMinute = now.getMinutes().toString().padStart(2, '0');
-        const currentSecond = now.getSeconds().toString().padStart(2, '0');
-        const currentTime = `${currentHour}:${currentMinute}:${currentSecond}`;
-
-        const openTime = todayHours.openTime.length === 5 ? `${todayHours.openTime}:00` : todayHours.openTime;
-        const closeTime = todayHours.closeTime.length === 5 ? `${todayHours.closeTime}:00` : todayHours.closeTime;
-
-        let isOpen: boolean;
-        if (openTime <= closeTime) {
-          isOpen = currentTime >= openTime && currentTime <= closeTime;
-        } else {
-          // Overnight shift (e.g. 18:00 - 02:00)
-          isOpen = currentTime >= openTime || currentTime <= closeTime;
-        }
-
-        if (!isOpen) {
+        if (!isWithinOperatingHours(currentTime, todayHours.openTime, todayHours.closeTime)) {
           throw new BadRequestException(
             `Vendor "${vendor.name}" is currently outside operating hours (${todayHours.openTime} - ${todayHours.closeTime})`,
           );
@@ -310,6 +296,7 @@ export class OrderService {
     // 6. Validate & Apply Coupon
     let couponDiscount = 0.0;
     let appliedCouponId: string | null = null;
+    let couponUsageLimit = 0;
 
     if (dto.couponCode) {
       const couponValidation = await this.couponService.validateCoupon({
@@ -319,6 +306,7 @@ export class OrderService {
       });
       couponDiscount = couponValidation.discountAmount;
       appliedCouponId = couponValidation.couponId;
+      couponUsageLimit = couponValidation.usageLimit;
     }
 
     // 7. Calculate Financial Balance & Platform Commission
@@ -389,12 +377,19 @@ export class OrderService {
             },
           });
 
-          // Increment Coupon Usage if applied
+          // Increment Coupon Usage if applied — atomic guard against exceeding
+          // usageLimit under concurrent checkouts (read-then-act otherwise)
           if (appliedCouponId) {
-            await tx.coupon.update({
-              where: { id: appliedCouponId },
+            const claimed = await tx.coupon.updateMany({
+              where: {
+                id: appliedCouponId,
+                currentUses: { lt: couponUsageLimit },
+              },
               data: { currentUses: { increment: 1 } },
             });
+            if (claimed.count === 0) {
+              throw new ConflictException('This coupon code has reached its maximum usage limit.');
+            }
           }
 
           return newOrder;
@@ -570,23 +565,30 @@ export class OrderService {
   }
 
   /**
-   * 4. Customer Order History
+   * 4. Customer Order History (paginated)
    */
-  async getCustomerOrderHistory(customerId: string) {
-    return this.prisma.order.findMany({
-      where: { customerId },
-      orderBy: { placedAt: 'desc' },
-      include: {
-        vendor: {
-          select: {
-            id: true,
-            name: true,
-            logoUrl: true,
+  async getCustomerOrderHistory(customerId: string, pagination: PaginationQueryDto): Promise<PaginatedResult<Order>> {
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where: { customerId },
+        orderBy: { placedAt: 'desc' },
+        skip: pagination.skip,
+        take: pagination.limit,
+        include: {
+          vendor: {
+            select: {
+              id: true,
+              name: true,
+              logoUrl: true,
+            },
           },
+          orderItems: true,
         },
-        orderItems: true,
-      },
-    });
+      }),
+      this.prisma.order.count({ where: { customerId } }),
+    ]);
+
+    return toPaginatedResult(items, total, pagination);
   }
 
   /**

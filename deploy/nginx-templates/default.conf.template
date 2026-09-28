@@ -48,6 +48,12 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Uploaded media (local storage driver)
+    location /uploads/ {
+        proxy_pass http://backend:4000;
+        proxy_set_header Host $host;
+    }
+
     # Socket.IO handshake path
     location /socket.io/ {
         proxy_pass http://backend:4000;

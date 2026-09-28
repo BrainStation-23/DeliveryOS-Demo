@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/constants.dart';
@@ -118,10 +119,11 @@ class _BannerCarouselState extends ConsumerState<BannerCarousel> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.network(
-                banner.imageUrl,
+              CachedNetworkImage(
+                imageUrl: banner.imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                placeholder: (_, __) => Container(color: AppColors.card),
+                errorWidget: (_, __, ___) => Container(
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       colors: [AppColors.primaryLight, AppColors.primary],

@@ -12,12 +12,16 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
+import { Alert } from '../../components/ui/Alert';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/common/PageHeader';
 import { EmptyState } from '../../components/common/EmptyState';
+import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
+import { extractApiError } from '../../utils/apiError';
 
 export const AdminVendorsPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const [isCreateVendorModalOpen, setIsCreateVendorModalOpen] = useState(false);
   const [vendorName, setVendorName] = useState('');
@@ -40,7 +44,7 @@ export const AdminVendorsPage: React.FC = () => {
   const [staffUserId, setStaffUserId] = useState('');
   const [staffScope, setStaffScope] = useState<'PARTICULAR_OUTLET' | 'ALL_OUTLETS_MASTER'>('PARTICULAR_OUTLET');
 
-  const { data: vendors = [], isLoading } = useQuery({
+  const { data: vendors = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-vendors'],
     queryFn: adminApi.getVendors,
   });
@@ -54,6 +58,7 @@ export const AdminVendorsPage: React.FC = () => {
       setAddressText('');
       setContactPhone('');
     },
+    onError: (err) => setActionError(extractApiError(err, 'Failed to create vendor outlet.')),
   });
 
   const updateVendorMutation = useMutation({
@@ -74,6 +79,7 @@ export const AdminVendorsPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
       setEditingVendor(null);
     },
+    onError: (err) => setActionError(extractApiError(err, 'Failed to update vendor outlet.')),
   });
 
   const toggleStatusMutation = useMutation({
@@ -82,6 +88,7 @@ export const AdminVendorsPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
     },
+    onError: (err) => setActionError(extractApiError(err, 'Failed to update vendor status.')),
   });
 
   const assignStaffMutation = useMutation({
@@ -98,6 +105,7 @@ export const AdminVendorsPage: React.FC = () => {
       setSelectedVendorForStaff(null);
       setStaffUserId('');
     },
+    onError: (err) => setActionError(extractApiError(err, 'Failed to assign staff member.')),
   });
 
   return (
@@ -117,10 +125,16 @@ export const AdminVendorsPage: React.FC = () => {
         }
       />
 
+      {actionError && (
+        <Alert type="error" message={actionError} onDismiss={() => setActionError(null)} />
+      )}
+
       {isLoading ? (
         <div className="py-16 text-center">
           <LoadingSpinner size="lg" label="Loading merchant outlets..." />
         </div>
+      ) : isError ? (
+        <QueryErrorBanner error={error} onRetry={() => refetch()} />
       ) : vendors.length === 0 ? (
         <EmptyState
           icon={Store}

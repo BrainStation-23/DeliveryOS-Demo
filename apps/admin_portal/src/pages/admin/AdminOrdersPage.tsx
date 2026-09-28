@@ -24,6 +24,8 @@ import { Alert } from '../../components/ui/Alert';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/common/PageHeader';
 import { EmptyState } from '../../components/common/EmptyState';
+import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
+import { extractApiError } from '../../utils/apiError';
 
 export const AdminOrdersPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -42,12 +44,18 @@ export const AdminOrdersPage: React.FC = () => {
   const [detailsOrder, setDetailsOrder] = useState<AdminOrder | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [autoHandledOrderNumber, setAutoHandledOrderNumber] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const { data: orders = [], isLoading, refetch } = useQuery({
-    queryKey: ['admin-orders', selectedStatus],
-    queryFn: () => adminApi.getOrders(selectedStatus),
+  const { data: ordersData, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['admin-orders', selectedStatus, page],
+    queryFn: () => adminApi.getOrders(selectedStatus, page, 20),
     refetchInterval: 30000,
+    placeholderData: (previous) => previous,
   });
+  const orders = ordersData?.items ?? [];
+  const totalPages = ordersData?.totalPages ?? 1;
+  const totalOrders = ordersData?.total ?? 0;
 
   useEffect(() => {
     const socket = getSocket();
@@ -101,23 +109,27 @@ export const AdminOrdersPage: React.FC = () => {
     mutationFn: ({ orderId, riderId }: { orderId: string; riderId: string }) =>
       adminApi.forceAssignRider(orderId, riderId),
     onSuccess: () => {
+      setActionError(null);
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       queryClient.invalidateQueries({ queryKey: ['admin-fleet'] });
       setIsAssignModalOpen(false);
       setSelectedOrder(null);
       setSelectedRiderId('');
     },
+    onError: (err) => setActionError(extractApiError(err, 'Force-assign failed. Please retry.')),
   });
 
   const cancelMutation = useMutation({
     mutationFn: ({ orderId, reason }: { orderId: string; reason: string }) =>
       adminApi.cancelOrder(orderId, reason),
     onSuccess: () => {
+      setActionError(null);
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       setIsCancelModalOpen(false);
       setCancelTargetOrder(null);
       setCancelReason('');
     },
+    onError: (err) => setActionError(extractApiError(err, 'Order cancellation failed. Please retry.')),
   });
 
   const filteredOrders = orders.filter((o) => {
@@ -310,7 +322,10 @@ export const AdminOrdersPage: React.FC = () => {
         ].map((stage) => (
           <button
             key={stage.id}
-            onClick={() => setSelectedStatus(stage.id)}
+            onClick={() => {
+              setPage(1);
+              setSelectedStatus(stage.id);
+            }}
             className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
               selectedStatus === stage.id
                 ? 'bg-primary-600 text-white font-semibold shadow-sm'
@@ -362,11 +377,22 @@ export const AdminOrdersPage: React.FC = () => {
             )}
           </div>
           <div className="text-xs text-slate-500">
-            Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{filteredOrders.length}</span> live orders
+            Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{filteredOrders.length}</span> of{' '}
+            <span className="font-semibold text-slate-900 dark:text-slate-100">{totalOrders}</span> live orders
           </div>
         </div>
 
-        {isLoading ? (
+        {actionError && (
+          <div className="px-4 pt-3">
+            <Alert type="error" message={actionError} onDismiss={() => setActionError(null)} />
+          </div>
+        )}
+
+        {isError ? (
+          <div className="p-4">
+            <QueryErrorBanner error={error} onRetry={() => refetch()} />
+          </div>
+        ) : isLoading ? (
           <div className="py-16 text-center">
             <LoadingSpinner size="lg" label="Synchronizing order lifecycle stream..." />
           </div>
@@ -376,7 +402,15 @@ export const AdminOrdersPage: React.FC = () => {
             className="m-4"
           />
         ) : (
-          <Table data={filteredOrders} columns={columns} keyExtractor={(o) => o.id} />
+          <Table
+            data={filteredOrders}
+            columns={columns}
+            keyExtractor={(o) => o.id}
+            page={page}
+            totalPages={totalPages}
+            totalItems={totalOrders}
+            onPageChange={setPage}
+          />
         )}
       </div>
 

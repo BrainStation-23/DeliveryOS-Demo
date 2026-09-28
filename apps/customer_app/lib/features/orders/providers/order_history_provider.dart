@@ -49,10 +49,16 @@ class OrderHistoryNotifier extends Notifier<OrderHistoryState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final dio = ref.read(dioClientProvider);
-      final response = await dio.get(ApiConstants.orderHistory);
+      final response = await dio.get(
+        ApiConstants.orderHistory,
+        queryParameters: {'page': 1, 'limit': 50},
+      );
       if (response.statusCode == 200) {
-        final data = response.data['data'] as List<dynamic>? ?? [];
-        final parsed = data
+        final data = response.data['data'];
+        final items = data is Map<String, dynamic>
+            ? (data['items'] as List<dynamic>? ?? [])
+            : (data is List<dynamic> ? data : []);
+        final parsed = items
             .whereType<Map<String, dynamic>>()
             .map((json) => PastOrder.fromJson(json))
             .toList();

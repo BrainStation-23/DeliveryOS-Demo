@@ -265,8 +265,8 @@ async function runOrderCheckoutTest() {
       headers: { Authorization: `Bearer ${customerToken}` },
     });
     const historyJson = await historyRes.json();
-    console.log(`   Order History Status: ${historyRes.status}, Orders Count: ${historyJson.data?.length}`);
-    if (historyRes.status !== 200 || !Array.isArray(historyJson.data) || historyJson.data.length === 0) {
+    console.log(`   Order History Status: ${historyRes.status}, Orders Count: ${historyJson.data?.items?.length}`);
+    if (historyRes.status !== 200 || !Array.isArray(historyJson.data?.items) || historyJson.data.items.length === 0) {
       throw new Error('Order history retrieval failed');
     }
 

@@ -20,6 +20,7 @@ import { Table, Column } from '../../components/ui/Table';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatCard } from '../../components/common/StatCard';
+import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 
 type DashboardOrder = AdminOverview['recentOrders'][number];
 
@@ -29,7 +30,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
 
-  const { data: overview, isLoading, refetch } = useQuery<AdminOverview>({
+  const { data: overview, isLoading, isError, error, refetch } = useQuery<AdminOverview>({
     queryKey: ['admin-overview'],
     queryFn: adminApi.getOverview,
     refetchInterval: 30000,
@@ -186,7 +187,9 @@ export const AdminDashboardPage: React.FC = () => {
           <span className="text-xs text-slate-500">Auto-updates in real time via WebSocket</span>
         </div>
 
-        {isLoading ? (
+        {isError ? (
+          <QueryErrorBanner error={error} onRetry={() => refetch()} />
+        ) : isLoading ? (
           <div className="rounded-xl border border-slate-200 bg-white p-12 dark:border-slate-800 dark:bg-slate-900">
             <LoadingSpinner label="Loading live operational metrics..." />
           </div>

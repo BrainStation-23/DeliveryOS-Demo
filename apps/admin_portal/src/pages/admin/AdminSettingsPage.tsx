@@ -19,10 +19,13 @@ import { Alert } from '../../components/ui/Alert';
 import { Modal } from '../../components/ui/Modal';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatCard } from '../../components/common/StatCard';
+import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
+import { extractApiError } from '../../utils/apiError';
 
 export const AdminSettingsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [isExporting, setIsExporting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [flatFeeInput, setFlatFeeInput] = useState<string>('50');
   const [baseFeeInput, setBaseFeeInput] = useState<string>('40');
   const [perKmRateInput, setPerKmRateInput] = useState<string>('15');
@@ -32,17 +35,32 @@ export const AdminSettingsPage: React.FC = () => {
   const [settleNotes, setSettleNotes] = useState('');
   const [settleSuccessMessage, setSettleSuccessMessage] = useState<string | null>(null);
 
-  const { data: settings } = useQuery({
+  const {
+    data: settings,
+    isError: isSettingsError,
+    error: settingsError,
+    refetch: refetchSettings,
+  } = useQuery({
     queryKey: ['admin-settings'],
     queryFn: adminApi.getSettings,
   });
 
-  const { data: settlements = [] } = useQuery({
+  const {
+    data: settlements = [],
+    isError: isSettlementsError,
+    error: settlementsError,
+    refetch: refetchSettlements,
+  } = useQuery({
     queryKey: ['admin-settlements'],
     queryFn: adminApi.getSettlementStatements,
   });
 
-  const { data: batches = [] } = useQuery({
+  const {
+    data: batches = [],
+    isError: isBatchesError,
+    error: batchesError,
+    refetch: refetchBatches,
+  } = useQuery({
     queryKey: ['admin-settlement-batches'],
     queryFn: adminApi.getSettlementBatches,
   });
@@ -63,6 +81,7 @@ export const AdminSettingsPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-settlements'] });
       setSettleSuccessMessage(data?.message || 'Settlement cycle closed successfully.');
     },
+    onError: (err) => setActionError(extractApiError(err, 'Settlement cycle execution failed.')),
   });
 
   const updateOrderFlowMutation = useMutation({
@@ -71,6 +90,7 @@ export const AdminSettingsPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
     },
+    onError: (err) => setActionError(extractApiError(err, 'Failed to update order flow mode.')),
   });
 
   const updateDeliveryFeeMutation = useMutation({
@@ -83,6 +103,7 @@ export const AdminSettingsPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
     },
+    onError: (err) => setActionError(extractApiError(err, 'Failed to update delivery fee settings.')),
   });
 
   const handleExportCsv = async () => {
@@ -99,7 +120,7 @@ export const AdminSettingsPage: React.FC = () => {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Failed to download settlement CSV:', err);
-      alert('Failed to download settlement statement CSV.');
+      setActionError(extractApiError(err, 'Failed to download settlement statement CSV.'));
     } finally {
       setIsExporting(false);
     }
@@ -118,6 +139,14 @@ export const AdminSettingsPage: React.FC = () => {
         subtitle="Configure real-time dispatch state machines, pricing pipelines, and export vendor payout statements"
         icon={Settings}
       />
+
+      {actionError && (
+        <Alert type="error" message={actionError} onDismiss={() => setActionError(null)} />
+      )}
+
+      {isSettingsError && (
+        <QueryErrorBanner error={settingsError} onRetry={() => refetchSettings()} />
+      )}
 
       <div className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
         <div>
@@ -331,6 +360,10 @@ export const AdminSettingsPage: React.FC = () => {
           </div>
         </div>
 
+        {isSettlementsError && (
+          <QueryErrorBanner error={settlementsError} onRetry={() => refetchSettlements()} />
+        )}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Settled Orders"
@@ -417,6 +450,10 @@ export const AdminSettingsPage: React.FC = () => {
               Immutable settlement cycles closing pending vendor commission ledgers and courier trip disbursements
             </p>
           </div>
+
+          {isBatchesError && (
+            <QueryErrorBanner error={batchesError} onRetry={() => refetchBatches()} />
+          )}
 
           <div className="overflow-x-auto">
             <table className="min-w-[700px] w-full text-left text-xs">

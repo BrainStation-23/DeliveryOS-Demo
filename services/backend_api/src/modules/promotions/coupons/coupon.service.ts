@@ -60,6 +60,7 @@ export class CouponService {
       discountValue: discountVal,
       discountAmount,
       finalSubtotal,
+      usageLimit: coupon.usageLimit,
     };
   }
 }

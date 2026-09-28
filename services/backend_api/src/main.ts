@@ -1,8 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { WinstonModule } from 'nest-winston';
 import helmet from 'helmet';
+import * as Sentry from '@sentry/node';
+import * as path from 'node:path';
 import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -12,12 +15,30 @@ import { getAllowedOrigins } from './common/config/env';
 
 async function bootstrap() {
   const logger = createAppLogger();
-  const app = await NestFactory.create(AppModule, {
+
+  // Error monitoring activates only when a DSN is configured
+  if (process.env.SENTRY_DSN) {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV || 'development',
+      tracesSampleRate: 0,
+    });
+    logger.log('Sentry error monitoring initialized', 'Bootstrap');
+  }
+
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: WinstonModule.createLogger({ instance: logger }),
   });
 
-  app.use(helmet());
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }));
   app.use(requestContextMiddleware);
+
+  // Uploaded media (local storage driver) is served at /uploads
+  app.useStaticAssets(path.resolve(process.env.UPLOAD_DIR || './uploads'), {
+    prefix: '/uploads',
+  });
 
   const allowedOrigins = getAllowedOrigins();
   app.enableCors({
@@ -35,7 +56,7 @@ async function bootstrap() {
   app.setGlobalPrefix(globalPrefix);
 
   app.useGlobalInterceptors(new TransformInterceptor());
-  app.useGlobalFilters(new AllExceptionsFilter(logger));
+  app.useGlobalFilters(new AllExceptionsFilter(logger, Sentry));
 
   app.useGlobalPipes(
     new ValidationPipe({

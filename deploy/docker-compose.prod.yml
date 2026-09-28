@@ -109,6 +109,8 @@ services:
       SSLCOMMERZ_BASE_URL: ${SSLCOMMERZ_BASE_URL:-https://sandbox.sslcommerz.com}
       SSLCOMMERZ_CALLBACK_BASE: ${SSLCOMMERZ_CALLBACK_BASE:-https://${DOMAIN}}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+      STORAGE_DRIVER: local
+      UPLOAD_DIR: /app/uploads
       CORS_ORIGINS: ${CORS_ORIGINS:-https://${DOMAIN:?DOMAIN is required for TLS}}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     healthcheck:
@@ -117,6 +119,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
+    volumes:
+      - backend_uploads:/app/uploads
     networks:
       - deliveryos_prod_network
     logging: *default-logging
@@ -230,6 +234,7 @@ volumes:
     name: deliveryos_prod_pgdata
   prod_redisdata:
     name: deliveryos_prod_redisdata
+  backend_uploads:
   certbot_conf:
   certbot_www:
 

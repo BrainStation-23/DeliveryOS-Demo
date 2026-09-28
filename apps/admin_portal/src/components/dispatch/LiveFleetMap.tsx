@@ -122,13 +122,13 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
       marker.addTo(layer);
     });
 
-    const baseLat = 23.7915;
-    const baseLng = 90.4042;
-    unassignedOrders.forEach((order, index) => {
-      const offsetAngle = (index * 2 * Math.PI) / Math.max(1, unassignedOrders.length);
-      const radius = 0.002 + (index % 3) * 0.001;
-      const lat = baseLat + radius * Math.sin(offsetAngle);
-      const lng = baseLng + radius * Math.cos(offsetAngle);
+    // Pins sit at the real vendor pickup coordinates; orders without a known
+    // vendor location are skipped rather than drawn at fabricated positions.
+    unassignedOrders
+      .filter((order) => typeof order.vendorLatitude === 'number' && typeof order.vendorLongitude === 'number')
+      .forEach((order) => {
+      const lat = order.vendorLatitude as number;
+      const lng = order.vendorLongitude as number;
       bounds.push([lat, lng]);
 
       const orderIcon = L.divIcon({

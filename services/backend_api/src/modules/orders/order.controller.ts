@@ -6,12 +6,14 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '@prisma/client';
+import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { OrderService } from './order.service';
 import { CheckoutDto } from './dto/checkout.dto';
 import { ValidateReorderDto } from './dto/validate-reorder.dto';
@@ -55,13 +57,13 @@ export class OrderController {
   @Get('history')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get order history for authenticated customer' })
-  @ApiResponse({ status: 200, description: 'List of previous orders' })
-  async getOrderHistory(@CurrentUser() user: User) {
-    const orders = await this.orderService.getCustomerOrderHistory(user.id);
+  @ApiOperation({ summary: 'Get paginated order history for authenticated customer' })
+  @ApiResponse({ status: 200, description: 'Paginated list of previous orders' })
+  async getOrderHistory(@CurrentUser() user: User, @Query() pagination: PaginationQueryDto) {
+    const result = await this.orderService.getCustomerOrderHistory(user.id, pagination);
     return {
       message: 'Order history retrieved successfully',
-      data: orders,
+      data: result,
     };
   }
 

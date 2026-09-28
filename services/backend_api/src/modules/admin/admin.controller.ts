@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -15,10 +16,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request as ExpressRequest, Response } from 'express';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UploadedFile, UseInterceptors } from '@nestjs/common/decorators';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { StorageService } from '../../common/storage/storage.service';
 import { BannerLinkType, DiscountType, PermissionScope, UserRole } from '@prisma/client';
 import { AdminService } from './admin.service';
 import { AdminCancelOrderDto } from './dto/admin-cancel-order.dto';
@@ -30,7 +35,28 @@ import { VerifyCashDepositDto } from './dto/verify-cash-deposit.dto';
 @Roles(UserRole.SUPER_ADMIN)
 @ApiBearerAuth()
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly storageService: StorageService,
+  ) {}
+
+  // 0. Media Uploads
+  @Post('uploads')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a promotional image (JPEG/PNG/WebP/GIF, max 5 MB)' })
+  @ApiResponse({ status: 201, description: 'Stored image URL' })
+  async uploadImage(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Multipart field "file" is required');
+    }
+    const stored = await this.storageService.saveImage(file);
+    return {
+      message: 'Image uploaded successfully',
+      data: stored,
+    };
+  }
 
   // 1. Dashboard Overview
   @Get('overview')
@@ -71,12 +97,12 @@ export class AdminController {
 
   // 3. Live Order Monitor & Force-Assign Override
   @Get('orders')
-  @ApiOperation({ summary: 'Get live orders queue across all lifecycle stages' })
-  async getOrders(@Query('status') status?: string) {
-    const data = await this.adminService.getLiveOrders(status);
+  @ApiOperation({ summary: 'Get paginated live orders queue across all lifecycle stages' })
+  async getOrders(@Query('status') status?: string, @Query() pagination: PaginationQueryDto = new PaginationQueryDto()) {
+    const result = await this.adminService.getLiveOrders(status, pagination);
     return {
-      message: `Retrieved ${data.length} orders in queue`,
-      data,
+      message: `Retrieved ${result.items.length} of ${result.total} orders in queue`,
+      data: result,
     };
   }
 

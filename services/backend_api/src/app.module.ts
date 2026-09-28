@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { RedisModule } from './common/redis/redis.module';
+import { StorageModule } from './common/storage/storage.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { VendorModule } from './modules/vendors/vendor.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
@@ -49,12 +50,14 @@ import { AddressesModule } from './modules/addresses/addresses.module';
           otherwise: Joi.string(),
         }),
         CORS_ORIGINS: Joi.string(),
+        SENTRY_DSN: Joi.string(),
         LOG_LEVEL: Joi.string(),
       }).unknown(true),
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     PrismaModule,
     RedisModule,
+    StorageModule,
     HealthModule,
     AuthModule,
     VendorModule,

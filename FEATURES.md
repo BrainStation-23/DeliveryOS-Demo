@@ -382,6 +382,17 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Client Token Storage**: `flutter_secure_storage` (Keystore/Keychain) with plaintext migration in both apps; single-flight 401 refresh-and-replay interceptors in both portals and both apps.
 - **Background Telemetry**: rider foreground service keeps GPS streaming while backgrounded; synthetic-coordinate fallback removed; HTTP sync throttled to 30s; lifecycle-aware socket reconnect.
 
+### 6.9. Hardening, Data Integrity & Error UX
+- **Money-Path Unit Tests**: Jest suite (`npm run test:unit`, runs in CI via the root `verify` gate) pinning the ADR-002 FSM, region-time operating-hours math (overnight windows, Asia/Dhaka rollover), coupon eligibility guards, and the webhook atomic-claim idempotency ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)).
+- **Region-Time Hours Gate**: vendor operating hours compare against the active region's wall clock (`Asia/Dhaka`/`Asia/Riyadh` via `REGION_MODE`), never the server's UTC clock.
+- **Atomic Coupon Claims**: checkout claims coupon usage via `UPDATE ... WHERE currentUses < usageLimit` inside the transaction; conflict rolls back the order (no oversell).
+- **Pagination**: customer order history and admin live orders return `{items,total,page,limit,totalPages}` with wired portal `Table` controls; nearby-vendor discovery capped by validated `limit` (default 50).
+- **Error UX**: all admin mutations surface failures (`onError` + Alert), queries render error banners with retry instead of fake empty states, native `confirm()`/`alert()` replaced by the Modal kit, and the KDS board shows a reconnect banner when the socket drops.
+- **Dispatch Radar**: GPS events patch the cached fleet (5s throttle) instead of refetching per beacon; unassigned-order pins use real vendor coordinates.
+- **Error Monitoring**: env-gated Sentry on backend (unexpected 5xx + request-id), both portals (boundary capture), and both Flutter apps ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)).
+- **Code Splitting**: route-level `React.lazy` + Suspense in both portals; vendor portal `manualChunks`; Flutter banners/outlet images via `cached_network_image`.
+- **Media Uploads**: `POST /admin/uploads` (SUPER_ADMIN multipart, validated image types + 5 MB cap) with a local storage driver served at `/uploads`; admin banner form uploads directly and persists across deploys via a named volume.
+
 ---
 
 ## 7. Data Persistence & Spatial Storage Engine

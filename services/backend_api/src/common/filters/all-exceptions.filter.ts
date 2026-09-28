@@ -9,9 +9,16 @@ import { Response } from 'express';
 import type { Logger } from 'winston';
 import { requestContext } from '../logging/request-context';
 
+interface ErrorReporter {
+  captureException: (exception: unknown, context?: Record<string, unknown>) => string;
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  constructor(private readonly logger?: Logger) {}
+  constructor(
+    private readonly logger?: Logger,
+    private readonly errorReporter?: ErrorReporter,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -57,6 +64,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
         path: request?.originalUrl,
         requestId,
         stack: exception instanceof Error ? exception.stack : undefined,
+      });
+    }
+
+    // Report unexpected 5xx failures to the error monitor (HttpExceptions are
+    // deliberate API outcomes, not bugs)
+    if (this.errorReporter && status >= 500 && !(exception instanceof HttpException)) {
+      this.errorReporter.captureException(exception, {
+        extra: { statusCode: status, path: request?.originalUrl, requestId },
       });
     }
 

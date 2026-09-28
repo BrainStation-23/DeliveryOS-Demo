@@ -1,4 +1,4 @@
-import { IsEnum, IsLatitude, IsLongitude, IsNumber, IsOptional } from 'class-validator';
+import { IsEnum, IsInt, IsLatitude, IsLongitude, IsNumber, IsOptional, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { VendorVertical } from '@prisma/client';
@@ -20,4 +20,12 @@ export class GetNearbyVendorsDto {
   @IsOptional()
   @IsEnum(VendorVertical)
   vertical?: VendorVertical;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 50, description: 'Maximum outlets returned' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 50;
 }

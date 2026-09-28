@@ -10,6 +10,34 @@ import { RedisService } from '../../common/redis/redis.service';
 import { TrackingGateway } from '../realtime/tracking.gateway';
 import { OrderFlowService } from '../order-flow/order-flow.service';
 import { OrderFlowMode } from '../order-flow/dto/update-order-flow.dto';
+import { PaginatedResult, PaginationQueryDto, toPaginatedResult } from '../../common/dto/pagination.dto';
+
+export interface LiveOrderView {
+  id: string;
+  orderNumber: string;
+  vendorId: string;
+  vendorName: string;
+  vendorAddress: string;
+  vendorLatitude: number | null;
+  vendorLongitude: number | null;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  customerNotes: string | null;
+  riderId: string | null;
+  riderName: string | null;
+  riderPhone: string | null;
+  status: OrderStatus;
+  paymentMethod: string;
+  paymentStatus: string;
+  totalAmount: number;
+  deliveryFee: number;
+  placedAt: Date;
+  acceptedAt: Date | null;
+  prepTimeMinutes: number | null;
+  items: Array<{ id: string; name: string; quantity: number; unitPrice: number }>;
+  deliveryAddress: string;
+}
 import {
   BannerLinkType,
   DiscountType,
@@ -213,34 +241,43 @@ export class AdminService {
   // ===========================================================================
   // 3. Live Order Lifecycle Monitor & Manual Dispatch Force-Assign
   // ===========================================================================
-  async getLiveOrders(statusFilter?: string) {
+  async getLiveOrders(
+    statusFilter: string | undefined,
+    pagination: PaginationQueryDto,
+  ): Promise<PaginatedResult<LiveOrderView>> {
     const where: Prisma.OrderWhereInput = {};
     if (statusFilter && statusFilter !== 'ALL') {
       where.status = statusFilter as OrderStatus;
     }
 
-    const orders = await this.prisma.order.findMany({
-      where,
-      orderBy: { placedAt: 'desc' },
-      take: 100,
-      include: {
-        customer: { select: { fullName: true, phone: true } },
-        vendor: { select: { id: true, name: true, addressText: true } },
-        rider: {
-          include: {
-            user: { select: { fullName: true, phone: true } },
+    const [orders, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where,
+        orderBy: { placedAt: 'desc' },
+        skip: pagination.skip,
+        take: pagination.limit,
+        include: {
+          customer: { select: { fullName: true, phone: true } },
+          vendor: { select: { id: true, name: true, addressText: true, latitude: true, longitude: true } },
+          rider: {
+            include: {
+              user: { select: { fullName: true, phone: true } },
+            },
           },
+          orderItems: true,
         },
-        orderItems: true,
-      },
-    });
+      }),
+      this.prisma.order.count({ where }),
+    ]);
 
-    return orders.map((o) => ({
+    const items: LiveOrderView[] = orders.map((o) => ({
       id: o.id,
       orderNumber: o.orderNumber,
       vendorId: o.vendorId,
       vendorName: o.vendor?.name || 'Store',
       vendorAddress: o.vendor?.addressText || '',
+      vendorLatitude: o.vendor?.latitude ?? null,
+      vendorLongitude: o.vendor?.longitude ?? null,
       customerId: o.customerId,
       customerName: o.customer?.fullName || 'Customer',
       customerPhone: o.customer?.phone || '',
@@ -264,6 +301,8 @@ export class AdminService {
       })),
       deliveryAddress: (o.deliveryAddressSnapshot as { addressLine?: string } | null)?.addressLine || 'Address',
     }));
+
+    return toPaginatedResult(items, total, pagination);
   }
 
   /**

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import kdsApi, { normalizeKDSOrder, RawBackendOrder } from '../services/kdsApi';
 import { getSocket } from '../services/socket';
@@ -38,12 +38,31 @@ interface SocketOrderCancelledPayload {
 export const useKDSOrders = (vendorId?: string) => {
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => ['kds-live-orders', vendorId], [vendorId]);
+  const [isSocketConnected, setIsSocketConnected] = useState<boolean>(getSocket().connected);
 
-  const { data: orders = [], isLoading, refetch } = useQuery<KDSOrder[]>({
+  const { data: orders = [], isLoading, isError, error, refetch } = useQuery<KDSOrder[]>({
     queryKey,
     queryFn: () => kdsApi.getLiveOrders(vendorId),
     refetchInterval: 15000, // Background poll every 15s as fallback
   });
+
+  // A kitchen tablet must never silently run on a stale board: surface the
+  // realtime connection state so staff notice a dropped socket.
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handleConnect = () => setIsSocketConnected(true);
+    const handleDisconnect = () => setIsSocketConnected(false);
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    setIsSocketConnected(socket.connected);
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+    };
+  }, []);
 
   useEffect(() => {
     const socket = getSocket();
@@ -214,7 +233,10 @@ export const useKDSOrders = (vendorId?: string) => {
   return {
     orders: safeOrders,
     isLoading,
+    isError,
+    error,
     refetch,
+    isSocketConnected,
     newOrders,
     inPreparationOrders,
     readyOrders,

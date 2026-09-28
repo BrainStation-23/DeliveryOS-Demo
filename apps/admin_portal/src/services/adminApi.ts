@@ -1,5 +1,13 @@
 import apiClient from './apiClient';
 
+export interface PaginatedOrders {
+  items: AdminOrder[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export interface AdminOverview {
   metrics: {
     totalOrders: number;
@@ -55,6 +63,8 @@ export interface AdminOrder {
   vendorId: string;
   vendorName: string;
   vendorAddress: string;
+  vendorLatitude?: number | null;
+  vendorLongitude?: number | null;
   customerId: string;
   customerName: string;
   customerPhone: string;
@@ -215,10 +225,21 @@ export const adminApi = {
   },
 
   // 3. Live Order Monitor & Force Assign
-  async getOrders(status?: string): Promise<AdminOrder[]> {
-    const params = status && status !== 'ALL' ? { status } : undefined;
+  async getOrders(status?: string, page = 1, limit = 20): Promise<PaginatedOrders> {
+    const params = {
+      ...(status && status !== 'ALL' ? { status } : {}),
+      page,
+      limit,
+    };
     const res = await apiClient.get('/api/v1/admin/orders', { params });
-    return res.data?.data || res.data;
+    const payload = res.data?.data || res.data;
+    return {
+      items: payload?.items ?? [],
+      total: payload?.total ?? 0,
+      page: payload?.page ?? page,
+      limit: payload?.limit ?? limit,
+      totalPages: payload?.totalPages ?? 1,
+    };
   },
 
   async forceAssignRider(orderId: string, riderId: string): Promise<{ message: string; data?: AdminOrder }> {
@@ -235,6 +256,22 @@ export const adminApi = {
   async getBanners(): Promise<AdminBanner[]> {
     const res = await apiClient.get('/api/v1/admin/banners');
     return res.data?.data || res.data;
+  },
+
+  async uploadImage(file: File): Promise<string> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await apiClient.post('/api/v1/admin/uploads', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    const payload = res.data?.data || res.data;
+    const base = (apiClient.defaults.baseURL as string) || '';
+    const url = payload?.url as string;
+    // Relative /uploads URLs resolve against the API origin, not the SPA origin
+    if (url.startsWith('/') && base && !base.includes(window.location.origin)) {
+      return `${base.replace(/\/$/, '').replace(/\/api\/v1$/, '')}${url}`;
+    }
+    return url;
   },
 
   async createBanner(data: Partial<AdminBanner>): Promise<AdminBanner> {

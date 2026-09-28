@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/constants/app_colors.dart';
@@ -12,10 +14,24 @@ import 'features/home/presentation/home_screen.dart';
 import 'features/splash/presentation/splash_screen.dart';
 import 'features/tracking/presentation/order_tracking_screen.dart';
 
+
+/// Error monitoring activates only when a DSN is injected at build time:
+/// --dart-define=SENTRY_DSN=https://...@o0.ingest.sentry.io/0
+Future<void> _initSentry() async {
+  const dsn = String.fromEnvironment('SENTRY_DSN');
+  if (dsn.isEmpty) return;
+  await SentryFlutter.init((options) {
+    options.dsn = dsn;
+    options.environment = kDebugMode ? 'debug' : 'release';
+    options.tracesSampleRate = 0;
+  });
+}
+
 final GlobalKey<NavigatorState> customerNavigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await _initSentry();
   final localStorage = await LocalStorage.init();
 
   await PushNotificationService(localStorage).initialize();

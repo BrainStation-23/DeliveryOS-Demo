@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -263,7 +264,20 @@ class _OutletDetailScreenState extends ConsumerState<OutletDetailScreen> {
               fit: StackFit.expand,
               children: [
                 catalog.bannerUrl != null
-                    ? Image.network(catalog.bannerUrl!, fit: BoxFit.cover)
+                    ? CachedNetworkImage(
+                        imageUrl: catalog.bannerUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(color: AppColors.card),
+                        errorWidget: (_, __, ___) => Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [AppColors.primaryLight, AppColors.primary],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                        ),
+                      )
                     : Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
