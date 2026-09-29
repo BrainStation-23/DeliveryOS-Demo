@@ -1,29 +1,18 @@
-# Autonomous AI Agents & Coding Assistants Guide
+# Autonomous AI Agents Guide (DeliveryOS)
 
-Welcome! If you are an AI coding assistant or developer working on **DeliveryOS**:
-
-⚡ **TOKEN-SAVING FAST ENTRY**:  
-Before loading large documentation files, inspect the **Context Router** to identify the exact 1–2 files needed for your specific task:  
-👉 **[`context_docs/QUICK_REFERENCE.md`](./context_docs/QUICK_REFERENCE.md)**
-
-🧭 **MANDATORY ENGINEERING WORKFLOW**:  
-Every feature, bug fix, or refactor must follow the 3-Phase Spec-Driven Development Workflow:  
-👉 **[`README.md#spec-driven-development-workflow-3-phase-protocol`](./README.md#-spec-driven-development-workflow-3-phase-protocol)**
+⚡ **Context Router (Token Saver)**: Inspect [`context_docs/QUICK_REFERENCE.md`](./context_docs/QUICK_REFERENCE.md) to load only the 1–2 files needed for your task.  
+🧭 **Mandatory Workflow**: Follow the 3-Phase Protocol (Plan ➔ Implement ➔ Verify & Sync) in [`README.md`](./README.md#-spec-driven-development-workflow-3-phase-protocol).
 
 ---
 
-## 📚 Master Engineering Specifications & Index
-
-All authoritative system rules, business workflows, technical specifications, and architecture decisions are maintained in `context_docs/`:
-
-1. **[Spec-Driven Development Workflow](./README.md#-spec-driven-development-workflow-3-phase-protocol)** — Authoritative 3-phase engineering protocol (Plan ➔ Implement ➔ Verify & Sync) and repeatable checklists directly on root README.
-2. **[Master AI Agent Rules & Invariants](./context_docs/AGENT_RULES.md)** — Authoritative engineering standards, DoD, and governance.
-3. **[Quick Reference & Context Router](./context_docs/QUICK_REFERENCE.md)** — Token-efficient task-to-document routing table (load 1–2 files only).
-4. **[Master System Feature Catalog](./FEATURES.md)** — Line-level, granular breakdown of every capability across all 5 sub-projects.
-5. **[Changelog, Milestones & Engineering Roadmap](./CHANGELOG.md)** — Step-by-step engineering roadmap, active milestone tracker, and standardized Keep a Changelog (SemVer) release history.
-6. **[Architecture Decision Records (ADR)](./context_docs/architecture-decision-records/README.md)** — Permanent architectural contracts and state machines (`ADR-001` through `ADR-015`).
-7. **[Business Requirements Documents (BRD)](./context_docs/business-requirements-documents/README.md)** — Core business rules, user journeys, and personas (`BRD-00` through `BRD-07`).
-8. **[Technical Implementation Documents (TID)](./context_docs/technical-implementation-documents/README.md)** — System architecture, schemas, APIs, and devops (`TID-01` through `TID-07`).
+## 📚 Master Specifications & Index
+- **Rules & Standards**: [`context_docs/AGENT_RULES.md`](./context_docs/AGENT_RULES.md) (authoritative governance & DoD)
+- **Context Router**: [`context_docs/QUICK_REFERENCE.md`](./context_docs/QUICK_REFERENCE.md) (token-saving task router)
+- **Feature Catalog**: [`FEATURES.md`](./FEATURES.md) (granular line-by-line capability index)
+- **Roadmap & Changelog**: [`CHANGELOG.md`](./CHANGELOG.md) (milestone tracker & SemVer release history)
+- **ADR Index**: [`context_docs/architecture-decision-records/README.md`](./context_docs/architecture-decision-records/README.md) (`ADR-001` through `ADR-015`)
+- **BRD Suite**: [`context_docs/business-requirements-documents/README.md`](./context_docs/business-requirements-documents/README.md) (`BRD-00` through `BRD-07`)
+- **TID Suite**: [`context_docs/technical-implementation-documents/README.md`](./context_docs/technical-implementation-documents/README.md) (`TID-01` through `TID-07`)
 
 ---
 

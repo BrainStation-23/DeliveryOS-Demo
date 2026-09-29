@@ -45,7 +45,9 @@
 | **Real-World Integrations (SMS, SSLCommerz, FCM, Auth)**| `ADR-013` + `TID-03` + `apps/customer_app` + `apps/rider_app` |
 | **Money-Path Unit Tests & Sentry Error Monitoring** | `ADR-014` + `services/backend_api` (Jest) + `apps/*/` |
 | **Horizontal Scaling, Leader Locks & Data Safety** | `ADR-015` + `deploy/docker-compose.prod.yml` + `scripts/backup-db.sh` |
-| **Mobile Release Engineering & Play Disclosures** | `docs/RELEASE.md` + `scripts/build-android.sh` |
+| **Mobile Release Engineering & Play Disclosures** | `TID-07` (§ 6) + `scripts/build-android.sh` |
+| **Code Modularity & Component Decomposition** | `AGENT_RULES.md` (§ 3.8) + `AGENTS.md` + `FEATURES.md` (§ 1.7) |
+| **Delivery Fee Calculation & Canonical Schema** | `BRD-03` (Sec 4) + `TID-03` (Sec 2.5) + `delivery-fee.service.ts` |
 | **Financial Settlement Cycles & Net COD Cash Offset**| `ADR-009` + `TID-03` (Sec 6.6) + `BRD-07` |
 | **AI Governance, Invariants & No-Auto-Commits** | `ADR-010` + `AGENT_RULES.md` + `README.md` |
 | **Authentication, OTP, JWT, Role Guards** | `TID-03` (API Specs: Sec 2) + `TID-02` (Users table) |

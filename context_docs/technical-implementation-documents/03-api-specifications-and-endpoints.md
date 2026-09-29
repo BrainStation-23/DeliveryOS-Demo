@@ -161,7 +161,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`GET /admin/coupons`** / **`POST /admin/coupons`** / **`PATCH /admin/coupons/:id`** / **`DELETE /admin/coupons/:id`**: Coupon CRUD.
 - **`GET /admin/settings`**: Returns current FSM mode and delivery fee pricing mode.
 - **`PATCH /admin/settings/order-flow`**: Body `{ "mode": "RIDER_FIRST" | "VENDOR_FIRST" }`.
-- **`PATCH /admin/settings/delivery-fee`**: Body `{ "mode": "FIXED_FLAT" | "DISTANCE_TIERED", "flatRate": 50.0, ... }`.
+- **`PATCH /admin/settings/delivery-fee`**: Body `{ "mode": "FIXED_FLAT" | "DISTANCE_TIERED", "flatFee": 50.0, "baseFee": 40.0, "baseKm": 2.0, "perKmRate": 15.0 }`.
 - **`GET /admin/finance/settlement-export?format=csv`**: Downloads RFC 4180 CSV settlement file.
 - **`POST /admin/finance/settle-cycle`**: Triggers batch settlement cycle for pending orders.
 - **`GET /admin/finance/settlement-batches`**: Lists historical settlement batches.

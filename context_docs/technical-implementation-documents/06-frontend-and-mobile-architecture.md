@@ -80,7 +80,7 @@ Future<void> openNativeTurnByTurnNavigation(double lat, double lng) async {
 - **Token Security**: JWT tokens are persisted via `flutter_secure_storage` (Android Keystore / iOS Keychain) with automatic transparent migration from legacy SharedPreferences.
 - **Single-Flight Refresh Interceptor**: Intercepts 401s, executes single-flight token rotation via `POST /auth/refresh`, and replays failed queries or triggers logout.
 - **Release Signing & ProGuard**: Configured via `android/key.properties` (gitignored; debug keystore fallback for contributors) with ProGuard rules referenced.
-- **Release Packaging**: `scripts/build-android.sh` produces release Android App Bundles (AAB) with dart-define injected base URLs, Maps keys, and payment gateways (`docs/RELEASE.md`).
+- **Release Packaging**: `scripts/build-android.sh` produces release Android App Bundles (AAB) with dart-define injected base URLs, Maps keys, and payment gateways (`TID-07 § 6`).
 - **Error Monitoring**: Sentry Flutter captures fatal errors and unhandled exceptions, wired with `--dart-define=SENTRY_DSN`.
 
 ---

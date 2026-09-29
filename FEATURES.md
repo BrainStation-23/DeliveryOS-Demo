@@ -66,6 +66,16 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Production Realism**: Zero mock shortcuts, zero placeholder fallbacks, zero deleted failing tests.
 - **Clean Code Standard**: Zero trivial comments on obvious logic per `AGENT_RULES.md § 3.6`.
 
+### 1.7. Code Modularity, Component Decomposition & Reusability (§ 3.8)
+- **Screen Decomposition**: Monolithic screens (>300–400 lines) broken into composable widgets/components under local subdirectories (`widgets/`, `components/`).
+- **Shared Logic & State Isolation**: Business and network state strictly isolated from presentation via Riverpod Notifiers (Flutter), custom hooks & TanStack Query (React), and domain services (NestJS).
+- **Cross-Platform Reusable Primitives**:
+  - *Backend*: Standardized deterministic rounding (`roundMoney`), canonical single-schema delivery fee engine (`DeliveryFeeConfig`).
+  - *Customer App*: `QuantityStepper`, `SoldOutBadge`, `OrderStatusBadge`, `ApiErrorHandler`, Riverpod 2 `ProfileNotifier`, and decomposed `CartScreen` cards (`CartItemCard`, `BillSummaryCard`, `DeliveryAddressSelectorCard`, `OrderPlacedDialog`).
+  - *Rider App*: `AppPrimaryButton`, unified `TripDestinationCard` (replaces duplicated pickup/delivery cards), and decomposed `PhoneLoginScreen` (`AuthBrandHeader`, `AuthTabToggle`, `PilotAccountsDebugCard`).
+  - *Vendor Portal*: Standalone `OrderRejectModal`, `useRushPause` hook, `SalesLedgerKPIs`, `SalesLedgerDetailModal`, and shared `formatters.ts`.
+  - *Admin Portal*: `OrderDetailsModal`, `ForceAssignModal`, `CancelOrderModal`, `useSocketQueryInvalidation` hook, and shared `formatters.ts`.
+
 ---
 
 ## 2. Customer Mobile Experience (`apps/customer_app`)
@@ -394,7 +404,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Media Uploads**: `POST /admin/uploads` (SUPER_ADMIN multipart, validated image types + 5 MB cap) with a local storage driver served at `/uploads`; admin banner form uploads directly and persists across deploys via a named volume.
 
 ### 6.10. Release Readiness & Scaling
-- **Mobile Releases**: `key.properties`-driven release signing with debug fallback, ProGuard rules, branded launcher/adaptive icons + splash (per-app colors), and `scripts/build-android.sh` dart-define-injected release AABs; process in `docs/RELEASE.md`.
+- **Mobile Releases**: `key.properties`-driven release signing with debug fallback, ProGuard rules, branded launcher/adaptive icons + splash (per-app colors), and `scripts/build-android.sh` dart-define-injected release AABs; process in `TID-07` (§ 6).
 - **Scaling Readiness**: Socket.IO Redis adapter (multi-replica event fan-out), leader-locked background sweeps (payment expiry, dispatch escalation), de-pinned prod container names, and a 30s Redis cache on JWT-guard user lookups ([ADR-015](context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md)).
 - **Data Safety**: backup script with env-gated S3/rclone offsite upload + 7-day retention, confirmation-gated restore script (restore verified live), and systemd timer units. Two environments only: dev (local Docker) and production.
 
@@ -431,9 +441,9 @@ The platform is guarded by a comprehensive suite of automated verification scrip
 | **Dispatch FSM & Mutex** | `npm run dispatch:test` | Redis `SET NX EX` mutex lock, race-condition elimination, dual-flow transitions |
 | **Web Portal Admin Tests** | `npm run test:admin` | Dashboard KPIs, Leaflet OSM radar rendering, courier queue, order overrides |
 | **Web Portal KDS Tests** | `npm run test:kds` | 3-lane Kanban progression, prep countdown timers, synthesized audio chime loop |
-| **Customer App Flutter Tests** | `flutter test` | Riverpod providers, cart conflict modal, stepper layout, design system token tests |
-| **Rider App Flutter Tests** | `flutter test` | Duty toggle lock, 3-step fulfillment flow, 5-min SOP modal, design system token tests |
-| **Money-Path Unit Tests** | `npm run test:unit` | Jest suite pinning ADR-002 FSM transitions, region-time operating hours, atomic coupon claims, and webhook idempotency |
+| **Customer App Flutter Tests** | `flutter test` | Riverpod providers, cart conflict modal, stepper layout, design system token tests (47 passed) |
+| **Rider App Flutter Tests** | `flutter test` | Duty toggle lock, 3-step fulfillment flow, 5-min SOP modal, design system token tests (37 passed) |
+| **Money-Path & Pricing Unit Tests** | `npm run test:unit` | Jest suites (24 tests) pinning ADR-002 FSM transitions, region-time operating hours, atomic coupon claims, webhook idempotency, and delivery fee calculation & normalization |
 | **Static Code Analysis** | `npm run typecheck` / `flutter analyze` | Zero TypeScript errors (`strict: true`), zero Flutter analyzer warnings |
 
 ---
@@ -459,10 +469,12 @@ The platform is guarded by a comprehensive suite of automated verification scrip
 | **Rider Duty In-Flight Lock** | `apps/rider_app/lib/features/dashboard/presentation/rider_dashboard_screen.dart` | `BRD-06` (Sec 2) | [ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md) |
 | **Rider Hub Cash Deposits** | `apps/rider_app/lib/features/earnings/presentation/rider_earnings_screen.dart` | `BRD-06` (Sec 6) | [ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md) |
 | **Design System Tokens** | `apps/*/lib/core/constants/` + `apps/*/tailwind.config.js` | `AGENT_RULES.md` (§ 3.7) | [ADR-010](context_docs/architecture-decision-records/ADR-010-ai-driven-engineering-governance-and-no-auto-commits.md) |
+| **Code Modularity & Primitives** | All 5 sub-projects (`widgets/`, `components/`, `utils/`, `hooks/`) | `AGENT_RULES.md` (§ 3.8) + `AGENTS.md` | [ADR-010](context_docs/architecture-decision-records/ADR-010-ai-driven-engineering-governance-and-no-auto-commits.md) |
+| **Canonical Delivery Fee Engine**| `services/backend_api/src/modules/promotions/pricing/` | `BRD-03` (Sec 4) + `TID-03` (Sec 2.5) | [ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md) |
 | **Security Hardening & Fail-Fast** | `services/backend_api/src/common/config/` | `TID-07` + `deploy/README.md` | [ADR-012](context_docs/architecture-decision-records/ADR-012-production-security-hardening-and-fail-fast-config.md) |
 | **Real SMS & Push Integrations** | `services/backend_api/src/modules/notifications/` | `TID-01` + `TID-03` | [ADR-013](context_docs/architecture-decision-records/ADR-013-real-world-integration-stack.md) |
 | **SSLCommerz & Token Rotation** | `services/backend_api/src/modules/payments/` + `auth/` | `TID-03` + `TID-06` | [ADR-013](context_docs/architecture-decision-records/ADR-013-real-world-integration-stack.md) |
 | **Money-Path Unit Test Suite** | `services/backend_api/src/**/*.spec.ts` | `TID-01` | [ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md) |
 | **Sentry Monitoring Across Apps** | All 5 sub-projects | `TID-01` + `TID-06` | [ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md) |
 | **Horizontal Scaling & Data Safety**| `deploy/docker-compose.prod.yml` + `scripts/` | `TID-07` | [ADR-015](context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md) |
-| **Mobile Release Engineering** | `scripts/build-android.sh` + `android/` | `TID-06` + `docs/RELEASE.md` | [ADR-015](context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md) |
+| **Mobile Release Engineering** | `scripts/build-android.sh` + `android/` | `TID-07` (§ 6) | [ADR-015](context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md) |

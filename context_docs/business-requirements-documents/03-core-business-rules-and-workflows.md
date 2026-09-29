@@ -109,13 +109,15 @@ The platform supports two dispatch execution sequences governed by `system_setti
 Governed by `system_settings.delivery_fee_mode`:
 
 ### 4.1 Mode A: `FIXED_FLAT` (Pilot Default)
-$$\text{Delivery Fee} = \text{flat\_rate} \quad (\text{e.g., } 50.00\text{ BDT} \text{ or } 12.00\text{ SAR})$$
+$$\text{Delivery Fee} = \text{flatFee} \quad (\text{Default: } 50.00\text{ BDT} \text{ or } 12.00\text{ SAR})$$
 
 ### 4.2 Mode B: `DISTANCE_TIERED`
 $$\text{Delivery Fee} = \begin{cases} 
-\text{base\_fee}, & \text{if } \text{distance\_km} \le \text{base\_km} \\
-\text{base\_fee} + ((\text{distance\_km} - \text{base\_km}) \times \text{per\_km\_rate}), & \text{if } \text{distance\_km} > \text{base\_km}
+\text{baseFee}, & \text{if } \text{distanceKm} \le \text{baseKm} \\
+\text{baseFee} + ((\text{distanceKm} - \text{baseKm}) \times \text{perKmRate}), & \text{if } \text{distanceKm} > \text{baseKm}
 \end{cases}$$
+
+*(Canonical JSON Schema: `{ "mode": "FIXED_FLAT" | "DISTANCE_TIERED", "flatFee": number, "baseFee": number, "baseKm": number, "perKmRate": number }`)*
 
 ---
 

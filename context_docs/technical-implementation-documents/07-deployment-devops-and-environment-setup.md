@@ -256,3 +256,42 @@ When initializing the database for the pilot, the seed script (`services/backend
 2. **10 Pilot Vendors** (7 restaurants/cafes, 3 super shops/groceries) complete with coordinates, operating hours, categories, dishes, variants, and add-ons.
 3. **5 Pre-Approved Pilot Riders** with mock GPS coordinates within the pilot radius.
 4. **Default System Settings** (`FIXED_FLAT` fee mode at 50 BDT / 12 SAR; `RIDER_FIRST` FSM mode).
+
+---
+
+## 6. Mobile App Release Engineering & Signing
+
+Covers the production release pipeline for `apps/customer_app` and `apps/rider_app`.
+
+### 6.1. Signing Keystore & Configuration
+1. **Generate Release Keystore** (stored securely off-repo):
+   ```bash
+   keytool -genkey -v -keystore ~/deliveryos-release.keystore -alias deliveryos -keyalg RSA -keysize 2048 -validity 10000
+   ```
+2. **Configure `key.properties`** in `apps/<app>/android/key.properties` (gitignored):
+   ```properties
+   storePassword=<keystore-password>
+   keyPassword=<key-password>
+   keyAlias=deliveryos
+   storeFile=/absolute/path/to/deliveryos-release.keystore
+   ```
+   *Note: If missing, release builds fall back to debug signing for safe local checkouts.*
+
+### 6.2. Production AAB Generation
+Execute `scripts/build-android.sh` with required environment variables injected via `--dart-define`:
+```bash
+export API_BASE_URL="https://api.deliveryos.example.com/api/v1"
+export GOOGLE_MAPS_API_KEY="AIza..."            # Customer app
+export FIREBASE_API_KEY="..." FIREBASE_APP_ID="..." FIREBASE_SENDER_ID="..." FIREBASE_PROJECT_ID="..."
+export SENTRY_DSN="https://..."                 # Optional error monitoring
+
+./scripts/build-android.sh customer   # Outputs: apps/customer_app/build/app/outputs/bundle/release/app-release.aab
+./scripts/build-android.sh rider      # Outputs: apps/rider_app/build/app/outputs/bundle/release/app-release.aab
+```
+
+### 6.3. Pre-Upload Verification & Play Console Disclosures
+- **Verification**: Verify signature (`jarsigner -verify -certs -verbose app-release.aab`) and version bumps (`version: x.y.z+n` in `pubspec.yaml`).
+- **Foreground Service & Location Disclosure**: Rider app collects foreground-service GPS during active shift duty (`location` type declared). In-app disclosure modal is presented before duty activation.
+- **Two Environments Only**: Dev (local Docker) and Production. Play Store Internal Track serves as pre-production validation against live backend APIs.
+- **iOS Releases**: Runner targets exist; requires Apple Developer certificate profile and `flutter build ipa`.
+

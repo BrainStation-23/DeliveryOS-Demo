@@ -9,7 +9,7 @@
 #   GOOGLE_MAPS_API_KEY              Maps SDK key (customer app)
 #   FIREBASE_API_KEY/APP_ID/SENDER_ID/PROJECT_ID   push config
 #   SENTRY_DSN                       optional error monitoring
-# Prereq: apps/<app>/android/key.properties + keystore (see docs/RELEASE.md)
+# Prereq: apps/<app>/android/key.properties + keystore (see TID-07 § 6)
 # ==============================================================================
 set -euo pipefail
 

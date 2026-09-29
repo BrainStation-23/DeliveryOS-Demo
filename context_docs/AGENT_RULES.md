@@ -9,36 +9,15 @@
 
 ## 1. Project Context & Documentation Hierarchy
 
-Before implementing, modifying, or refactoring any code in this repository, you **MUST** consult the authoritative context documents stored in `context_docs/`:
+Before implementing, modifying, or refactoring any code in this repository, you **MUST** consult the authoritative context documents stored in `context_docs/`. Use [`context_docs/QUICK_REFERENCE.md`](./QUICK_REFERENCE.md) to load only the specific 1–2 ADR, BRD, or TID files required for your task:
 
-```
-context_docs/
-├── AGENT_RULES.md                                # This document (Master AI Engineering Rules)
-├── QUICK_REFERENCE.md                            # Token-saving task-to-document context router
-│
-├── architecture-decision-records/                # Permanent architectural & engineering decisions
-│   ├── README.md                                # Master ADR Index, lifecycle & AI protocol
-│   └── ADR-001 through ADR-015                  # System, FSM, GIS, Concurrency, Governance, Payments, Security, Integrations, Testing & Scaling ADRs
-│
-├── business-requirements-documents/             # Business logic, user journeys & operations
-│   ├── 00-master-product-overview.md            # Plain-English platform guide & commercial model
-│   ├── 01-executive-summary-and-vision.md       # High-level vision & multi-vertical model
-│   ├── 02-stakeholder-roles-and-personas.md     # Customer, Merchant, Rider, Super Admin personas
-│   ├── 03-core-business-rules-and-workflows.md  # Order FSM, fees, commissions, COD ledgers
-│   ├── 04-customer-experience-and-journey.md    # Screen-by-screen customer app journey
-│   ├── 05-merchant-and-vendor-operations.md     # Store web portal, kitchen orders, inventory
-│   ├── 06-rider-fleet-and-dispatch-handbook.md  # 3-step smooth fulfillment & dispatch rules
-│   └── 07-admin-operations-and-pilot-guide.md   # Master admin controls & 10-vendor pilot playbook
-│
-└── technical-implementation-documents/          # Architecture, schemas, APIs & devops
-    ├── 01-system-architecture-and-tech-stack.md # Topology, monorepo layout & dependencies
-    ├── 02-database-schema-and-data-models.md    # PostgreSQL 16 + PostGIS DDL & spatial indexes
-    ├── 03-api-specifications-and-endpoints.md   # REST API contracts (/api/v1) & DTOs
-    ├── 04-realtime-events-and-websocket-protocol.md # Socket.IO events & room schemas
-    ├── 05-order-state-machine-and-dispatch-engine.md# FSM, Redis GEO queries & atomic mutexes
-    ├── 06-frontend-and-mobile-architecture.md   # Flutter Riverpod & React SPA architecture
-    └── 07-deployment-devops-and-environment-setup.md# Docker Compose, Nginx, .env specs
-```
+- **Context Router**: [`context_docs/QUICK_REFERENCE.md`](./QUICK_REFERENCE.md) (token-saving task router)
+- **Rules & Standards**: [`context_docs/AGENT_RULES.md`](./AGENT_RULES.md) (this document — master governance & DoD)
+- **Feature Catalog**: [`FEATURES.md`](../FEATURES.md) (granular line-by-line capability index & test traceability)
+- **Roadmap & Changelog**: [`CHANGELOG.md`](../CHANGELOG.md) (milestone tracker & SemVer release history)
+- **Architecture Decisions**: [`context_docs/architecture-decision-records/README.md`](./architecture-decision-records/README.md) (`ADR-001` through `ADR-015`)
+- **Business Requirements**: [`context_docs/business-requirements-documents/README.md`](./business-requirements-documents/README.md) (`BRD-00` through `BRD-07`)
+- **Technical Implementations**: [`context_docs/technical-implementation-documents/README.md`](./technical-implementation-documents/README.md) (`TID-01` through `TID-07`)
 
 ---
 
@@ -52,8 +31,8 @@ When generating code, you must strictly uphold these inviolable business rules:
    - In the MVP, a customer's cart and checkout can only contain items from **one vendor at a time**. If a user tries adding an item from a different store, the client and server must reject/confirm before clearing the previous store's cart.
 3. **Dual Delivery Fee Support (Config-Driven)**:
    - The system must support two modes configured via `system_settings`:
-     - **`FIXED_FLAT`**: Flat fee (e.g., 50 BDT / 12 SAR) regardless of distance within the delivery radius.
-     - **`DISTANCE_TIERED`**: `Base Fee + (Distance in km * Rate per km)`.
+     - **`FIXED_FLAT`**: Flat fee (e.g., 50 BDT / 12 SAR) regardless of distance within the delivery radius (`flatFee`).
+     - **`DISTANCE_TIERED`**: `baseFee` for initial `baseKm` + incremental `((distanceKm - baseKm) * perKmRate)`.
 4. **Smooth 3-Step Rider Fulfillment**:
    - Do NOT introduce complex verification PINs, barcode scans, or digital signatures for the MVP.
    - Fulfillment must strictly follow: **Step 1: Accept** → **Step 2: Pick Up Order** (one-tap) → **Step 3: Deliver Order** (one-tap + COD cash checkbox).
@@ -128,34 +107,19 @@ When generating code, you must strictly uphold these inviolable business rules:
 
 ---
 
-## 4. Step-by-Step Implementation Procedure for AI Agents
+## 4. Spec-Driven Implementation Workflow
 
-When tasked with generating or modifying code, execute in this exact sequence:
+All feature development, bug fixes, and architectural modifications must strictly adhere to the authoritative **3-Phase Spec-Driven Development Protocol** defined in [`README.md#-spec-driven-development-workflow-3-phase-protocol`](../README.md#-spec-driven-development-workflow-3-phase-protocol):
 
-```
-[ STEP 1: CONTEXT ] ──► [ STEP 2: SCHEMA ] ──► [ STEP 3: BACKEND API ]
-                                                        │
-[ STEP 6: VERIFY  ] ◄── [ STEP 5: FRONTEND ] ◄── [ STEP 4: REALTIME ]
-```
-
-1. **Step 1: Context Verification**:
-   - Read the relevant BRD and TID files in `context_docs/`. Identify all entity relationships, constraints, and side effects.
-2. **Step 2: Database Migrations**:
-   - Update Prisma schema or SQL migration files first. Ensure spatial types and indexes are declared. Run migrations.
-3. **Step 3: Backend Core & DTOs**:
-   - Define strictly typed DTOs with validation decorators.
-   - Implement service logic with atomic transactions.
-   - Expose REST controller endpoints adhering to the standard envelope.
-4. **Step 4: Real-Time WebSockets & Redis**:
-   - Wire Socket.IO gateway events and rooms.
-   - Integrate Redis keys, TTLs, and pub/sub adapters.
-5. **Step 5: Frontend & Mobile Implementation**:
-   - Implement UI components adhering to responsive mobile/tablet design.
-   - Bind API queries using TanStack Query or Riverpod.
-   - Implement audio alerts and native dialer / map launch handlers.
-6. **Step 6: Rigorous Verification**:
-   - Verify TypeScript compilation without errors.
-   - Test edge cases (e.g., out-of-stock items, concurrent order claims, invalid phone formats).
+1. **Phase 1: Grounding & Planning**:
+   - Check [`QUICK_REFERENCE.md`](./QUICK_REFERENCE.md) to route to the exact BRDs, TIDs, and ADRs.
+   - For complex tasks or ambiguity, trigger `/grill-me` or ask clarifying questions before writing code.
+2. **Phase 2: Production-Ready Implementation**:
+   - Follow strict dependency sequencing: Schema (`prisma/schema.prisma`) ➔ Backend Core & DTOs ➔ Real-time/Events ➔ Frontend/Mobile UI.
+   - Zero raw `any`, zero inline styling (centralized design tokens only), zero placeholder mocks, and minimal comments.
+3. **Phase 3: Verification & Living Docs Sync**:
+   - Execute verification gates (`npm run verify:backend`, `npm run verify:web`, `flutter analyze`).
+   - Synchronize living documentation (`FEATURES.md`, `CHANGELOG.md`, relevant ADRs). Never commit without user authorization.
 
 ---
 

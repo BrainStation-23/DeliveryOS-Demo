@@ -68,6 +68,22 @@ graph TD
 
 ## 📜 Part 2: Platform Release History
 
+## [1.7.2] - 2026-09-29
+
+### Added
+- **Canonical Delivery Fee Schema & Test Suites**:
+  - Unified `DeliveryFeeConfig` into a single canonical camelCase interface (`mode`, `flatFee`, `baseFee`, `baseKm`, `perKmRate`) across NestJS, Prisma seeds, Admin API, and Admin Console.
+  - Added `normalizeDeliveryFeeConfig` helper for backwards compatibility with legacy database records.
+  - Added unit test suite `delivery-fee.service.spec.ts` (bringing Jest suite count to 24/24 passed).
+  - Exposed `baseKm` (Base Distance threshold) in Admin Portal UI and backend DTO.
+- **Documentation Consolidation, Deduplication & Token Optimization**:
+  - Consolidated mobile release engineering into `TID-07 (§ 6)` and eliminated redundant `docs/RELEASE.md`.
+  - Deduplicated `context_docs/AGENT_RULES.md`: replaced static ASCII file tree with lean router pointers and linked Section 4 directly to the authoritative 3-Phase Spec-Driven Development Workflow in `README.md`.
+  - Deduplicated `context_docs/business-requirements-documents/README.md`: eliminated 60 lines of repeated capability text by establishing `FEATURES.md` and `BRD-00` as canonical single sources of truth.
+  - Deduplicated `context_docs/technical-implementation-documents/README.md`: eliminated 33 lines of duplicated component summaries in favor of authoritative `FEATURES.md` and individual TIDs.
+  - Synchronized `README.md` 11 Core Operational Invariants Matrix with `AGENTS.md` and `AGENT_RULES.md`.
+  - Updated `QUICK_REFERENCE.md` router and `FEATURES.md` catalog with modularity primitives and pricing references.
+
 ## [1.7.1] - 2026-09-29
 
 ### Added
