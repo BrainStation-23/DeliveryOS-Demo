@@ -21,8 +21,8 @@ DeliveryOS/
 ├── apps/
 │   ├── admin_portal/       # Super Admin Control Tower (React 18 + Vite + TailwindCSS + Leaflet OSM)
 │   ├── vendor_portal/      # Vendor Kitchen Display & Store Portal (React 18 + Vite + Web Audio API)
-│   ├── customer_app/       # Consumer Ordering App (Flutter 3.19+ iOS & Android, Riverpod 3.3.2)
-│   └── rider_app/          # Courier Duty & Dispatch Cockpit (Flutter 3.19+ iOS & Android, Riverpod 3.3.2)
+│   ├── customer_app/       # Consumer Ordering App (Flutter, Dart ^3.8, Riverpod 3)
+│   └── rider_app/          # Courier Duty & Dispatch Cockpit (Flutter, Dart ^3.8, Riverpod 3)
 │
 ├── services/
 │   └── backend_api/        # Core API & Telemetry Engine (NestJS 10, PostgreSQL 16 + PostGIS, Redis 7.2)
@@ -109,7 +109,7 @@ Follow these steps to spin up the entire DeliveryOS ecosystem locally:
 ### 1. Prerequisites
 - **Node.js**: v20.x LTS or newer
 - **Docker & Docker Compose**: Docker Desktop 4.x or Linux Docker Engine
-- **Flutter SDK**: 3.19.x or newer (for mobile apps)
+- **Flutter SDK**: Latest stable (Dart SDK ^3.8; apps use Riverpod 3)
 
 ### 2. Boot Data Infrastructure (PostgreSQL + PostGIS & Redis)
 From the repository root, start the pre-configured database and cache containers:
@@ -129,9 +129,9 @@ npm run prisma:seed
 ```
 The seed script generates:
 - **Super Admin**: phone `+8801700000001` (login via OTP; dev mock OTP is `123456` via `SMS_MOCK_STATIC_OTP`)
-- **Vendor Outlets**: Pizza Roma (Restaurant), Daily Fresh (Supermarket)
-- **Menu Items & Variants**: Pizzas, beverages, groceries with topping options
-- **Coupons & Banners**: `WELCOME50` coupon and promotional carousels
+- **Vendor Staff**: branch manager `+8801700000002`, brand owner `+8801700000003` (brand **Burger Point** with Gulshan & Dhanmondi outlets) plus **FreshMart Daily Super Shop** (Gulshan Hub)
+- **Menu Items & Variants**: burgers, sides, groceries with variant and add-on options
+- **Coupons & Banners**: `WELCOME50` + `BURGER20` coupons and promotional carousels
 - **System Settings**: Configured for `RIDER_FIRST` dispatch flow and dual fee pricing
 
 ### 4. Run the Backend API & WebSocket Gateway
@@ -276,7 +276,7 @@ flowchart TD
 - [ ] **2. Spec Verification**: Confirm intended behavior in BRD and TID documents; verify no invariant is violated.
 - [ ] **3. Surgical Fix**: Apply targeted code changes without broad, unnecessary rewrites.
 - [ ] **4. Type & Style Adherence**: Zero raw `any`, zero inline colors/styles, zero trivial comments.
-- [ ] **5. Regression Testing**: Run regression test suites (`npm run track1:test`, `flutter test`, etc.).
+- [ ] **5. Regression Testing**: Run regression test suites (`npm run test:track1`, `flutter test`, etc.).
 - [ ] **6. Living Docs Sync**: Record fix in `CHANGELOG.md` under `### Fixed`, update `FEATURES.md` if behavior changed.
 - [ ] **7. Commit Protocol**: Await explicit user command before executing `git commit`.
 
@@ -297,23 +297,11 @@ flowchart TD
 
 ---
 
-## ⚡ Core Operational Invariants Matrix
+## ⚡ Core Operational Invariants
 
-Every human engineer and AI agent operating in this repository must uphold these non-negotiable standards:
+Every engineer and AI agent operating in this repository upholds the non-negotiable standards: **no auto-commits/pushes**, **zero raw `any`**, **zero inline styling** (design tokens only), **zero placeholder shortcuts**, **decompose & reuse**, **mandatory 3-phase workflow**, **ADR synchronization**, **lean documentation**, **no trivial comments**, and **zero assumptions**.
 
-| Invariant | Direct Rule Command | Authoritative Section in `AGENT_RULES.md` |
-| :--- | :--- | :--- |
-| **Commit Authority** | **NO AUTO-COMMITS**: Never run `git commit` autonomously. Run `git commit` **only** when explicitly commanded by the user. | [Git Protocol (§ 6.1)](context_docs/AGENT_RULES.md#6-git--version-control-protocol) |
-| **Push Authority** | **NO AUTO-PUSH**: When commanded to commit, execute **ONLY the local commit**. Never run `git push` without an explicit, distinct push command. | [Git Protocol (§ 6.1)](context_docs/AGENT_RULES.md#6-git--version-control-protocol) |
-| **Type Safety** | **ZERO RAW `any`**: Maintain strict typing (`"strict": true`). Declare explicit DTOs, interfaces, or Prisma types; never cast to `any`. | [Backend & Frontend Standards (§ 3)](context_docs/AGENT_RULES.md#3-technology-stack--architectural-standards) & [ADR-010](context_docs/architecture-decision-records/ADR-010-ai-driven-engineering-governance-and-no-auto-commits.md) |
-| **Design System Invariant** | **ZERO INLINE STYLING**: Never use hardcoded inline colors (e.g. `Color(0x...)`, `Colors.amber`), arbitrary un-themed Tailwind values (`text-[#...]`), or scattered ad-hoc text styles. Use centralized tokens (`AppColors`, `AppTypography`, `AppSpacing`, Tailwind semantic classes). | [Design System Standard (§ 3.7)](context_docs/AGENT_RULES.md#37-design-system-standards-zero-arbitrary-inline-styles) |
-| **Production Realism** | **ZERO PLACEHOLDER SHORTCUTS**: Implement real production code without mock fallbacks, empty `TODO`s, or deleted failing tests. | [Definition of Done (§ 5)](context_docs/AGENT_RULES.md#5-definition-of-done-dod) |
-| **Code Modularity & Reusability** | **DECOMPOSE & REUSE**: Never write monolithic screens/components (>300–400 lines) or duplicate logic. Decompose complex UI into focused, composable units under `widgets/` or `components/`. Strictly isolate state/business logic from presentation. Avoid over-engineering. | [Modularity & Reusability (§ 3.8)](context_docs/AGENT_RULES.md#38-code-modularity-component-decomposition--reusability) |
-| **Spec-Driven Workflow** | **MANDATORY 3-PHASE WORKFLOW**: Always execute Plan & Grounding ➔ Implementation ➔ Verification & Living Docs Sync. | [Spec-Driven Workflow](#-spec-driven-development-workflow-3-phase-protocol) |
-| **Architectural Sync** | **ADR SYNCHRONIZATION**: Any modification to dependencies, state machines, storage, or ingress requires an ADR update or creation. | [Pattern Consistency (§ 8.4)](context_docs/AGENT_RULES.md#8-pattern-consistency--living-documentation-protocol) & [ADR Index](context_docs/architecture-decision-records/README.md) |
-| **Lean Documentation** | **CONCISE & USEFUL ONLY**: Keep all documentation clear, concise, and understandable. Do not over-populate with verbose prose or speculative filler. | [Living Docs Standard (§ 8.5)](context_docs/AGENT_RULES.md#8-pattern-consistency--living-documentation-protocol) |
-| **Code Commenting** | **NO TRIVIAL COMMENTS**: Do not add comments on basic code, obvious functions, simple UI widgets, or routine boilerplate. Code must be self-documenting. Add comments **only** for complex algorithms, subtle business invariants, or tricky edge cases. | [Clean Code & Minimal Comments (§ 3.6)](context_docs/AGENT_RULES.md#36-code-cleanliness--commenting-standards) |
-| **Active Clarification** | **ZERO ASSUMPTIONS**: If a requirement or user prompt is ambiguous, pause and ask structured questions with recommended options before executing. | [Active Interview Protocol (§ 7)](context_docs/AGENT_RULES.md#7-zero-assumption--active-interview-protocol) |
+➡️ The authoritative table with direct rule commands and `AGENT_RULES.md` section links lives in **[`AGENTS.md`](./AGENTS.md#-core-operational-invariants-matrix)** (single source of truth — kept in sync by the living-docs protocol).
 
 ---
 

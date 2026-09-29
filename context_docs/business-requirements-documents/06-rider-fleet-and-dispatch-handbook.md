@@ -1,6 +1,6 @@
 # 06 — Rider Fleet & Dispatch Handbook
 
-Operational protocols, shift management, dispatch algorithms, fulfillment lifecycles, and cash limits for the **Rider Mobile App** (Flutter 3.19+, Riverpod 3.3.2).
+Operational protocols, shift management, dispatch algorithms, fulfillment lifecycles, and cash limits for the **Rider Mobile App** (Flutter (Dart ^3.8), Riverpod 3).
 
 ---
 
@@ -21,13 +21,13 @@ Operational protocols, shift management, dispatch algorithms, fulfillment lifecy
   - **In-Flight Duty Lock Invariant**: Couriers cannot go offline while carrying an active order (`RIDER_ASSIGNED` or `DISPATCHED`). The app blocks the switch and alerts: *"Cannot go offline while you have an active in-flight delivery. Please complete or release the order first."*
 - **GPS Telemetry**:
   - Android `FOREGROUND_SERVICE_LOCATION` foreground service and iOS background location service.
-  - Streams coordinates every 10 meters via WebSocket `rider:location:update` to update Redis GEO keys (`riders:locations`), with HTTP fallback (`PATCH /riders/duty`).
+  - Streams coordinates every 10 meters via WebSocket `rider:location:update` to update Redis GEO key `riders:locations:active`, with HTTP fallback (`PATCH /riders/duty`).
 
 ---
 
 ## 3. Proximity Broadcast & Dispatch Sequences
 
-Governed by `order_flow_mode` ([ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)):
+Governed by the `order_flow_config` system setting ([ADR-002](../architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)):
 
 ### 3.1 Mode 1: `RIDER_FIRST` (Zero Food Waste — Default)
 1. Customer checkout completed & payment verified.
@@ -99,5 +99,5 @@ Governed by `order_flow_mode` ([ADR-002](context_docs/architecture-decision-reco
   - Progress meter tracking collected cash against configured safety limit (`max_cash_limit`, default ৳5,000 / 500 SAR).
   - Shifts color: Green ➔ Amber (80%) ➔ Red (100%).
   - Invariant: Couriers reaching 100% limit are excluded from new COD broadcasts until cash is deposited.
-- **Hub Cash Deposit Flow**: Courier records physical cash handover at logistics hub (`POST /riders/deposit-cash`) with reference number and deposit amount for administrative audit.
+- **Hub Cash Deposit Flow**: Courier records physical cash handover at logistics hub (`POST /rider/cash/deposit`) with reference number and deposit amount for administrative audit.
 - **Trip Receipts**: Itemized history of completed deliveries with order numbers, addresses, and earnings.

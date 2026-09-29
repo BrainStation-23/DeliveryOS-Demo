@@ -9,8 +9,8 @@ Technical topology, software architecture patterns, repository directory layout,
 ```mermaid
 graph TD
     subgraph Clients["Client Applications Tier"]
-        CA["Customer Mobile App<br/>Flutter 3.19+ (iOS / Android)"]
-        RA["Rider Mobile App<br/>Flutter 3.19+ (iOS / Android)"]
+        CA["Customer Mobile App<br/>Flutter (Dart ^3.8, iOS / Android)"]
+        RA["Rider Mobile App<br/>Flutter (Dart ^3.8, iOS / Android)"]
         AP["Super Admin Web Portal<br/>React 18+ Vite SPA"]
         VP["Vendor KDS Web Portal<br/>React 18+ Vite SPA"]
     end
@@ -71,7 +71,7 @@ graph TD
 ## 2. Technology Stack & Version Specifications
 
 - **Mobile Client Applications**:
-  - **Framework**: Flutter 3.19+ / Dart 3.3+.
+  - **Framework**: Flutter (latest stable) / Dart ^3.8.
   - **State Management**: Riverpod 3.3.2 (Feature-first architecture).
   - **Networking & Storage**: Dio with JWT interceptors; secure shared preferences.
   - **Hardware Integrations**: Android Foreground Location Service, native dialer (`tel:`), native turn-by-turn navigation (`google.navigation:` / `maps.apple.com`).

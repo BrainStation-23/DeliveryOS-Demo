@@ -60,7 +60,7 @@ flowchart LR
 ---
 
 ## Technical Implementation Details
-Implemented in [`sound.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/vendor_portal/src/utils/sound.ts):
+Implemented in [`sound.ts`](../../apps/vendor_portal/src/utils/sound.ts):
 ```typescript
 export function playOrderAlarmChime(): void {
   try {
@@ -99,4 +99,4 @@ export function playOrderAlarmChime(): void {
 ---
 
 ## Compliance & Verification
-- Unit & operational verification: [`test-kds-operations.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/vendor_portal/scripts/test-kds-operations.ts) validates zero network 404s on order arrival.
+- Unit & operational verification: [`test-kds-operations.ts`](../../apps/vendor_portal/scripts/test-kds-operations.ts) validates zero network 404s on order arrival.

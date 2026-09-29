@@ -54,7 +54,7 @@ Chosen option: **Immutable JSONB Snapshots**.
 ---
 
 ## Technical Implementation Details
-Implemented in [`order.service.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/services/backend_api/src/modules/orders/order.service.ts):
+Implemented in [`order.service.ts`](../../services/backend_api/src/modules/orders/order.service.ts):
 ```typescript
 export interface OrderAddressSnapshot {
   type: string;
@@ -87,5 +87,5 @@ export interface OrderAddonSnapshot {
 ---
 
 ## Compliance & Verification
-- Re-order verification: [`ValidateReorderDto`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/services/backend_api/src/modules/orders/dto/validate-reorder.dto.ts) verifies snapshot integrity against live catalog data.
+- Re-order verification: [`ValidateReorderDto`](../../services/backend_api/src/modules/orders/dto/validate-reorder.dto.ts) verifies snapshot integrity against live catalog data.
 - Unit tests: Backend order service tests verify snapshot persistence across mutations.

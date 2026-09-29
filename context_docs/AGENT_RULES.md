@@ -44,7 +44,7 @@ When generating code, you must strictly uphold these inviolable business rules:
 7. **Multi-Region & Multi-Currency**:
    - The codebase must be region-agnostic from Day 1. Currencies (`BDT`, `SAR`, `USD`), phone prefixes (`+880`, `+966`), and languages (`en`, `ar`, `bn`) must be config-driven, with first-class RTL layout support for Arabic.
 8. **Configurable Order Dispatch Sequence (Rider-First vs Vendor-First)**:
-   - The order fulfillment sequence must be dynamic and config-driven (`order_flow_mode` in `system_settings`):
+   - The order fulfillment sequence must be dynamic and config-driven (`order_flow_config` JSON in `system_settings`, incl. `riderSearchTimeoutSeconds`):
      - **`RIDER_FIRST` (Zero Food Waste Mode)**: When customer orders, verify store status (open/items in stock) before DB write → immediately broadcast to riders → assign rider → send order to vendor for manual acceptance & prep timer selection. Prevents food waste from unassigned orders while preserving vendor control.
      - **`VENDOR_FIRST`**: Traditional flow where vendor accepts and preps first, broadcasting to riders when food is packing/ready.
 
@@ -60,14 +60,13 @@ When generating code, you must strictly uphold these inviolable business rules:
   ```json
   { "success": true, "statusCode": 200, "message": "...", "data": {} }
   ```
-- **Error Handling**: Use a Global Exception Filter (`AllExceptionsFilter`) to catch and transform errors into standard error envelopes with timestamps and correlation IDs.
-- **Tenant Isolation**: On vendor routes, enforce `where: { vendor_id: req.user.vendorId }` unless the authenticated user has role `SUPER_ADMIN`.
+- **Error Handling**: Use the Global Exception Filter (`AllExceptionsFilter`) to catch and transform errors into standard error envelopes with timestamps and `x-request-id` correlation IDs.
+- **Tenant Isolation**: On vendor routes, enforce vendor scoping from the authenticated staff identity unless the role is `SUPER_ADMIN`.
 
 ### 3.2 Database & Data Integrity (PostgreSQL 16 + PostGIS)
-- **ACID Transactions**: **Every** order creation, status change, and financial ledger entry **must** be executed inside an atomic database transaction (`prisma.$transaction` or TypeORM `queryRunner`).
-- **Spatial Types**: Vendor coordinates and customer delivery addresses must be stored using `GEOGRAPHY(Point, 4326)`.
-- **Spatial Indexing**: All spatial columns must have a `GIST` index.
-- **Auditing**: Always include `created_at` and `updated_at` timestamps on all persistent tables.
+- **ACID Transactions**: **Every** order creation, status change, and financial ledger entry **must** be executed inside an atomic `prisma.$transaction`.
+- **Spatial Storage**: Coordinates persist as `Float` `latitude`/`longitude` columns; PostGIS `geography` is computed at query time via raw SQL (`ST_DWithin`, `ST_Distance`) over expression `GIST` indexes (`ST_SetSRID(ST_MakePoint(lng, lat), 4326)`). Never persist high-frequency GPS ticks in PostgreSQL — use the Redis GEO index.
+- **Auditing**: Always include `created_at` and `updated_at` timestamps on persistent tables; monetary columns are `Decimal @db.Decimal(10, 2)`.
 
 ### 3.3 Real-Time & Caching (Redis 7 + Socket.IO 4.x)
 - **Live Rider Coordinates**: Store rider GPS ticks exclusively in Redis using `GEOADD riders:locations:active <lng> <lat> <rider_id>`. Do NOT write high-frequency GPS ticks to PostgreSQL.
@@ -76,7 +75,7 @@ When generating code, you must strictly uphold these inviolable business rules:
 
 ### 3.4 Web Portal (React.js SPA with Vite)
 - **Stack**: Vite + React 18+ + TailwindCSS + TanStack Query + Zustand.
-- **Zero SSR**: Pure client-side Single Page Application. Static build deployed via Nginx / Cloudflare Pages.
+- **Zero SSR**: Pure client-side Single Page Application served by the unprivileged Nginx container (`nginxinc/nginx-unprivileged`, port 8080).
 - **Role Guards**: Route guards (`<RoleGuard allowedRoles={[...]} />`) separating `/admin/*` and `/vendor/*`.
 - **Audio Unlock**: Handle browser autoplay restrictions by initializing the audio context on the first user interaction.
 

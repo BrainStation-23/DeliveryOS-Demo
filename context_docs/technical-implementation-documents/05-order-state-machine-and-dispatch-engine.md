@@ -6,7 +6,7 @@ Internal mechanics of the **Order Finite State Machine (FSM)**, Redis geospatial
 
 ## 1. Formal Order Finite State Machine (FSM)
 
-The system supports two sequence flows governed by `system_settings.order_flow_mode` ([ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)):
+The system supports two sequence flows governed by the `order_flow_config` JSON in `system_settings` (`mode` + `riderSearchTimeoutSeconds`, default 90) ([ADR-002](../architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)):
 - **`RIDER_FIRST` (Zero Food Waste Mode — Default)**:
   `PLACED` ➔ `RIDER_ASSIGNED` ➔ `PREPARING` ➔ `READY_FOR_PICKUP` ➔ `DISPATCHED` ➔ `DELIVERED`.
 - **`VENDOR_FIRST` (Traditional Retail Mode)**:
@@ -57,26 +57,26 @@ stateDiagram-v2
 
 ## 2. Redis Geospatial Indexing & Telemetry
 
-Rider locations are maintained in Redis spatial sets to prevent high-frequency write pressure on PostgreSQL ([ADR-003](context_docs/architecture-decision-records/ADR-003-postgis-spatial-engine-and-redis-geohash.md)):
+Rider locations are maintained in Redis spatial sets to prevent high-frequency write pressure on PostgreSQL ([ADR-003](../architecture-decision-records/ADR-003-postgis-spatial-engine-and-redis-geohash.md)):
 
-- **Redis Key**: `riders:locations`
+- **Redis Key**: `riders:locations:active`
 - **Location Update Command**:
   ```typescript
-  await redis.geoadd('riders:locations', longitude, latitude, riderId);
+  await redis.geoadd('riders:locations:active', longitude, latitude, riderId);
   ```
 
 ---
 
 ## 3. Proximity Radius Broadcast Algorithm
 
-The dispatch engine executes proximity searches according to `order_flow_mode`:
+The dispatch engine executes proximity searches according to the configured `order_flow_config.mode`:
 - **`RIDER_FIRST`**: Triggered immediately at checkout (post payment verification).
 - **`VENDOR_FIRST`**: Triggered after store staff marks order `READY_FOR_PICKUP`.
 
 ```typescript
-async function findNearbyRiders(vendorLat: number, vendorLng: number, radiusKm: number = 4) {
+async function findNearbyRiders(vendorLat: number, vendorLng: number, radiusKm: number = 5) {
   const nearbyRiderIds = await redis.geosearch(
-    'riders:locations',
+    'riders:locations:active',
     'FROMLONLAT',
     vendorLng,
     vendorLat,
@@ -89,8 +89,8 @@ async function findNearbyRiders(vendorLat: number, vendorLng: number, radiusKm: 
 
   const availableRiders: { riderId: string; distanceKm: number }[] = [];
   for (const [riderId, distance] of nearbyRiderIds) {
-    const isBusy = await redis.exists(`rider:active_order:${riderId}`);
-    if (!isBusy) {
+    const activeOrderId = await redis.get(`rider:active_order:${riderId}`);
+    if (!activeOrderId) {
       availableRiders.push({ riderId, distanceKm: parseFloat(distance) });
     }
   }
@@ -103,7 +103,7 @@ async function findNearbyRiders(vendorLat: number, vendorLng: number, radiusKm: 
 
 ## 4. Concurrency Protection & Atomic Mutex Lock
 
-To prevent duplicate order claims, the backend executes an atomic **Redis Distributed Mutex** ([ADR-004](context_docs/architecture-decision-records/ADR-004-atomic-dispatch-claim-mutex.md)):
+To prevent duplicate order claims, the backend executes an atomic **Redis Distributed Mutex** ([ADR-004](../architecture-decision-records/ADR-004-atomic-dispatch-claim-mutex.md)):
 
 ```typescript
 async function claimOrder(orderId: string, riderId: string, isRiderFirst: boolean): Promise<boolean> {
@@ -157,36 +157,36 @@ async function claimOrder(orderId: string, riderId: string, isRiderFirst: boolea
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│  Tier 0 (T = 0s): Broadcast within 3 km radius         │
+│  Tier 0 (T = 0s): Broadcast within 5 km radius         │
 │  - FCM Push + Socket [dispatch:broadcast] to riders    │
 └───────────────────────────┬────────────────────────────┘
-                            │ (Unassigned after > 45s)
+                            │ (Unassigned after > timeout, default 90s)
                             ▼
 ┌────────────────────────────────────────────────────────┐
-│  Tier 1 (T > 45s): Expand broadcast radius to 6 km     │
+│  Tier 1 (T > riderSearchTimeoutSeconds): radius → 6 km │
 │  - Redis idempotency key: dispatch:escalated:{id}:tier1│
 │  - Re-broadcasts to expanded courier radius            │
 └───────────────────────────┬────────────────────────────┘
-                            │ (Unassigned after > 90s)
+                            │ (Unassigned after > 2× timeout)
                             ▼
 ┌────────────────────────────────────────────────────────┐
-│  Tier 2 (T > 90s): Expand to 10 km & Super Admin Radar │
+│  Tier 2 (T > 2× timeout): radius → 10 km + Admin Radar │
 │  - Emits [dispatch:escalated] to admin_hq socket room  │
 │  - Dispatcher executes manual override assignment      │
 └────────────────────────────────────────────────────────┘
 ```
 
 ### 5.1 Leader-Locked Background Sweeps (ADR-015)
-To ensure background cron sweeps (unpaid payment expiry at 15 minutes, dispatch radius escalation) do not execute concurrently across scaled replicas, each cron tick acquires a short-TTL Redis distributed mutex:
-- **Payment Expiry Mutex**: `SET lock:cron:payment-expiry 1 NX EX 25`
-- **Dispatch Escalation Mutex**: `SET lock:cron:dispatch-escalation 1 NX EX 25`
+To ensure background sweeps (unpaid payment expiry at 15 minutes, dispatch radius escalation) do not execute concurrently across scaled replicas, each sweep tick acquires a short-TTL Redis distributed mutex:
+- **Payment Expiry Mutex**: `SET lock:sweep:expired-payments 1 NX EX 55` (60s sweep interval)
+- **Dispatch Escalation Mutex**: `SET lock:sweep:dispatch-escalation 1 NX EX 25` (30s sweep interval)
 Only the replica acquiring the mutex processes the tick, guaranteeing race-free escalation and cancellation side effects.
 
 ---
 
 ## 6. Financial Ledger Settlement & COD Offset Engine
 
-Double-entry ledger records executed atomically upon order completion (`DELIVERED`) ([ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md)):
+Double-entry ledger records executed atomically upon order completion (`DELIVERED`) ([ADR-009](../architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md)):
 
 1. **Vendor Commission Entry (`CommissionLedger`)**:
    - `gross_amount`: Food subtotal minus coupon discounts.
@@ -196,4 +196,4 @@ Double-entry ledger records executed atomically upon order completion (`DELIVERE
    - `delivery_earnings`: Configured trip remuneration credited to courier wallet.
    - `cod_collected`: Physical cash collected from customer added to courier's `cashInHand`.
 3. **Cash-on-Delivery Offset**:
-   - Hub cash deposits (`POST /riders/deposit-cash`) verified by admin decrement `cashInHand` and restore dispatch eligibility.
+   - Hub cash deposits (`POST /rider/cash/deposit`) verified by admin decrement `cashInHand` and restore dispatch eligibility.

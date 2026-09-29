@@ -43,9 +43,9 @@ erDiagram
 ## 2. Granular Data Entities Catalog
 
 1. **`users`**: Platform user accounts across all roles (`SUPER_ADMIN`, `VENDOR_ADMIN`, `RIDER`, `CUSTOMER`). Contains phone, name, email, account status, and FCM device tokens.
-2. **`customer_addresses`**: Geocoded delivery locations linked to users. Contains label (`Home`, `Work`, `Other`), address details, and PostGIS `GEOGRAPHY(Point, 4326)` coordinates.
+2. **`customer_addresses`**: Geocoded delivery locations linked to users. Contains label (`Home`, `Work`, `Other`), address details, and `latitude`/`longitude` float coordinates (PostGIS geography computed at query time).
 3. **`vendor_brands`**: Top-level merchant brand entities for multi-branch chains.
-4. **`vendors`**: Physical merchant outlets. Stores location coordinates (`GEOGRAPHY`), commission rate, delivery radius (km), operational status, and default prep time.
+4. **`vendors`**: Physical merchant outlets. Stores `latitude`/`longitude` coordinates, commission rate, delivery radius (km), operational status, and default prep time.
 5. **`vendor_staff`**: Junction table binding users to outlets or brands with permission scopes (`PARTICULAR_OUTLET` vs `ALL_OUTLETS_MASTER`).
 6. **`vendor_operating_hours`**: Weekly 7-day schedule (0=Sun to 6=Sat) with open/close times and closed checkboxes.
 7. **`categories`**: Menu categories scoped to a vendor or global (NULL vendor_id).
@@ -55,7 +55,7 @@ erDiagram
 11. **`product_addons`**: Individual selectable add-on items with specific pricing.
 12. **`banners`**: Promotional homepage hero banners with active scheduling and target deep links.
 13. **`coupons`**: Discount promo codes with flat or percentage values, spend thresholds, ceilings, and usage limits.
-14. **`riders`**: Delivery courier profiles linked to users. Stores vehicle type, online duty state, approval state, cash-in-hand balance, max cash safety limit, and live location geography.
+14. **`riders`**: Delivery courier profiles linked to users. Stores vehicle type, online duty state, approval state, cash-in-hand balance, max cash safety limit, and last known `latitude`/`longitude`.
 15. **`system_settings`**: Global platform configuration keys (JSONB) for fee pricing mode, FSM mode, and currency parameters.
 16. **`orders`**: Master order record containing order number, snapshots of address and customer phone, status FSM, line item totals, timestamps, and notes.
 17. **`order_items`**: Line items within an order with snapshots of product name, unit price, quantity, variant, and add-ons.
@@ -63,18 +63,20 @@ erDiagram
 19. **`commission_ledgers`**: Double-entry ledger recording gross food totals, platform commission deductions, and net vendor payables per order.
 20. **`rider_trip_ledgers`**: Ledger tracking courier trip earnings and doorstep COD collections per order.
 21. **`cash_deposits`**: Audit records of physical cash deposits made by couriers at central hubs.
-22. **`payments`**: Transaction records for online payment gateway sessions (bKash, Moyasar, Stripe) and cryptographic webhooks.
+22. **`payments`**: Transaction records for online payment gateway sessions (SSLCommerz, Sandbox) and cryptographic webhooks.
 
 ---
 
 ## 3. Production PostgreSQL DDL & Spatial Schema
+
+> **Source of truth**: `services/backend_api/prisma/schema.prisma` + `prisma/migrations/`. The DDL below is the logical reference model. Coordinates persist as `DOUBLE PRECISION` lat/lng pairs; PostGIS geography is expressed at query time over `GIST` expression indexes.
 
 ```sql
 -- 1. Initialize Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "postgis";
 
--- 2. Enumerated Types
+-- 2. Enumerated Types (managed by Prisma)
 CREATE TYPE user_role AS ENUM ('SUPER_ADMIN', 'VENDOR_ADMIN', 'RIDER', 'CUSTOMER');
 CREATE TYPE account_status AS ENUM ('PENDING_APPROVAL', 'ACTIVE', 'SUSPENDED');
 CREATE TYPE vendor_vertical AS ENUM ('FOOD', 'GROCERY', 'SUPER_SHOP', 'PHARMACY');
@@ -89,14 +91,15 @@ CREATE TYPE order_status AS ENUM (
   'DELIVERED', 
   'CANCELLED'
 );
-CREATE TYPE order_flow_mode AS ENUM ('RIDER_FIRST', 'VENDOR_FIRST');
 CREATE TYPE payment_method AS ENUM ('CASH_ON_DELIVERY', 'ONLINE_GATEWAY');
 CREATE TYPE payment_status AS ENUM ('PENDING', 'PAID', 'REFUNDED', 'FAILED');
 CREATE TYPE settlement_status AS ENUM ('PENDING', 'PROCESSING', 'SETTLED');
-CREATE TYPE cash_deposit_status AS ENUM ('PENDING_APPROVAL', 'APPROVED', 'REJECTED');
 CREATE TYPE delivery_fee_mode AS ENUM ('FIXED_FLAT', 'DISTANCE_TIERED');
 CREATE TYPE discount_type AS ENUM ('PERCENTAGE', 'FLAT');
 CREATE TYPE banner_link_type AS ENUM ('OUTLET', 'CATEGORY', 'EXTERNAL');
+-- Note: dispatch flow mode (`RIDER_FIRST`/`VENDOR_FIRST`) and delivery-fee config live in the
+-- `system_settings` JSONB keys `order_flow_config` / `delivery_fee_config`, not SQL enums.
+-- Cash-deposit status is a VARCHAR convention: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'.
 
 -- 3. Users Table
 CREATE TABLE users (
@@ -112,7 +115,7 @@ CREATE TABLE users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Customer Addresses Table (With PostGIS Spatial Geography)
+-- 4. Customer Addresses Table (Float Coordinates + Expression GIST)
 CREATE TABLE customer_addresses (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -120,11 +123,12 @@ CREATE TABLE customer_addresses (
     address_line TEXT NOT NULL,
     building_floor VARCHAR(100),
     delivery_note TEXT,
-    coordinates GEOGRAPHY(Point, 4326) NOT NULL,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
     is_default BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_customer_addresses_geo ON customer_addresses USING GIST(coordinates);
+CREATE INDEX idx_customer_addresses_geo ON customer_addresses USING GIST (CAST(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326) AS geography));
 CREATE INDEX idx_customer_addresses_user_id ON customer_addresses(user_id);
 
 -- 5. Vendor Brands Table (For Multi-Outlet Chains)
@@ -135,7 +139,7 @@ CREATE TABLE vendor_brands (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Vendors / Outlets Table (With PostGIS Location & Radius)
+-- 6. Vendors / Outlets Table (Float Coordinates + Expression GIST & Radius)
 CREATE TABLE vendors (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     brand_id UUID REFERENCES vendor_brands(id) ON DELETE SET NULL,
@@ -144,7 +148,8 @@ CREATE TABLE vendors (
     contact_phone VARCHAR(20) NOT NULL,
     logo_url TEXT,
     banner_url TEXT,
-    coordinates GEOGRAPHY(Point, 4326) NOT NULL,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
     address_text TEXT NOT NULL,
     commission_rate NUMERIC(5, 2) NOT NULL DEFAULT 15.00,
     delivery_radius_km NUMERIC(5, 2) NOT NULL DEFAULT 5.00,
@@ -154,7 +159,7 @@ CREATE TABLE vendors (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_vendors_geo ON vendors USING GIST(coordinates);
+CREATE INDEX idx_vendors_geo ON vendors USING GIST (CAST(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326) AS geography));
 CREATE INDEX idx_vendors_brand_id ON vendors(brand_id);
 CREATE INDEX idx_vendors_is_active ON vendors(is_active);
 
@@ -283,10 +288,11 @@ CREATE TABLE riders (
     is_approved BOOLEAN DEFAULT TRUE,
     cash_in_hand NUMERIC(10, 2) DEFAULT 0.00,
     max_cash_limit NUMERIC(10, 2) DEFAULT 5000.00,
-    current_location GEOGRAPHY(Point, 4326),
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_riders_geo ON riders USING GIST(current_location);
+CREATE INDEX idx_riders_geo ON riders USING GIST (CAST(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326) AS geography));
 CREATE INDEX idx_riders_is_online ON riders(is_online);
 CREATE INDEX idx_riders_is_approved ON riders(is_approved);
 
@@ -397,12 +403,12 @@ CREATE TABLE rider_trip_ledgers (
 CREATE INDEX idx_rider_trips_rider ON rider_trip_ledgers(rider_id);
 CREATE INDEX idx_rider_trips_settlement_batch ON rider_trip_ledgers(settlement_batch_id);
 
--- 21. Rider Cash Hub Deposits
+-- 21. Rider Cash Hub Deposits (status is a VARCHAR convention, not an SQL enum)
 CREATE TABLE cash_deposits (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     rider_id UUID NOT NULL REFERENCES riders(id) ON DELETE CASCADE,
     amount NUMERIC(10, 2) NOT NULL,
-    status cash_deposit_status NOT NULL DEFAULT 'PENDING_APPROVAL',
+    status VARCHAR(20) NOT NULL DEFAULT 'COMPLETED',
     reference_no VARCHAR(50) UNIQUE NOT NULL,
     note TEXT,
     deposited_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -444,18 +450,18 @@ SELECT
     v.name, 
     v.vertical, 
     v.logo_url,
-    ROUND((ST_Distance(v.coordinates, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography) / 1000)::numeric, 2) AS distance_km
+    ROUND((ST_Distance(ST_SetSRID(ST_MakePoint(v.longitude, v.latitude), 4326)::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography) / 1000)::numeric, 2) AS distance_km
 FROM vendors v
 WHERE v.is_active = TRUE
-  AND ST_DWithin(v.coordinates, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, v.delivery_radius_km * 1000)
+  AND ST_DWithin(ST_SetSRID(ST_MakePoint(v.longitude, v.latitude), 4326)::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, v.delivery_radius_km * 1000)
 ORDER BY distance_km ASC;
 ```
 
 ### 4.2 Cart Address Geofence Guard (Strict Coverage Enforcement)
 ```sql
 SELECT ST_DWithin(
-    (SELECT coordinates FROM customer_addresses WHERE id = :address_id),
-    (SELECT coordinates FROM vendors WHERE id = :vendor_id),
+    (SELECT ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography FROM customer_addresses WHERE id = :address_id),
+    (SELECT ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography FROM vendors WHERE id = :vendor_id),
     (SELECT delivery_radius_km * 1000 FROM vendors WHERE id = :vendor_id)
 ) AS is_within_coverage;
 ```

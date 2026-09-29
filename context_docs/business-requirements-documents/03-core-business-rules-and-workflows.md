@@ -61,7 +61,7 @@ Authoritative business logic, mathematical equations, PostGIS spatial queries, o
 
 ## 2. Order Lifecycle & Configurable Dispatch Sequences
 
-The platform supports two dispatch execution sequences governed by `system_settings.order_flow_mode` ([ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)):
+The platform supports two dispatch execution sequences governed by the `order_flow_config` JSON key in `system_settings` ([ADR-002](../architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)):
 
 ### 2.1 Mode 1: `RIDER_FIRST` (Zero Food Waste — Recommended Default)
 1. **Order Placed**: Customer completes checkout (`PLACED`). If online payment, waits for `PAID` webhook.
@@ -150,7 +150,7 @@ Executed atomically inside a database transaction upon order completion (`DELIVE
 2. **Safety Limit Invariant**:
    - If $\text{cash\_in\_hand} \ge \text{max\_cash\_limit}$ (e.g., 5,000 BDT / 500 SAR), dispatch engine excludes courier from new COD broadcasts until physical cash is deposited.
 3. **Hub Cash Deposit Reconciliation**:
-   - Courier records physical cash handover at hub (`POST /riders/deposit-cash`).
+   - Courier records physical cash handover at hub (`POST /rider/cash/deposit`).
    - Hub manager or Admin verifies deposit (`PATCH /admin/finance/cash-deposits/:id/verify`), reducing `cash_in_hand` and restoring dispatch eligibility.
 
 ---

@@ -6,7 +6,7 @@ Client-side architectures, directory layouts, native device handoffs, state mana
 
 ## 1. Flutter Mobile Architecture (Customer & Rider Apps)
 
-Built on **Flutter 3.19+** using a **Feature-First Clean Architecture** with **Riverpod 3.3.2** for reactive state management.
+Built on **Flutter (Dart ^3.8)** using a **Feature-First Clean Architecture** with **Riverpod 3** for reactive state management.
 
 ### 1.1 Customer App Architecture (`apps/customer_app`)
 
@@ -87,7 +87,7 @@ Future<void> openNativeTurnByTurnNavigation(double lat, double lng) async {
 
 ## 2. React 18 SPA Architecture (Admin & Vendor Portals)
 
-Two independent Single Page Applications built with **Vite**, **React 18**, **Tailwind CSS**, and **TanStack Query** behind Nginx subpath routing ([ADR-005](context_docs/architecture-decision-records/ADR-005-micro-frontends-and-subpath-routing.md)):
+Two independent Single Page Applications built with **Vite**, **React 18**, **Tailwind CSS**, and **TanStack Query** behind Nginx subpath routing ([ADR-005](../architecture-decision-records/ADR-005-micro-frontends-and-subpath-routing.md)):
 
 ```
 apps/

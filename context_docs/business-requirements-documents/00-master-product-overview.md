@@ -70,7 +70,7 @@ DeliveryOS connects merchants, customers, and delivery couriers through 4 unifie
 - **Discovery**: Real-time nearby merchant feed filtered by geofence, vertical tags, and active operational status (`OPEN`, `CLOSED`, `BUSY`).
 - **Instant Search**: Search results allow direct `ADD +` into cart with item customizer modal.
 - **Discounts**: Dynamic promo banners and coupon engine (percentage or flat discount with minimum spend limits).
-- **Payment Choice**: Cash on Delivery (COD) or Online Payment Gateway (bKash, Moyasar, Stripe).
+- **Payment Choice**: Cash on Delivery (COD) or Online Payment Gateway (SSLCommerz / Sandbox).
 - **Failure Fallback**: Instant "Switch to Cash (COD)" option if an online payment attempt fails or remains unverified.
 - **Live Tracking**: Visual 6-stage order stepper and live courier motorcycle icon on interactive map.
 - **Smart Re-Order**: 1-tap re-order from history with automated verification of current store hours, item availability, and updated prices.

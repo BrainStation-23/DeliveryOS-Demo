@@ -1,136 +1,139 @@
-# DeliveryOS — Quick Reference & AI Context Router
+# DeliveryOS — AI Context Router & Quick Reference
 
-> **AI AGENT USAGE**: Read this file first to locate the **exact file** you need. Do NOT load the entire documentation directory into context.  
-> **ENGINEERING PROTOCOL**: Every code modification must follow the 3-Phase Spec-Driven Development Workflow:  
-> 👉 **[`README.md#spec-driven-development-workflow-3-phase-protocol`](../README.md#-spec-driven-development-workflow-3-phase-protocol)**
-
----
-
-## 1. 3-Phase Spec-Driven Development Workflow Quick Index
-
-| Phase | Core Objective | Key Gateways & Checkpoints |
-| :--- | :--- | :--- |
-| **Phase 1: Plan & Grounding** | Spec alignment & ambiguity clearance | Context Router lookup ➔ Check ADRs/BRDs/TIDs ➔ Formulate plan ➔ Zero assumptions (`/grill-me`) |
-| **Phase 2: Implementation** | Production-ready execution | Strict typing (`"strict": true`, 0 `any`) ➔ Design system tokens (`AppColors`, `AppTypography`, `AppSpacing`, Tailwind semantic classes) ➔ Zero mock shortcuts ➔ Minimal comments (§ 3.6) |
-| **Phase 3: Verification & Sync** | Quality gate & living docs synchronization | Automated tests (`npm test`, `flutter test`) ➔ Static analysis (`tsc`, `flutter analyze`) ➔ Update `FEATURES.md`, `CHANGELOG.md` ➔ Await explicit commit command |
-
-👉 For full workflow details and repeatable checklists, see [root README.md](../README.md#-spec-driven-development-workflow-3-phase-protocol).
+> **Read this file first.** Route to the exact 1–2 files you need — never load the whole `context_docs/` tree.
+> Every code change follows the **3-Phase Spec-Driven Workflow**: [README.md](../README.md#-spec-driven-development-workflow-3-phase-protocol). Rules & DoD: [AGENT_RULES.md](./AGENT_RULES.md).
 
 ---
 
-## 2. Task-to-File Context Router (Read Only What You Need)
+## 1. Repo Facts (Verified Against Code)
 
-| If Your Task Involves... | Load ONLY These Documents |
+| Fact | Value |
 | :--- | :--- |
-| **3-Phase Spec-Driven Development Workflow** | [`README.md (Spec-Driven Workflow)`](../README.md#-spec-driven-development-workflow-3-phase-protocol) |
-| **Master AI Engineering Rules, Standards & DoD** | [`AGENT_RULES.md`](./AGENT_RULES.md) |
-| **Granular Master System Feature Catalog** | [`FEATURES.md`](../FEATURES.md) |
-| **Engineering Roadmap, Milestones & Changelog** | [`CHANGELOG.md`](../CHANGELOG.md) |
-| **Non-Technical Master Product Overview** | `BRD-00` (`00-master-product-overview.md`) |
-| **Architecture Decision Records (ADR Index)** | [`ADR Index`](./architecture-decision-records/README.md) (`ADR-001` through `ADR-015`) |
-| **Monorepo Topology, Ingress & Routing** | `ADR-001`, `ADR-005` + `TID-01`, `TID-07` |
-| **Design System Tokens & Governance (Flutter/React)** | `AGENT_RULES.md` (§ 3.7) + `CHANGELOG.md` (v1.4.3) + `apps/*/constants/` |
-| **Order Flow FSM (`RIDER_FIRST` vs `VENDOR_FIRST`)** | `ADR-002` + `TID-05` + `BRD-03` |
-| **Order Cancellation, Vendor Rejection & Refunds** | `ADR-002` + `TID-03` (Sec 3.10) + `apps/vendor_portal` |
-| **Spatial PostGIS Geofencing & Redis Geohash Radar** | `ADR-003` + `TID-02` + `TID-05` |
-| **Rider Atomic Claim Mutex & Concurrency** | `ADR-004` + `TID-05` + `TID-04` |
-| **Frontend State (Zustand + React Query) & WS** | `ADR-006` + `TID-06` + `TID-04` |
-| **Vendor KDS Web Audio Synthesizer Chime** | `ADR-007` + `apps/vendor_portal` + `BRD-05` |
-| **Vendor Store Hours & Busy Pause Guard** | `BRD-05` (Sec 4) + `TID-03` (Sec 4.4) + `services/backend_api` |
-| **Vendor 2-Tier Permissions (Outlet vs Master)** | `BRD-05` (Sec 2) + `TID-02` + `TID-03` (Sec 4.1) |
-| **Vendor Catalog, Menu, Variants & Stockout Toggles**| `BRD-05` (Sec 5) + `TID-03` (Sec 4.3) + `TID-02` |
-| **Immutable JSONB Snapshots & Financial Ledgers** | `ADR-008`, `ADR-009` + `TID-02` + `BRD-03` |
-| **Multi-Gateway Payment & Webhook Idempotency** | `ADR-011` + `TID-03` (Sec 7) + `TID-04` |
-| **Production Security Hardening & Fail-Fast Config**| `ADR-012` + `deploy/README.md` + `services/backend_api` |
-| **Real-World Integrations (SMS, SSLCommerz, FCM, Auth)**| `ADR-013` + `TID-03` + `apps/customer_app` + `apps/rider_app` |
-| **Money-Path Unit Tests & Sentry Error Monitoring** | `ADR-014` + `services/backend_api` (Jest) + `apps/*/` |
-| **Horizontal Scaling, Leader Locks & Data Safety** | `ADR-015` + `deploy/docker-compose.prod.yml` + `scripts/backup-db.sh` |
-| **Mobile Release Engineering & Play Disclosures** | `TID-07` (§ 6) + `scripts/build-android.sh` |
-| **Code Modularity & Component Decomposition** | `AGENT_RULES.md` (§ 3.8) + `AGENTS.md` + `FEATURES.md` (§ 1.7) |
-| **Delivery Fee Calculation & Canonical Schema** | `BRD-03` (Sec 4) + `TID-03` (Sec 2.5) + `delivery-fee.service.ts` |
-| **Financial Settlement Cycles & Net COD Cash Offset**| `ADR-009` + `TID-03` (Sec 6.6) + `BRD-07` |
-| **AI Governance, Invariants & No-Auto-Commits** | `ADR-010` + `AGENT_RULES.md` + `README.md` |
-| **Authentication, OTP, JWT, Role Guards** | `TID-03` (API Specs: Sec 2) + `TID-02` (Users table) |
-| **Customer App UI, Cart, Banners, Coupons** | `BRD-04` (Customer Journey) + `TID-03` (API Specs: Sec 3) |
-| **Customer Search Direct Add & Cart Conflict Modal** | `BRD-04` (Sec 3) + `apps/customer_app` |
-| **Cart Address Geofence Guard & Radius Check** | `BRD-03` (Sec 1.3) + `BRD-04` (Screen 6) + `TID-02` + `TID-03` |
-| **Switch-to-COD Failure Recovery** | `BRD-04` (Screen 8) + `TID-03` (Sec 3.9) + `ADR-011` |
-| **Re-Order Validation Logic** | `BRD-04` (Screen 9) + `TID-03` (Sec 3.8) + `BRD-03` |
-| **Rider App UI & 3-Step Delivery Fulfillment** | `BRD-06` (Rider Ops) + `TID-03` (Sec 5.3) |
-| **Rider Duty In-Flight Lock & Background GPS** | `BRD-06` (Sec 2) + `apps/rider_app` + `TID-03` (Sec 5.1) |
-| **Rider COD Cash Deposit & Hub Verification Flow** | `BRD-06` (Sec 6) + `TID-03` (Sec 5.5) + `TID-02` |
-| **Rider 5-Min Doorstep SOP Modal & Issue Report** | `BRD-06` (Sec 5.1) + `TID-03` (Sec 5.4) |
-| **Rider Dispatch, Radius Search, Redis Mutex** | `TID-05` (State Machine & Dispatch) + `TID-04` (Sec 3.3) |
-| **Super Admin Console, Banners, Coupons, Orders** | `apps/admin_portal` + `BRD-07` + `TID-03` (Sec 6) + `TID-06` |
-| **Super Admin Live Fleet Radar (Leaflet OSM)** | `apps/admin_portal` + `BRD-07` (Sec 2.1) + `TID-06` |
-| **Super Admin Courier Approval Queue & COD Limits** | `apps/admin_portal` + `BRD-07` (Sec 2.2) + `TID-03` (Sec 6.2) |
-| **Order Deep Linking (?orderNumber) & Overrides** | `apps/admin_portal` + `BRD-07` (Sec 2.3) + `TID-03` (Sec 6.1) |
-| **Delivery Fees (Flat vs Distance) & Ledgers** | `BRD-03` (Sec 4 & 5) + `TID-02` (Ledger tables) |
-| **CSV/JSON Settlement Statements Export** | `BRD-07` (Sec 2.6) + `TID-03` (Sec 6.6) + `ADR-009` |
-| **Database Schema, PostGIS Queries, Migrations** | `TID-02` (Database Schema & DDL) |
-| **WebSockets, Realtime Rooms & Payloads** | `TID-04` (WebSocket Protocol) |
-| **Docker, Nginx, Environment Variables, Setup** | `TID-07` (DevOps & Environment Setup) |
+| Monorepo | `services/backend_api` (NestJS 10, Prisma 5, port 4000) • `apps/admin_portal` + `apps/vendor_portal` (React 18 + Vite + Tailwind + Zustand + TanStack Query, dev ports 3000/3001) • `apps/customer_app` + `apps/rider_app` (Flutter, Riverpod 3, Dio, socket_io_client) |
+| No shared packages | Portals and Flutter apps intentionally duplicate `core/`/UI primitives per app; do not extract cross-app packages without an ADR |
+| Datastores | PostgreSQL 16 + PostGIS 3.4 on **localhost:5433** • Redis 7.2 on **localhost:6380** (dev binds 127.0.0.1) |
+| API surface | Global prefix **`/api/v1`**; Socket.IO namespace **`/events`** (JWT handshake auth); Swagger at `/docs` (non-production only) |
+| Auth | Phone OTP only — **no passwords anywhere**. Access JWT 15m + rotating refresh JWT 30d (Redis jti revocation). Guards: `JwtAuthGuard`, `RolesGuard` + `@Roles()`, global `ThrottlerGuard` |
+| Payments | SSLCommerz (real) + Sandbox gateway (dev only, HMAC-signed webhooks) + COD. **No bKash/Stripe/Moyasar adapters** |
+| Env contract (fail-fast) | Required: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET` (≥32), `JWT_REFRESH_SECRET` (≥32). Forbidden in production: mock SMS, static OTP, sandbox gateway |
+| Edge | Nginx 8080: `/` → admin, `/vendor/` → vendor, `/api/v1/` + `/docs` + `/uploads/` → backend, `/socket.io/` + `/events/` → backend (WS upgrade). TLS via certbot in prod compose |
+
+### Commands
+
+| Task | Command |
+| :--- | :--- |
+| Full quality gate (CI-identical) | `npm run verify` (root) = backend typecheck+lint+test:unit+build, portal typechecks, `flutter analyze`+`flutter test` ×2 |
+| Boot local infra | `./scripts/start-local.sh` (or `docker compose -f deploy/docker-compose.yml up -d postgres redis`) |
+| Migrate + seed | `npx prisma migrate dev` then `npm run prisma:seed` (or `prisma:seed:massive`) in `services/backend_api` |
+| Backend integration suites (needs live stack) | `npm test` in `services/backend_api` (chains 18 `test:*` scripts: `test:auth`, `test:order`, `test:dispatch`, `test:payment`, `test:settlement`, `test:cancel`, `test:track1`, `test:track3`, …) |
+| Backend unit tests (no DB needed) | `npm run test:unit` in `services/backend_api` (Jest, `src/**/*.spec.ts`) |
+| Portal smoke tests (live API) | `npm test` in each portal (tsx assertion scripts) |
+| Release AAB | `./scripts/build-android.sh customer|rider` (dart-define injection) |
+| DB backup / restore | `./scripts/backup-db.sh` / `./scripts/restore-db.sh` |
+
+### Seeded Dev Accounts (OTP `123456` via `SMS_MOCK_STATIC_OTP`)
+
+- Super Admin: `+8801700000001` • Vendor branch manager: `+8801700000002` • Brand owner: `+8801700000003`
+- Seed catalog: brand **Burger Point** (Gulshan + Dhanmondi outlets), **FreshMart Daily Super Shop** (Gulshan Hub); coupons `WELCOME50`, `BURGER20`
 
 ---
 
-## 3. Core Enums & Invariant Values
+## 2. Task → Document & Code Router
+
+| If Your Task Involves… | Load Docs | Key Code Paths |
+| :--- | :--- | :--- |
+| Workflow / DoD / commit rules | [AGENT_RULES.md](./AGENT_RULES.md) | — |
+| Feature inventory & traceability | [FEATURES.md](../FEATURES.md) | — |
+| Release history & roadmap | [CHANGELOG.md](../CHANGELOG.md) | — |
+| Monorepo topology & ingress | `ADR-001`, `ADR-005`, `TID-01` | `deploy/nginx.local.conf`, `deploy/nginx-templates/` |
+| Database schema, migrations | `TID-02` | `services/backend_api/prisma/schema.prisma` (22 models), `prisma/migrations/` |
+| REST endpoints & DTOs | `TID-03` | `services/backend_api/src/modules/*/**.controller.ts` |
+| WebSocket rooms & events | `TID-04` | `src/modules/realtime/tracking.gateway.ts` |
+| Order FSM & dispatch | `ADR-002`, `TID-05` | `src/modules/orders/order-state.machine.ts`, `src/modules/order-flow/order-flow.service.ts` |
+| Atomic claim mutex / concurrency | `ADR-004` | `order-flow.service.ts` (`claimOrder`) |
+| PostGIS spatial queries | `ADR-003`, `TID-02` §4 | `src/modules/vendors/vendor.service.ts` (raw `ST_DWithin`/`ST_Distance`) |
+| Auth, OTP, JWT, RBAC | `TID-03` §2.1 | `src/modules/auth/`, `src/common/guards/` |
+| Payments & webhook idempotency | `ADR-011`, `TID-03` §2.6 | `src/modules/payments/` (gateways: `sslcommerz`, `sandbox`) |
+| Delivery fee engine | `BRD-03`, `TID-03` §2.2 | `src/modules/promotions/pricing/delivery-fee.service.ts` |
+| Settlements, ledgers, COD offset | `ADR-009`, `TID-05` §6 | `src/modules/admin/admin.service.ts` (`executeSettlementCycle`), ledgers in schema |
+| Cancellation, refunds, rollbacks | `ADR-002`, `ADR-011` | `orders.service.ts`, `admin.service.ts` (`cancelOrder`), `payments.service.ts` (`refundForOrder`) |
+| Vendor KDS, catalog, store hours | `BRD-05`, `TID-03` §2.3 | `apps/vendor_portal/src/` (`pages/vendor/`, `hooks/useKDSOrders`, `utils/sound.ts`) |
+| Admin console & fleet radar | `BRD-07`, `TID-03` §2.5 | `apps/admin_portal/src/` (`pages/admin/`, `components/dispatch/LiveFleetMap.tsx`) |
+| Customer app journeys | `BRD-04`, `TID-03` §2.2 | `apps/customer_app/lib/features/` (feature-first: domain/presentation/providers) |
+| Rider app & background GPS | `BRD-06`, `TID-03` §2.4 | `apps/rider_app/lib/features/`, `core/services/background_location_service.dart` |
+| Design system tokens (Flutter) | `AGENT_RULES.md` §3.7 | `apps/*/lib/core/constants/app_{colors,spacing,typography}.dart` |
+| Design tokens (web Tailwind) | `AGENT_RULES.md` §3.7 | `apps/*/tailwind.config.js` (`primary`, `brand`, `surface`, `status`) |
+| Security hardening & env | `ADR-012` | `src/app.module.ts` (Joi), `src/common/config/env.ts`, `deploy/docker-compose.prod.yml` |
+| Integrations (SMS, FCM, Sentry) | `ADR-013`, `ADR-014` | `src/modules/auth/sms/`, `src/modules/notifications/`, `src/common/filters/` |
+| Scaling & data safety | `ADR-015` | `deploy/docker-compose.prod.yml`, `deploy/systemd/`, `scripts/backup-db.sh` |
+| Mobile release engineering | `TID-07` §6 | `scripts/build-android.sh`, `apps/*/android/` |
+| Docker / DevOps / env setup | `TID-07` | `deploy/` + [`deploy/README.md`](../deploy/README.md) |
+| Business rules & journeys (non-technical) | `BRD-00`–`BRD-07` ([index](./business-requirements-documents/README.md)) | — |
+| All ADRs | [ADR index](./architecture-decision-records/README.md) (`ADR-001`–`015`) | — |
+
+---
+
+## 3. Domain Constants (Single Source: `prisma/schema.prisma`)
 
 ```typescript
-// Roles & Permissions
-enum UserRole { SUPER_ADMIN = 'SUPER_ADMIN', VENDOR_ADMIN = 'VENDOR_ADMIN', RIDER = 'RIDER', CUSTOMER = 'CUSTOMER' }
-enum PermissionScope { PARTICULAR_OUTLET = 'PARTICULAR_OUTLET', ALL_OUTLETS_MASTER = 'ALL_OUTLETS_MASTER' }
+// Prisma enums
+enum UserRole         { SUPER_ADMIN, VENDOR_ADMIN, RIDER, CUSTOMER }
+enum AccountStatus    { PENDING_APPROVAL, ACTIVE, SUSPENDED }
+enum VendorVertical   { FOOD, GROCERY, SUPER_SHOP, PHARMACY }
+enum PermissionScope  { PARTICULAR_OUTLET, ALL_OUTLETS_MASTER }
+enum OrderStatus      { PLACED, RIDER_ASSIGNED, ACCEPTED /*deprecated, unused at runtime*/, PREPARING, READY_FOR_PICKUP, DISPATCHED, DELIVERED, CANCELLED }
+enum PaymentMethod    { CASH_ON_DELIVERY, ONLINE_GATEWAY }
+enum PaymentStatus    { PENDING, PAID, REFUNDED, FAILED }
+enum SettlementStatus { PENDING, PROCESSING, SETTLED }
+enum DiscountType     { PERCENTAGE, FLAT }
+enum BannerLinkType   { OUTLET, CATEGORY, EXTERNAL }
 
-// Order Lifecycle FSM
-enum OrderStatus { 
-  PLACED = 'PLACED', 
-  RIDER_ASSIGNED = 'RIDER_ASSIGNED',
-  ACCEPTED = 'ACCEPTED', // Deprecated runtime state: transitions directly to PREPARING (ADR-002)
-  PREPARING = 'PREPARING', 
-  READY_FOR_PICKUP = 'READY_FOR_PICKUP', 
-  DISPATCHED = 'DISPATCHED', 
-  DELIVERED = 'DELIVERED', 
-  CANCELLED = 'CANCELLED' 
-}
-
-// Payment & Fees
-enum PaymentMethod { CASH_ON_DELIVERY = 'CASH_ON_DELIVERY', ONLINE_GATEWAY = 'ONLINE_GATEWAY' }
-enum PaymentStatus { PENDING = 'PENDING', PAID = 'PAID', REFUNDED = 'REFUNDED', FAILED = 'FAILED' }
-enum SettlementStatus { PENDING = 'PENDING', PROCESSING = 'PROCESSING', SETTLED = 'SETTLED' }
-enum CashDepositStatus { PENDING_APPROVAL = 'PENDING_APPROVAL', APPROVED = 'APPROVED', REJECTED = 'REJECTED' }
-enum DeliveryFeeMode { FIXED_FLAT = 'FIXED_FLAT', DISTANCE_TIERED = 'DISTANCE_TIERED' }
-enum DiscountType { PERCENTAGE = 'PERCENTAGE', FLAT = 'FLAT' }
-
-// Configurable Order Dispatch Flow Sequence
-enum OrderFlowMode { 
-  RIDER_FIRST = 'RIDER_FIRST',     // Rider claimed first -> Sent to Vendor for manual acceptance -> Zero food waste
-  VENDOR_FIRST = 'VENDOR_FIRST'    // Vendor accepts & preps first -> Rider broadcasted when ready
-}
+// String conventions (not Prisma enums)
+CashDeposit.status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'   // written by code; schema default 'COMPLETED' is legacy
+OrderFlowConfig.mode: 'RIDER_FIRST' | 'VENDOR_FIRST'               // inside SystemSetting JSON `order_flow_config`
+DeliveryFeeConfig.mode: 'FIXED_FLAT' | 'DISTANCE_TIERED'           // canonical camelCase; legacy snake_case normalized on read
 ```
 
+**FSM transitions** (`ORDER_TRANSITIONS`, `order-state.machine.ts`): `PLACED→[RIDER_ASSIGNED, PREPARING, CANCELLED]` • `RIDER_ASSIGNED→[PREPARING, CANCELLED]` • `PREPARING→[READY_FOR_PICKUP, CANCELLED]` • `READY_FOR_PICKUP→[DISPATCHED, CANCELLED]` • `DISPATCHED→[DELIVERED]` • `DELIVERED|CANCELLED` terminal. Claimable: `RIDER_FIRST→PLACED`, `VENDOR_FIRST→READY_FOR_PICKUP`.
+
+**Redis key map** (never invent new keys without checking collisions):
+
+| Key | Purpose |
+| :--- | :--- |
+| `riders:locations:active` | GEO index of online rider GPS (`GEOADD`/`GEOSEARCH`) |
+| `lock:order_claim:<orderId>` | Atomic claim mutex (`SET NX EX 10`) |
+| `rider:active_order:<riderId>` | Rider in-flight trip marker (duty lock, busy check) |
+| `otp:<phone>` (TTL 120s) • `ratelimit:otp:<phone>` | OTP lifecycle + 3-per-5min limiter |
+| `auth:refresh:<jti>` | Rotating refresh-token revocation store |
+| `lock:sweep:expired-payments` (55s) • `lock:sweep:dispatch-escalation` (25s) | Leader locks for `setInterval` sweeps (no `@nestjs/schedule`) |
+| `dispatch:escalated:<orderId>:tier<N>` (1h) | Escalation idempotency |
+| `order:live_location:<orderId>` • `rider:telemetry:<id>` (300s) | Tracking caches |
+
+**Socket.IO `/events`** — full catalog in `TID-04`. Client→server: `order:join`, `order:leave`, `rider:location:update`. Server→client: `connected`, `error`, `order:new`, `order:status:changed`, `order:rider:moved`, `order:cancelled`, `order:payment:verified`, `dispatch:broadcast`, `dispatch:escalated`, `rider:location`.
+
 ---
 
-## 4. Production Code Patterns (Copy-Paste Ready)
+## 4. Canonical Patterns (Copy-Paste Ready)
 
-### A. Atomic Order Status / Financial Transaction (NestJS + Prisma)
+**Response envelope** (enforced by `TransformInterceptor` + `AllExceptionsFilter`):
+```json
+{ "success": true, "statusCode": 200, "message": "…", "data": {} }
+```
+
+**Money mutation = one Prisma transaction** (order state + ledgers together, `Decimal(10,2)` everywhere):
 ```typescript
 await prisma.$transaction(async (tx) => {
-  const order = await tx.order.update({
-    where: { id: orderId },
-    data: { status: OrderStatus.DELIVERED, deliveredAt: new Date() }
-  });
-  await tx.riderTripLedger.create({
-    data: { orderId: orderId, riderId: riderId, deliveryEarnings: earnings, codCollected: codAmount }
-  });
+  const order = await tx.order.update({ where: { id: orderId }, data: { status: 'DELIVERED', deliveredAt: new Date() } });
+  await tx.riderTripLedger.create({ data: { orderId, riderId, deliveryEarnings, codCollected } });
 });
 ```
 
-### B. Redis Atomic Lock for Order Claims (Prevents Race Conditions)
+**Atomic claim mutex** (`RedisService.acquireLock`):
 ```typescript
 const acquired = await redis.set(`lock:order_claim:${orderId}`, riderId, 'NX', 'EX', 10);
-if (!acquired) throw new ConflictException('Order already accepted by another rider');
+if (!acquired) throw new ConflictException('Order already claimed');
 ```
 
-### C. Standard API Response Envelope
-```typescript
-return { success: true, statusCode: HttpStatus.OK, message: 'Success', data: payload };
-```
+**Coordinates**: persisted as `Float` `latitude`/`longitude` columns; PostGIS geography is computed at query time (`ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography`) over expression GIST indexes (see `prisma/migrations/20260924065308_*`). Never store GPS ticks in PostgreSQL — Redis GEO only.
+
+**Delivery fee** (`delivery-fee.service.ts`): `FIXED_FLAT { flatFee }` or `DISTANCE_TIERED { baseFee, baseKm, perKmRate }` → `baseFee + (distanceKm − baseKm) × perKmRate`; `normalizeDeliveryFeeConfig()` accepts legacy snake_case keys on read.

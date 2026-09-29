@@ -8,7 +8,7 @@ Authoritative technical blueprints, relational database schemas, REST API contra
 ## 1. Document Index
 
 - **[01-system-architecture-and-tech-stack.md](./01-system-architecture-and-tech-stack.md)** — **System Architecture & Tech Stack**: Ingress topology, component diagram, technology versions, monorepo directory tree, and role-based security boundaries.
-- **[02-database-schema-and-data-models.md](./02-database-schema-and-data-models.md)** — **Database Schema & Data Models**: Relational ERD, 22-table data dictionary, PostgreSQL 16 DDL, PostGIS GiST spatial indexes, and spatial boundary queries.
+- **[02-database-schema-and-data-models.md](./02-database-schema-and-data-models.md)** — **Database Schema & Data Models**: Relational ERD, 22-table data dictionary, PostgreSQL 16 reference DDL, PostGIS expression GIST spatial indexes, and spatial boundary queries.
 - **[03-api-specifications-and-endpoints.md](./03-api-specifications-and-endpoints.md)** — **API Specifications & Endpoints**: Global JSON response envelopes, RESTful contracts, DTO schemas, and RBAC guards across all modules.
 - **[04-realtime-events-and-websocket-protocol.md](./04-realtime-events-and-websocket-protocol.md)** — **Real-Time WebSockets & Event Protocol**: Socket.IO gateway, JWT handshake, room subscription matrix, event payload catalog, and reconnection reconciliation.
 - **[05-order-state-machine-and-dispatch-engine.md](./05-order-state-machine-and-dispatch-engine.md)** — **Order State Machine & Dispatch Engine**: Dual-flow FSM (`RIDER_FIRST` vs `VENDOR_FIRST`), transition matrix, Redis proximity radius queries, distributed mutex claim lock, and double-entry accounting formulas.

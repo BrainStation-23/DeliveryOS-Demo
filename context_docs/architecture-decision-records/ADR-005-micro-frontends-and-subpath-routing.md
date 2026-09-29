@@ -34,8 +34,8 @@ Chosen option: **Dedicated React SPAs with Nginx Subpath Proxying**.
 
 | Portal | Source Directory | Vite Base | React Router Basename | Storage Namespaces |
 | :--- | :--- | :--- | :--- | :--- |
-| **Super Admin** | [`apps/admin_portal`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/admin_portal) | `/` | `/` | `deliveryos_admin_auth`<br/>`deliveryos_admin_token` |
-| **Vendor KDS** | [`apps/vendor_portal`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/vendor_portal) | `/vendor/` | `/vendor` | `deliveryos_vendor_auth`<br/>`deliveryos_vendor_token` |
+| **Super Admin** | [`apps/admin_portal`](../../apps/admin_portal) | `/` | `/` | `deliveryos_admin_auth`<br/>`deliveryos_admin_token` |
+| **Vendor KDS** | [`apps/vendor_portal`](../../apps/vendor_portal) | `/vendor/` | `/vendor` | `deliveryos_vendor_auth`<br/>`deliveryos_vendor_token` |
 
 ### Positive Consequences
 - **Zero Asset 404s**: Vendor assets load cleanly under `/vendor/assets/...`.
@@ -49,7 +49,7 @@ Chosen option: **Dedicated React SPAs with Nginx Subpath Proxying**.
 ---
 
 ## Technical Implementation Details
-In [`deploy/nginx.local.conf`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/deploy/nginx.local.conf):
+In [`deploy/nginx.local.conf`](../../deploy/nginx.local.conf):
 ```nginx
 # Super Admin Portal (Root)
 location / {
@@ -64,7 +64,7 @@ location /vendor/ {
 }
 ```
 
-In [`apps/vendor_portal/vite.config.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/vendor_portal/vite.config.ts):
+In [`apps/vendor_portal/vite.config.ts`](../../apps/vendor_portal/vite.config.ts):
 ```typescript
 export default defineConfig({
   base: '/vendor/',
@@ -75,5 +75,5 @@ export default defineConfig({
 ---
 
 ## Compliance & Verification
-- Scaffolding tests: Verified via [`test-scaffolding.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/admin_portal/scripts/test-scaffolding.ts) in both portals.
+- Scaffolding tests: Verified via [`test-scaffolding.ts`](../../apps/admin_portal/scripts/test-scaffolding.ts) in both portals.
 - Ingress response checks: `curl -I http://localhost:8080/` and `curl -I http://localhost:8080/vendor/` return HTTP 200.

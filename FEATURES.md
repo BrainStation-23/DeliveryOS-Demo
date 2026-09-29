@@ -10,13 +10,13 @@ This document provides a line-level, granular breakdown of every operational fea
 | Domain / Sub-Project | Primary Technology Stack | Primary Persona / Actor | Feature Index Link |
 | :--- | :--- | :--- | :--- |
 | **System-Wide & Shared** | PostGIS, Redis, Nginx, Docker | All Stakeholders | [§ 1. Core Platform & Shared Capabilities](#1-core-platform--system-wide-capabilities) |
-| **Customer Mobile App** | Flutter 3.19+ (Riverpod 3.3.2) | End Consumers | [§ 2. Customer Mobile Experience](#2-customer-mobile-experience-appscustomer_app) |
-| **Rider Fleet Mobile App** | Flutter 3.19+ (Riverpod 3.3.2) | Courier Fleet | [§ 3. Rider Courier Experience](#3-rider-courier-experience-appsrider_app) |
+| **Customer Mobile App** | Flutter (Dart ^3.8, Riverpod 3) | End Consumers | [§ 2. Customer Mobile Experience](#2-customer-mobile-experience-appscustomer_app) |
+| **Rider Fleet Mobile App** | Flutter (Dart ^3.8, Riverpod 3) | Courier Fleet | [§ 3. Rider Courier Experience](#3-rider-courier-experience-appsrider_app) |
 | **Vendor KDS Web Portal** | React 18, Vite, Web Audio API | Kitchen Staff & Store Managers | [§ 4. Vendor Store & Kitchen Portal](#4-vendor-store--kitchen-kds-portal-appsvendor_portal) |
 | **Super Admin Master Console** | React 18, Vite, Leaflet OSM | Platform Operations & Dispatchers | [§ 5. Super Admin Operations Console](#5-super-admin-operations-console-appsadmin_portal) |
 | **Backend Core & Realtime** | NestJS 10, Prisma, Socket.IO | Automated Services & Gateways | [§ 6. Backend API & Engine Services](#6-backend-api--engine-services-servicesbackend_api) |
 | **Data & Spatial Storage** | PostgreSQL 16, PostGIS 3.4, Redis 7.2 | Database Layer | [§ 7. Data Persistence & Spatial Engine](#7-data-persistence--spatial-storage-engine) |
-| **Automated Test Suites** | TypeScript (strict), tsx integration scripts, ESLint, Flutter Test | Engineering & QA | [§ 8. Automated Test & Static Analysis Suite](#8-automated-test--static-analysis-suite) |
+| **Automated Test Suites** | Jest (unit), tsx integration scripts, ESLint, Flutter Test | Engineering & QA | [§ 8. Automated Test & Static Analysis Suite](#8-automated-test--static-analysis-suite) |
 | **Traceability Matrix** | All Sub-projects | Architects & Developers | [§ 9. Cross-Reference Index](#9-cross-reference-index-traceability-matrix) |
 
 ---
@@ -117,12 +117,12 @@ This document provides a line-level, granular breakdown of every operational fea
   - Primary checkout CTA is automatically disabled with dynamic text: `"Store Currently Closed"` or `"Store Paused (Rush Hour)"`.
 - **Address Range Guard**: Prevents placing orders if customer coordinates exceed merchant geofence.
 - **Promo Coupon Engine**: Input field validating promo codes (`POST /coupons/validate`) with minimum order value and flat/percentage discount calculation.
-- **Multi-Payment Selector**: Toggle between `CASH_ON_DELIVERY` (COD) and `ONLINE_GATEWAY` (bKash, SSLCommerz, Sandbox).
+- **Multi-Payment Selector**: Toggle between `CASH_ON_DELIVERY` (COD) and `ONLINE_GATEWAY` (SSLCommerz, Sandbox).
 
 ### 2.7. Live Order Tracking & Failure Recovery
 - **6-Stage Fulfillment Stepper**: Visual timeline displaying stages: `Placed` ➔ `Assigned` ➔ `Preparing` ➔ `Ready` ➔ `Delivering` ➔ `Delivered` (`OrderStepperWidget`).
 - **Clamped Text Scaling on Small Screens**: Stepper labels utilize font-size scaling protection preventing horizontal blowout on 320px screens.
-- **Live Courier Radar Map**: Real-time motorcycle marker updating smoothly via WebSocket telemetry (`rider:location:stream`) on Google Maps (`TrackingMapView`).
+- **Live Courier Radar Map**: Real-time motorcycle marker updating smoothly via WebSocket telemetry (`order:rider:moved`) on Google Maps (`TrackingMapView`).
 - **Switch-to-COD Recovery Card**:
   - Displays when an online payment gateway transaction is pending or failed.
   - Provides a one-tap `"Switch to Cash (COD)"` button (`POST /orders/:id/switch-cod`) immediately releasing the order for kitchen preparation and courier dispatch.
@@ -190,7 +190,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **COD Cash in Hand & Safety Limit**:
   - Displays collected cash balance against configured safety limit (e.g. ৳5,000).
   - Progress meter shifts green ➔ amber (80%) ➔ red (100%).
-- **Hub Cash Deposit Flow**: Courier records physical cash handover to central hub (`POST /riders/deposit-cash`) for admin verification.
+- **Hub Cash Deposit Flow**: Courier records physical cash handover to central hub (`POST /rider/cash/deposit`) for admin verification.
 - **Deposit Tracking Feed**: Couriers track status of submitted deposits (`PENDING_APPROVAL`, `APPROVED`, `REJECTED`) via `GET /rider/cash/deposits`.
 
 ---
@@ -198,7 +198,7 @@ This document provides a line-level, granular breakdown of every operational fea
 ## 4. Vendor Store & Kitchen Portal (`apps/vendor_portal`)
 
 ### 4.1. Authentication & Multi-Branch Architecture
-- **Merchant Staff Login**: Email/password authentication scoped to specific outlet or brand owner (`LoginPage`).
+- **Merchant Staff Login**: Phone + OTP authentication (shared `/auth` endpoints; the portal login form presents the OTP field as a staff passcode) scoped to a specific outlet or brand owner (`LoginPage`).
 - **Outlet Scope Switcher (`OutletSwitcher`)**:
   - `PARTICULAR_OUTLET`: Single-store staff account strictly locked to their physical branch.
   - `ALL_OUTLETS_MASTER`: Multi-branch brand owner account with dropdown selector to switch between individual branches or aggregate across all outlets.
@@ -334,32 +334,39 @@ This document provides a line-level, granular breakdown of every operational fea
 
 ## 6. Backend API & Engine Services (`services/backend_api`)
 
-### 6.1. Modular NestJS Architecture
-- **Auth Module (`/auth`)**: JWT issuance, passport strategies, phone OTP verification, FCM device token registration.
-- **Vendors Module (`/vendors`)**: Outlet CRUD, catalog management, opening hours, rush pause toggle, geofence radius check.
-- **Orders Module (`/orders`)**: Checkout transaction boundary, dual-flow state progression, line item pricing, payment method switches, reorder validation, cancellation rollbacks.
-- **Riders Module (`/riders`)**: Shift duty toggle, GPS coordinate persistence, in-flight delivery locks, cash deposit submission and tracking.
-- **Dispatch Module (`/dispatch`)**: Geospatial proximity searches, atomic claim mutex locks, two-tier radius escalation.
-- **Finance Module (`/finance`, `/admin/finance`)**: Commission ledger generation, payout aggregation, settlement batch creation, cash deposit verification, CSV export.
-- **Promotions Module (`/promotions`, `/coupons`)**: Banner sorting and promo code discount application.
+### 6.1. Modular NestJS Architecture (15 Feature Modules)
+- **Auth (`/auth`)**: Phone OTP request/verify (mock SMS in dev, SSL Wireless in prod), JWT access + rotating refresh tokens with Redis jti revocation, logout, `GET /auth/me`, FCM device-token registration (`POST /auth/device-token`).
+- **Vendors (`/vendors`, `/cart`)**: PostGIS nearby discovery (`nearby`, `search`, `:id/catalog`) and address-coverage geofence validation (`validate-address-coverage`).
+- **Promotions (`/banners`, `/coupons`)**: Active hero banners, coupon validation, and the pricing engine (`delivery-fee.service.ts`).
+- **Orders (`/orders`)**: ACID checkout boundary, reorder validation, history pagination, live tracking payload, customer cancel, switch-to-COD, FSM guard (`order-state.machine.ts`).
+- **Vendor Staff (`/vendor`)**: KDS live board, accept/reject/ready/handover transitions, catalog + variant stock toggles, settings & operating hours, sales ledger.
+- **Riders (`/rider`)**: Profile, duty toggle with in-flight lock, claim/pickup/deliver flow, trip history, COD cash deposit submission & tracking, issue reporting.
+- **Order Flow (`/admin/settings/order-flow`)**: Config-driven dispatch (`order_flow_config`: `RIDER_FIRST`/`VENDOR_FIRST`, rider search timeout), broadcast engine, escalation scanner (30s leader-locked sweep).
+- **Realtime**: Socket.IO gateway (`/events`) — room topology, JWT handshake auth, GPS telemetry ingestion (§ 6.3).
+- **Admin (`/admin`)**: 36 governance routes — overview KPIs, fleet, orders (force-assign/cancel), rider approval & cash limits, vendor/category/banner/coupon CRUD, media uploads, order-flow + delivery-fee settings, settlement cycles, statements, cash-deposit verification.
+- **Payments (`/payments`)**: Gateway session initiation, HMAC-verified idempotent webhooks, transaction status, browser callback redirects.
+- **Addresses (`/customers`)**: Customer address book CRUD + default selection, profile management.
+- **Geo (`/geo`)**: OSM Nominatim reverse geocoding with 24h Redis cache.
+- **Notifications**: FCM multicast push for dispatch, assignment, payment verification, and status changes.
+- **Health (`/health`)**: Liveness probe returning PostgreSQL + Redis status.
+- **Infrastructure**: Prisma, Redis (GEO + mutex + cache), local-disk media storage (`/uploads`, 5 MB image cap), winston JSON logging with request-id, Sentry capture, global throttle (100 req/min).
 
 ### 6.2. Dual Order Flow State Machine
 - **Formal State Enum**: `PLACED` ➔ `RIDER_ASSIGNED` ➔ `PREPARING` ➔ `READY_FOR_PICKUP` ➔ `DISPATCHED` ➔ `DELIVERED` (with terminal `CANCELLED`) ([ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)).
 - **Direct Vendor Acceptance Transition**: Calling accept transitions directly to `PREPARING` while setting `acceptedAt = NOW()` (deprecated `ACCEPTED` state eliminated).
 
-### 6.3. Real-Time Socket.IO Protocol
-- **Targeted Room Topology**:
-  - `order_${orderId}`: Real-time order progress updates for customer, assigned rider, and store.
-  - `vendor_${vendorId}`: Kitchen alert chimes and KDS board invalidations.
-  - `brand_${brandId}`: Brand-wide multi-outlet event stream for brand owners.
-  - `rider_${riderId}`: Targeted dispatch broadcast alerts.
-  - `admin_hq`: Platform-wide radar updates and override notifications.
-- **Core WebSocket Events**:
-  - Emitted: `order:new`, `order:status:changed`, `order:cancelled`, `order:payment:verified`, `order:delivery_failed`, `dispatch:broadcast`, `dispatch:escalated`, `rider:location:stream`.
-  - Received: `join:order`, `leave:order`, `rider:location:update`.
+### 6.3. Real-Time Socket.IO Protocol (`/events`)
+- **Targeted Room Topology** (auto-joined on authenticated handshake):
+  - `user_{userId}`: Customer session room (order progress, cancellation).
+  - `order_{orderId}`: Opt-in room via authorized `order:join` for live tracking screens.
+  - `vendor_{vendorId}` + `brand_{brandId}` (+ all brand outlet rooms): Kitchen chimes and KDS invalidation.
+  - `rider_{riderId}` + `riders_pool`: Dispatch broadcasts and fleet telemetry.
+  - `admin_hq` + `admin_fleet`: Platform-wide radar and escalation alerts.
+- **Client ➔ Server Events**: `order:join`, `order:leave` (ownership-verified per ADR-012), `rider:location:update` (alias `rider:location_update`).
+- **Server ➔ Client Events**: `connected`, `error`, `order:new`, `order:status:changed`, `order:rider:moved`, `order:cancelled`, `order:payment:verified`, `order:delivery_failed`, `dispatch:broadcast`, `dispatch:escalated`, `rider:location`. Full payload catalog in [`TID-04`](context_docs/technical-implementation-documents/04-realtime-events-and-websocket-protocol.md).
 
 ### 6.4. Multi-Gateway Payment & Webhook Idempotency
-- **Supported Gateways**: bKash, SSLCommerz, Sandbox, Cash on Delivery (COD) ([ADR-011](context_docs/architecture-decision-records/ADR-011-multi-gateway-online-payment-and-webhook-idempotency.md)).
+- **Supported Gateways**: SSLCommerz (live Session/Validator/Refund APIs) and a dev-only Sandbox gateway with HMAC-SHA256-signed webhooks, plus Cash on Delivery ([ADR-011](context_docs/architecture-decision-records/ADR-011-multi-gateway-online-payment-and-webhook-idempotency.md)). Legacy stub adapters (bKash, Stripe, Moyasar) were removed — single-gateway strategy.
 - **Pre-Payment Dispatch Suppression**: Online orders suppress courier broadcast and kitchen alerts until payment is cryptographically verified via IPN webhook.
 - **HMAC-SHA256 Webhook Verification**: Idempotent IPN processing deduplicated via unique transaction IDs and database locking.
 
@@ -413,38 +420,46 @@ This document provides a line-level, granular breakdown of every operational fea
 ## 7. Data Persistence & Spatial Storage Engine
 
 ### 7.1. PostgreSQL 16 & PostGIS 3.4
-- **Spatial Points**: Merchant locations (`vendors.location`) and customer drop-offs (`orders.delivery_location`) stored as PostGIS `geometry(Point, 4326)`.
-- **Spatial Indexing**: Indexed via GIST (`GIST(location)`) for sub-millisecond range queries (`ST_DWithin`).
-- **Immutable Financial Snapshots**: `order_items.addons_snapshot` stored as JSONB to preserve historical dish options even if catalog items change later ([ADR-008](context_docs/architecture-decision-records/ADR-008-immutable-jsonb-historical-snapshots.md)).
-- **Relational Integrity**: 19 normalized entities with foreign key constraints, audit timestamps, and deterministic numeric columns (`DECIMAL(10, 2)`).
+- **Coordinate Storage**: Vendor, customer-address, and rider coordinates persist as `Float` `latitude`/`longitude` columns; PostGIS `geography(Point, 4326)` is computed at query time (`ST_DWithin`/`ST_Distance` raw SQL).
+- **Spatial Indexing**: Expression `GIST` indexes on `ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)` for vendors, customer addresses, and riders (migration `20260924065308`).
+- **Immutable Financial Snapshots**: `order_items.addons_snapshot` and address/variant JSONB snapshots preserve historical order data even if catalog items change later ([ADR-008](context_docs/architecture-decision-records/ADR-008-immutable-jsonb-historical-snapshots.md)).
+- **Relational Integrity**: 22 normalized entities with foreign key constraints, audit timestamps, and deterministic numeric columns (`DECIMAL(10, 2)`).
 
 ### 7.2. Redis 7.2 In-Memory Operations
-- **Geospatial Courier Tracking**: Couriers stored in Redis GEO keys (`riders:locations`) updated via `GEOADD` every 10 meters.
-- **Atomic Dispatch Mutex**: First-come-first-serve order claiming backed by `SET resource_lock token NX EX 10` ([ADR-004](context_docs/architecture-decision-records/ADR-004-atomic-dispatch-claim-mutex.md)).
-- **Sub-100ms Query Invalidation**: High-speed cache invalidations signaling React Query and Riverpod clients.
+- **Geospatial Courier Tracking**: Online riders stored in the Redis GEO key `riders:locations:active`, updated via `GEOADD` on telemetry ticks.
+- **Atomic Dispatch Mutex**: First-come-first-serve order claiming backed by `SET lock:order_claim:<orderId> NX EX 10` ([ADR-004](context_docs/architecture-decision-records/ADR-004-atomic-dispatch-claim-mutex.md)).
+- **Operational Keys**: `rider:active_order:<riderId>` (in-flight duty lock), `otp:<phone>`, `auth:refresh:<jti>`, leader-locked sweep mutexes, escalation idempotency keys — full map in [`QUICK_REFERENCE.md`](context_docs/QUICK_REFERENCE.md).
 
 ---
 
 ## 8. Automated Test & Static Analysis Suite
 
-The platform is guarded by a comprehensive suite of automated verification scripts:
+The platform is guarded by a layered verification pyramid. Backend integration suites are live-API scripts in `services/backend_api/scripts/` (chained via `npm test`, requiring the local Docker stack); unit tests are Jest specs runnable without a database.
 
-| Suite Name | Execution Command | Scope & Capabilities Verified |
+| Suite | Command | Scope & Capabilities Verified |
 | :--- | :--- | :--- |
-| **Track 1 Business Integrity** | `npm run track1:test` | Store hours/busy guards, COD deposits, net COD offset, in-flight duty lock, route deduplication |
-| **Order Cancellation & Refunds** | `npm run cancel:test` | Customer cancel, pre-prep boundary guard, vendor reject codes, admin force-cancel, ledger rollbacks |
-| **Online Payments & IPN** | `npm run payment:test` | Multi-gateway payment simulation, webhook signature verification, pre-payment broadcast suppression |
-| **Financial Settlement Cycles** | `npm run settlement:test` | Batch settlements, net cash offset, double-entry balancing, CSV export validation |
-| **Auth & RBAC Security** | `npm run auth:test` | Phone OTP, JWT issuance, tenant isolation, Super Admin override guards |
-| **Vendor Discovery & Geofence** | `npm run vendor:test` | PostGIS `ST_DWithin` radius search, store category filters, distance sorting |
-| **Order Checkout & Pricing** | `npm run order:test` | Single-vendor cart boundary, coupon calculations, flat vs distance fees |
-| **Dispatch FSM & Mutex** | `npm run dispatch:test` | Redis `SET NX EX` mutex lock, race-condition elimination, dual-flow transitions |
-| **Web Portal Admin Tests** | `npm run test:admin` | Dashboard KPIs, Leaflet OSM radar rendering, courier queue, order overrides |
-| **Web Portal KDS Tests** | `npm run test:kds` | 3-lane Kanban progression, prep countdown timers, synthesized audio chime loop |
-| **Customer App Flutter Tests** | `flutter test` | Riverpod providers, cart conflict modal, stepper layout, design system token tests (47 passed) |
-| **Rider App Flutter Tests** | `flutter test` | Duty toggle lock, 3-step fulfillment flow, 5-min SOP modal, design system token tests (37 passed) |
-| **Money-Path & Pricing Unit Tests** | `npm run test:unit` | Jest suites (24 tests) pinning ADR-002 FSM transitions, region-time operating hours, atomic coupon claims, webhook idempotency, and delivery fee calculation & normalization |
-| **Static Code Analysis** | `npm run typecheck` / `flutter analyze` | Zero TypeScript errors (`strict: true`), zero Flutter analyzer warnings |
+| **Repo Quality Gate (CI)** | `npm run verify` (root) | Backend typecheck + ESLint + Jest unit + build, both portal typechecks, `flutter analyze` + `flutter test` ×2 — runs on every push/PR via `.github/workflows/ci.yml` |
+| **Money-Path Unit Tests** | `npm run test:unit` (backend) | Jest (24 tests) pinning the ADR-002 FSM, region-time operating-hours math (overnight windows, Asia/Dhaka rollover), coupon eligibility, webhook atomic-claim idempotency, and delivery-fee computation/normalization ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)) |
+| **DB & Spatial Integrity** | `npm run test:db` | Prisma models, PostGIS expression GIST indexes, spatial query sanity |
+| **Auth & RBAC Security** | `npm run test:auth` | Phone OTP, JWT + refresh rotation, tenant isolation, Super Admin override guards |
+| **Vendor Discovery & Geofence** | `npm run test:vendor` | PostGIS `ST_DWithin` radius search, vertical filters, distance sorting |
+| **Promotions & Pricing** | `npm run test:promotions` | Banners, coupon validation, flat vs distance delivery fees |
+| **Order Checkout** | `npm run test:order` | Single-vendor cart boundary, coupon claims, fee math |
+| **Vendor & Rider Operations** | `npm run test:vendor-rider` | KDS transitions, stock toggles, rider duty/claim/deliver |
+| **WebSocket Tracking** | `npm run test:ws` | `/events` rooms, join authorization, telemetry fan-out |
+| **Dispatch FSM & Mutex** | `npm run test:dispatch` | Redis `SET NX EX` mutex, race elimination, dual-flow transitions, escalation |
+| **Live Tracking & Escalation** | `npm run test:tracking` / `test:escalation` | GPS streaming payloads, tiered radius escalation |
+| **E2E Lifecycle & Ledger Audit** | `npm run test:e2e` | Full multi-role lifecycle; double-entry ledgers balance to the penny |
+| **Online Payments & IPN** | `npm run test:payment` | Gateway initiation, webhook signature verification, pre-payment broadcast suppression |
+| **Settlement Cycles** | `npm run test:settlement` | Batch settlements, net COD offset, CSV export validation |
+| **Cancellation & Refunds** | `npm run test:cancel` | Pre-prep boundary guard, vendor reject codes, admin force-cancel, ledger rollbacks |
+| **Business Integrity (Track 1)** | `npm run test:track1` | Store hours/busy guards, COD deposits, net COD offset, in-flight duty lock |
+| **Vendor KDS Resilience (Track 3)** | `npm run test:track3` | KDS flows under churn |
+| **Web Portal Admin Tests** | `npm test` (admin_portal) | Scaffolding assertions + live governance-endpoint walkthrough |
+| **Web Portal KDS Tests** | `npm test` (vendor_portal) | Scaffolding + KDS operations + multi-tier vendor flows |
+| **Customer App Flutter Tests** | `flutter test` | Riverpod providers, cart conflict modal, stepper layout, design-system tokens |
+| **Rider App Flutter Tests** | `flutter test` | Duty toggle lock, 3-step fulfillment, SOP modal, design-system tokens |
+| **Static Code Analysis** | `npm run typecheck` / `flutter analyze` | Zero TypeScript errors (`strict: true`, ESLint `no-explicit-any: error`), zero Flutter analyzer issues |
 
 ---
 
@@ -454,16 +469,16 @@ The platform is guarded by a comprehensive suite of automated verification scrip
 | :--- | :--- | :--- | :--- |
 | **KDS Kanban Board & Chimes** | `apps/vendor_portal/src/pages/vendor/VendorDashboardPage.tsx` | `BRD-05` (Merchant Ops) | [ADR-007](context_docs/architecture-decision-records/ADR-007-web-audio-api-synthesized-kds-chime.md) |
 | **Rush Hour Pause** | `apps/vendor_portal/src/layouts/VendorLayout.tsx` | `BRD-05` (Sec 4) | [ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md) |
-| **Merchant Catalog & Stock** | `apps/vendor_portal/src/pages/vendor/VendorCatalogPage.tsx` | `TID-03` (Sec 4.3) | [ADR-008](context_docs/architecture-decision-records/ADR-008-immutable-jsonb-historical-snapshots.md) |
+| **Merchant Catalog & Stock** | `apps/vendor_portal/src/pages/vendor/VendorCatalogPage.tsx` | `TID-03` (§2.3) | [ADR-008](context_docs/architecture-decision-records/ADR-008-immutable-jsonb-historical-snapshots.md) |
 | **Live Fleet Radar (OSM)** | `apps/admin_portal/src/components/dispatch/LiveFleetMap.tsx` | `BRD-07` (Sec 2.1) | [ADR-003](context_docs/architecture-decision-records/ADR-003-postgis-spatial-engine-and-redis-geohash.md) |
 | **Deep Link Order Overrides** | `apps/admin_portal/src/pages/admin/AdminOrdersPage.tsx` | `BRD-07` (Sec 2.3) | [ADR-006](context_docs/architecture-decision-records/ADR-006-dual-store-frontend-paradigm-and-websocket-invalidation.md) |
 | **Applicant Courier Queue** | `apps/admin_portal/src/pages/admin/AdminDispatchPage.tsx` | `BRD-06` (Sec 1) | [ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md) |
-| **Cash Deposit Verification** | `apps/admin_portal/src/pages/admin/AdminSettingsPage.tsx` | `BRD-06` (Sec 6) + `TID-03` (Sec 6.7) | [ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md) |
+| **Cash Deposit Verification** | `apps/admin_portal/src/pages/admin/AdminSettingsPage.tsx` | `BRD-06` (Sec 6) + `TID-03` (§2.5) | [ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md) |
 | **CSV Settlements Export** | `apps/admin_portal/src/pages/admin/AdminSettingsPage.tsx` | `BRD-07` (Sec 2.6) | [ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md) |
 | **Search Add-to-Cart** | `apps/customer_app/lib/features/discovery/presentation/search_screen.dart` | `BRD-04` (Sec 3) | [ADR-008](context_docs/architecture-decision-records/ADR-008-immutable-jsonb-historical-snapshots.md) |
 | **Store Closed/Busy Blocks** | `apps/customer_app/lib/features/cart/presentation/cart_screen.dart` | `BRD-04` (Sec 6) | [ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md) |
 | **Switch-to-COD Recovery** | `apps/customer_app/lib/features/tracking/presentation/order_tracking_screen.dart` | `BRD-04` (Sec 8) | [ADR-011](context_docs/architecture-decision-records/ADR-011-multi-gateway-online-payment-and-webhook-idempotency.md) |
-| **Order Cancellation & Refund** | `apps/customer_app/lib/features/tracking/presentation/order_tracking_screen.dart` | `BRD-04` + `TID-03` (Sec 3.10) | [ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md) |
+| **Order Cancellation & Refund** | `apps/customer_app/lib/features/tracking/presentation/order_tracking_screen.dart` | `BRD-04` + `TID-03` (§2.2) | [ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md) |
 | **3-Step Courier Fulfillment** | `apps/rider_app/lib/features/trips/presentation/active_trip_screen.dart` | `BRD-06` (Sec 3) | [ADR-004](context_docs/architecture-decision-records/ADR-004-atomic-dispatch-claim-mutex.md) |
 | **Doorstep 5-Min SOP Modal** | `apps/rider_app/lib/features/trips/presentation/active_trip_screen.dart` | `BRD-06` (Sec 5.1) | [ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md) |
 | **Rider Duty In-Flight Lock** | `apps/rider_app/lib/features/dashboard/presentation/rider_dashboard_screen.dart` | `BRD-06` (Sec 2) | [ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md) |

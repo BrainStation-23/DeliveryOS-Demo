@@ -53,7 +53,7 @@ Customer Checkout: ৳300.00
 ---
 
 ## Technical Implementation Details
-Implemented in [`order.service.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/services/backend_api/src/modules/orders/order.service.ts) and [`finance.service.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/services/backend_api/src/modules/finance/finance.service.ts):
+Implemented in [`order.service.ts`](../../services/backend_api/src/modules/orders/order.service.ts) and [`finance.service.ts`](../../services/backend_api/src/modules/admin/admin.service.ts):
 ```typescript
 const commissionRate = Number(vendor.commissionRate || 0.15);
 const platformFee = Math.round(netSubtotal * commissionRate * 100) / 100;
@@ -75,5 +75,5 @@ await tx.commissionLedger.create({
 ---
 
 ## Compliance & Verification
-- Settlements verification: Verified in [`test-admin-console.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/admin_portal/scripts/test-admin-console.ts) (Section 8: Financial Settlements Statement & CSV Export).
-- Multi-outlet verification: Verified in [`test-vendor-multi-tier.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/vendor_portal/scripts/test-vendor-multi-tier.ts) (Section 7: Consolidated vs per-outlet sales ledgers).
+- Settlements verification: Verified in [`test-admin-console.ts`](../../apps/admin_portal/scripts/test-admin-console.ts) (Section 8: Financial Settlements Statement & CSV Export).
+- Multi-outlet verification: Verified in [`test-vendor-multi-tier.ts`](../../apps/vendor_portal/scripts/test-vendor-multi-tier.ts) (Section 7: Consolidated vs per-outlet sales ledgers).

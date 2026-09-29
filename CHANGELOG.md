@@ -32,9 +32,9 @@ graph TD
 | **Phase 2: Core Backend Modules** | Phone OTP auth (`AuthModule`), spatial store discovery (`VendorModule`, `GeoModule`), coupon & pricing engine (`BannerModule`, `CouponModule`), ACID order checkout (`OrderModule`), vendor staff & rider APIs. | REST endpoints conform to standard JSON envelope; double-entry ledgers balance to 0.00 BDT. | **Completed** (`[x]`) |
 | **Phase 3: Realtime & Dispatch** | Socket.IO gateway (`TrackingGateway`), room subscriptions, dual dispatch sequences (`RIDER_FIRST` vs `VENDOR_FIRST`), Redis mutex lock (`SET NX EX 10`), throttled live GPS coordinate streaming. | Concurrent claim test yields 1 OK + 1 Conflict (409); live coordinates broadcast under 200ms. | **Completed** (`[x]`) |
 | **Phase 4: Dedicated Web Portals** | Super Admin Portal (Port 3000, Indigo theme) with Leaflet live fleet radar; Vendor KDS Portal (Port 3001, Amber theme) with 3-lane Kanban, in-memory Web Audio chime, stock toggles. | Subpath proxying `/` vs `/vendor/` via Nginx; `npm run build` exits 0 with 0 errors across both apps. | **Completed** (`[x]`) |
-| **Phase 5: Customer Mobile App** | Flutter 3.19+ app, interactive Google Map pin picker, debounced instant search, single-vendor cart guard, geofence radius check, 6-stage order tracking stepper, 1-tap re-order. | `flutter analyze` (0 errors), `flutter test` (100% pass), responsive on 320px–430px viewports. | **Completed** (`[x]`) |
+| **Phase 5: Customer Mobile App** | Flutter app (Dart ^3.8), interactive Google Map pin picker, debounced instant search, single-vendor cart guard, geofence radius check, 6-stage order tracking stepper, 1-tap re-order. | `flutter analyze` (0 errors), `flutter test` (100% pass), responsive on 320px–430px viewports. | **Completed** (`[x]`) |
 | **Phase 6: Rider Mobile App** | Courier onboarding, shift duty switch with in-flight lock, 45s broadcast alert modal with haptic feedback, 3-step fulfillment, native maps navigation handoff, COD safety limit. | `flutter analyze` (0 errors), `flutter test` (100% pass), background GPS beaconing verified. | **Completed** (`[x]`) |
-| **Phase 7: End-to-End Testing** | Automated multi-role simulation covering customer order, dual dispatch, store KDS prep, rider delivery, and double-entry accounting ledger balance. | 11 backend test suites pass 100%; financial double-entry equations balance to the penny. | **Completed** (`[x]`) |
+| **Phase 7: End-to-End Testing** | Automated multi-role simulation covering customer order, dual dispatch, store KDS prep, rider delivery, and double-entry accounting ledger balance. | Backend integration suites pass 100%; financial double-entry equations balance to the penny. | **Completed** (`[x]`) |
 
 ---
 
@@ -42,11 +42,11 @@ graph TD
 
 | Hardening Track | Key Features & Invariants Implemented | Verification Method | Status |
 | :--- | :--- | :--- | :---: |
-| **Track 1: Trust & Correctness** | Centralized Order FSM guard (`order-state.machine.ts`); unified economics (`delivery_economics` setting); deterministic Redis order numbering (`ORD-YYYYMMDD-XXXX`); real GPS mobile de-mocking. | `npm run db:test`, `npm run e2e:test`, mobile unit/widget test suites. | **Completed** (`[x]`) |
-| **Track 2: Realtime & Telemetry** | Resilient Flutter Socket.IO clients; Redis `GEOADD` coordinate indexing; Google Maps bearing rotation; Leaflet Admin Radar; 3-tier dispatch timeout escalation; FCM notification triggers. | `npm run ws:test`, `npm run dispatch:test`, `npm run tracking:test`, `npm run escalation:test`. | **Completed** (`[x]`) |
-| **Track 3: Payments & Settlements** | Multi-gateway payment engine (bKash, SSLCommerz, Sandbox) with HMAC-SHA256 signatures; payment-gated dispatch; automated batch settlement cycles (`POST /admin/finance/settle-cycle`). | `npm run payment:test`, `npm run settlement:test` (100% pass). | **Completed** (`[x]`) |
-| **Track 4: Cancellation & Refunds** | Pre-prep customer self-cancellation guard (`PLACED`/`RIDER_ASSIGNED`); vendor rejection with reason codes; admin force-cancel; atomic financial & coupon rollback; multi-platform cancellation UI. | `npm run cancel:test` (4/4 suites pass), Customer & Rider cancel listeners. | **Completed** (`[x]`) |
-| **Track 5: Business Integrity** | Store operating hours and busy pause checkout guard; physical COD cash deposit submission (`PENDING_APPROVAL`) and admin verification; net COD offset in settlements; mid-delivery duty lock. | `npm run track1:test` (100% pass covering all 5 core integrity checks). | **Completed** (`[x]`) |
+| **Track 1: Trust & Correctness** | Centralized Order FSM guard (`order-state.machine.ts`); unified economics (`delivery_economics` setting); deterministic Redis order numbering (`ORD-YYYYMMDD-XXXX`); real GPS mobile de-mocking. | `npm run test:db`, `npm run test:e2e`, mobile unit/widget test suites. | **Completed** (`[x]`) |
+| **Track 2: Realtime & Telemetry** | Resilient Flutter Socket.IO clients; Redis `GEOADD` coordinate indexing; Google Maps bearing rotation; Leaflet Admin Radar; 3-tier dispatch timeout escalation; FCM notification triggers. | `npm run test:ws`, `npm run test:dispatch`, `npm run test:tracking`, `npm run test:escalation`. | **Completed** (`[x]`) |
+| **Track 3: Payments & Settlements** | Multi-gateway payment engine (SSLCommerz, Sandbox) with HMAC-SHA256 signatures; payment-gated dispatch; automated batch settlement cycles (`POST /admin/finance/settle-cycle`). | `npm run test:payment`, `npm run test:settlement` (100% pass). | **Completed** (`[x]`) |
+| **Track 4: Cancellation & Refunds** | Pre-prep customer self-cancellation guard (`PLACED`/`RIDER_ASSIGNED`); vendor rejection with reason codes; admin force-cancel; atomic financial & coupon rollback; multi-platform cancellation UI. | `npm run test:cancel` (4/4 suites pass), Customer & Rider cancel listeners. | **Completed** (`[x]`) |
+| **Track 5: Business Integrity** | Store operating hours and busy pause checkout guard; physical COD cash deposit submission (`PENDING_APPROVAL`) and admin verification; net COD offset in settlements; mid-delivery duty lock. | `npm run test:track1` (100% pass covering all 5 core integrity checks). | **Completed** (`[x]`) |
 | **Track 6: Design System & UI** | Centralized design tokens (`AppColors`, `AppTypography`, `AppSpacing`, `AppRadius`); Tailwind semantic palettes; zero arbitrary inline styling invariant; responsive touch-friendly KDS & Admin. | `flutter test test/design_system_test.dart`, `npm run build` across portals. | **Completed** (`[x]`) |
 | **Track 7: Spec-Driven Architecture** | Authoritative 3-phase engineering protocol embedded directly in [`README.md`](README.md#-spec-driven-development-workflow-3-phase-protocol); task-to-file Context Router (`QUICK_REFERENCE.md`); granular capability catalog (`FEATURES.md`). | Complete living documentation sync and cross-referencing audit. | **Completed** (`[x]`) |
 
@@ -67,6 +67,18 @@ graph TD
 ---
 
 ## 📜 Part 2: Platform Release History
+
+## [Unreleased]
+
+### Changed
+- **Documentation Truth Sync (Full Repo Audit)**:
+  - `QUICK_REFERENCE.md` rebuilt as the primary context router: verified repo facts (ports, commands, env contract, seeded accounts), task → docs + code-path routing table, canonical enums/FSM/Redis key map/socket event list, and copy-paste patterns.
+  - `FEATURES.md` synced to code: real 15-module backend map (incl. `order-flow`, `admin`, `payments`, `addresses`, `geo`, `notifications`, `health`), correct Socket.IO event names (`order:rider:moved`, `rider:location`; `join:order`/`rider:location:stream` removed), gateway list corrected to SSLCommerz + Sandbox + COD (bKash references removed), 22-entity data layer, Float-coordinate + expression-GIST spatial model, and the actual `npm run test:*` suite names.
+  - `AGENT_RULES.md` corrected: Prisma-only transactions, Float-coordinate storage model, `order_flow_config` setting key, Nginx-only SPA serving.
+  - `AGENTS.md` gained a verified "Repo Facts" block and is now the single source of the Core Operational Invariants Matrix (README links to it instead of duplicating).
+  - `README.md`: seed data updated to the actual seeder (Burger Point / FreshMart Daily, `WELCOME50` + `BURGER20`), Flutter version claims aligned with `pubspec.yaml` (Dart ^3.8).
+  - `TID-02/04/05` drift fixes: Redis key `riders:locations:active`, sweep mutex names (`lock:sweep:expired-payments` / `lock:sweep:dispatch-escalation`), `order_flow_config` key, `/rider/cash/deposit` endpoint, added `order:rider:moved` + `rider:location` events.
+  - Removed the accidental untracked `--version/` husky artifact directory; root `package-lock.json` version aligned with `package.json` (1.7.2).
 
 ## [1.7.2] - 2026-09-29
 
@@ -371,5 +383,5 @@ graph TD
   - Dynamic Dual Order Flow State Machine (`RIDER_FIRST` vs `VENDOR_FIRST`) ([ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)).
   - PostGIS spatial indexing (`ST_DWithin`) and Redis geospatial clustering ([ADR-003](context_docs/architecture-decision-records/ADR-003-postgis-spatial-engine-and-redis-geohash.md)).
   - Deterministic double-entry commission accounting ledger with 2-decimal rounding ([ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md)).
-  - Multi-gateway payment infrastructure (bKash, Moyasar, Stripe, Cash on Delivery) with idempotent webhooks ([ADR-011](context_docs/architecture-decision-records/ADR-011-multi-gateway-online-payment-and-webhook-idempotency.md)).
+  - Multi-gateway payment infrastructure (SSLCommerz, Sandbox gateway, Cash on Delivery) with idempotent webhooks ([ADR-011](context_docs/architecture-decision-records/ADR-011-multi-gateway-online-payment-and-webhook-idempotency.md)).
   - AI engineering governance and commit authority rules ([ADR-010](context_docs/architecture-decision-records/ADR-010-ai-driven-engineering-governance-and-no-auto-commits.md)).

@@ -72,7 +72,7 @@ sequenceDiagram
 ---
 
 ## Technical Implementation Details
-Implemented in [`order-flow.service.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/services/backend_api/src/modules/order-flow/order-flow.service.ts):
+Implemented in [`order-flow.service.ts`](../../services/backend_api/src/modules/order-flow/order-flow.service.ts):
 ```typescript
 const lockKey = `lock:order:claim:${orderId}`;
 const acquired = await this.redis.set(lockKey, riderId, 'PX', 5000, 'NX');
@@ -124,7 +124,7 @@ To prevent unassigned orders from starving when nearby couriers do not claim the
 ---
 
 ## Compliance & Verification
-- **Distributed Mutex Test**: Verified via `npm run dispatch:test` (`scripts/test-dispatch-fsm.ts`) asserting 6 concurrent rider claims result in exactly 1 winner (200 OK) and 5 rejections (409 Conflict).
-- **Escalation & FCM Test**: Verified via `npm run escalation:test` (`scripts/test-fcm-notifications.ts`) asserting Tier 1 radius expansion and Tier 2 `admin_hq` room escalation.
-- **Courier UI error handling**: Handled via Riverpod exception interception in [`trip_provider.dart`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/rider_app/lib/features/trips/presentation/providers/trip_provider.dart).
-- **Admin Fleet Map Radar**: Verified in [`LiveFleetMap.tsx`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/admin_portal/src/components/dispatch/LiveFleetMap.tsx) showing real-time rider pins and escalation badges.
+- **Distributed Mutex Test**: Verified via `npm run test:dispatch` (`scripts/test-dispatch-fsm.ts`) asserting 6 concurrent rider claims result in exactly 1 winner (200 OK) and 5 rejections (409 Conflict).
+- **Escalation & FCM Test**: Verified via `npm run test:escalation` (`scripts/test-fcm-notifications.ts`) asserting Tier 1 radius expansion and Tier 2 `admin_hq` room escalation.
+- **Courier UI error handling**: Handled via Riverpod exception interception in [`trip_provider.dart`](../../apps/rider_app/lib/features/trips/providers/trip_provider.dart).
+- **Admin Fleet Map Radar**: Verified in [`LiveFleetMap.tsx`](../../apps/admin_portal/src/components/dispatch/LiveFleetMap.tsx) showing real-time rider pins and escalation badges.

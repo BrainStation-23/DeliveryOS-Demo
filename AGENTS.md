@@ -1,14 +1,23 @@
 # Autonomous AI Agents Guide (DeliveryOS)
 
-⚡ **Context Router (Token Saver)**: Inspect [`context_docs/QUICK_REFERENCE.md`](./context_docs/QUICK_REFERENCE.md) to load only the 1–2 files needed for your task.  
-🧭 **Mandatory Workflow**: Follow the 3-Phase Protocol (Plan ➔ Implement ➔ Verify & Sync) in [`README.md`](./README.md#-spec-driven-development-workflow-3-phase-protocol).
+🧭 **Context Router**: [`context_docs/QUICK_REFERENCE.md`](./context_docs/QUICK_REFERENCE.md) — load only the 1–2 files your task needs.
+⚡ **Mandatory Workflow**: 3-Phase Protocol (Plan ➔ Implement ➔ Verify & Sync) in [`README.md`](./README.md#-spec-driven-development-workflow-3-phase-protocol).
+
+---
+
+## 📌 Repo Facts (Verified)
+
+- **Stack**: `services/backend_api` (NestJS 10 + Prisma 5, port 4000, prefix `/api/v1`) • `apps/admin_portal` + `apps/vendor_portal` (React 18 + Vite + Tailwind + Zustand + TanStack Query; dev ports 3000/3001) • `apps/customer_app` + `apps/rider_app` (Flutter, Riverpod 3, Dio). No shared packages — apps intentionally own their `core/` code.
+- **Quality gate**: `npm run verify` at root (mirrors CI in `.github/workflows/ci.yml`). Backend integration suites: `npm test` in `services/backend_api` (live stack); unit tests: `npm run test:unit` (no DB needed).
+- **Datastores**: PostgreSQL 16 + PostGIS (`localhost:5433`), Redis 7.2 (`localhost:6380`). Boot via `./scripts/start-local.sh`.
+- **Auth**: phone OTP only (no passwords anywhere). Dev seeded logins use OTP `123456`: Super Admin `+8801700000001`, vendor branch manager `+8801700000002`, brand owner `+8801700000003`.
+- **Canonical sources**: schema = `services/backend_api/prisma/schema.prisma` (22 models) • endpoints = `TID-03` • WS events = `TID-04` • FSM = `src/modules/orders/order-state.machine.ts` • fees = `src/modules/promotions/pricing/delivery-fee.service.ts`.
 
 ---
 
 ## 📚 Master Specifications & Index
 - **Rules & Standards**: [`context_docs/AGENT_RULES.md`](./context_docs/AGENT_RULES.md) (authoritative governance & DoD)
-- **Context Router**: [`context_docs/QUICK_REFERENCE.md`](./context_docs/QUICK_REFERENCE.md) (token-saving task router)
-- **Feature Catalog**: [`FEATURES.md`](./FEATURES.md) (granular line-by-line capability index)
+- **Feature Catalog**: [`FEATURES.md`](./FEATURES.md) (granular capability index + test traceability)
 - **Roadmap & Changelog**: [`CHANGELOG.md`](./CHANGELOG.md) (milestone tracker & SemVer release history)
 - **ADR Index**: [`context_docs/architecture-decision-records/README.md`](./context_docs/architecture-decision-records/README.md) (`ADR-001` through `ADR-015`)
 - **BRD Suite**: [`context_docs/business-requirements-documents/README.md`](./context_docs/business-requirements-documents/README.md) (`BRD-00` through `BRD-07`)
@@ -18,18 +27,18 @@
 
 ## ⚡ Core Operational Invariants Matrix
 
-To prevent command misinterpretation or skipped instructions, every AI agent must adhere to the invariants below. For complete technical rationale and enforcement procedures, follow the linked sections in **[`AGENT_RULES.md`](./context_docs/AGENT_RULES.md)**:
+Every AI agent must adhere to these invariants. Full rationale and enforcement procedures: the linked sections in **[`AGENT_RULES.md`](./context_docs/AGENT_RULES.md)**.
 
-| Invariant | Direct Rule Command | Authoritative Section in `AGENT_RULES.md` |
+| Invariant | Direct Rule | Authoritative Section in `AGENT_RULES.md` |
 | :--- | :--- | :--- |
-| **Commit Authority** | **NO AUTO-COMMITS**: Never run `git commit` autonomously. Run `git commit` **only** when explicitly commanded by the user (e.g. `"make a commit"`). | [Git Protocol (§ 6.1)](./context_docs/AGENT_RULES.md#6-git--version-control-protocol) |
-| **Push Authority** | **NO AUTO-PUSH**: When commanded to commit, execute **ONLY the local commit**. Never run `git push` without an explicit, distinct push command (e.g. `"push to remote"` or `"git push"`). | [Git Protocol (§ 6.1)](./context_docs/AGENT_RULES.md#6-git--version-control-protocol) |
-| **Type Safety** | **ZERO RAW `any`**: Maintain strict typing (`"strict": true`). Declare explicit DTOs, interfaces, or Prisma types; never cast to `any`. | [Backend & Frontend Standards (§ 3)](./context_docs/AGENT_RULES.md#3-technology-stack--architectural-standards) & [ADR-010](./context_docs/architecture-decision-records/ADR-010-ai-driven-engineering-governance-and-no-auto-commits.md) |
-| **Design System Invariant** | **ZERO INLINE STYLING**: Never use hardcoded inline colors (e.g. `Color(0x...)`, `Colors.amber`), arbitrary un-themed Tailwind values (`text-[#...]`), or scattered ad-hoc text styles. Use centralized tokens (`AppColors`, `AppTypography`, `AppSpacing`, Tailwind semantic classes). | [Design System Standard (§ 3.7)](./context_docs/AGENT_RULES.md#37-design-system-standards-zero-arbitrary-inline-styles) |
-| **Production Realism** | **ZERO PLACEHOLDER SHORTCUTS**: Implement real production code without mock fallbacks, empty `TODO`s, or deleted failing tests. | [Definition of Done (§ 5)](./context_docs/AGENT_RULES.md#5-definition-of-done-dod) |
-| **Code Modularity & Reusability** | **DECOMPOSE & REUSE**: Never write monolithic screens/components (>300–400 lines) or duplicate logic. Decompose complex UI into focused, composable units under `widgets/` or `components/`. Extract shared utilities, hooks, and UI primitives. Strictly isolate state/business logic from presentation. Avoid over-engineering. | [Modularity & Reusability (§ 3.8)](./context_docs/AGENT_RULES.md#38-code-modularity-component-decomposition--reusability) |
-| **Spec-Driven Workflow** | **MANDATORY 3-PHASE WORKFLOW**: Always execute Plan & Grounding ➔ Implementation ➔ Verification & Living Docs Sync. | [Spec-Driven Workflow](./README.md#-spec-driven-development-workflow-3-phase-protocol) |
-| **Architectural Sync** | **ADR SYNCHRONIZATION**: Any modification to dependencies, state machines, storage, or ingress requires an ADR update or creation. | [Pattern Consistency (§ 8.4)](./context_docs/AGENT_RULES.md#8-pattern-consistency--living-documentation-protocol) & [ADR Index](./context_docs/architecture-decision-records/README.md) |
-| **Lean Documentation** | **CONCISE & USEFUL ONLY**: Keep all documentation clear, concise, and understandable. Do not over-populate with verbose prose or speculative filler. | [Living Docs Standard (§ 8.5)](./context_docs/AGENT_RULES.md#8-pattern-consistency--living-documentation-protocol) |
-| **Code Commenting** | **NO TRIVIAL COMMENTS**: Do not add comments on basic code, obvious functions, simple UI widgets, or routine boilerplate. Code must be self-documenting. Add comments **only** for complex algorithms, subtle business invariants, or tricky edge cases. | [Clean Code & Minimal Comments (§ 3.6)](./context_docs/AGENT_RULES.md#36-code-cleanliness--commenting-standards) |
-| **Active Clarification** | **ZERO ASSUMPTIONS**: If a requirement or user prompt is ambiguous, pause and ask structured questions with recommended options before executing. | [Active Interview Protocol (§ 7)](./context_docs/AGENT_RULES.md#7-zero-assumption--active-interview-protocol) |
+| **Commit Authority** | **NO AUTO-COMMITS**: run `git commit` **only** on an explicit user command (e.g. `"make a commit"`). | [Git Protocol (§ 6)](./context_docs/AGENT_RULES.md#6-git--version-control-protocol) |
+| **Push Authority** | **NO AUTO-PUSH**: when told to commit, execute **only** the local commit. `git push` requires its own explicit command. | [Git Protocol (§ 6)](./context_docs/AGENT_RULES.md#6-git--version-control-protocol) |
+| **Type Safety** | **ZERO RAW `any`**: maintain strict typing (`"strict": true`); declare explicit DTOs, interfaces, or Prisma types. | [Tech Standards (§ 3.1)](./context_docs/AGENT_RULES.md#3-technology-stack--architectural-standards) & [ADR-010](./context_docs/architecture-decision-records/ADR-010-ai-driven-engineering-governance-and-no-auto-commits.md) |
+| **Design System** | **ZERO INLINE STYLING**: no hardcoded colors (`Color(0x...)`, `Colors.amber`), no arbitrary Tailwind (`text-[#...]`). Use `AppColors`/`AppTypography`/`AppSpacing`/Tailwind semantic classes. | [Design System (§ 3.7)](./context_docs/AGENT_RULES.md#37-design-system-standards-zero-arbitrary-inline-styles) |
+| **Production Realism** | **ZERO PLACEHOLDER SHORTCUTS**: real production code only — no mock fallbacks, empty `TODO`s, or deleted failing tests. | [Definition of Done (§ 5)](./context_docs/AGENT_RULES.md#5-definition-of-done-dod) |
+| **Modularity** | **DECOMPOSE & REUSE**: no monolithic screens (>300–400 lines) or duplicated logic; isolate state/business logic from presentation; avoid over-engineering. | [Modularity (§ 3.8)](./context_docs/AGENT_RULES.md#38-code-modularity-component-decomposition--reusability) |
+| **Spec-Driven Workflow** | **3-PHASE WORKFLOW**: always Plan & Grounding ➔ Implementation ➔ Verification & Living Docs Sync. | [Spec-Driven Workflow](./README.md#-spec-driven-development-workflow-3-phase-protocol) |
+| **Architectural Sync** | **ADR SYNCHRONIZATION**: dependency, state-machine, storage, or ingress changes require an ADR update/creation. | [Living Docs (§ 8)](./context_docs/AGENT_RULES.md#8-pattern-consistency--living-documentation-protocol) & [ADR Index](./context_docs/architecture-decision-records/README.md) |
+| **Lean Documentation** | **CONCISE & USEFUL ONLY**: docs stay clear, dense, and free of verbose prose or speculative filler. | [Living Docs (§ 8)](./context_docs/AGENT_RULES.md#8-pattern-consistency--living-documentation-protocol) |
+| **Code Commenting** | **NO TRIVIAL COMMENTS**: comment only complex algorithms, subtle business invariants, or tricky edge cases. | [Commenting (§ 3.6)](./context_docs/AGENT_RULES.md#36-code-cleanliness--commenting-standards) |
+| **Active Clarification** | **ZERO ASSUMPTIONS**: pause and ask structured questions (with recommended options) when requirements are ambiguous. | [Interview Protocol (§ 7)](./context_docs/AGENT_RULES.md#7-zero-assumption--active-interview-protocol) |

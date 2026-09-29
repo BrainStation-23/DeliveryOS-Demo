@@ -1,6 +1,6 @@
 # 04 — Customer Mobile App Journey Specification
 
-Functional specifications, screen states, user inputs, business guards, outputs, and edge cases for the **Customer Mobile App** (Flutter 3.19+, Riverpod 3.3.2).
+Functional specifications, screen states, user inputs, business guards, outputs, and edge cases for the **Customer Mobile App** (Flutter (Dart ^3.8), Riverpod 3).
 
 ---
 
@@ -73,11 +73,11 @@ Functional specifications, screen states, user inputs, business guards, outputs,
 - **Outputs**: Validated order placement request payload submitted to `POST /orders/checkout`.
 
 ### Screen 7: Order Placement & Payment Gateway
-- **Components**: Checkout execution trigger, payment gateway webview session (bKash, Moyasar, Stripe).
+- **Components**: Checkout execution trigger, payment gateway webview session (SSLCommerz / Sandbox).
 - **Inputs**: Gateway payment confirmation or COD selection.
 - **Business Rules**:
   - For COD orders: Order is created immediately in `PLACED` status and enters dispatch pipeline.
-  - For Online Gateway orders: Order remains in `PLACED` with `payment_status = PENDING`. Broadcast is held until cryptographic webhook verification confirms `PAID` ([ADR-011](context_docs/architecture-decision-records/ADR-011-multi-gateway-online-payment-and-webhook-idempotency.md)).
+  - For Online Gateway orders: Order remains in `PLACED` with `payment_status = PENDING`. Broadcast is held until cryptographic webhook verification confirms `PAID` ([ADR-011](../architecture-decision-records/ADR-011-multi-gateway-online-payment-and-webhook-idempotency.md)).
 - **Outputs**: Order UUID and order number; navigation to `OrderTrackingScreen`.
 
 ### Screen 8: Live Order Tracking & Failure Recovery (`OrderTrackingScreen`)

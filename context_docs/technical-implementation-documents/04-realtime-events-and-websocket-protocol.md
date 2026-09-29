@@ -84,7 +84,7 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
     "activeOrderId": "uuid" // null if courier is idle
   }
   ```
-- **Action**: Executes Redis `GEOADD riders:locations`, broadcasts to `admin_fleet`, and relays to `order_{activeOrderId}`.
+- **Action**: Executes Redis `GEOADD riders:locations:active`, broadcasts to `admin_fleet` (`rider:location`), and relays to `order_{activeOrderId}` (`order:rider:moved`).
 
 ---
 
@@ -93,7 +93,7 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
 #### `order:new`
 - **Direction**: Server ➔ Vendor KDS & Admin Console
 - **Target Rooms**: `vendor_{vendorId}`, `brand_{brandId}`, `admin_hq`
-- **Action**: Triggers persistent Web Audio API bell chime on KDS ([ADR-007](context_docs/architecture-decision-records/ADR-007-web-audio-api-synthesized-kds-chime.md)).
+- **Action**: Triggers persistent Web Audio API bell chime on KDS ([ADR-007](../architecture-decision-records/ADR-007-web-audio-api-synthesized-kds-chime.md)).
 - **Payload**:
   ```json
   {
@@ -127,9 +127,11 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
     "distanceToVendorKm": 1.2,
     "deliveryArea": "Gulshan 2",
     "riderEarnings": 40.0,
-    "timeoutSeconds": 45
+    "timeoutSeconds": 90
   }
-  ```
+```
+
+> `timeoutSeconds` comes from `order_flow_config.riderSearchTimeoutSeconds` (default 90). The rider app modal renders its countdown bar against a fixed 45-second visual window.
 
 #### `dispatch:escalated`
 - **Direction**: Server ➔ Super Admin Console
@@ -211,10 +213,15 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
   }
   ```
 
+#### `order:rider:moved` & `rider:location`
+- **Direction**: Server ➔ Customer Tracking Screen / Admin Fleet Radar
+- **Target Rooms**: `order:{orderId}` (courier position for the tracking map) and `admin_fleet` (fleet-wide GPS ticks)
+- **Payload**: `{ "orderId": "uuid", "latitude": 23.78, "longitude": 90.41, "bearing": 182.5, "timestamp": "ISO-8601" }` (`rider:location` adds `riderId` and omits order context when idle).
+
 ---
 
 ## 4. Reconnection & Resilience Standards
 
 1. **Heartbeat Protocol**: Gateway sends ping every 25 seconds (`pingInterval: 25000`, `pingTimeout: 20000`).
-2. **HTTP State Reconciliation Invariant**: On network reconnect, apps and portals execute background HTTP refetch (`GET /vendor/orders/live`, `GET /orders/:id`) before processing buffered socket messages ([ADR-006](context_docs/architecture-decision-records/ADR-006-dual-store-frontend-paradigm-and-websocket-invalidation.md)).
+2. **HTTP State Reconciliation Invariant**: On network reconnect, apps and portals execute background HTTP refetch (`GET /vendor/orders/live`, `GET /orders/:id`) before processing buffered socket messages ([ADR-006](../architecture-decision-records/ADR-006-dual-store-frontend-paradigm-and-websocket-invalidation.md)).
 3. **Audio Silence Invariant**: Web Audio chime loop terminates strictly when zero unaccepted orders remain in KDS Lane 1.

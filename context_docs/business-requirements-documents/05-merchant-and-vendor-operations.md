@@ -19,7 +19,7 @@ Operational guidelines, permission hierarchies, KDS mechanics, stock management,
 
 ## 2. Two-Tier Vendor Permission Scopes
 
-Governed by `vendor_staff.scope` ([ADR-005](context_docs/architecture-decision-records/ADR-005-micro-frontends-and-subpath-routing.md)):
+Governed by `vendor_staff.scope` ([ADR-005](../architecture-decision-records/ADR-005-micro-frontends-and-subpath-routing.md)):
 
 ### 2.1 Particular Outlet Permission (`PARTICULAR_OUTLET`)
 - **Scope**: Strictly bound to a single physical outlet ID (`vendor_id`).
@@ -65,7 +65,7 @@ Governed by `vendor_staff.scope` ([ADR-005](context_docs/architecture-decision-r
 #### Lane 1: New Orders (`PLACED` or `RIDER_ASSIGNED`)
 - **Displays**: Pulsing rose badge, order number, elapsed arrival timer, dishes, quantities, add-ons, cooking notes, and courier badge.
 - **Actions**:
-  - *One-Tap Accept*: Automatically applies store's default prep duration (e.g. 20 min) and advances order directly to `PREPARING` ([ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)).
+  - *One-Tap Accept*: Automatically applies store's default prep duration (e.g. 20 min) and advances order directly to `PREPARING` ([ADR-002](../architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)).
   - *Custom Prep Time*: Selector pills for `[15, 20, 25, 35, 45]` minutes.
   - *Structured Reject*: Opens modal requiring reason code (`OUT_OF_STOCK`, `KITCHEN_OVERLOAD`, `STORE_CLOSING_SOON`, `OTHER`) with optional notes. Transitions order to `CANCELLED`.
 

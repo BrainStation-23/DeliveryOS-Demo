@@ -68,7 +68,7 @@ flowchart TD
 ---
 
 ## Technical Implementation Details
-Implemented in [`AdminOrdersPage.tsx`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/admin_portal/src/pages/admin/AdminOrdersPage.tsx):
+Implemented in [`AdminOrdersPage.tsx`](../../apps/admin_portal/src/pages/admin/AdminOrdersPage.tsx):
 ```typescript
 const queryClient = useQueryClient();
 
@@ -102,4 +102,4 @@ useEffect(() => {
 
 ## Compliance & Verification
 - Unit & component verification: All portal test suites verify query caching and auth state isolation (`npm run test:run`).
-- Real-time simulation: [`test-admin-console.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/admin_portal/scripts/test-admin-console.ts) validates real-time order progression.
+- Real-time simulation: [`test-admin-console.ts`](../../apps/admin_portal/scripts/test-admin-console.ts) validates real-time order progression.

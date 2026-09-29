@@ -68,7 +68,7 @@ flowchart TD
 ---
 
 ## Technical Implementation Details
-- Central state machine and transition table implemented in [`order-state.machine.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/services/backend_api/src/modules/orders/order-state.machine.ts) with `assertTransition(from, to)` and `assertClaimable(order, mode)`.
+- Central state machine and transition table implemented in [`order-state.machine.ts`](../../services/backend_api/src/modules/orders/order-state.machine.ts) with `assertTransition(from, to)` and `assertClaimable(order, mode)`.
 - Mode claimability rules: `RIDER_FIRST` claims from `PLACED`; `VENDOR_FIRST` claims from `READY_FOR_PICKUP`.
 - Invariant A3 Security Guard: Rider claiming and delivery strictly requires `order.riderId === rider.id`, completely eliminating unassigned order cash collection holes.
 - Rider trip ledger records exact `delivery_economics.rider_share_percent` (80%) of delivery fee, maintaining 100% financial consistency across ledger entries and WebSocket broadcasts.
@@ -102,6 +102,6 @@ When an order is cancelled:
 ---
 
 ## Compliance & Verification
-- Integration verification: [`test-order-dispatch-fsm.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/services/backend_api/scripts/test-order-dispatch-fsm.ts) validates runtime switching and concurrent claims.
-- Fulfillment verification: [`test-vendor-rider.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/services/backend_api/scripts/test-vendor-rider.ts) and [`test-e2e-lifecycle.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/services/backend_api/scripts/test-e2e-lifecycle.ts) validate full lifecycle progression and penny-perfect financial balancing.
-- Cancellation verification: [`test-order-cancellation.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/services/backend_api/scripts/test-order-cancellation.ts) validates all 4 boundary conditions: customer cancel, pre-prep boundary guard, vendor rejection, and admin force-cancel with refund.
+- Integration verification: [`test-order-dispatch-fsm.ts`](../../services/backend_api/scripts/test-order-dispatch-fsm.ts) validates runtime switching and concurrent claims.
+- Fulfillment verification: [`test-vendor-rider.ts`](../../services/backend_api/scripts/test-vendor-rider.ts) and [`test-e2e-lifecycle.ts`](../../services/backend_api/scripts/test-e2e-lifecycle.ts) validate full lifecycle progression and penny-perfect financial balancing.
+- Cancellation verification: [`test-order-cancellation.ts`](../../services/backend_api/scripts/test-order-cancellation.ts) validates all 4 boundary conditions: customer cancel, pre-prep boundary guard, vendor rejection, and admin force-cancel with refund.

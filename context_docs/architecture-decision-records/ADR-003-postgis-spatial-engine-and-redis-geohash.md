@@ -48,16 +48,16 @@ Chosen option: **Tiered Spatial Architecture**.
 ---
 
 ## Technical Implementation Details
-- PostGIS initialization script: [`deploy/init-postgis.sql`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/deploy/init-postgis.sql):
+- PostGIS initialization script: [`deploy/init-postgis.sql`](../../deploy/init-postgis.sql):
   ```sql
   CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
   CREATE EXTENSION IF NOT EXISTS "postgis";
   ```
-- Store geofence validation: [`vendor.service.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/services/backend_api/src/modules/vendors/vendor.service.ts).
-- Realtime telemetry gateway: [`tracking.gateway.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/services/backend_api/src/modules/realtime/tracking.gateway.ts).
+- Store geofence validation: [`vendor.service.ts`](../../services/backend_api/src/modules/vendors/vendor.service.ts).
+- Realtime telemetry gateway: [`tracking.gateway.ts`](../../services/backend_api/src/modules/realtime/tracking.gateway.ts).
 
 ---
 
 ## Compliance & Verification
 - PostGIS verification: Database initialization scripts verify spatial GiST indexes.
-- Telemetry verification: [`test-admin-console.ts`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/admin_portal/scripts/test-admin-console.ts) validates real-time fleet radar coordinates.
+- Telemetry verification: [`test-admin-console.ts`](../../apps/admin_portal/scripts/test-admin-console.ts) validates real-time fleet radar coordinates.

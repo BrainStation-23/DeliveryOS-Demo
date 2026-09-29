@@ -61,7 +61,7 @@ Operational specifications, master console controls, dispatch overrides, financi
 ### 2.6 System Settings & Financial Settlements (`/settings`)
 - **Order Flow FSM Selector**: 1-click toggle between `RIDER_FIRST` (Zero Food Waste Mode) and `VENDOR_FIRST` (Traditional Retail Mode).
 - **Delivery Fee Pricing Engine**: Toggle between `FIXED_FLAT` (uniform flat rate) and `DISTANCE_TIERED` (base fee + per-km fee).
-- **RFC 4180 CSV Settlement Export**: Download formatted `vendor-settlements-YYYY-MM-DD.csv` for enterprise accounting systems (ERP / QuickBooks) ([ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md)).
+- **RFC 4180 CSV Settlement Export**: Download formatted `vendor-settlements-YYYY-MM-DD.csv` for enterprise accounting systems (ERP / QuickBooks) ([ADR-009](../architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md)).
 - **Settlement Batch Trigger**: Modal to execute settlement cycles via `POST /admin/finance/settlement-cycle`.
 
 ---

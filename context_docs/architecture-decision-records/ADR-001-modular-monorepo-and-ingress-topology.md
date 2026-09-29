@@ -76,5 +76,5 @@ DeliveryOS/
 ---
 
 ## Compliance & Verification
-- Verify build integrity: `npm run build` in [`apps/admin_portal`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/admin_portal), [`apps/vendor_portal`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/apps/vendor_portal), and [`services/backend_api`](file:///Users/bs0650/BS-23-Pro/DeliveryOS/services/backend_api).
+- Verify build integrity: `npm run build` in [`apps/admin_portal`](../../apps/admin_portal), [`apps/vendor_portal`](../../apps/vendor_portal), and [`services/backend_api`](../../services/backend_api).
 - Verify ingress: `curl -I http://localhost:8080/` and `curl -I http://localhost:8080/vendor/`.
