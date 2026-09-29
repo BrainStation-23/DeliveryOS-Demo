@@ -104,90 +104,37 @@ flowchart TD
 
 ## ⚡ 5-Minute Local Setup & Execution Guide
 
-Follow these steps to spin up the entire DeliveryOS ecosystem locally:
+**Prerequisites**: Node.js 20+ • Docker & Docker Compose • Flutter (Dart SDK ^3.8).
 
-### 1. Prerequisites
-- **Node.js**: v20.x LTS or newer
-- **Docker & Docker Compose**: Docker Desktop 4.x or Linux Docker Engine
-- **Flutter SDK**: Latest stable (Dart SDK ^3.8; apps use Riverpod 3)
+> **One-command full stack** (optional): `./scripts/start-local.sh --docker` boots all six containers — PostGIS, Redis, backend, both portals, and the Nginx edge on `http://localhost:8080` (`/` admin • `/vendor/` KDS • `/api/v1/` API • `/events` WS).
 
-### 2. Boot Data Infrastructure (PostgreSQL + PostGIS & Redis)
-From the repository root, start the pre-configured database and cache containers:
+Or run services individually:
+
+**1. Boot infrastructure** — PostgreSQL + PostGIS on `localhost:5433` (db `deliveryos`, user `postgres`, password `secretpassword`), Redis on `localhost:6380`:
 ```bash
 docker compose -f deploy/docker-compose.yml up -d postgres redis
 ```
-* PostgreSQL + PostGIS will be available on `localhost:5433` (Database: `deliveryos`, User: `postgres`, Password: `secretpassword`).
-* Redis will be available on `localhost:6380`.
 
-### 3. Initialize Database & Seed Master Data
-Navigate to the backend API directory, install dependencies, run Prisma migrations, and execute the seeder:
+**2. Backend API** — REST at `http://localhost:4000/api/v1`, WebSocket at `ws://localhost:4000/events`:
 ```bash
 cd services/backend_api
-npm install
-npx prisma migrate dev
-npm run prisma:seed
-```
-The seed script generates:
-- **Super Admin**: phone `+8801700000001` (login via OTP; dev mock OTP is `123456` via `SMS_MOCK_STATIC_OTP`)
-- **Vendor Staff**: branch manager `+8801700000002`, brand owner `+8801700000003` (brand **Burger Point** with Gulshan & Dhanmondi outlets) plus **FreshMart Daily Super Shop** (Gulshan Hub)
-- **Menu Items & Variants**: burgers, sides, groceries with variant and add-on options
-- **Coupons & Banners**: `WELCOME50` + `BURGER20` coupons and promotional carousels
-- **System Settings**: Configured for `RIDER_FIRST` dispatch flow and dual fee pricing
-
-### 4. Run the Backend API & WebSocket Gateway
-```bash
-# Inside services/backend_api
+npm install && npx prisma migrate dev && npm run prisma:seed
 npm run start:dev
 ```
-* REST API available at `http://localhost:4000/api/v1`
-* WebSocket Gateway running on `ws://localhost:4000/events`
 
-### 5. Run the Web Portals
-Open two separate terminal windows for the frontend control towers:
-
-**Super Admin Operations Console (Port 3000)**:
+**3. Web portals** — Super Admin on `:3000`, Vendor KDS on `:3001` (dev servers proxy `/api` and `/events` to `:4000`):
 ```bash
-cd apps/admin_portal
-npm install
-npm run dev
-```
-Open [http://localhost:3000](http://localhost:3000) (Login: phone `+8801700000001`, dev mock OTP `123456`).
-
-**Vendor Kitchen Display System (Port 3001)**:
-```bash
-cd apps/vendor_portal
-npm install
-npm run dev
-```
-Open [http://localhost:3001](http://localhost:3001) (Login with merchant credentials from seed output).
-
-### 6. Run the Mobile Applications (Customer & Rider)
-In separate terminal windows:
-
-**Customer Mobile App**:
-```bash
-cd apps/customer_app
-flutter pub get
-flutter run -d chrome # or run on connected iOS/Android emulator
+cd apps/admin_portal  && npm install && npm run dev   # terminal 1
+cd apps/vendor_portal && npm install && npm run dev   # terminal 2
 ```
 
-**Rider Fleet Mobile App**:
+**4. Mobile apps**:
 ```bash
-cd apps/rider_app
-flutter pub get
-flutter run -d chrome # or run on connected iOS/Android emulator
+cd apps/customer_app && flutter pub get && flutter run -d chrome   # or an iOS/Android emulator
+cd apps/rider_app    && flutter pub get && flutter run -d chrome
 ```
 
-### 7. (Optional) Run via Unified Edge Proxy (Nginx on Port 8080)
-To run everything under the single-domain subpath reverse proxy:
-```bash
-docker compose -f deploy/docker-compose.yml up -d
-```
-All applications are unified at `http://localhost:8080`:
-- `/` ➔ Super Admin Portal
-- `/vendor/` ➔ Vendor KDS Portal
-- `/api/v1/` ➔ Backend REST API
-- `/events` ➔ Realtime WebSockets
+**Seeded dev logins** (mock OTP `123456`): Super Admin `+8801700000001` → [localhost:3000](http://localhost:3000) • Branch manager `+8801700000002` and brand owner `+8801700000003` → [localhost:3001](http://localhost:3001). The seed also creates the Burger Point + FreshMart Daily outlets with menus, coupons `WELCOME50` / `BURGER20`, banners, and `RIDER_FIRST` dispatch settings.
 
 ---
 
