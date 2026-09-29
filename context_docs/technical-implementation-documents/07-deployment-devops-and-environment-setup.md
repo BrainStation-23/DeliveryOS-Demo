@@ -52,7 +52,7 @@ services:
       - postgres
       - redis
     env_file:
-      - ../services/backend_api/.env
+      - ../.env
     ports:
       - "4000:4000"
     networks:

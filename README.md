@@ -110,25 +110,30 @@ flowchart TD
 
 Or run services individually:
 
-**1. Boot infrastructure** — PostgreSQL + PostGIS on `localhost:5433` (db `deliveryos`, user `postgres`, password `secretpassword`), Redis on `localhost:6380`:
+**1. Create your env file** — single source for all services (never commit it):
+```bash
+cp .env.example .env
+```
+
+**2. Boot infrastructure** — PostgreSQL + PostGIS on `localhost:5433` (db `deliveryos`, user `postgres`, password `secretpassword`), Redis on `localhost:6380`:
 ```bash
 docker compose -f deploy/docker-compose.yml up -d postgres redis
 ```
 
-**2. Backend API** — REST at `http://localhost:4000/api/v1`, WebSocket at `ws://localhost:4000/events`:
+**3. Backend API** — REST at `http://localhost:4000/api/v1`, WebSocket at `ws://localhost:4000/events`:
 ```bash
 cd services/backend_api
 npm install && npx prisma migrate dev && npm run prisma:seed
 npm run start:dev
 ```
 
-**3. Web portals** — Super Admin on `:3000`, Vendor KDS on `:3001` (dev servers proxy `/api` and `/events` to `:4000`):
+**4. Web portals** — Super Admin on `:3000`, Vendor KDS on `:3001` (dev servers proxy `/api` and `/events` to `:4000`):
 ```bash
 cd apps/admin_portal  && npm install && npm run dev   # terminal 1
 cd apps/vendor_portal && npm install && npm run dev   # terminal 2
 ```
 
-**4. Mobile apps**:
+**5. Mobile apps**:
 ```bash
 cd apps/customer_app && flutter pub get && flutter run -d chrome   # or an iOS/Android emulator
 cd apps/rider_app    && flutter pub get && flutter run -d chrome
