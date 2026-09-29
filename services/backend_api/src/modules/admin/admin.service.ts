@@ -49,17 +49,11 @@ import {
 } from '@prisma/client';
 import { OrderService } from '../orders/order.service';
 import { AdminCancelOrderDto } from './dto/admin-cancel-order.dto';
+import { DeliveryFeeConfig, normalizeDeliveryFeeConfig } from '../promotions/pricing/delivery-fee.service';
 
 export interface OrderFlowSettingPayload {
   mode: OrderFlowMode;
   rider_search_timeout_seconds: number;
-}
-
-export interface DeliveryFeeSettingPayload {
-  mode: 'FIXED_FLAT' | 'DISTANCE_TIERED';
-  flatFee: number;
-  baseFee: number;
-  perKmRate: number;
 }
 
 @Injectable()
@@ -743,13 +737,16 @@ export class AdminService {
         mode: OrderFlowMode.RIDER_FIRST,
         rider_search_timeout_seconds: 90,
       },
-      deliveryFee:
-        (deliveryFeeSetting?.value as unknown as DeliveryFeeSettingPayload | null) || {
-        mode: 'FIXED_FLAT',
-        flatFee: 50.0,
-        baseFee: 40.0,
-        perKmRate: 15.0,
-      },
+      deliveryFee: normalizeDeliveryFeeConfig(
+        deliveryFeeSetting?.value as Record<string, unknown> | null,
+        {
+          mode: 'FIXED_FLAT',
+          flatFee: 50.0,
+          baseFee: 40.0,
+          baseKm: 2.0,
+          perKmRate: 15.0,
+        },
+      ),
     };
   }
 
@@ -764,45 +761,35 @@ export class AdminService {
     mode: 'FIXED_FLAT' | 'DISTANCE_TIERED';
     flatFee?: number;
     baseFee?: number;
+    baseKm?: number;
     perKmRate?: number;
-  }) {
+  }): Promise<DeliveryFeeConfig> {
     const flatFee = data.flatFee ?? 50.0;
     const baseFee = data.baseFee ?? 40.0;
+    const baseKm = data.baseKm ?? 2.0;
     const perKmRate = data.perKmRate ?? 15.0;
+
+    const payload: DeliveryFeeConfig = {
+      mode: data.mode,
+      flatFee,
+      baseFee,
+      baseKm,
+      perKmRate,
+    };
 
     const updated = await this.prisma.systemSetting.upsert({
       where: { key: 'delivery_fee_config' },
       update: {
-        value: {
-          mode: data.mode,
-          flatFee,
-          flat_rate: flatFee,
-          baseFee,
-          base_fee: baseFee,
-          baseKm: 2.0,
-          base_km: 2.0,
-          perKmRate,
-          per_km_rate: perKmRate,
-        },
+        value: { ...payload },
       },
       create: {
         key: 'delivery_fee_config',
-        value: {
-          mode: data.mode,
-          flatFee,
-          flat_rate: flatFee,
-          baseFee,
-          base_fee: baseFee,
-          baseKm: 2.0,
-          base_km: 2.0,
-          perKmRate,
-          per_km_rate: perKmRate,
-        },
+        value: { ...payload },
         description: 'Delivery fee pricing mode: FIXED_FLAT vs DISTANCE_TIERED',
       },
     });
 
-    return updated.value;
+    return updated.value as unknown as DeliveryFeeConfig;
   }
 
   // ===========================================================================

@@ -5,15 +5,10 @@ import { roundMoney } from '../../../common/utils/currency.util';
 
 export interface DeliveryFeeConfig {
   mode: 'FIXED_FLAT' | 'DISTANCE_TIERED';
-  flat_rate?: number;
-  base_fee?: number;
-  base_km?: number;
-  per_km_rate?: number;
-  // camelCase aliases for interoperability with admin updates
-  flatFee?: number;
-  baseFee?: number;
-  baseKm?: number;
-  perKmRate?: number;
+  flatFee: number;
+  baseFee: number;
+  baseKm: number;
+  perKmRate: number;
 }
 
 export interface DeliveryEconomicsConfig {
@@ -22,19 +17,29 @@ export interface DeliveryEconomicsConfig {
   eta_fallback_minutes: number;
 }
 
+export function normalizeDeliveryFeeConfig(
+  raw: Record<string, unknown> | null | undefined,
+  fallback: DeliveryFeeConfig,
+): DeliveryFeeConfig {
+  if (!raw) return fallback;
+  return {
+    mode: raw.mode === 'DISTANCE_TIERED' ? 'DISTANCE_TIERED' : 'FIXED_FLAT',
+    flatFee: Number(raw.flatFee ?? raw.flat_rate ?? fallback.flatFee),
+    baseFee: Number(raw.baseFee ?? raw.base_fee ?? fallback.baseFee),
+    baseKm: Number(raw.baseKm ?? raw.base_km ?? fallback.baseKm),
+    perKmRate: Number(raw.perKmRate ?? raw.per_km_rate ?? fallback.perKmRate),
+  };
+}
+
 @Injectable()
 export class DeliveryFeeService {
   private readonly logger = new Logger(DeliveryFeeService.name);
 
   private readonly defaultConfig: DeliveryFeeConfig = {
     mode: 'FIXED_FLAT',
-    flat_rate: 50.0,
     flatFee: 50.0,
-    base_fee: 30.0,
     baseFee: 30.0,
-    base_km: 2.0,
     baseKm: 2.0,
-    per_km_rate: 10.0,
     perKmRate: 10.0,
   };
 
@@ -53,19 +58,14 @@ export class DeliveryFeeService {
    * Pure calculation helper for delivery fee based on configuration and distance.
    */
   computeFee(config: DeliveryFeeConfig, distanceKm: number): number {
-    const flatRate = Number(config.flat_rate ?? config.flatFee ?? 50.0);
     if (config.mode === 'FIXED_FLAT') {
-      return flatRate;
+      return config.flatFee;
     }
 
-    const baseKm = Number(config.base_km ?? config.baseKm ?? 2.0);
-    const baseFee = Number(config.base_fee ?? config.baseFee ?? 30.0);
-    const perKmRate = Number(config.per_km_rate ?? config.perKmRate ?? 10.0);
-
-    let fee = baseFee;
-    if (distanceKm > baseKm) {
-      const extraKm = distanceKm - baseKm;
-      fee += extraKm * perKmRate;
+    let fee = config.baseFee;
+    if (distanceKm > config.baseKm) {
+      const extraKm = distanceKm - config.baseKm;
+      fee += extraKm * config.perKmRate;
     }
 
     return roundMoney(fee);
@@ -85,7 +85,10 @@ export class DeliveryFeeService {
         where: { key: 'delivery_fee_config' },
       });
       if (setting && setting.value) {
-        const config = setting.value as unknown as DeliveryFeeConfig;
+        const config = normalizeDeliveryFeeConfig(
+          setting.value as Record<string, unknown>,
+          this.defaultConfig,
+        );
         this.cachedFeeConfig = { config, expiresAt: now + 60000 };
         return config;
       }

@@ -34,23 +34,23 @@ async function main() {
     update: {
       value: {
         mode: 'FIXED_FLAT',
-        flat_rate: 50.0,
-        base_fee: 30.0,
-        base_km: 2.0,
-        per_km_rate: 10.0
-      }
+        flatFee: 50.0,
+        baseFee: 30.0,
+        baseKm: 2.0,
+        perKmRate: 10.0,
+      },
     },
     create: {
       key: 'delivery_fee_config',
       value: {
         mode: 'FIXED_FLAT',
-        flat_rate: 50.0,
-        base_fee: 30.0,
-        base_km: 2.0,
-        per_km_rate: 10.0
+        flatFee: 50.0,
+        baseFee: 30.0,
+        baseKm: 2.0,
+        perKmRate: 10.0,
       },
-      description: 'Delivery fee calculation parameters'
-    }
+      description: 'Delivery fee calculation parameters',
+    },
   });
 
   await prisma.systemSetting.upsert({

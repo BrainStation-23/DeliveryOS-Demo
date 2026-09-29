@@ -28,6 +28,7 @@ export const AdminSettingsPage: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [flatFeeInput, setFlatFeeInput] = useState<string>('50');
   const [baseFeeInput, setBaseFeeInput] = useState<string>('40');
+  const [baseKmInput, setBaseKmInput] = useState<string>('2');
   const [perKmRateInput, setPerKmRateInput] = useState<string>('15');
   const [feeModeInput, setFeeModeInput] = useState<'FIXED_FLAT' | 'DISTANCE_TIERED'>('FIXED_FLAT');
 
@@ -70,6 +71,7 @@ export const AdminSettingsPage: React.FC = () => {
       setFeeModeInput(settings.deliveryFee.mode);
       setFlatFeeInput(String(settings.deliveryFee.flatFee ?? 50));
       setBaseFeeInput(String(settings.deliveryFee.baseFee ?? 40));
+      setBaseKmInput(String(settings.deliveryFee.baseKm ?? 2));
       setPerKmRateInput(String(settings.deliveryFee.perKmRate ?? 15));
     }
   }, [settings]);
@@ -98,6 +100,7 @@ export const AdminSettingsPage: React.FC = () => {
       mode: 'FIXED_FLAT' | 'DISTANCE_TIERED';
       flatFee?: number;
       baseFee?: number;
+      baseKm?: number;
       perKmRate?: number;
     }) => adminApi.updateDeliveryFeeMode(data),
     onSuccess: () => {
@@ -231,6 +234,7 @@ export const AdminSettingsPage: React.FC = () => {
                 mode: feeModeInput,
                 flatFee: parseFloat(flatFeeInput) || 50,
                 baseFee: parseFloat(baseFeeInput) || 40,
+                baseKm: parseFloat(baseKmInput) || 2,
                 perKmRate: parseFloat(perKmRateInput) || 15,
               });
             }}
@@ -292,9 +296,21 @@ export const AdminSettingsPage: React.FC = () => {
               {feeModeInput === 'DISTANCE_TIERED' && <Badge variant="success">Active</Badge>}
             </div>
             <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
-              Base fee for initial 1.5 km plus incremental per-kilometer charge computed via PostGIS / Haversine.
+              Base fee for initial threshold distance plus incremental per-kilometer charge computed via PostGIS.
             </p>
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Base Dist (km)
+                </label>
+                <Input
+                  type="number"
+                  value={baseKmInput}
+                  onChange={(e) => setBaseKmInput(e.target.value)}
+                  placeholder="2"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Base Fee (৳)

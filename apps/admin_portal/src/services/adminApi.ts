@@ -151,6 +151,7 @@ export interface SystemSettingsData {
     mode: 'FIXED_FLAT' | 'DISTANCE_TIERED';
     flatFee: number;
     baseFee: number;
+    baseKm: number;
     perKmRate: number;
   };
 }
@@ -380,6 +381,7 @@ export const adminApi = {
     mode: 'FIXED_FLAT' | 'DISTANCE_TIERED';
     flatFee?: number;
     baseFee?: number;
+    baseKm?: number;
     perKmRate?: number;
   }): Promise<{ message: string; data?: unknown }> {
     const res = await apiClient.patch('/api/v1/admin/settings/delivery-fee', data);

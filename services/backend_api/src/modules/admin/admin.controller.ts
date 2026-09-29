@@ -420,6 +420,7 @@ export class AdminController {
       mode: 'FIXED_FLAT' | 'DISTANCE_TIERED';
       flatFee?: number;
       baseFee?: number;
+      baseKm?: number;
       perKmRate?: number;
     },
   ) {
