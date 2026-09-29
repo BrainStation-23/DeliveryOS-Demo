@@ -20,7 +20,7 @@ class StoreStatusBadge extends StatelessWidget {
     final Color textColor;
 
     if (!isOpen) {
-      label = compact ? 'CLOSED' : 'CLOSED';
+      label = compact ? 'CLOSED' : 'STORE CLOSED';
       bgColor = AppColors.errorLight;
       textColor = AppColors.errorDark;
     } else if (isBusy) {

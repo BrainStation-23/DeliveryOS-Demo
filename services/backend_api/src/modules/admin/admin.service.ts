@@ -766,23 +766,37 @@ export class AdminService {
     baseFee?: number;
     perKmRate?: number;
   }) {
+    const flatFee = data.flatFee ?? 50.0;
+    const baseFee = data.baseFee ?? 40.0;
+    const perKmRate = data.perKmRate ?? 15.0;
+
     const updated = await this.prisma.systemSetting.upsert({
       where: { key: 'delivery_fee_config' },
       update: {
         value: {
           mode: data.mode,
-          flatFee: data.flatFee ?? 50.0,
-          baseFee: data.baseFee ?? 40.0,
-          perKmRate: data.perKmRate ?? 15.0,
+          flatFee,
+          flat_rate: flatFee,
+          baseFee,
+          base_fee: baseFee,
+          baseKm: 2.0,
+          base_km: 2.0,
+          perKmRate,
+          per_km_rate: perKmRate,
         },
       },
       create: {
         key: 'delivery_fee_config',
         value: {
           mode: data.mode,
-          flatFee: data.flatFee ?? 50.0,
-          baseFee: data.baseFee ?? 40.0,
-          perKmRate: data.perKmRate ?? 15.0,
+          flatFee,
+          flat_rate: flatFee,
+          baseFee,
+          base_fee: baseFee,
+          baseKm: 2.0,
+          base_km: 2.0,
+          perKmRate,
+          per_km_rate: perKmRate,
         },
         description: 'Delivery fee pricing mode: FIXED_FLAT vs DISTANCE_TIERED',
       },

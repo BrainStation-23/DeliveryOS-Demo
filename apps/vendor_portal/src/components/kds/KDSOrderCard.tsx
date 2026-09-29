@@ -12,15 +12,17 @@ import {
 } from 'lucide-react';
 import { KDSOrder, KDSOrderItem } from '../../types/kds';
 import { CountdownTimer } from './CountdownTimer';
+import { OrderRejectModal } from './OrderRejectModal';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { cn } from '../../utils/cn';
+import { formatCurrency } from '../../utils/formatters';
 
 interface KDSOrderCardProps {
   order: KDSOrder;
   defaultPrepTimeMinutes?: number;
   onAccept?: (orderId: string, prepTimeMinutes?: number) => void;
-  onReject?: (orderId: string, reasonCode: string, reasonNotes?: string) => void;
+  onReject?: (orderId: string, reasonCode: string, reasonNotes?: string) => Promise<unknown> | void;
   onMarkReady?: (orderId: string) => void;
   onHandover?: (orderId: string) => void;
   isActionLoading?: boolean;
@@ -40,8 +42,6 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
   const [selectedCustomTime, setSelectedCustomTime] = useState<number>(defaultPrepTimeMinutes);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectReasonCode, setRejectReasonCode] = useState<string>('OUT_OF_STOCK');
-  const [rejectNotes, setRejectNotes] = useState<string>('');
 
   const getElapsedMins = () => {
     const timeVal = order.createdAt || order.placedAt;
@@ -86,7 +86,7 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
 
         <div className="flex flex-col items-end">
           <span className="text-base font-extrabold text-slate-900 dark:text-slate-100">
-            ৳ {order.totalAmount}
+            {formatCurrency(order.totalAmount)}
           </span>
           <div className="mt-1 flex items-center gap-1">
             {order.paymentMethod === 'CASH_ON_DELIVERY' ? (
@@ -135,7 +135,7 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
                   </span>
                   {productName}
                 </span>
-                <span className="text-slate-500 shrink-0 ml-2 font-medium">৳ {subtotal}</span>
+                <span className="text-slate-500 shrink-0 ml-2 font-medium">{formatCurrency(subtotal)}</span>
               </div>
 
               {variantName && (
@@ -228,84 +228,18 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
               </div>
             )}
 
-            {showRejectModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-                <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-left">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    <XCircle className="h-5 w-5 text-rose-500 shrink-0" />
-                    <span>Reject Order #{order.orderNumber}</span>
-                  </h3>
-                  <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Rejecting will cancel the order, release couriers, and refund any online payment to the customer.
-                  </p>
-
-                  <div className="mt-4 space-y-2">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Reason for Rejection
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { code: 'OUT_OF_STOCK', label: 'Out of Stock' },
-                        { code: 'KITCHEN_OVERLOAD', label: 'Kitchen Busy' },
-                        { code: 'STORE_CLOSING_SOON', label: 'Closing Soon' },
-                        { code: 'OTHER', label: 'Other' },
-                      ].map((item) => (
-                        <button
-                          key={item.code}
-                          type="button"
-                          onClick={() => setRejectReasonCode(item.code)}
-                          className={cn(
-                            'min-h-[44px] rounded-xl border px-3 py-2 text-xs font-semibold text-left transition-colors flex items-center',
-                            rejectReasonCode === item.code
-                              ? 'border-rose-500 bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
-                              : 'border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300'
-                          )}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-3.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Additional Notes (Optional)
-                    </label>
-                    <textarea
-                      value={rejectNotes}
-                      onChange={(e) => setRejectNotes(e.target.value)}
-                      placeholder="e.g. Patty unavailable for remainder of shift"
-                      rows={2}
-                      className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-rose-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                    />
-                  </div>
-
-                  <div className="mt-5 flex gap-2.5">
-                    <Button
-                      variant="outline"
-                      className="flex-1 min-h-[44px] rounded-xl"
-                      onClick={() => setShowRejectModal(false)}
-                      disabled={isRejecting}
-                    >
-                      Keep Order
-                    </Button>
-                    <Button
-                      variant="primary"
-                      className="flex-1 min-h-[44px] bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl"
-                      isLoading={isRejecting}
-                      onClick={async () => {
-                        if (onReject) {
-                          await onReject(order.id, rejectReasonCode, rejectNotes);
-                          setShowRejectModal(false);
-                        }
-                      }}
-                    >
-                      Confirm Reject
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
+            <OrderRejectModal
+              isOpen={showRejectModal}
+              orderNumber={order.orderNumber}
+              orderId={order.id}
+              isRejecting={isRejecting}
+              onClose={() => setShowRejectModal(false)}
+              onConfirmReject={async (orderId, reasonCode, reasonNotes) => {
+                if (onReject) {
+                  await onReject(orderId, reasonCode, reasonNotes);
+                }
+              }}
+            />
           </div>
         )}
 

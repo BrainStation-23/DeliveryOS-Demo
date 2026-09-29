@@ -22,27 +22,14 @@ import { soundEngine } from '../../utils/sound';
 import kdsApi from '../../services/kdsApi';
 import { cn } from '../../utils/cn';
 
+import { useRushPause } from '../../hooks/useRushPause';
+
 export const VendorDashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { activeOutletId, activeOutlet, refetchOutlets } = useVendorOutlet();
-  const [isTogglingRush, setIsTogglingRush] = useState(false);
+  const { activeOutletId, activeOutlet } = useVendorOutlet();
+  const { isTogglingRush, toggleRushPause } = useRushPause();
   const [activeTab, setActiveTab] = useState<'ALL' | 'NEW' | 'PREPARING' | 'READY'>('ALL');
-
-  const toggleRushPause = async () => {
-    if (!activeOutlet || activeOutlet.id === 'ALL' || isTogglingRush) return;
-    try {
-      setIsTogglingRush(true);
-      await kdsApi.updateOutletSettings(activeOutlet.id, {
-        isBusy: !activeOutlet.isBusy,
-      });
-      await refetchOutlets();
-    } catch (err) {
-      console.error('Failed to toggle rush pause:', err);
-    } finally {
-      setIsTogglingRush(false);
-    }
-  };
 
   const targetVendorId =
     activeOutletId && activeOutletId !== 'ALL'
@@ -108,7 +95,7 @@ export const VendorDashboardPage: React.FC = () => {
               <Button
                 variant={activeOutlet.isBusy ? 'danger' : 'outline'}
                 size="sm"
-                onClick={toggleRushPause}
+                onClick={() => toggleRushPause()}
                 isLoading={isTogglingRush}
                 className="min-h-[40px] text-xs font-bold"
                 leftIcon={

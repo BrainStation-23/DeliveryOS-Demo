@@ -1,6 +1,6 @@
 {
   "name": "deliveryos",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "private": true,
   "description": "DeliveryOS monorepo root — repo-level quality gate and tooling orchestration (no workspaces: each app manages its own dependencies)",
   "scripts": {

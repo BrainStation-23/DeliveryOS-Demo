@@ -68,6 +68,22 @@ graph TD
 
 ## 📜 Part 2: Platform Release History
 
+## [1.7.1] - 2026-09-29
+
+### Added
+- **Cross-Platform Reusable UI & Logic Primitives**:
+  - Backend: Standardized `roundMoney` 2-decimal financial rounding helper (`src/common/utils/currency.util.ts`).
+  - Vendor Portal: Shared formatters (`formatCurrency`, `formatDateTime`, `formatTime`, `isSameDay`), reusable `useRushPause` hook, standalone `OrderRejectModal.tsx`, and decomposed `SalesLedgerKPIs` + `SalesLedgerDetailModal`.
+  - Admin Portal: Shared formatters (`formatCurrency`, `formatDateTime`, `formatPhoneNumber`), `useSocketQueryInvalidation` hook, and extracted `OrderDetailsModal`, `ForceAssignModal`, `CancelOrderModal`.
+  - Customer Mobile App: Reusable `QuantityStepper`, `SoldOutBadge`, `OrderStatusBadge`, `ApiErrorHandler`, Riverpod 2 `ProfileNotifier` & `ProfileState`, and modularized `CartScreen` (`CartItemCard`, `BillSummaryCard`, `DeliveryAddressSelectorCard`, `OrderPlacedDialog`).
+  - Rider Mobile App: Reusable `AppPrimaryButton`, unified `TripDestinationCard` for pickup and delivery, and decomposed `PhoneLoginScreen` (`AuthBrandHeader`, `AuthTabToggle`, `PilotAccountsDebugCard`).
+
+### Fixed
+- **Backend Delivery Fee Parameter Mismatch**: Handled both snake_case and camelCase parameters (`flat_rate`/`flatFee`, `base_fee`/`baseFee`, `per_km_rate`/`perKmRate`) in `delivery-fee.service.ts` to prevent `NaN` delivery fees when updated via admin.
+- **Backend Payment Expiry Cancellation**: Expired unpaid order sweeps in `payments.service.ts` now restore coupon quota, reverse unearned ledgers, and broadcast `order:cancelled` realtime events.
+- **Rider Security & Migration**: Guarded static OTP test shortcut with `if (kDebugMode)` in `otp_verification_screen.dart`, and initialized `LocalStorage.init()` in `main.dart` to migrate plaintext tokens at boot.
+- **Customer App Profile State**: Replaced ad-hoc network calls and inline state in `ProfileScreen` with reactive `profileProvider`.
+
 ## [1.7.0] - 2026-09-28
 
 ### Added — Wave 4: Release Readiness (Production Readiness Plan)

@@ -14,8 +14,12 @@ import '../../tracking/presentation/order_tracking_screen.dart';
 import '../domain/cart_item_model.dart';
 import '../providers/cart_provider.dart';
 import 'widgets/address_geofence_banner.dart';
+import 'widgets/bill_summary_card.dart';
+import 'widgets/cart_item_card.dart';
 import 'widgets/coupon_input_section.dart';
+import 'widgets/delivery_address_selector_card.dart';
 import 'widgets/delivery_mode_selector.dart';
+import 'widgets/order_placed_dialog.dart';
 import 'widgets/payment_method_selector.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
@@ -128,129 +132,27 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.borderLg),
-          title: Row(
-            children: [
-              Icon(
-                isOnline && paymentResult != PaymentWebViewResult.paid
-                    ? Icons.schedule_rounded
-                    : isOnline
-                        ? Icons.verified_rounded
-                        : Icons.check_circle_rounded,
-                color: isOnline && paymentResult != PaymentWebViewResult.paid
-                    ? AppColors.warning
-                    : isOnline
-                        ? AppColors.primary
-                        : AppColors.secondary,
-                size: 28,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  isOnline && paymentResult != PaymentWebViewResult.paid
-                      ? 'Order Placed — Payment Pending'
-                      : isOnline
-                          ? 'Payment Confirmed!'
-                          : 'Order Confirmed!',
-                  style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w900),
+        builder: (ctx) => OrderPlacedDialog(
+          orderId: orderId,
+          orderNumber: orderNumber,
+          isOnline: isOnline,
+          paymentResult: paymentResult,
+          paymentSession: paymentSession,
+          onReturnHome: () {
+            Navigator.of(ctx).pop();
+            Navigator.of(context).pop();
+          },
+          onTrackOrder: () {
+            Navigator.of(ctx).pop();
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => OrderTrackingScreen(
+                  orderId: orderId,
+                  orderNumber: orderNumber,
                 ),
               ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Order $orderNumber has been placed successfully!',
-                style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 10),
-              if (isOnline) ...[
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
-                    borderRadius: AppRadius.borderSm,
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Gateway:', style: AppTypography.labelSmall.copyWith(color: AppColors.textSecondary)),
-                          Text(paymentSession?['gateway']?.toString() ?? 'SANDBOX', style: AppTypography.labelMedium.copyWith(fontWeight: FontWeight.w700)),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Txn ID:', style: AppTypography.labelSmall.copyWith(color: AppColors.textSecondary)),
-                          Text(paymentSession?['transactionId']?.toString() ?? 'PENDING', style: AppTypography.labelSmall.copyWith(fontFamily: 'monospace')),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Amount:', style: AppTypography.labelSmall.copyWith(color: AppColors.textSecondary)),
-                          Text(
-                            paymentSession?['amount'] != null
-                                ? CurrencyFormatter.format(num.tryParse(paymentSession!['amount'].toString()) ?? 0)
-                                : '',
-                            style: AppTypography.titleSmall.copyWith(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.primary),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  '⚡ Dispatch will activate immediately upon online payment verification confirmation.',
-                  style: AppTypography.caption.copyWith(fontStyle: FontStyle.italic),
-                ),
-              ] else ...[
-                Text(
-                  'We have dispatched the order to the kitchen and courier fleet.',
-                  style: AppTypography.bodySmall,
-                ),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                Navigator.of(context).pop();
-              },
-              child: Text('Return to Home', style: AppTypography.labelLarge.copyWith(color: AppColors.textSecondary)),
-            ),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (_) => OrderTrackingScreen(
-                      orderId: orderId,
-                      orderNumber: orderNumber,
-                    ),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.white,
-                shape: const RoundedRectangleBorder(borderRadius: AppRadius.borderSm),
-              ),
-              icon: const Icon(Icons.navigation_rounded, size: 16),
-              label: Text(isOnline ? 'Go to Tracking' : 'Track Order', style: AppTypography.labelLarge.copyWith(color: AppColors.white)),
-            ),
-          ],
+            );
+          },
         ),
       );
     } else {
@@ -356,90 +258,23 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           const SizedBox(height: AppSpacing.md),
 
           if (cartState.deliveryMethod == DeliveryMethod.homeDelivery) ...[
-            Container(
-              padding: AppSpacing.edgeInsetsMd,
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: AppRadius.borderMd,
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Icon(
-                              addressState.selectedAddress != null
-                                  ? (addressState.selectedAddress!.label.toLowerCase() == 'home'
-                                      ? Icons.home_rounded
-                                      : (addressState.selectedAddress!.label.toLowerCase() == 'work'
-                                          ? Icons.work_rounded
-                                          : Icons.location_on_rounded))
-                                  : Icons.my_location_rounded,
-                              color: AppColors.primary,
-                              size: 18,
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Flexible(
-                              child: Text(
-                                addressState.selectedAddress != null
-                                    ? 'Deliver to: ${addressState.selectedAddress!.label}'
-                                    : 'Deliver to Current Location',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.titleSmall.copyWith(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      TextButton(
-                        onPressed: () async {
-                          final picked = await Navigator.of(context).push<CustomerAddressModel>(
-                            MaterialPageRoute(
-                              builder: (_) => const AddressBookScreen(isSelectionMode: true),
-                            ),
-                          );
-                          if (picked != null) {
-                            ref.read(addressProvider.notifier).selectAddress(picked);
-                            ref.read(cartProvider.notifier).validateCoverage(
-                                  customLat: picked.latitude,
-                                  customLng: picked.longitude,
-                                );
-                          }
-                        },
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          'Change',
-                          style: AppTypography.labelMedium.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
+            DeliveryAddressSelectorCard(
+              selectedAddress: addressState.selectedAddress,
+              fallbackAddressLine: userLocation.addressLine,
+              onChangePressed: () async {
+                final picked = await Navigator.of(context).push<CustomerAddressModel>(
+                  MaterialPageRoute(
+                    builder: (_) => const AddressBookScreen(isSelectionMode: true),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    addressState.selectedAddress?.addressLine ?? userLocation.addressLine,
-                    style: AppTypography.bodySmall,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
+                );
+                if (picked != null) {
+                  ref.read(addressProvider.notifier).selectAddress(picked);
+                  ref.read(cartProvider.notifier).validateCoverage(
+                        customLat: picked.latitude,
+                        customLng: picked.longitude,
+                      );
+                }
+              },
             ),
             const SizedBox(height: 10),
             AddressGeofenceBanner(
@@ -498,7 +333,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           const SizedBox(height: AppSpacing.sm),
           ...List.generate(cartState.items.length, (index) {
             final item = cartState.items[index];
-            return _buildCartItemCard(item, index);
+            return CartItemCard(
+              item: item,
+              onIncrement: () => ref.read(cartProvider.notifier).updateQuantity(index, item.quantity + 1),
+              onDecrement: () => ref.read(cartProvider.notifier).updateQuantity(index, item.quantity - 1),
+            );
           }),
           const SizedBox(height: AppSpacing.lg),
 
@@ -559,7 +398,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          _buildSummaryCard(cartState),
+          BillSummaryCard(cart: cartState),
           const SizedBox(height: AppSpacing.xxl),
         ],
       ),
@@ -623,166 +462,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCartItemCard(CartItem item, int index) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: AppSpacing.edgeInsetsMd,
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: AppRadius.borderMd,
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.product.name,
-                  style: AppTypography.titleSmall,
-                ),
-                if (item.selectedVariant != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Portion: ${item.selectedVariant!.name}',
-                    style: AppTypography.labelSmall.copyWith(color: AppColors.primary),
-                  ),
-                ],
-                if (item.selectedAddons.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Extras: ${item.selectedAddons.map((a) => a.name).join(", ")}',
-                    style: AppTypography.labelSmall.copyWith(
-                      fontWeight: FontWeight.normal,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-                if (item.specialInstructions != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Note: "${item.specialInstructions}"',
-                    style: AppTypography.caption.copyWith(fontSize: 11, fontStyle: FontStyle.italic),
-                  ),
-                ],
-                const SizedBox(height: 6),
-                Text(
-                  CurrencyFormatter.format(item.totalPrice),
-                  style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ],
-            ),
-          ),
-
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: AppRadius.borderSm,
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.remove_rounded, size: 16),
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () {
-                    ref.read(cartProvider.notifier).updateQuantity(index, item.quantity - 1);
-                  },
-                ),
-                Text(
-                  '${item.quantity}',
-                  style: AppTypography.labelMedium.copyWith(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add_rounded, size: 16),
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () {
-                    ref.read(cartProvider.notifier).updateQuantity(index, item.quantity + 1);
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard(CartState cart) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: AppRadius.borderMd,
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Bill Summary',
-            style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
-          _buildSummaryRow('Item Subtotal', CurrencyFormatter.format(cart.grossSubtotal)),
-          if (cart.couponDiscount > 0)
-            _buildSummaryRow(
-              'Coupon Discount (${cart.couponCode})',
-              CurrencyFormatter.formatDiscount(cart.couponDiscount),
-              color: AppColors.secondary,
-            ),
-          _buildSummaryRow(
-            'Delivery Fee',
-            cart.deliveryMethod == DeliveryMethod.takeaway ? 'FREE' : CurrencyFormatter.format(cart.deliveryFee),
-          ),
-          const Divider(height: 20, color: AppColors.border),
-          _buildSummaryRow(
-            'Total Payable',
-            CurrencyFormatter.format(cart.totalPayable),
-            isBold: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryRow(String label, String value, {bool isBold = false, Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: (isBold ? AppTypography.titleSmall : AppTypography.bodySmall).copyWith(
-                fontWeight: isBold ? FontWeight.w800 : FontWeight.w500,
-                color: color ?? (isBold ? AppColors.textPrimary : AppColors.textSecondary),
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            value,
-            style: (isBold ? AppTypography.titleSmall : AppTypography.labelSmall).copyWith(
-              fontSize: isBold ? 15 : 12,
-              fontWeight: isBold ? FontWeight.w900 : FontWeight.w700,
-              color: color ?? AppColors.textPrimary,
-            ),
-          ),
-        ],
       ),
     );
   }

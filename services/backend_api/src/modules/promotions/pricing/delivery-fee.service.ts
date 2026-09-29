@@ -1,12 +1,19 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 
+import { roundMoney } from '../../../common/utils/currency.util';
+
 export interface DeliveryFeeConfig {
   mode: 'FIXED_FLAT' | 'DISTANCE_TIERED';
-  flat_rate: number;
-  base_fee: number;
-  base_km: number;
-  per_km_rate: number;
+  flat_rate?: number;
+  base_fee?: number;
+  base_km?: number;
+  per_km_rate?: number;
+  // camelCase aliases for interoperability with admin updates
+  flatFee?: number;
+  baseFee?: number;
+  baseKm?: number;
+  perKmRate?: number;
 }
 
 export interface DeliveryEconomicsConfig {
@@ -22,9 +29,13 @@ export class DeliveryFeeService {
   private readonly defaultConfig: DeliveryFeeConfig = {
     mode: 'FIXED_FLAT',
     flat_rate: 50.0,
+    flatFee: 50.0,
     base_fee: 30.0,
+    baseFee: 30.0,
     base_km: 2.0,
+    baseKm: 2.0,
     per_km_rate: 10.0,
+    perKmRate: 10.0,
   };
 
   private readonly defaultEconomics: DeliveryEconomicsConfig = {
@@ -42,13 +53,14 @@ export class DeliveryFeeService {
    * Pure calculation helper for delivery fee based on configuration and distance.
    */
   computeFee(config: DeliveryFeeConfig, distanceKm: number): number {
+    const flatRate = Number(config.flat_rate ?? config.flatFee ?? 50.0);
     if (config.mode === 'FIXED_FLAT') {
-      return Number(config.flat_rate);
+      return flatRate;
     }
 
-    const baseKm = Number(config.base_km) || 2.0;
-    const baseFee = Number(config.base_fee) || 30.0;
-    const perKmRate = Number(config.per_km_rate) || 10.0;
+    const baseKm = Number(config.base_km ?? config.baseKm ?? 2.0);
+    const baseFee = Number(config.base_fee ?? config.baseFee ?? 30.0);
+    const perKmRate = Number(config.per_km_rate ?? config.perKmRate ?? 10.0);
 
     let fee = baseFee;
     if (distanceKm > baseKm) {
@@ -56,7 +68,7 @@ export class DeliveryFeeService {
       fee += extraKm * perKmRate;
     }
 
-    return Math.round(fee * 100) / 100;
+    return roundMoney(fee);
   }
 
   /**

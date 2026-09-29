@@ -1,18 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  TrendingUp,
-  DollarSign,
-  Receipt,
-  FileCheck2,
   Search,
   RefreshCw,
   Eye,
   Calendar,
   CalendarDays,
-  Phone,
-  MapPin,
-  FileText,
+  Receipt,
 } from 'lucide-react';
 import { useVendorOutlet } from '../../contexts/VendorOutletContext';
 import kdsApi from '../../services/kdsApi';
@@ -21,39 +15,11 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { Modal } from '../../components/ui/Modal';
 import { PageHeader } from '../../components/common/PageHeader';
-import { StatCard } from '../../components/common/StatCard';
-
-interface LedgerItem {
-  id: string;
-  orderId: string;
-  orderNumber: string;
-  vendorId: string;
-  vendorName: string;
-  customerName: string;
-  customerPhone?: string;
-  customerNotes?: string | null;
-  deliveryAddress?: { addressLine: string; label?: string } | null;
-  items?: Array<{
-    productName: string;
-    quantity: number;
-    unitPrice: number;
-    totalPrice: number;
-    instructions?: string | null;
-    variant?: { name: string; priceDelta: number } | null;
-    addons?: Array<{ name: string; price: number }>;
-  }>;
-  paymentMethod: string;
-  orderStatus: string;
-  grossAmount: number;
-  commissionRate: number;
-  commissionAmount: number;
-  netVendorPayable: number;
-  settlementStatus: string;
-  settledAt?: string | null;
-  createdAt: string;
-}
+import { LedgerItem } from '../../types/ledger';
+import { SalesLedgerKPIs } from './components/SalesLedgerKPIs';
+import { SalesLedgerDetailModal } from './components/SalesLedgerDetailModal';
+import { formatCurrency, formatDateTime, isSameDay } from '../../utils/formatters';
 
 export const VendorOrdersPage: React.FC = () => {
   const { activeOutletId, activeOutlet, outlets } = useVendorOutlet();
@@ -130,11 +96,7 @@ export const VendorOrdersPage: React.FC = () => {
       header: 'Date & Time',
       render: (item) => (
         <span className="text-xs text-slate-500 font-medium">
-          {new Date(item.createdAt).toLocaleDateString()} &bull;{' '}
-          {new Date(item.createdAt).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {formatDateTime(item.createdAt)}
         </span>
       ),
     },
@@ -153,7 +115,7 @@ export const VendorOrdersPage: React.FC = () => {
       header: 'Gross Total',
       render: (item) => (
         <span className="font-bold text-slate-900 dark:text-slate-100">
-          ৳ {item.grossAmount}
+          {formatCurrency(item.grossAmount)}
         </span>
       ),
     },
@@ -162,7 +124,7 @@ export const VendorOrdersPage: React.FC = () => {
       header: 'Platform Fee (15%)',
       render: (item) => (
         <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">
-          -৳ {item.commissionAmount}
+          -{formatCurrency(item.commissionAmount)}
         </span>
       ),
     },
@@ -171,7 +133,7 @@ export const VendorOrdersPage: React.FC = () => {
       header: 'Net Payable',
       render: (item) => (
         <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
-          ৳ {item.netVendorPayable}
+          {formatCurrency(item.netVendorPayable)}
         </span>
       ),
     },
@@ -259,45 +221,7 @@ export const VendorOrdersPage: React.FC = () => {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Completed Orders"
-          value={summary.totalOrders}
-          subtitle="Audited completed orders"
-          icon={<TrendingUp className="h-5 w-5" />}
-          iconBgColor="bg-primary-50 dark:bg-primary-950/50"
-          iconTextColor="text-primary-600 dark:text-primary-400"
-        />
-
-        <StatCard
-          title="Gross Volume"
-          value={`৳ ${summary.grossSales.toLocaleString()}`}
-          subtitle="Before platform commissions"
-          icon={<DollarSign className="h-5 w-5" />}
-          iconBgColor="bg-amber-50 dark:bg-amber-950/50"
-          iconTextColor="text-amber-600 dark:text-amber-400"
-        />
-
-        <StatCard
-          title="Platform Fee (15%)"
-          value={`-৳ ${summary.commissionDeducted.toLocaleString()}`}
-          subtitle="Platform revenue share"
-          icon={<Receipt className="h-5 w-5" />}
-          iconBgColor="bg-rose-50 dark:bg-rose-950/50"
-          iconTextColor="text-rose-600 dark:text-rose-400"
-          valueColor="text-rose-600 dark:text-rose-400"
-        />
-
-        <StatCard
-          title="Net Vendor Payable"
-          value={`৳ ${summary.netVendorPayable.toLocaleString()}`}
-          subtitle="Net merchant earnings"
-          icon={<FileCheck2 className="h-5 w-5" />}
-          iconBgColor="bg-emerald-50 dark:bg-emerald-950/50"
-          iconTextColor="text-emerald-600 dark:text-emerald-400"
-          valueColor="text-emerald-600 dark:text-emerald-400"
-        />
-      </div>
+      <SalesLedgerKPIs summary={summary} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="w-full sm:w-80">
@@ -340,158 +264,10 @@ export const VendorOrdersPage: React.FC = () => {
         />
       )}
 
-      {selectedOrderForModal && (
-        <Modal
-          isOpen={!!selectedOrderForModal}
-          onClose={() => setSelectedOrderForModal(null)}
-          title={`Order #${selectedOrderForModal.orderNumber} Details`}
-          description={`Placed ${new Date(selectedOrderForModal.createdAt).toLocaleString()} • ${selectedOrderForModal.vendorName}`}
-          size="lg"
-          footer={
-            <div className="flex justify-end w-full">
-              <Button
-                variant="outline"
-                className="min-h-[44px] px-5 rounded-xl font-semibold"
-                onClick={() => setSelectedOrderForModal(null)}
-              >
-                Close
-              </Button>
-            </div>
-          }
-        >
-          <div className="space-y-5">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="font-bold text-slate-500 uppercase tracking-wider block text-[10px]">
-                    Customer & Contact
-                  </span>
-                  <p className="font-extrabold text-slate-900 dark:text-slate-100 text-sm mt-0.5">
-                    {selectedOrderForModal.customerName}
-                  </p>
-                  {selectedOrderForModal.customerPhone && (
-                    <p className="text-slate-600 dark:text-slate-400 flex items-center gap-1.5 mt-1 font-mono">
-                      <Phone className="h-3.5 w-3.5 text-primary-500" />
-                      {selectedOrderForModal.customerPhone}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <span className="font-bold text-slate-500 uppercase tracking-wider block text-[10px]">
-                    Delivery Destination
-                  </span>
-                  <p className="text-slate-700 dark:text-slate-300 flex items-start gap-1.5 mt-1 leading-snug">
-                    <MapPin className="h-3.5 w-3.5 text-rose-500 mt-0.5 shrink-0" />
-                    <span>
-                      {selectedOrderForModal.deliveryAddress?.addressLine || 'Address snapshot unavailable'}
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              {selectedOrderForModal.customerNotes && (
-                <div className="mt-3.5 pt-3 border-t border-slate-200 dark:border-slate-700/60">
-                  <div className="flex items-start gap-2 text-xs text-amber-900 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200 dark:border-amber-800/60">
-                    <FileText className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-                    <div>
-                      <span className="font-bold block text-amber-950 dark:text-amber-200">Customer Cooking Note:</span>
-                      <p className="italic mt-0.5">{selectedOrderForModal.customerNotes}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2.5">
-                Ordered Items ({selectedOrderForModal.items?.length || 0})
-              </h4>
-              {selectedOrderForModal.items && selectedOrderForModal.items.length > 0 ? (
-                <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
-                  {selectedOrderForModal.items.map((item, idx) => (
-                    <div key={idx} className="p-3.5 bg-white dark:bg-slate-900 flex items-center justify-between text-xs">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-slate-900 dark:text-slate-100">
-                            {item.quantity}x
-                          </span>
-                          <span className="font-bold text-slate-800 dark:text-slate-200">
-                            {item.productName}
-                          </span>
-                          {item.variant && (
-                            <Badge variant="purple" size="sm">
-                              {item.variant.name} (+৳{item.variant.priceDelta})
-                            </Badge>
-                          )}
-                        </div>
-
-                        {item.addons && item.addons.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {item.addons.map((ad, aIdx) => (
-                              <span
-                                key={aIdx}
-                                className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                              >
-                                + {ad.name} (৳{ad.price})
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {item.instructions && (
-                          <p className="text-[11px] text-amber-700 dark:text-amber-400 italic">
-                            Special request: {item.instructions}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="text-right shrink-0 ml-3">
-                        <span className="font-extrabold text-slate-900 dark:text-slate-100 text-sm">
-                          ৳ {item.totalPrice}
-                        </span>
-                        <span className="block text-[10px] text-slate-400 font-medium">
-                          ৳ {item.unitPrice} each
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-6 text-center text-xs text-slate-400 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800">
-                  Line items breakdown not recorded for legacy order
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-800/30 space-y-2.5 text-xs">
-              <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                <span>Order Gross Subtotal</span>
-                <span className="font-bold text-slate-900 dark:text-slate-100">
-                  ৳ {selectedOrderForModal.grossAmount}
-                </span>
-              </div>
-              <div className="flex justify-between text-rose-600 dark:text-rose-400">
-                <span>Platform Commission ({selectedOrderForModal.commissionRate}%)</span>
-                <span className="font-semibold">-৳ {selectedOrderForModal.commissionAmount}</span>
-              </div>
-              <div className="pt-2.5 border-t border-slate-200 dark:border-slate-700 flex justify-between text-base font-extrabold text-emerald-600 dark:text-emerald-400">
-                <span>Net Vendor Payable</span>
-                <span>৳ {selectedOrderForModal.netVendorPayable}</span>
-              </div>
-              <div className="flex justify-between items-center pt-1 text-[11px] text-slate-500">
-                <span>Payment Mode: {selectedOrderForModal.paymentMethod}</span>
-                <span>
-                  Settlement:{' '}
-                  <strong className={selectedOrderForModal.settlementStatus === 'SETTLED' ? 'text-emerald-600' : 'text-amber-600'}>
-                    {selectedOrderForModal.settlementStatus}
-                  </strong>
-                </span>
-              </div>
-            </div>
-          </div>
-        </Modal>
-      )}
+      <SalesLedgerDetailModal
+        order={selectedOrderForModal}
+        onClose={() => setSelectedOrderForModal(null)}
+      />
     </div>
   );
 };

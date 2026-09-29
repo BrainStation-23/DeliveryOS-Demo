@@ -23,30 +23,16 @@ import { LanguageSelector } from '../components/LanguageSelector';
 import { Badge } from '../components/ui/Badge';
 import { soundEngine } from '../utils/sound';
 import kdsApi from '../services/kdsApi';
+import { useRushPause } from '../hooks/useRushPause';
 
 const VendorLayoutInner: React.FC = () => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
-  const { activeOutlet, refetchOutlets } = useVendorOutlet();
+  const { activeOutlet } = useVendorOutlet();
   const location = useLocation();
   const [isMuted, setIsMuted] = useState(soundEngine.getIsMuted());
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isTogglingRush, setIsTogglingRush] = useState(false);
-
-  const toggleRushPause = async () => {
-    if (!activeOutlet || activeOutlet.id === 'ALL' || isTogglingRush) return;
-    try {
-      setIsTogglingRush(true);
-      await kdsApi.updateOutletSettings(activeOutlet.id, {
-        isBusy: !activeOutlet.isBusy,
-      });
-      await refetchOutlets();
-    } catch (err) {
-      console.error('Failed to toggle rush pause:', err);
-    } finally {
-      setIsTogglingRush(false);
-    }
-  };
+  const { isTogglingRush, toggleRushPause } = useRushPause();
 
   const navItems = [
     { label: t('nav.vendor.kds'), href: '/', icon: UtensilsCrossed },
@@ -156,7 +142,7 @@ const VendorLayoutInner: React.FC = () => {
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {activeOutlet && activeOutlet.id !== 'ALL' && (
               <button
-                onClick={toggleRushPause}
+                onClick={() => toggleRushPause()}
                 disabled={isTogglingRush}
                 className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1.5 min-h-[38px] text-xs font-bold transition-all border shadow-xs ${
                   activeOutlet.isBusy
@@ -222,7 +208,7 @@ const VendorLayoutInner: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={toggleRushPause}
+                onClick={() => toggleRushPause()}
                 disabled={isTogglingRush}
                 className="rounded-lg bg-slate-950 text-white px-3 py-1.5 text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm"
               >

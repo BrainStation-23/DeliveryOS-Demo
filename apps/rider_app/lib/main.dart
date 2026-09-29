@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/constants/app_colors.dart';
 import 'core/network/socket_service.dart';
@@ -32,8 +31,7 @@ Future<void> _initSentry() async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _initSentry();
-  final prefs = await SharedPreferences.getInstance();
-  final localStorage = LocalStorage(prefs);
+  final localStorage = await LocalStorage.init();
 
   await BackgroundLocationService.initialize();
   await PushNotificationService(localStorage).initialize();

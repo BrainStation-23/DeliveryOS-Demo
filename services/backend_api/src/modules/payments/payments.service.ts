@@ -8,7 +8,7 @@ import {
   OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
-import { OrderStatus, PaymentMethod, PaymentStatus, Prisma } from '@prisma/client';
+import { OrderStatus, PaymentMethod, PaymentStatus, Prisma, SettlementStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
@@ -349,12 +349,37 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       include: { payments: true },
     });
 
+    const reason = 'Online payment timed out (15m window expired)';
+
     for (const order of expiredOrders) {
-      this.logger.warn(`Order ${order.orderNumber} expired after 15m unpaid. Marking CANCELLED.`);
+      this.logger.warn(`Order ${order.orderNumber} expired after 15m unpaid. Reconciling cancellation.`);
+
       await this.prisma.$transaction(async (tx) => {
+        // Reconcile coupon quota if used
+        if (order.couponId) {
+          await tx.coupon.update({
+            where: { id: order.couponId },
+            data: { currentUses: { decrement: 1 } },
+          });
+        }
+
+        // Delete unearned pending ledgers
+        await tx.commissionLedger.deleteMany({
+          where: { orderId: order.id, settlementStatus: SettlementStatus.PENDING },
+        });
+        await tx.riderTripLedger.deleteMany({
+          where: { orderId: order.id, status: SettlementStatus.PENDING },
+        });
+
+        // Cancel order and mark payments failed
         await tx.order.update({
           where: { id: order.id },
-          data: { status: OrderStatus.CANCELLED, cancelledAt: new Date() },
+          data: {
+            status: OrderStatus.CANCELLED,
+            cancelledAt: new Date(),
+            rejectionReason: reason,
+            paymentStatus: PaymentStatus.FAILED,
+          },
         });
 
         for (const p of order.payments) {
@@ -366,6 +391,38 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           }
         }
       });
+
+      // Realtime websocket notifications
+      try {
+        if (this.trackingGateway?.server) {
+          const payload = {
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            previousStatus: order.status,
+            status: OrderStatus.CANCELLED,
+            reason,
+            cancelledBy: 'SYSTEM',
+            paymentStatus: PaymentStatus.FAILED,
+            cancelledAt: new Date(),
+          };
+          this.trackingGateway.server.to(`order_${order.id}`).emit('order:cancelled', payload);
+          this.trackingGateway.server.to(`user_${order.customerId}`).emit('order:cancelled', payload);
+          this.trackingGateway.server.to(`vendor_${order.vendorId}`).emit('order:cancelled', payload);
+          this.trackingGateway.server.to('admin_hq').emit('order:cancelled', payload);
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        this.logger.warn(`Failed to broadcast expired payment cancel socket: ${msg}`);
+      }
+
+      // Push notification
+      this.notificationsService
+        .sendToUser(order.customerId, {
+          title: 'Order Cancelled',
+          body: `Order ${order.orderNumber} was cancelled because online payment was not completed within 15 minutes.`,
+          data: { orderId: order.id, status: OrderStatus.CANCELLED },
+        })
+        .catch(() => {});
     }
   }
 }

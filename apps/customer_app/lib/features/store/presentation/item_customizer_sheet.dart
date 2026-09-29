@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/constants.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/quantity_stepper.dart';
+import '../../../core/widgets/sold_out_badge.dart';
 import '../domain/store_catalog_model.dart';
 
 class ItemCustomizerSheet extends StatefulWidget {
@@ -160,21 +162,7 @@ class _ItemCustomizerSheetState extends State<ItemCustomizerSheet> {
                           ],
                         ),
                       ),
-                      if (!product.isInStock)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: const BoxDecoration(
-                            color: AppColors.errorContainer,
-                            borderRadius: AppRadius.borderSm,
-                          ),
-                          child: Text(
-                            'Sold Out',
-                            style: AppTypography.labelMedium.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.error,
-                            ),
-                          ),
-                        ),
+                      if (!product.isInStock) const SoldOutBadge(),
                     ],
                   ),
                   if (product.description != null && product.description!.isNotEmpty) ...[
@@ -392,41 +380,11 @@ class _ItemCustomizerSheetState extends State<ItemCustomizerSheet> {
               top: false,
               child: Row(
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: AppRadius.borderMd,
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          padding: AppSpacing.edgeInsetsXs,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                          icon: const Icon(Icons.remove_rounded, size: 18),
-                          onPressed: (_quantity > 1 && _canAddToCart)
-                              ? () => setState(() => _quantity--)
-                              : null,
-                        ),
-                        Text(
-                          '$_quantity',
-                          style: AppTypography.titleSmall.copyWith(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          padding: AppSpacing.edgeInsetsXs,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                          icon: const Icon(Icons.add_rounded, size: 18),
-                          onPressed: _canAddToCart
-                              ? () => setState(() => _quantity++)
-                              : null,
-                        ),
-                      ],
-                    ),
+                  QuantityStepper(
+                    quantity: _quantity,
+                    minQuantity: 1,
+                    onIncrement: _canAddToCart ? () => setState(() => _quantity++) : () {},
+                    onDecrement: (_quantity > 1 && _canAddToCart) ? () => setState(() => _quantity--) : () {},
                   ),
                   const SizedBox(width: 10),
 

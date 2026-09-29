@@ -8,6 +8,7 @@ import '../../addresses/presentation/address_book_screen.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../orders/presentation/order_history_screen.dart';
 import '../../splash/presentation/splash_screen.dart';
+import '../providers/profile_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -17,49 +18,15 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  bool _isLoading = true;
-  String _fullName = '';
-  String _phone = '';
-  String _email = '';
-  int _totalOrders = 0;
-  int _totalAddresses = 0;
-
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+    Future.microtask(() => ref.read(profileProvider.notifier).loadProfile());
   }
 
-  Future<void> _loadProfile() async {
-    setState(() => _isLoading = true);
-    final auth = ref.read(authProvider);
-    _phone = auth.phoneNumber ?? auth.user?.phone ?? '';
-    _fullName = auth.user?.fullName ?? 'Customer';
-
-    try {
-      final dio = ref.read(dioClientProvider);
-      final res = await dio.get(ApiConstants.customerProfile);
-
-      if (res.statusCode == 200) {
-        final data = res.data['data'] as Map<String, dynamic>? ?? {};
-        setState(() {
-          _fullName = data['fullName'] as String? ?? _fullName;
-          _email = data['email'] as String? ?? '';
-          _phone = data['phone'] as String? ?? _phone;
-          _totalOrders = (data['totalOrders'] as num?)?.toInt() ?? 0;
-          _totalAddresses = (data['totalAddresses'] as num?)?.toInt() ?? 0;
-          _isLoading = false;
-        });
-        return;
-      }
-    } catch (_) {}
-
-    setState(() => _isLoading = false);
-  }
-
-  void _showEditProfileDialog() {
-    final nameController = TextEditingController(text: _fullName);
-    final emailController = TextEditingController(text: _email);
+  void _showEditProfileDialog(String currentName, String currentEmail) {
+    final nameController = TextEditingController(text: currentName);
+    final emailController = TextEditingController(text: currentEmail);
     bool isSaving = false;
 
     showDialog(
@@ -114,23 +81,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ? null
                   : () async {
                       setDialogState(() => isSaving = true);
-                      try {
-                        final dio = ref.read(dioClientProvider);
-                        final res = await dio.patch(
-                          ApiConstants.customerProfile,
-                          data: {
-                            'fullName': nameController.text.trim(),
-                            if (emailController.text.trim().isNotEmpty)
-                              'email': emailController.text.trim(),
-                          },
-                        );
-
-                        if (res.statusCode == 200 && mounted) {
-                          if (ctx.mounted) Navigator.pop(ctx);
-                          _loadProfile();
-                          return;
-                        }
-                      } catch (_) {}
+                      final success = await ref.read(profileProvider.notifier).updateProfile(
+                        fullName: nameController.text.trim(),
+                        email: emailController.text.trim().isNotEmpty ? emailController.text.trim() : null,
+                      );
+                      if (success && mounted) {
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        return;
+                      }
                       setDialogState(() => isSaving = false);
                     },
               style: ElevatedButton.styleFrom(
@@ -152,6 +110,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final currentLocale = ref.watch(languageProvider);
+    final profileState = ref.watch(profileProvider);
+    final profile = profileState.profile;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -164,11 +124,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           IconButton(
             icon: const Icon(Icons.edit_rounded, color: AppColors.primary, size: 20),
             tooltip: 'Edit Profile',
-            onPressed: _showEditProfileDialog,
+            onPressed: () => _showEditProfileDialog(profile.fullName, profile.email),
           ),
         ],
       ),
-      body: _isLoading
+      body: profileState.isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : ListView(
               padding: const EdgeInsets.all(AppSpacing.lg),
@@ -191,7 +151,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         child: Center(
                           child: Text(
-                            _fullName.isNotEmpty ? _fullName.substring(0, 1).toUpperCase() : 'C',
+                            profile.fullName.isNotEmpty ? profile.fullName.substring(0, 1).toUpperCase() : 'C',
                             style: AppTypography.headlineSmall.copyWith(fontWeight: FontWeight.w900, color: AppColors.primary),
                           ),
                         ),
@@ -202,18 +162,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _fullName,
+                              profile.fullName,
                               style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.w800, color: AppColors.textPrimary),
                             ),
                             const SizedBox(height: AppSpacing.xs),
                             Text(
-                              _phone,
+                              profile.phone,
                               style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
                             ),
-                            if (_email.isNotEmpty) ...[
+                            if (profile.email.isNotEmpty) ...[
                               const SizedBox(height: AppSpacing.xxs),
                               Text(
-                                _email,
+                                profile.email,
                                 style: AppTypography.caption.copyWith(color: AppColors.textMuted),
                               ),
                             ],
@@ -238,7 +198,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           children: [
                             Text('TOTAL ORDERS', style: AppTypography.caption.copyWith(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textMuted)),
                             const SizedBox(height: AppSpacing.xs),
-                            Text('$_totalOrders', style: AppTypography.headlineSmall.copyWith(fontWeight: FontWeight.w900, color: AppColors.primary)),
+                            Text('${profile.totalOrders}', style: AppTypography.headlineSmall.copyWith(fontWeight: FontWeight.w900, color: AppColors.primary)),
                           ],
                         ),
                       ),
@@ -256,7 +216,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           children: [
                             Text('SAVED ADDRESSES', style: AppTypography.caption.copyWith(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textMuted)),
                             const SizedBox(height: AppSpacing.xs),
-                            Text('$_totalAddresses', style: AppTypography.headlineSmall.copyWith(fontWeight: FontWeight.w900, color: AppColors.secondary)),
+                            Text('${profile.totalAddresses}', style: AppTypography.headlineSmall.copyWith(fontWeight: FontWeight.w900, color: AppColors.secondary)),
                           ],
                         ),
                       ),

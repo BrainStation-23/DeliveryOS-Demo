@@ -1,4 +1,4 @@
-STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM | grep -E "\.ts$" || true)
-if [ -n "$STAGED_TS" ]; then
-  npx eslint $STAGED_TS
+BACKEND_TS=$(git diff --cached --name-only --diff-filter=ACM | grep -E "^services/backend_api/.*\.ts$" | sed 's|^services/backend_api/||' || true)
+if [ -n "$BACKEND_TS" ]; then
+  echo "$BACKEND_TS" | (cd services/backend_api && xargs npx eslint)
 fi

@@ -120,6 +120,12 @@ When generating code, you must strictly uphold these inviolable business rules:
 - **Web Portal Semantic Styling**: Web portals (`apps/admin_portal`, `apps/vendor_portal`) must use semantic Tailwind utility classes mapped to the project theme (`primary-*`, `brand-*`, standard sizing scale). Never use inline `style={{ ... }}` or arbitrary un-themed hex classes (`text-[#...]`).
 - **Mandatory Design System Adherence**: Every newly created or modified component across Flutter and React must strictly consume the design system tokens to prevent code duplication, visual drift, and fragmentation. Keep the design system clean, accessible, and not overengineered.
 
+### 3.8 Code Modularity, Component Decomposition & Reusability
+- **Decompose Monolithic Screens & Units**: Any screen or component exceeding ~300–400 lines, or embedding multiple distinct sub-responsibilities (modals, cards, steppers, complex bill breakdowns), must be decomposed into focused, composable sub-elements under a local `widgets/` or `components/` directory.
+- **Shared Utilities & UI Primitives**: Extract common formatting, calculations, custom hooks, and recurring UI patterns into centralized shared directories (`core/widgets/`, `src/utils/`, `src/hooks/`, `src/components/ui/`) rather than duplicating code across screens.
+- **Separation of Concerns**: Strictly isolate business and state logic (Riverpod notifiers/providers in Flutter, custom hooks/stores in React, service classes in NestJS) from presentation/UI code. Never mix ad-hoc HTTP/API calls directly inside widget trees or view components.
+- **Avoid Over-Engineering**: Keep components simple, functional, and self-documenting. Do not introduce premature abstractions, unnecessary wrapper layers, or excessive fragmentation for trivial code.
+
 ---
 
 ## 4. Step-by-Step Implementation Procedure for AI Agents

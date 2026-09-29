@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/design_tokens.dart';
+import '../../../core/widgets/app_primary_button.dart';
 import '../../dashboard/presentation/rider_dashboard_screen.dart';
 import '../providers/auth_provider.dart';
 import 'pending_approval_screen.dart';
@@ -155,40 +157,24 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                     ),
                     const SizedBox(height: AppSpacing.lg),
 
-                    Center(
-                      child: TextButton.icon(
-                        onPressed: () => setState(() => _otpController.text = '123456'),
-                        icon: const Icon(Icons.flash_on_rounded, size: 16, color: AppColors.info),
-                        label: Text(
-                          'Auto-fill static OTP (123456)',
-                          style: AppTypography.caption.copyWith(fontWeight: FontWeight.w700, color: AppColors.info),
+                    if (kDebugMode) ...[
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: () => setState(() => _otpController.text = '123456'),
+                          icon: const Icon(Icons.flash_on_rounded, size: 16, color: AppColors.info),
+                          label: Text(
+                            'Auto-fill static OTP (123456)',
+                            style: AppTypography.caption.copyWith(fontWeight: FontWeight.w700, color: AppColors.info),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
+                      const SizedBox(height: 14),
+                    ],
 
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: ElevatedButton(
-                        onPressed: authState.isLoading ? null : _verify,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: AppColors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          elevation: 0,
-                        ),
-                        child: authState.isLoading
-                            ? const SizedBox(
-                                height: 22,
-                                width: 22,
-                                child: CircularProgressIndicator(color: AppColors.white, strokeWidth: 2.5),
-                              )
-                            : Text(
-                                'Verify & Continue',
-                                style: AppTypography.buttonText.copyWith(fontSize: 16),
-                              ),
-                      ),
+                    AppPrimaryButton(
+                      label: 'Verify & Continue',
+                      isLoading: authState.isLoading,
+                      onPressed: _verify,
                     ),
                   ],
                 ),
