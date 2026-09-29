@@ -154,50 +154,20 @@ cd apps/rider_app    && flutter pub get && flutter run -d chrome
 
 ## 🧭 Spec-Driven Development Workflow (3-Phase Protocol)
 
-Every developer and AI assistant contributing to DeliveryOS adheres to the **3-Phase Spec-Driven Development Workflow**:
+Every change — feature, bug fix, or refactor — passes through **three sequential gates**. Never begin a phase before the previous gate passes, and never skip the living-docs sync.
 
 ```mermaid
-flowchart TD
-    subgraph P1["Phase 1: Plan & Grounding"]
-        R1["1. Context Router Lookup<br/>(QUICK_REFERENCE.md - Read 1-2 files only)"]
-        R2["2. Check Invariants & Specs<br/>(ADRs, BRDs, TIDs)"]
-        R3["3. Formulate Plan & Review<br/>(Zero Assumptions • /grill-me)"]
-        R1 --> R2 --> R3
-    end
-
-    subgraph P2["Phase 2: Implementation"]
-        I1["4. Database & DTOs<br/>(Prisma migrations • Class-validator)"]
-        I2["5. Backend Domain & FSM<br/>(Strict typing • ACID transactions)"]
-        I3["6. Frontend & Mobile UI<br/>(Design System tokens • Zero inline styles)"]
-        I4["7. Clean Code Standard<br/>(Zero trivial comments • Zero mock shortcuts)"]
-        I1 --> I2 --> I3 --> I4
-    end
-
-    subgraph P3["Phase 3: Verification & Living Document Sync"]
-        V1["8. Automated Testing & Static Analysis<br/>(npm test • flutter test • typecheck • analyze)"]
-        V2["9. Living Document Sync<br/>(FEATURES.md • CHANGELOG.md • ADRs)"]
-        V3["10. Git Commit Protocol<br/>(NO auto-commits • Commit only when commanded • NO auto-push)"]
-        V1 --> V2 --> V3
-    end
-
-    P1 --> P2 --> P3
+flowchart LR
+    P1["1. Plan & Grounding"] --> P2["2. Implementation"] --> P3["3. Verify & Sync"]
 ```
 
-### 1. Phase 1: Plan & Grounding
-- **Targeted Context**: Check [`context_docs/QUICK_REFERENCE.md`](context_docs/QUICK_REFERENCE.md) to load only the 1–2 files relevant to the task (zero token waste).
-- **Invariant Verification**: Check architectural contracts in [`ADR Index`](context_docs/architecture-decision-records/README.md), [`BRDs`](context_docs/business-requirements-documents/README.md), and [`TIDs`](context_docs/technical-implementation-documents/README.md).
-- **Zero Assumptions**: If any requirement or edge case is ambiguous, pause and ask structured questions with recommended options before writing code.
+| Phase | Objective | Key Actions | ✅ Exit Gate |
+| :--- | :--- | :--- | :--- |
+| **1. Plan & Grounding** | Understand the task before writing code | • Route via [`QUICK_REFERENCE.md`](context_docs/QUICK_REFERENCE.md) — load **only** the 1–2 relevant ADR/BRD/TID files.<br>• Verify architectural contracts in the [ADR Index](context_docs/architecture-decision-records/README.md), [BRDs](context_docs/business-requirements-documents/README.md), and [TIDs](context_docs/technical-implementation-documents/README.md).<br>• Resolve ambiguity with structured questions (recommended options; `/grill-me` for plan review). | A written plan aligned 100% with the specs — **zero open assumptions**. |
+| **2. Implementation** | Production-ready code, built in dependency order | • Sequence: Prisma schema ➔ backend services & DTOs ➔ realtime events ➔ UI.<br>• Enforce `AGENT_RULES.md` § 3: strict typing (zero raw `any`), design tokens only (zero inline styles), ACID transactions for every money/state mutation, comments only for non-obvious invariants, zero mocks or `TODO`s. | Code complete and convention-clean per `AGENT_RULES.md` (§ 3). |
+| **3. Verify & Sync** | Prove correctness and leave zero documentation drift | • Run the CI-identical quality gate: `npm run verify` (backend typecheck + lint + Jest unit tests + build, both portal typechecks, `flutter analyze` + `flutter test` ×2).<br>• Execute the test cases covering the change: targeted backend integration suites (`npm run test:auth`, `test:order`, `test:payment`, …) and portal smoke tests (`npm test`) against a live stack.<br>• Sync **every living document the change affects** — [`FEATURES.md`](FEATURES.md), [`CHANGELOG.md`](CHANGELOG.md), ADRs, plus any BRD/TID section, schema/endpoint spec, deploy note, or app README the change invalidates. | Quality gate green **and** living docs synced. |
 
-### 2. Phase 2: Implementation
-- **Strict Type Safety**: Maintain `"strict": true` across backend and web portals with **zero raw `any`**.
-- **Design System Governance**: Strictly consume centralized tokens (`AppColors`, `AppTypography`, `AppSpacing`, `AppRadius`, Tailwind semantic classes). **Zero raw inline styles or arbitrary colors**.
-- **Production Realism**: Real code only with database transactions (`prisma.$transaction`). **Zero mock fallbacks**, **zero empty `TODO`s**, and **zero deleted failing tests**.
-- **Clean Code Standard**: Express intent through self-documenting names. Add code comments **only** for complex algorithms, subtle business invariants, or tricky edge cases per `AGENT_RULES.md § 3.6`.
-
-### 3. Phase 3: Verification & Living Document Sync
-- **Automated Verification**: Run the repo quality gate `npm run verify` (backend `typecheck` + `lint` + `build`, both portal typechecks, `flutter analyze` + `flutter test` for both apps). Run integration suites via `npm run test` in `services/backend_api` when a live Postgres/Redis stack is available.
-- **Living Document Sync**: Immediately update [`FEATURES.md`](FEATURES.md) (line-level capability catalog), [`CHANGELOG.md`](CHANGELOG.md) (roadmap deliverables & release notes), and ADRs if architectural decisions evolved.
-- **Git Invariant**: **NO auto-commits** (commit only upon explicit user command); **NO auto-push** (execute only local commits).
+**Git invariant (applies to every phase)**: **NO auto-commits** — `git commit` runs only on an explicit user command; **NO auto-push** — pushing requires its own explicit command.
 
 ### 📋 Repeatable Engineering Checklists
 
@@ -210,7 +180,7 @@ flowchart TD
 - [ ] **4. Backend DTO & Service**: Strictly typed DTOs with `class-validator`, ACID transaction in service, standard API envelope.
 - [ ] **5. Realtime Events**: Wire Socket.IO room joins/emits and Redis pub/sub if real-time updates are involved.
 - [ ] **6. UI Implementation**: Centralized design system tokens, responsive layouts, error handling, loading states.
-- [ ] **7. Automated Verification**: Backend test scripts, `npm run typecheck`, and `flutter analyze` / `flutter test`.
+- [ ] **7. Automated Verification**: Run `npm run verify` (or the affected subset: backend suites, `typecheck`, `flutter analyze` / `flutter test`).
 - [ ] **8. Living Docs Sync**: Add line item to `FEATURES.md`, record deliverable in `CHANGELOG.md`.
 - [ ] **9. Commit Protocol**: Await explicit user command before executing `git commit`.
 
