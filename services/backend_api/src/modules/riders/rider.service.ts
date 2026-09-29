@@ -158,7 +158,10 @@ export class RiderService {
 
     assertTransition(order.status, OrderStatus.DELIVERED);
 
-    const codCollected = dto.amountCollected ?? (dto.codCashCollected ? Number(order.totalAmount) : 0);
+    const isCodOrder = order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY;
+    const codCollected = isCodOrder
+      ? (dto.amountCollected ?? (dto.codCashCollected ? Number(order.totalAmount) : 0))
+      : 0;
 
     const economics = await this.deliveryFeeService.getEconomicsConfig();
     const riderShare = (economics.rider_share_percent || 80) / 100;

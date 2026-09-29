@@ -55,6 +55,15 @@ export class DeliveryFeeService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * Clears in-memory cache for pricing and economics configurations.
+   */
+  invalidateCache(): void {
+    this.cachedFeeConfig = null;
+    this.cachedEconomics = null;
+    this.logger.log('Delivery fee and economics cache invalidated.');
+  }
+
+  /**
    * Pure calculation helper for delivery fee based on configuration and distance.
    */
   computeFee(config: DeliveryFeeConfig, distanceKm: number): number {

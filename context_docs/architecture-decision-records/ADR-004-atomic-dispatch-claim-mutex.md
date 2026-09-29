@@ -74,20 +74,39 @@ sequenceDiagram
 ## Technical Implementation Details
 Implemented in [`order-flow.service.ts`](../../services/backend_api/src/modules/order-flow/order-flow.service.ts):
 ```typescript
-const lockKey = `lock:order:claim:${orderId}`;
-const acquired = await this.redis.set(lockKey, riderId, 'PX', 5000, 'NX');
+// 1. Invariant Checks: Rider must be online, admin-approved, and active
+if (!rider || !rider.isOnline) throw new BadRequestException('Rider is offline or profile not found');
+if (!rider.isApproved) throw new BadRequestException('Rider account is pending admin approval');
+if (rider.user?.status !== AccountStatus.ACTIVE) throw new BadRequestException('Rider account is suspended or inactive');
 
+// 2. Active Trip Guard
+const alreadyBusy = await this.redis.get(`rider:active_order:${rider.id}`);
+if (alreadyBusy) throw new BadRequestException('You already have an active assigned delivery trip');
+
+// 3. Redis Distributed Mutex (10-second TTL)
+const lockKey = `lock:order_claim:${orderId}`;
+const acquired = await this.redis.acquireLock(lockKey, rider.id, 10);
 if (!acquired) {
-  throw new ConflictException('This delivery order has already been claimed by another courier.');
+  throw new ConflictException('This order is currently being claimed by another rider.');
 }
 
 try {
-  return await this.prisma.order.update({
-    where: { id: orderId },
-    data: { riderId, status: OrderStatus.RIDER_ASSIGNED },
+  const updatedOrder = await this.prisma.$transaction(async (tx) => {
+    // Assert order unclaimed & check COD cash safety limit
+    if (order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY) {
+      if (Number(rider.cashInHand) + Number(order.totalAmount) > Number(rider.maxCashLimit)) {
+        throw new BadRequestException('Order exceeds rider cash-in-hand limit. Please deposit cash before claiming.');
+      }
+    }
+    // Update order with riderId and status
+    return await tx.order.update({ where: { id: orderId }, data: { riderId: rider.id, status: newStatus } });
   });
+
+  // Mark rider as busy in Redis AFTER DB transaction commits successfully
+  await this.redis.set(`rider:active_order:${rider.id}`, orderId);
+  return updatedOrder;
 } finally {
-  await this.redis.del(lockKey);
+  await this.redis.releaseLock(lockKey, rider.id);
 }
 ```
 

@@ -49,7 +49,7 @@ import {
 } from '@prisma/client';
 import { OrderService } from '../orders/order.service';
 import { AdminCancelOrderDto } from './dto/admin-cancel-order.dto';
-import { DeliveryFeeConfig, normalizeDeliveryFeeConfig } from '../promotions/pricing/delivery-fee.service';
+import { DeliveryFeeConfig, DeliveryFeeService, normalizeDeliveryFeeConfig } from '../promotions/pricing/delivery-fee.service';
 
 export interface OrderFlowSettingPayload {
   mode: OrderFlowMode;
@@ -66,6 +66,7 @@ export class AdminService {
     private readonly trackingGateway: TrackingGateway,
     private readonly orderFlowService: OrderFlowService,
     private readonly orderService: OrderService,
+    private readonly deliveryFeeService: DeliveryFeeService,
   ) {}
 
   // ===========================================================================
@@ -788,6 +789,8 @@ export class AdminService {
         description: 'Delivery fee pricing mode: FIXED_FLAT vs DISTANCE_TIERED',
       },
     });
+
+    this.deliveryFeeService.invalidateCache();
 
     return updated.value as unknown as DeliveryFeeConfig;
   }

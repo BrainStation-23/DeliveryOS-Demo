@@ -1,4 +1,4 @@
-import { PaymentMethod, PaymentStatus } from '@prisma/client';
+import { OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { PaymentsService } from './payments.service';
 import { SslCommerzGatewayAdapter } from './gateways/sslcommerz.gateway';
 import { SandboxGatewayAdapter } from './gateways/sandbox.gateway';
@@ -98,6 +98,68 @@ describe('Payment webhook idempotency (atomic PENDING claim)', () => {
     const { service } = buildService({ claimCount: 1, existingPayment: null });
 
     await expect(service.handleWebhook(...webhookArgs)).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('withholds order promotion and dispatch when payment is confirmed for a CANCELLED order', async () => {
+    const { service, tx, orderFlowService } = buildService({
+      claimCount: 1,
+      existingPayment: {
+        id: 'pay-cancelled',
+        transactionId: 'SSLC-1',
+        status: PaymentStatus.PENDING,
+        orderId: 'order-cancelled',
+        gatewayResponse: null,
+        amount: '500.00',
+        order: {
+          id: 'order-cancelled',
+          orderNumber: 'ORD-CANCELLED',
+          customerId: 'cust-1',
+          paymentStatus: PaymentStatus.FAILED,
+          status: OrderStatus.CANCELLED,
+          paymentMethod: PaymentMethod.ONLINE_GATEWAY,
+        },
+      },
+    });
+
+    const result = await service.handleWebhook(...webhookArgs);
+
+    expect(result).toMatchObject({
+      success: true,
+      message: expect.stringContaining('cancelled order'),
+    });
+    expect(tx.order.update).not.toHaveBeenCalled();
+    expect(orderFlowService.handleOrderPaid).not.toHaveBeenCalled();
+  });
+
+  it('withholds dispatch broadcast when payment is confirmed for an order switched to COD', async () => {
+    const { service, tx, orderFlowService } = buildService({
+      claimCount: 1,
+      existingPayment: {
+        id: 'pay-cod',
+        transactionId: 'SSLC-1',
+        status: PaymentStatus.PENDING,
+        orderId: 'order-cod',
+        gatewayResponse: null,
+        amount: '500.00',
+        order: {
+          id: 'order-cod',
+          orderNumber: 'ORD-COD',
+          customerId: 'cust-1',
+          paymentStatus: PaymentStatus.PENDING,
+          status: OrderStatus.PLACED,
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+        },
+      },
+    });
+
+    const result = await service.handleWebhook(...webhookArgs);
+
+    expect(result).toMatchObject({
+      success: true,
+      message: expect.stringContaining('switched to COD'),
+    });
+    expect(tx.order.update).not.toHaveBeenCalled();
+    expect(orderFlowService.handleOrderPaid).not.toHaveBeenCalled();
   });
 
   it('keeps COD orders out of the webhook path', async () => {

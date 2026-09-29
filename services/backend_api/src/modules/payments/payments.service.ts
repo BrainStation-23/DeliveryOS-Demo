@@ -178,7 +178,16 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           ],
         },
         include: {
-          order: { select: { id: true, orderNumber: true, customerId: true, paymentStatus: true } },
+          order: {
+            select: {
+              id: true,
+              orderNumber: true,
+              customerId: true,
+              paymentStatus: true,
+              status: true,
+              paymentMethod: true,
+            },
+          },
         },
       });
 
@@ -200,7 +209,10 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         return { payment, alreadyProcessed: true };
       }
 
-      if (validation.status === PaymentStatus.PAID) {
+      const isCancelled = payment.order?.status === OrderStatus.CANCELLED;
+      const isCodSwitched = payment.order?.paymentMethod === PaymentMethod.CASH_ON_DELIVERY;
+
+      if (validation.status === PaymentStatus.PAID && !isCancelled && !isCodSwitched) {
         await tx.order.update({
           where: { id: payment.orderId },
           data: { paymentStatus: PaymentStatus.PAID },
@@ -227,8 +239,34 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
 
     const payment = outcome.payment;
+    const isCancelled = payment.order?.status === OrderStatus.CANCELLED;
+    const isCodSwitched = payment.order?.paymentMethod === PaymentMethod.CASH_ON_DELIVERY;
 
     if (validation.status === PaymentStatus.PAID) {
+      if (isCancelled) {
+        this.logger.error(
+          `Payment confirmed for CANCELLED order ${payment.order.orderNumber} (Trx: ${payment.transactionId}). Withholding dispatch; requires refund.`,
+        );
+        return {
+          success: true,
+          message: 'Payment received for cancelled order; flagged for refund reconciliation',
+          transactionId: payment.transactionId,
+          status: PaymentStatus.PAID,
+        };
+      }
+
+      if (isCodSwitched) {
+        this.logger.warn(
+          `Payment confirmed for order ${payment.order.orderNumber} already switched to CASH_ON_DELIVERY (Trx: ${payment.transactionId}). Withholding dispatch broadcast.`,
+        );
+        return {
+          success: true,
+          message: 'Payment received for order switched to COD; flagged for reconciliation',
+          transactionId: payment.transactionId,
+          status: PaymentStatus.PAID,
+        };
+      }
+
       this.logger.log(`Payment confirmed PAID for Order ${payment.order.orderNumber} (Trx: ${payment.transactionId})`);
 
       // 1. Emit live WebSocket updates to customer order tracking screen

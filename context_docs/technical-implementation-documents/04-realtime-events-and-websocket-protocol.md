@@ -127,7 +127,9 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
     "distanceToVendorKm": 1.2,
     "deliveryArea": "Gulshan 2",
     "riderEarnings": 40.0,
-    "timeoutSeconds": 90
+    "timeoutSeconds": 90,
+    "paymentMethod": "CASH_ON_DELIVERY" | "ONLINE_GATEWAY",
+    "isCod": true
   }
 ```
 
@@ -171,7 +173,7 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
 
 #### `order:cancelled`
 - **Direction**: Server ➔ All Stakeholders
-- **Target Rooms**: `order_{orderId}`, `vendor_{vendorId}`, `rider_{riderId}`, `admin_hq`
+- **Target Rooms**: `order_{orderId}`, `vendor_{vendorId}`, `rider_{riderId}`, `user_{riderUserId}`, `admin_hq`
 - **Action**: KDS removes order; rider app surfaces cancellation banner and releases courier; Redis mutex released.
 - **Payload**:
   ```json

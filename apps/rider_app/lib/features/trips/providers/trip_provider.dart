@@ -81,6 +81,9 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
           latitude: MapDefaults.centerLatitude,
           longitude: MapDefaults.centerLongitude,
         );
+        final isCod = data['isCod'] == true ||
+            (data['paymentMethod'] != null && data['paymentMethod'].toString() == 'CASH_ON_DELIVERY') ||
+            (data['paymentMethod'] == null && data['isCod'] == null);
         final trip = TripOrder(
           id: data['orderId']?.toString() ?? '',
           orderNumber: data['orderNumber']?.toString() ?? 'ORD',
@@ -89,7 +92,7 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
           customer: customer,
           distanceKm: 2.5,
           payout: (data['riderEarnings'] as num?)?.toDouble() ?? 50.0,
-          isCod: true,
+          isCod: isCod,
           totalAmount: (data['totalAmount'] as num?)?.toDouble() ?? 300.0,
           itemsCount: (data['itemCount'] as num?)?.toInt() ?? 1,
         );
@@ -225,9 +228,19 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
       latitude: (addressSnapshot['latitude'] as num?)?.toDouble() ?? trip.customer.latitude,
       longitude: (addressSnapshot['longitude'] as num?)?.toDouble() ?? trip.customer.longitude,
     );
+    final claimedPaymentMethod = claimedPayload['paymentMethod']?.toString();
+    final bool isCodClaimed = claimedPaymentMethod != null
+        ? claimedPaymentMethod == 'CASH_ON_DELIVERY'
+        : trip.isCod;
+    final double totalAmount = (claimedPayload['totalAmount'] as num?)?.toDouble() ?? trip.totalAmount;
+    final double payout = (claimedPayload['deliveryFee'] as num?)?.toDouble() ?? trip.payout;
+
     final claimedTrip = trip.copyWith(
       currentStep: TripStep.pickup,
       status: 'RIDER_ASSIGNED',
+      isCod: isCodClaimed,
+      totalAmount: totalAmount,
+      payout: payout,
       store: hydratedStore,
       customer: hydratedCustomer,
     );

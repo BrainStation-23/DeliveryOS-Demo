@@ -180,6 +180,6 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 ### 2.7 Saved Addresses & Utilities (`/customers`, `/health`, `/geo`)
 - **`GET /customers/addresses`** / **`POST /customers/addresses`** / **`PUT /customers/addresses/:id`** / **`DELETE /customers/addresses/:id`**: Customer delivery address book CRUD.
 - **`PATCH /customers/addresses/:id/default`**: Sets default delivery address.
-- **`GET /customers/profile`** / **`PUT /customers/profile`**: Customer profile management.
+- **`GET /customers/profile`** / **`PATCH /customers/profile`**: Customer profile management.
 - **`GET /health`**: Health check probe returning PostgreSQL and Redis connection status.
 - **`GET /geo/reverse-geocode?lat=...&lng=...`**: Reverse geocoding cached in Redis for 24 hours.

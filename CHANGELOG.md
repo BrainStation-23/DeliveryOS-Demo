@@ -28,6 +28,13 @@ Capability detail: [`FEATURES.md`](FEATURES.md) • Architectural rationale: [AD
 
 ### [Unreleased]
 
+#### Fixed
+- **Courier Realtime Cancellation Sync**: Emit `order:cancelled` to both `user_{riderUserId}` and `rider_{riderIdToRelease}` rooms upon order cancellation, preventing couriers from driving to vendors for cancelled deliveries.
+- **Prepaid vs COD Courier Dispatch**: Include `paymentMethod` and `isCod` in dispatch broadcast payloads; ensure `rider_app` reflects payment type accurately and `deliverOrder` only accumulates `rider.cashInHand` on `CASH_ON_DELIVERY` orders.
+- **Late Webhook & Switched-to-COD Order Guard**: Invalidate pending payment sessions on switch to COD; reject late webhook confirmation for cancelled orders or orders switched to COD to prevent phantom dispatch broadcasts.
+- **Courier Order Claim Financial Safety**: Enforce courier admin approval, active user status, and maximum cash-in-hand limit checks during COD claims; shift Redis busy-state mutation to post-database-transaction commit.
+- **Delivery Fee In-Memory Cache Invalidation**: Invalidate delivery fee and economics cache immediately when admin modifies pricing mode or rates via `updateDeliveryFeeMode()`.
+
 #### Changed
 - **Documentation truth-sync audit**: full repo scan corrected FEATURES / QUICK_REFERENCE / AGENT_RULES / README / TIDs against code (backend module map, socket events, payment gateways, spatial storage model, test-suite names); ~40 broken or non-portable links repaired; accidental `--version/` husky artifact removed; root `package-lock.json` version aligned (1.7.2).
 

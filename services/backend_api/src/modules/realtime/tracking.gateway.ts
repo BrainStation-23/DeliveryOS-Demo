@@ -44,6 +44,8 @@ export interface DispatchBroadcastPayload {
   totalAmount?: number;
   riderEarnings?: number;
   timeoutSeconds?: number;
+  paymentMethod?: string;
+  isCod?: boolean;
   [key: string]: unknown;
 }
 
@@ -120,10 +122,13 @@ export class TrackingGateway
       // -----------------------------------------------------------------------
       // Auto-Join Scoped Rooms per TID-04
       // -----------------------------------------------------------------------
+      // Every authenticated user joins their personal user room
+      const userRoom = `user_${user.id}`;
+      await client.join(userRoom);
+      this.logger.log(`User ${user.phone} (${user.role}) joined personal room ${userRoom}`);
+
       if (user.role === UserRole.CUSTOMER) {
-        const customerRoom = `user_${user.id}`;
-        await client.join(customerRoom);
-        this.logger.log(`Customer ${user.phone} joined room ${customerRoom}`);
+        // Customer room already joined as personal userRoom
       } else if (user.role === UserRole.VENDOR_ADMIN) {
         for (const staff of user.vendorStaff) {
           if (staff.scope === PermissionScope.PARTICULAR_OUTLET && staff.vendorId) {

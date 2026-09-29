@@ -34,7 +34,7 @@ Chosen option: **Tiered Spatial Architecture**.
 | Layer | Technology | Primary Function | Data Structure / Query |
 | :--- | :--- | :--- | :--- |
 | **Tier 1: Relational Spatial Engine** | PostgreSQL 16 + PostGIS 3.4 | Authoritative store locations & customer delivery addresses | `geography(Point, 4326)` with GiST index<br/>`ST_DWithin(v.location, cust_pt, radius * 1000)` |
-| **Tier 2: Volatile Telemetry Radar** | Redis 7.2 In-Memory Store | Live courier location tracking & nearby dispatch discovery | 52-bit integer Geohash indexing<br/>`GEOADD fleet:riders <lon> <lat> <riderId>`<br/>`GEORADIUS fleet:riders <lon> <lat> 5 km` |
+| **Tier 2: Volatile Telemetry Radar** | Redis 7.2 In-Memory Store | Live courier location tracking & nearby dispatch discovery | 52-bit integer Geohash indexing<br/>`GEOADD riders:locations:active <lon> <lat> <riderId>`<br/>`GEOSEARCH riders:locations:active FROMLONLAT <lon> <lat> BYRADIUS 5 km WITHDIST ASC` |
 
 ### Positive Consequences
 - **Zero Planar Distortion**: Spherical math accurate to centimeter level worldwide.

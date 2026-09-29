@@ -100,4 +100,42 @@ describe('DeliveryFeeService', () => {
       expect(service.computeFee(tieredConfig, 5.5)).toBe(92.5);
     });
   });
+
+  describe('caching and invalidateCache', () => {
+    it('caches database response and immediately refreshes after invalidateCache', async () => {
+      const mockPrisma = {
+        systemSetting: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValueOnce({
+              value: { mode: 'FIXED_FLAT', flatFee: 40.0 },
+            })
+            .mockResolvedValueOnce({
+              value: { mode: 'DISTANCE_TIERED', baseFee: 60.0 },
+            }),
+        },
+      };
+
+      const service = new DeliveryFeeService(mockPrisma as never);
+
+      // First fetch hits DB
+      const config1 = await service.getConfig();
+      expect(config1.flatFee).toBe(40.0);
+      expect(mockPrisma.systemSetting.findUnique).toHaveBeenCalledTimes(1);
+
+      // Second fetch uses cache
+      const config2 = await service.getConfig();
+      expect(config2.flatFee).toBe(40.0);
+      expect(mockPrisma.systemSetting.findUnique).toHaveBeenCalledTimes(1);
+
+      // Invalidate cache
+      service.invalidateCache();
+
+      // Third fetch re-queries DB
+      const config3 = await service.getConfig();
+      expect(config3.baseFee).toBe(60.0);
+      expect(mockPrisma.systemSetting.findUnique).toHaveBeenCalledTimes(2);
+    });
+  });
 });
+

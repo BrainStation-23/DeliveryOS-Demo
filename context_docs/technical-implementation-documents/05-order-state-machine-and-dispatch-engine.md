@@ -106,47 +106,60 @@ async function findNearbyRiders(vendorLat: number, vendorLng: number, radiusKm: 
 To prevent duplicate order claims, the backend executes an atomic **Redis Distributed Mutex** ([ADR-004](../architecture-decision-records/ADR-004-atomic-dispatch-claim-mutex.md)):
 
 ```typescript
-async function claimOrder(orderId: string, riderId: string, isRiderFirst: boolean): Promise<boolean> {
+async function claimOrder(riderUserId: string, orderId: string): Promise<Order> {
+  // 1. Verify courier online, approved, and active
+  const rider = await prisma.rider.findUnique({ where: { userId: riderUserId }, include: { user: true } });
+  if (!rider || !rider.isOnline) throw new BadRequestException('Rider is offline or profile not found');
+  if (!rider.isApproved) throw new BadRequestException('Rider account is pending admin approval');
+  if (rider.user?.status !== AccountStatus.ACTIVE) throw new BadRequestException('Rider account is suspended or inactive');
+
+  // 2. In-flight trip busy check
+  const alreadyBusy = await redis.get(`rider:active_order:${rider.id}`);
+  if (alreadyBusy) throw new BadRequestException('You already have an active assigned delivery trip');
+
+  // 3. Acquire exclusive claim mutex (10-second TTL)
   const lockKey = `lock:order_claim:${orderId}`;
-  
-  // 1. Acquire exclusive claim mutex (10-second TTL)
-  const acquired = await redis.set(lockKey, riderId, 'NX', 'EX', 10);
+  const acquired = await redis.acquireLock(lockKey, rider.id, 10);
   if (!acquired) {
-    throw new ConflictException('This order has already been claimed by another courier.');
+    throw new ConflictException('This order is currently being claimed by another rider.');
   }
 
   try {
-    // 2. Atomic Database Transaction
-    await prisma.$transaction(async (tx) => {
-      const order = await tx.order.findUnique({ where: { id: orderId } });
-      if (order.riderId !== null) {
-        throw new ConflictException('Order already assigned.');
-      }
+    // 4. Atomic Database Transaction
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({ where: { id: orderId }, include: { vendor: true, orderItems: true } });
+      if (!order) throw new NotFoundException('Order not found');
+      if (order.riderId !== null) throw new ConflictException('Order already assigned.');
 
-      await tx.order.update({
-        where: { id: orderId },
-        data: { 
-          riderId: riderId,
-          status: isRiderFirst ? OrderStatus.RIDER_ASSIGNED : order.status
+      // Check COD safety limit
+      if (order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY) {
+        if (Number(rider.cashInHand) + Number(order.totalAmount) > Number(rider.maxCashLimit)) {
+          throw new BadRequestException('Order exceeds rider cash-in-hand limit. Please deposit collected cash.');
         }
-      });
-
-      // Mark courier busy in Redis
-      await redis.set(`rider:active_order:${riderId}`, orderId);
-
-      // If RIDER_FIRST: Trigger vendor kitchen chime now that courier is secured
-      if (isRiderFirst) {
-        socketGateway.server.to(`vendor_${order.vendorId}`).emit('order:new', {
-          orderId: order.id,
-          orderNumber: order.orderNumber,
-          riderAssigned: true
-        });
       }
+
+      assertClaimable(mode, order.status);
+      const newStatus = mode === OrderFlowMode.RIDER_FIRST ? OrderStatus.RIDER_ASSIGNED : order.status;
+
+      return await tx.order.update({
+        where: { id: orderId },
+        data: { riderId: rider.id, status: newStatus },
+        include: { vendor: true, orderItems: true }
+      });
     });
 
-    return true;
+    // 5. Mark courier busy in Redis AFTER DB transaction commits successfully
+    await redis.set(`rider:active_order:${rider.id}`, orderId);
+
+    // 6. External side effects: notify vendor kitchen / customer tracking
+    if (mode === OrderFlowMode.RIDER_FIRST) {
+      trackingGateway.notifyOrderStatusChanged(updatedOrder.id, updatedOrder.customerId, OrderStatus.PLACED, OrderStatus.RIDER_ASSIGNED, { ... });
+      trackingGateway.notifyNewOrder(updatedOrder.vendorId, { riderAssigned: true, ... });
+    }
+
+    return updatedOrder;
   } finally {
-    await redis.del(lockKey);
+    await redis.releaseLock(lockKey, rider.id);
   }
 }
 ```

@@ -439,7 +439,7 @@ The platform is guarded by a layered verification pyramid. Backend integration s
 | Suite | Command | Scope & Capabilities Verified |
 | :--- | :--- | :--- |
 | **Repo Quality Gate (CI)** | `npm run verify` (root) | Backend typecheck + ESLint + Jest unit + build, both portal typechecks, `flutter analyze` + `flutter test` ×2 — runs on every push/PR via `.github/workflows/ci.yml` |
-| **Money-Path Unit Tests** | `npm run test:unit` (backend) | Jest (24 tests) pinning the ADR-002 FSM, region-time operating-hours math (overnight windows, Asia/Dhaka rollover), coupon eligibility, webhook atomic-claim idempotency, and delivery-fee computation/normalization ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)) |
+| **Money-Path Unit Tests** | `npm run test:unit` (backend) | Jest (37 tests across 6 suites) pinning the ADR-002 FSM, dispatch order-flow and claim mutex invariants, region-time operating-hours math, coupon eligibility, webhook atomic-claim idempotency, and delivery-fee computation/caching ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)) |
 | **DB & Spatial Integrity** | `npm run test:db` | Prisma models, PostGIS expression GIST indexes, spatial query sanity |
 | **Auth & RBAC Security** | `npm run test:auth` | Phone OTP, JWT + refresh rotation, tenant isolation, Super Admin override guards |
 | **Vendor Discovery & Geofence** | `npm run test:vendor` | PostGIS `ST_DWithin` radius search, vertical filters, distance sorting |

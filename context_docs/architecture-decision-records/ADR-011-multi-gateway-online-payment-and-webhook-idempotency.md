@@ -61,6 +61,7 @@ export interface PaymentGatewayAdapter {
 ### 3. Cryptographic Webhook Security & Idempotency
 1. **Signature Verification**: Every incoming webhook must validate its cryptographic signature (`HMAC-SHA256` or gateway secret) before parsing payload. Unsigned or tampered requests return `401 Unauthorized`.
 2. **Database-Enforced Idempotency**: The `Payment` entity stores unique `transactionId`. If a webhook arrives for a payment that is already `PAID`, the service returns `201 OK` immediately without re-triggering ledger transactions or duplicate dispatches.
+3. **Cancelled and Switched-to-COD Guard**: If a delayed webhook arrives after an order has been cancelled or transitioned to `CASH_ON_DELIVERY`, the payment is prevented from reviving the order to `PAID`, dispatch broadcasts are strictly withheld, and an operational alert is logged for refund reconciliation.
 
 ### 4. 15-Minute Unpaid Order Expiration
 A scheduled cron routine cleans up abandoned online orders:

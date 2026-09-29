@@ -11,7 +11,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { TrackingGateway } from '../realtime/tracking.gateway';
 import { OrderFlowMode, UpdateOrderFlowDto } from './dto/update-order-flow.dto';
-import { OrderStatus, PaymentMethod, PaymentStatus, UserRole } from '@prisma/client';
+import { AccountStatus, OrderStatus, PaymentMethod, PaymentStatus, UserRole } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { assertClaimable, assertTransition } from '../orders/order-state.machine';
 import { DeliveryFeeService } from '../promotions/pricing/delivery-fee.service';
@@ -180,6 +180,13 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
 
     if (!order) return;
 
+    if (order.status !== OrderStatus.PLACED) {
+      this.logger.warn(
+        `Order ${order.orderNumber} is not in PLACED status (current: "${order.status}"); ignoring dispatch placement.`,
+      );
+      return;
+    }
+
     // Online Gateway Payment Invariant:
     // When customer chooses ONLINE_GATEWAY, do not broadcast to riders or alert kitchen until payment is verified!
     if (order.paymentMethod === PaymentMethod.ONLINE_GATEWAY && order.paymentStatus !== PaymentStatus.PAID) {
@@ -211,6 +218,8 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
         totalAmount: Number(order.totalAmount),
         riderEarnings,
         timeoutSeconds: riderSearchTimeoutSeconds,
+        paymentMethod: order.paymentMethod,
+        isCod: order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY,
       });
 
       // Push notification to couriers
@@ -290,6 +299,8 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
         totalAmount: Number(order.totalAmount),
         riderEarnings,
         timeoutSeconds: riderSearchTimeoutSeconds,
+        paymentMethod: order.paymentMethod,
+        isCod: order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY,
       });
 
       this.logger.log(`[VENDOR_FIRST] Order ${order.orderNumber} READY_FOR_PICKUP broadcasted to riders_pool.`);
@@ -303,12 +314,20 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
     const rider = await this.prisma.rider.findUnique({
       where: { userId: riderUserId },
       include: {
-        user: { select: { fullName: true, phone: true } },
+        user: { select: { fullName: true, phone: true, status: true } },
       },
     });
 
     if (!rider || !rider.isOnline) {
       throw new BadRequestException('Rider is offline or profile not found');
+    }
+
+    if (!rider.isApproved) {
+      throw new BadRequestException('Rider account is pending admin approval');
+    }
+
+    if (rider.user?.status !== AccountStatus.ACTIVE) {
+      throw new BadRequestException('Rider account is suspended or inactive');
     }
 
     // Check if rider already has an active order
@@ -342,6 +361,15 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
           throw new ConflictException('This order has already been secured by another delivery rider.');
         }
 
+        if (order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY) {
+          const projectedCash = Number(rider.cashInHand) + Number(order.totalAmount);
+          if (projectedCash > Number(rider.maxCashLimit)) {
+            throw new BadRequestException(
+              `Order total (৳${order.totalAmount}) would exceed your cash-in-hand limit of ৳${rider.maxCashLimit} (current: ৳${rider.cashInHand}). Please deposit collected cash before claiming COD orders.`,
+            );
+          }
+        }
+
         assertClaimable(mode, order.status);
         const newStatus = mode === OrderFlowMode.RIDER_FIRST ? OrderStatus.RIDER_ASSIGNED : order.status;
         if (newStatus !== order.status) {
@@ -360,11 +388,11 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
           },
         });
 
-        // Mark rider as busy in Redis
-        await this.redis.set(`rider:active_order:${rider.id}`, orderId);
-
         return updated;
       });
+
+      // Mark rider as busy in Redis after DB transaction successfully commits
+      await this.redis.set(`rider:active_order:${rider.id}`, orderId);
 
       // Side Effects outside DB transaction:
       if (mode === OrderFlowMode.RIDER_FIRST) {
@@ -497,6 +525,8 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
             riderEarnings,
             timeoutSeconds: riderSearchTimeoutSeconds,
             searchRadiusKm: 6,
+            paymentMethod: order.paymentMethod,
+            isCod: order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY,
           });
 
           this.trackingGateway.notifyDispatchEscalated({

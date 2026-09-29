@@ -931,6 +931,9 @@ export class OrderService {
         if (riderUserId) {
           this.trackingGateway.server.to(`user_${riderUserId}`).emit('order:cancelled', payload);
         }
+        if (riderIdToRelease) {
+          this.trackingGateway.server.to(`rider_${riderIdToRelease}`).emit('order:cancelled', payload);
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -996,15 +999,26 @@ export class OrderService {
       return order; // Already COD
     }
 
-    const updatedOrder = await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
-      },
-      include: {
-        vendor: true,
-        orderItems: true,
-      },
+    const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      // Invalidate any open online payment sessions so they cannot be fulfilled post-switch
+      await tx.payment.updateMany({
+        where: { orderId, status: PaymentStatus.PENDING },
+        data: {
+          status: PaymentStatus.FAILED,
+          failedAt: new Date(),
+        },
+      });
+
+      return tx.order.update({
+        where: { id: orderId },
+        data: {
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+        },
+        include: {
+          vendor: true,
+          orderItems: true,
+        },
+      });
     });
 
     try {
