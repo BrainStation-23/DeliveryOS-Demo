@@ -1,387 +1,119 @@
-# DeliveryOS — Engineering Roadmap, Milestones & Changelog
+# DeliveryOS — Changelog & Engineering Roadmap
 
-All engineering roadmap milestones, architectural tracks, and versioned releases of the **DeliveryOS** platform are maintained in this single authoritative living document.
-
-The release history adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
----
-
-## 🗺️ Part 1: Master Engineering Roadmap & Milestones Status
-
-### 1.1. High-Level Engineering Lifecycle
-
-```mermaid
-graph TD
-    P1["Phase 1: Foundation & PostGIS DB"] ──► P2["Phase 2: Core Backend Modules"]
-    P2 ──► P3["Phase 3: Realtime Engine & Dispatch FSM"]
-    P3 ──► P4["Phase 4: Dedicated Web Portals (Admin & KDS)"]
-    P3 ──► P5["Phase 5: Customer Mobile App (Flutter)"]
-    P3 ──► P6["Phase 6: Rider Mobile App (Flutter)"]
-    P4 & P5 & P6 ──► P7["Phase 7: End-to-End Testing & Integration"]
-    P7 ──► PR["Production Readiness & Hardening Tracks"]
-    PR ──► PL["Pilot Launch & Production VPS"]
-```
+Release history follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [Semantic Versioning](https://semver.org/).
+Capability detail: [`FEATURES.md`](FEATURES.md) • Architectural rationale: [ADR Index](context_docs/architecture-decision-records/README.md) • Per-change detail: git history.
 
 ---
 
-### 1.2. Core Foundation & Platform Milestones (Phases 1–7)
+## 🗺️ Engineering Roadmap Status
 
-| Milestone / Phase | Objectives & Key Deliverables | Quality & Verification Gate | Status |
-| :--- | :--- | :--- | :---: |
-| **Phase 1: Foundation & Database** | Monorepo layout, Docker Compose (PostgreSQL 16 + PostGIS, Redis 7), 22 Prisma models, spatial GiST indexes, idempotent seed script (`seed.ts`). | `docker compose up -d`, `prisma migrate dev`, `prisma db seed` pass cleanly. | **Completed** (`[x]`) |
-| **Phase 2: Core Backend Modules** | Phone OTP auth (`AuthModule`), spatial store discovery (`VendorModule`, `GeoModule`), coupon & pricing engine (`BannerModule`, `CouponModule`), ACID order checkout (`OrderModule`), vendor staff & rider APIs. | REST endpoints conform to standard JSON envelope; double-entry ledgers balance to 0.00 BDT. | **Completed** (`[x]`) |
-| **Phase 3: Realtime & Dispatch** | Socket.IO gateway (`TrackingGateway`), room subscriptions, dual dispatch sequences (`RIDER_FIRST` vs `VENDOR_FIRST`), Redis mutex lock (`SET NX EX 10`), throttled live GPS coordinate streaming. | Concurrent claim test yields 1 OK + 1 Conflict (409); live coordinates broadcast under 200ms. | **Completed** (`[x]`) |
-| **Phase 4: Dedicated Web Portals** | Super Admin Portal (Port 3000, Indigo theme) with Leaflet live fleet radar; Vendor KDS Portal (Port 3001, Amber theme) with 3-lane Kanban, in-memory Web Audio chime, stock toggles. | Subpath proxying `/` vs `/vendor/` via Nginx; `npm run build` exits 0 with 0 errors across both apps. | **Completed** (`[x]`) |
-| **Phase 5: Customer Mobile App** | Flutter app (Dart ^3.8), interactive Google Map pin picker, debounced instant search, single-vendor cart guard, geofence radius check, 6-stage order tracking stepper, 1-tap re-order. | `flutter analyze` (0 errors), `flutter test` (100% pass), responsive on 320px–430px viewports. | **Completed** (`[x]`) |
-| **Phase 6: Rider Mobile App** | Courier onboarding, shift duty switch with in-flight lock, 45s broadcast alert modal with haptic feedback, 3-step fulfillment, native maps navigation handoff, COD safety limit. | `flutter analyze` (0 errors), `flutter test` (100% pass), background GPS beaconing verified. | **Completed** (`[x]`) |
-| **Phase 7: End-to-End Testing** | Automated multi-role simulation covering customer order, dual dispatch, store KDS prep, rider delivery, and double-entry accounting ledger balance. | Backend integration suites pass 100%; financial double-entry equations balance to the penny. | **Completed** (`[x]`) |
+**Lifecycle**: Foundation ➔ Core Backend ➔ Realtime & Dispatch ➔ Web Portals & Mobile Apps ➔ E2E Testing ➔ Production Hardening (Waves 0–4) ➔ Pilot Launch.
 
----
+| Milestone | Delivered | Status |
+| :--- | :--- | :---: |
+| **Phases 1–3 — Foundation, Core Backend, Realtime & Dispatch** | Monorepo + Docker stack (PostGIS 16 `:5433`, Redis 7.2 `:6380`), 22-model Prisma schema with spatial GIST indexes, phone-OTP auth, ACID checkout, Socket.IO `/events` gateway, dual-flow FSM dispatch with Redis claim mutex | ✅ |
+| **Phases 4–6 — Admin Portal, Vendor KDS, Customer & Rider Apps** | React consoles: Leaflet fleet radar, 3-lane KDS with Web Audio chime, stock toggles. Flutter apps: geofenced discovery & cart, 6-stage tracking, 45s dispatch alerts, 3-step fulfillment, COD deposits | ✅ |
+| **Phase 7 — E2E & Financial Integrity** | Multi-role lifecycle suites; double-entry ledgers balance to the penny | ✅ |
+| **Hardening Tracks 1–7** | Centralized FSM guard, GPS telemetry + tiered escalation, payments & settlements, cancellation/refund rollbacks, store-hours & COD integrity, centralized design system, spec-driven living docs | ✅ |
+| **Production Waves 0–4 (v1.4.6 → v1.7.0)** | CI `verify` gate + strict TypeScript, fail-fast security & hardened deploy, real integrations (SMS, SSLCommerz, FCM, token rotation), money-path unit tests + Sentry, scaling & data safety | ✅ |
 
-### 1.3. Production Readiness & Market Launch Tracks
-
-| Hardening Track | Key Features & Invariants Implemented | Verification Method | Status |
-| :--- | :--- | :--- | :---: |
-| **Track 1: Trust & Correctness** | Centralized Order FSM guard (`order-state.machine.ts`); unified economics (`delivery_economics` setting); deterministic Redis order numbering (`ORD-YYYYMMDD-XXXX`); real GPS mobile de-mocking. | `npm run test:db`, `npm run test:e2e`, mobile unit/widget test suites. | **Completed** (`[x]`) |
-| **Track 2: Realtime & Telemetry** | Resilient Flutter Socket.IO clients; Redis `GEOADD` coordinate indexing; Google Maps bearing rotation; Leaflet Admin Radar; 3-tier dispatch timeout escalation; FCM notification triggers. | `npm run test:ws`, `npm run test:dispatch`, `npm run test:tracking`, `npm run test:escalation`. | **Completed** (`[x]`) |
-| **Track 3: Payments & Settlements** | Multi-gateway payment engine (SSLCommerz, Sandbox) with HMAC-SHA256 signatures; payment-gated dispatch; automated batch settlement cycles (`POST /admin/finance/settle-cycle`). | `npm run test:payment`, `npm run test:settlement` (100% pass). | **Completed** (`[x]`) |
-| **Track 4: Cancellation & Refunds** | Pre-prep customer self-cancellation guard (`PLACED`/`RIDER_ASSIGNED`); vendor rejection with reason codes; admin force-cancel; atomic financial & coupon rollback; multi-platform cancellation UI. | `npm run test:cancel` (4/4 suites pass), Customer & Rider cancel listeners. | **Completed** (`[x]`) |
-| **Track 5: Business Integrity** | Store operating hours and busy pause checkout guard; physical COD cash deposit submission (`PENDING_APPROVAL`) and admin verification; net COD offset in settlements; mid-delivery duty lock. | `npm run test:track1` (100% pass covering all 5 core integrity checks). | **Completed** (`[x]`) |
-| **Track 6: Design System & UI** | Centralized design tokens (`AppColors`, `AppTypography`, `AppSpacing`, `AppRadius`); Tailwind semantic palettes; zero arbitrary inline styling invariant; responsive touch-friendly KDS & Admin. | `flutter test test/design_system_test.dart`, `npm run build` across portals. | **Completed** (`[x]`) |
-| **Track 7: Spec-Driven Architecture** | Authoritative 3-phase engineering protocol embedded directly in [`README.md`](README.md#-spec-driven-development-workflow-3-phase-protocol); task-to-file Context Router (`QUICK_REFERENCE.md`); granular capability catalog (`FEATURES.md`). | Complete living documentation sync and cross-referencing audit. | **Completed** (`[x]`) |
+**Active Horizons**
+- [ ] Execute the 1-month live pilot (10 vendors, 5–8 couriers, 3–5 km zone); monitor zero-food-waste SLA and weekly payouts.
+- [ ] Provision the production VPS, bind domains, enable Let's Encrypt auto-renewal (runbook: [`deploy/README.md`](deploy/README.md)).
+- [ ] KSA region localization (`REGION_MODE=KSA`) — deferred post-launch; Bangladesh is the launch market.
 
 ---
 
-### 1.4. Active Horizons & Upcoming Milestones
+## 📜 Release History
 
-- [ ] **Milestone 8.1: 10-Vendor Pilot Launch Execution**:
-  - [x] Seed 10 initial pilot merchant catalogs (7 restaurants, 3 supermarkets) with operating schedules.
-  - [x] Configure dedicated counter tablet consoles with Web Audio API order alarms.
-  - [x] Onboard and approve 5–8 active couriers in designated 3–5 km pilot zone.
-  - [ ] Execute 1-month live operational pilot test run; monitor zero food waste SLA and weekly payout statements.
-- [ ] **Milestone 8.2: Cloud Infrastructure & SSL Hardening**:
-  - [x] Local multi-container Docker Compose orchestration with Nginx reverse proxy.
-  - [x] Automated daily PostgreSQL backup script with 7-day retention (`scripts/backup-db.sh`).
-  - [ ] Provision production cloud server (VPS/Kubernetes), bind domains, and configure Let's Encrypt automated SSL certificate renewal.
+### [Unreleased]
 
----
+#### Changed
+- **Documentation truth-sync audit**: full repo scan corrected FEATURES / QUICK_REFERENCE / AGENT_RULES / README / TIDs against code (backend module map, socket events, payment gateways, spatial storage model, test-suite names); ~40 broken or non-portable links repaired; accidental `--version/` husky artifact removed; root `package-lock.json` version aligned (1.7.2).
 
-## 📜 Part 2: Platform Release History
+### [1.7.2] - 2026-09-29
 
-## [Unreleased]
+#### Added
+- Canonical camelCase `DeliveryFeeConfig` (`mode`, `flatFee`, `baseFee`, `baseKm`, `perKmRate`) unified across NestJS, Prisma seeds, and the Admin Console, with `normalizeDeliveryFeeConfig` legacy-key support and a dedicated Jest suite (24/24 passing).
 
-### Changed
-- **Documentation Truth Sync (Full Repo Audit)**:
-  - `QUICK_REFERENCE.md` rebuilt as the primary context router: verified repo facts (ports, commands, env contract, seeded accounts), task → docs + code-path routing table, canonical enums/FSM/Redis key map/socket event list, and copy-paste patterns.
-  - `FEATURES.md` synced to code: real 15-module backend map (incl. `order-flow`, `admin`, `payments`, `addresses`, `geo`, `notifications`, `health`), correct Socket.IO event names (`order:rider:moved`, `rider:location`; `join:order`/`rider:location:stream` removed), gateway list corrected to SSLCommerz + Sandbox + COD (bKash references removed), 22-entity data layer, Float-coordinate + expression-GIST spatial model, and the actual `npm run test:*` suite names.
-  - `AGENT_RULES.md` corrected: Prisma-only transactions, Float-coordinate storage model, `order_flow_config` setting key, Nginx-only SPA serving.
-  - `AGENTS.md` gained a verified "Repo Facts" block and is now the single source of the Core Operational Invariants Matrix (README links to it instead of duplicating).
-  - `README.md`: seed data updated to the actual seeder (Burger Point / FreshMart Daily, `WELCOME50` + `BURGER20`), Flutter version claims aligned with `pubspec.yaml` (Dart ^3.8).
-  - `TID-02/04/05` drift fixes: Redis key `riders:locations:active`, sweep mutex names (`lock:sweep:expired-payments` / `lock:sweep:dispatch-escalation`), `order_flow_config` key, `/rider/cash/deposit` endpoint, added `order:rider:moved` + `rider:location` events.
-  - Removed the accidental untracked `--version/` husky artifact directory; root `package-lock.json` version aligned with `package.json` (1.7.2).
+### [1.7.1] - 2026-09-29
 
-## [1.7.2] - 2026-09-29
+#### Added
+- Cross-platform reusable primitives: backend `roundMoney`; portal shared formatters + `useRushPause` / `useSocketQueryInvalidation` hooks + extracted order/assign/cancel modals; Flutter `QuantityStepper`, `TripDestinationCard`, decomposed cart and login screens.
 
-### Added
-- **Canonical Delivery Fee Schema & Test Suites**:
-  - Unified `DeliveryFeeConfig` into a single canonical camelCase interface (`mode`, `flatFee`, `baseFee`, `baseKm`, `perKmRate`) across NestJS, Prisma seeds, Admin API, and Admin Console.
-  - Added `normalizeDeliveryFeeConfig` helper for backwards compatibility with legacy database records.
-  - Added unit test suite `delivery-fee.service.spec.ts` (bringing Jest suite count to 24/24 passed).
-  - Exposed `baseKm` (Base Distance threshold) in Admin Portal UI and backend DTO.
-- **Documentation Consolidation, Deduplication & Token Optimization**:
-  - Consolidated mobile release engineering into `TID-07 (§ 6)` and eliminated redundant `docs/RELEASE.md`.
-  - Deduplicated `context_docs/AGENT_RULES.md`: replaced static ASCII file tree with lean router pointers and linked Section 4 directly to the authoritative 3-Phase Spec-Driven Development Workflow in `README.md`.
-  - Deduplicated `context_docs/business-requirements-documents/README.md`: eliminated 60 lines of repeated capability text by establishing `FEATURES.md` and `BRD-00` as canonical single sources of truth.
-  - Deduplicated `context_docs/technical-implementation-documents/README.md`: eliminated 33 lines of duplicated component summaries in favor of authoritative `FEATURES.md` and individual TIDs.
-  - Synchronized `README.md` 11 Core Operational Invariants Matrix with `AGENTS.md` and `AGENT_RULES.md`.
-  - Updated `QUICK_REFERENCE.md` router and `FEATURES.md` catalog with modularity primitives and pricing references.
+#### Fixed
+- Delivery-fee snake/camelCase mismatch (NaN fees); payment-expiry sweep now restores coupons, ledgers, and broadcasts; rider OTP debug-mode guard; customer profile reactive state.
 
-## [1.7.1] - 2026-09-29
+### [1.7.0] - 2026-09-28
 
-### Added
-- **Cross-Platform Reusable UI & Logic Primitives**:
-  - Backend: Standardized `roundMoney` 2-decimal financial rounding helper (`src/common/utils/currency.util.ts`).
-  - Vendor Portal: Shared formatters (`formatCurrency`, `formatDateTime`, `formatTime`, `isSameDay`), reusable `useRushPause` hook, standalone `OrderRejectModal.tsx`, and decomposed `SalesLedgerKPIs` + `SalesLedgerDetailModal`.
-  - Admin Portal: Shared formatters (`formatCurrency`, `formatDateTime`, `formatPhoneNumber`), `useSocketQueryInvalidation` hook, and extracted `OrderDetailsModal`, `ForceAssignModal`, `CancelOrderModal`.
-  - Customer Mobile App: Reusable `QuantityStepper`, `SoldOutBadge`, `OrderStatusBadge`, `ApiErrorHandler`, Riverpod 2 `ProfileNotifier` & `ProfileState`, and modularized `CartScreen` (`CartItemCard`, `BillSummaryCard`, `DeliveryAddressSelectorCard`, `OrderPlacedDialog`).
-  - Rider Mobile App: Reusable `AppPrimaryButton`, unified `TripDestinationCard` for pickup and delivery, and decomposed `PhoneLoginScreen` (`AuthBrandHeader`, `AuthTabToggle`, `PilotAccountsDebugCard`).
+#### Added
+- Mobile release engineering: `key.properties` release signing, ProGuard, branded launcher/splash icons, `scripts/build-android.sh` dart-define AABs ([ADR-015](context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md)).
+- Horizontal-scaling readiness: Socket.IO Redis adapter, leader-locked background sweeps, Redis-cached JWT guard lookups ([ADR-015](context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md)).
+- Data safety: env-gated offsite backups, confirmation-gated restore, systemd timer units.
 
-### Fixed
-- **Backend Delivery Fee Parameter Mismatch**: Handled both snake_case and camelCase parameters (`flat_rate`/`flatFee`, `base_fee`/`baseFee`, `per_km_rate`/`perKmRate`) in `delivery-fee.service.ts` to prevent `NaN` delivery fees when updated via admin.
-- **Backend Payment Expiry Cancellation**: Expired unpaid order sweeps in `payments.service.ts` now restore coupon quota, reverse unearned ledgers, and broadcast `order:cancelled` realtime events.
-- **Rider Security & Migration**: Guarded static OTP test shortcut with `if (kDebugMode)` in `otp_verification_screen.dart`, and initialized `LocalStorage.init()` in `main.dart` to migrate plaintext tokens at boot.
-- **Customer App Profile State**: Replaced ad-hoc network calls and inline state in `ProfileScreen` with reactive `profileProvider`.
+#### Changed
+- KSA region deferred (Bangladesh launches first); dev Postgres/Redis bound to 127.0.0.1; last credential-bearing Redis fallback removed.
 
-## [1.7.0] - 2026-09-28
+### [1.6.0] - 2026-09-28
 
-### Added — Wave 4: Release Readiness (Production Readiness Plan)
-- **Mobile Release Engineering**: release signing wired via `android/key.properties` (gitignored; debug fallback for contributor checkouts) in both apps, ProGuard rules in place, branded launcher + adaptive icons and colored splash generated for both apps (per-app primary colors, `scripts/generate-app-icons.cjs`), and `scripts/build-android.sh` producing dart-define-injected release AABs; the full release process lives in `docs/RELEASE.md` ([ADR-015](context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md) index).
-- **Horizontal-Scaling Readiness**: Socket.IO gateway fanned across replicas via the Redis adapter (dedicated pub/sub connections), background sweeps (payment expiry + dispatch escalation) leader-locked per tick with short-TTL Redis mutexes, `container_name` de-pinned from the production compose, and the JWT guard caches user lookups in Redis (30s TTL) to remove the per-request database hit ([ADR-015](context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md)).
-- **Data Safety**: `scripts/backup-db.sh` gained env-gated offsite upload (S3 or rclone) with local-copy-always retention; new `scripts/restore-db.sh` with confirmation gate — **restore verified live** (post-backup data change reverted by the restore); systemd timer units in `deploy/systemd/`.
+#### Added
+- Money-path Jest unit tests inside the CI gate: FSM transitions, region-time operating hours, coupon eligibility, webhook idempotency ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)).
+- Env-gated Sentry across all five artifacts; `{items,total,page,limit,totalPages}` pagination; admin error UX (`onError` alerts, error banners, Modal kit); `POST /admin/uploads` media storage.
 
-### Changed
-- **KSA region mode deferred** (decision D3: Bangladesh is the launch market) — `REGION_MODE` plumbing from Wave 3 remains; KSA localization tracked as post-launch.
-- **Local hardening**: dev Postgres/Redis ports now bind to `127.0.0.1` only; Redis healthchecks authenticate via `REDISCLI_AUTH` instead of the CLI `-a` flag; the last credential-bearing Redis URL fallback was removed from the backend (completing the ADR-012 fail-fast sweep).
+#### Changed
+- Operating-hours checks use region wall clock (`Asia/Dhaka`/`Asia/Riyadh` via `REGION_MODE`); atomic coupon claims (`UPDATE … WHERE currentUses < usageLimit`); radar GPS patching (5s throttle); route-level code splitting; `cached_network_image` in Flutter.
 
-## [1.6.0] - 2026-09-28
+### [1.5.0] - 2026-09-28
 
-### Added — Wave 3: Hardening, Data Integrity & Error UX (Production Readiness Plan)
-- **Money-Path Unit Tests**: Jest + ts-jest (`npm run test:unit`, 18 tests) covering the ADR-002 FSM (legal/illegal transitions, claimability), timezone-correct operating-hours math (same-day + overnight windows, Asia/Dhaka rollover), coupon eligibility guards, and the webhook idempotency claim (first-process / concurrent-replay skip / unknown 404). Unit tests now run inside the root `verify` gate, so CI executes backend tests without a live database ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)).
-- **Error Monitoring**: env-gated Sentry across all five artifacts — backend (`SENTRY_DSN`, unexpected-5xx capture with request-id context in the exceptions filter), both portals (`VITE_SENTRY_DSN`, Sentry boundary wrapping the branded boundary), both Flutter apps (`SENTRY_DSN` dart-define, debug/release environments).
-- **Pagination**: customer order history and the admin live-orders queue moved to `page/limit` envelopes (`{items,total,page,limit,totalPages}`) with the portal `Table` pagination controls finally wired; nearby-vendors discovery capped via a validated `limit` (default 50, max 100).
-- **Frontend Error UX**: every admin mutation now surfaces failures via `onError` + Alert (13 mutations), queries render `QueryErrorBanner` on `isError` instead of masquerading as empty data (10 pages), native `confirm()`/`alert()` replaced with the Modal/Alert kit, and the KDS board shows a persistent reconnect banner when the realtime socket drops.
-- **Timezone Fix**: vendor operating-hours checks compare against the active region's wall clock (`Asia/Dhaka`/`Asia/Riyadh` via `REGION_MODE`) instead of the server's UTC clock — extraction into a pure, unit-tested helper (`region-time.ts`).
+#### Added
+- Auth lifecycle: rotating refresh tokens with Redis jti revocation, logout, OTP lockout (5 fails, 2-min TTL) ([ADR-013](context_docs/architecture-decision-records/ADR-013-real-world-integration-stack.md)).
+- Real integrations: SSL Wireless SMS; SSLCommerz Session/Validation/Refund APIs with fail-closed webhook verification and refund persistence; FCM multicast push; rider background GPS service.
 
-### Changed
-- **Data Integrity**: coupon usage increments in checkout now claim atomically (`UPDATE ... WHERE currentUses < usageLimit` with rollback on conflict), eliminating the read-then-increment oversell race.
-- **Dispatch Radar**: `rider:location` GPS events patch the cached fleet directly (throttled to 5s) instead of invalidating queries per beacon; unassigned-order pins now render at real vendor pickup coordinates (vendor lat/lng added to the admin live-order payload) — synthetic geometric offsets deleted.
-- **Code Splitting**: route-level `React.lazy` in both portals with Suspense fallbacks; vendor portal gained `manualChunks` (vendor/icons) matching the admin portal's bundle strategy.
-- **Flutter**: banner/outlet images moved to `cached_network_image` with placeholder + error fallbacks.
-- **Test Hygiene**: the vendor-discovery suite now manages its fixture vendors' `isActive` state (setup + restore), removing order-dependence on prior suites' data mutations.
-- **Media Uploads**: `POST /admin/uploads` (SUPER_ADMIN multipart) with a local storage driver — validated image types + 5 MB cap, static serving at `/uploads` (prod compose volume + edge nginx route), and a direct Upload control in the admin banner form.
+#### Changed
+- Flutter tokens in `flutter_secure_storage` with plaintext migration; portal 401 single-flight refresh-and-replay; payment WebView flow via `PAYMENT_GATEWAY` dart-define; all build config via `--dart-define` (no localhost in releases).
 
-## [1.5.0] - 2026-09-28
+### [1.4.7] - 2026-09-28
 
-### Added — Wave 2: Real-World Integration Stack (Production Readiness Plan)
-- **Auth Lifecycle**: `POST /auth/refresh` with rotating `jti` tokens + Redis revocation store, `POST /auth/logout`, 15-minute access tokens, refresh-token-as-access rejection in the JWT guard, OTP verification lockout after 5 failed attempts and a 2-minute OTP lifetime ([ADR-013](context_docs/architecture-decision-records/ADR-013-real-world-integration-stack.md)).
-- **Real SMS Provider**: `ssl_wireless` (SMS Plus v3) transport behind the `SMS_SERVICE` token, selected by `SMS_PROVIDER` (mock remains dev-only).
-- **Real SSLCommerz Gateway**: live Session API initiation, server-to-server webhook verification (Order Validation / TrxID APIs, fail-closed), real Refund API execution in the cancellation path with `payments.refund_id`/`refunded_at` persistence; bKash stub adapter removed (single-gateway strategy).
-- **Push Notifications**: `firebase-admin` with lazy service-account init (log-only fallback in dev), FCM multicast delivery, device-token registration wired in both Flutter apps (Firebase options via `--dart-define`), customer notification-tap navigation to order tracking.
-- **Rider Background Telemetry**: `flutter_background_service` foreground service keeps GPS flowing while backgrounded; synthetic-coordinate fallback deleted (GPS failures surface as status messages); HTTP position sync throttled to 30s intervals; app-lifecycle socket/GPS resume.
+#### Changed
+- Fail-fast env contract: Joi requires `JWT_SECRET`/`JWT_REFRESH_SECRET` (≥32 chars), `DATABASE_URL`, `REDIS_URL`; mock SMS, static OTP, and sandbox gateway forbidden in production ([ADR-012](context_docs/architecture-decision-records/ADR-012-production-security-hardening-and-fail-fast-config.md)).
+- Webhook fail-closed (bypass signatures removed); `order:join` room authorization; Helmet + CORS whitelist + throttling; Swagger gated to non-production; winston JSON logs with `x-request-id`; graceful shutdown.
+- Production deploy boots end-to-end: envsubst TLS template + certbot renewal, `${VAR:?}` secrets, memory limits, non-root containers, `prisma migrate deploy` on start.
 
-### Changed
-- **Client Token Handling**: web portals gained a single-flight 401 refresh-and-replay interceptor with boot-time expiry checks and server-side logout revocation; Flutter apps rotate tokens inside the Dio interceptor and store them in `flutter_secure_storage` (plaintext migration included).
-- **Payment Flow (Customer App)**: checkout now hosts the real gateway session in a WebView with status polling; gateway selection via `PAYMENT_GATEWAY` dart-define (SANDBOX in debug, SSLCOMMERZ in release).
-- **Mobile Build Config**: `API_BASE_URL`/`SOCKET_BASE_URL`/`GOOGLE_MAPS_API_KEY` injected via `--dart-define` — no localhost URLs in release builds.
-- OTP verify rate limit relaxed to 30/min per IP (the 5-attempt code lockout remains the brute-force guard) to accommodate multi-suite integration runs.
+### [1.4.6] - 2026-09-26
 
-## [1.4.7] - 2026-09-28
+#### Changed
+- Engineering quality gate: root `npm run verify` + GitHub Actions CI, strict-mode TypeScript with ESLint `no-explicit-any: error`, Husky pre-commit, `/grill-me` plan-review command.
+- Documentation truth sync (test-stack claims, claim-lock TTL, Riverpod version, seed credentials).
 
-### Changed — Wave 1: Security & Deployability Blockers (Production Readiness Plan)
-- **Fail-Fast Environment Contract**: Boot-time Joi validation (`JWT_SECRET`/`JWT_REFRESH_SECRET` min 32 chars, `DATABASE_URL`, `REDIS_URL` required); `SMS_MOCK_STATIC_OTP`, `ALLOW_STATIC_OTP`, and mock SMS forbidden in production; all hardcoded secret fallbacks removed from code, compose files, and `.env.example` ([ADR-012](context_docs/architecture-decision-records/ADR-012-production-security-hardening-and-fail-fast-config.md)).
-- **Webhook Fail-Closed**: Removed all payment webhook bypass signatures (`test-signature`, `sandbox-bypass-valid`) and skip-on-missing-credentials branches; sandbox gateway rejected per request in production.
-- **Realtime Room Authorization**: `order:join` now verifies caller ownership (customer/assigned rider/vendor outlet/master scope) — cross-customer room joins rejected with an explicit error event.
-- **Transport Hardening**: Helmet, origin-whitelist CORS (HTTP + WebSocket, `CORS_ORIGINS`), global rate limiting via `@nestjs/throttler` (OTP 5/min, verify 10/min, webhook 30/min, geo 30/min), Swagger gated to non-production, `GET /auth/me` no longer leaks `fcmToken`/`devicePlatform`.
-- **Observability**: winston structured JSON logging with `AsyncLocalStorage` request-id middleware (`x-request-id` on responses); global exception filter logs status/path/requestId/stack; `app.enableShutdownHooks()` for graceful SIGTERM drains.
-- **Deploy Correctness**: `docker-compose.prod.yml` now boots — TLS via envsubst template (`deploy/nginx-templates/`) + certbot renewal service, secrets required with `${VAR:?}` fail-fast, JSON log rotation + memory limits on all services, documented first-boot TLS issuance in `deploy/README.md`; compose secrets load from repo root via `--env-file ../.env` (wired into `scripts/start-local.sh`).
-- **Non-Root Containers**: Backend `USER node`; portals moved to `nginxinc/nginx-unprivileged` on internal port 8080 (compose healthchecks and edge upstreams updated); backend container applies `prisma migrate deploy` on every start.
+#### Fixed
+- Master-scope operating-hours upsert using an unresolved `vendorId` (`vendor-staff.service.ts`).
 
-### Fixed
-- **Timezone-dependent vendor hours gate**: identified during verification — operating-hours checks compare server-UTC clock against vendor-local hours (pre-existing; scheduled for Wave 3 with the money-path test suite).
+### [1.4.5] - 2026-09-26
+- Unified roadmap + changelog into this document; embedded the 3-phase workflow in README; removed `SPEC_DRIVEN_WORKFLOW.md` and `WORK_BREAKDOWN.md` (−40 KB doc overhead).
 
-## [1.4.6] - 2026-09-28
+### [1.4.4] - 2026-09-26
+- Established the spec-driven documentation system: 3-phase protocol, `FEATURES.md` capability catalog, `QUICK_REFERENCE.md` context router; streamlined BRD/TID suites.
 
-### Changed — Wave 0: Engineering Quality Gate (Production Readiness Plan)
-- **Single Verify Entrypoint**: Added root `package.json` with `npm run verify` (backend typecheck + ESLint + build, both portal typechecks, `flutter analyze` + `flutter test` for both apps); added `typecheck`, `lint`, and aggregated `test` (18 integration suites) scripts to `services/backend_api`.
-- **Strict Mode Enforcement**: Migrated backend `tsconfig.json` to full `"strict": true` and eliminated all 18 explicit `any` usages in backend `src/` (typed Redis GEOSEARCH tuples, Prisma where-inputs, JSONB snapshot casts, typed `$queryRaw` coverage rows).
-- **Static Analysis**: Added ESLint 9 flat config (`services/backend_api/eslint.config.mjs`) with `no-explicit-any: error` on `src/`; seed/script tooling tracked as warning-level tech debt.
-- **CI Pipeline**: Added `.github/workflows/ci.yml` running the root `verify` gate on every PR and push to `main` (Node 20 + Flutter stable).
-- **Commit Hooks**: Added Husky + lint-staged pre-commit hook running backend ESLint on staged files.
-- **Phase-1 Tooling**: Added `/grill-me` workspace command (`.zcode/commands/grill-me.md`) operationalizing the Zero Assumptions Protocol as a plan-interrogation gate.
-- **Documentation Truth Sync**: Corrected FEATURES.md test-stack claim (Jest → tsx integration scripts + ESLint), Redis claim-lock TTL drift (`EX 45` → `EX 10` per code), AGENT_RULES Riverpod version (2.x → 3.x), and stale README seed credentials (OTP phone login instead of non-existent password auth); added a living-docs grep item to the DoD checklist.
+### [1.4.3] - 2026-09-26
+- Centralized design-system governance: Flutter tokens (`AppColors`/`AppTypography`/`AppSpacing`/`AppRadius`) + Tailwind semantic palettes; eliminated raw inline styling across all apps ([ADR-010](context_docs/architecture-decision-records/ADR-010-ai-driven-engineering-governance-and-no-auto-commits.md)).
 
-### Fixed
-- **Vendor Operating Hours (strict-mode find)**: `updateOperatingHours` upsert used the possibly-undefined `vendorId` parameter instead of the resolved `targetVendorId`, which broke master-scope staff updates with no explicit outlet (`vendor-staff.service.ts`).
+### [1.4.2] - 2026-09-26
+- Reusable web primitives (`PageHeader`, `StatCard`, `EmptyState`, `StockToggleSwitch`); admin modal/table/radar layout fixes; KDS tablet ergonomics (≥44px targets, snap-track).
 
-## [1.4.5] - 2026-09-26
+### [1.4.1] - 2026-09-26
+- Mobile responsive hardening (320px–430px clamps, RenderFlex overflow fixes); backend test-script time-zone resilience.
 
-### Changed
-- **Documentation Unification & Token Optimization**:
-  - Merged the standalone Work Breakdown Structure (`WORK_BREAKDOWN.md`) and `CHANGELOG.md` into this unified living document, eliminating file proliferation and reducing documentation token overhead by over 40 KB.
-  - Consolidated the Spec-Driven Development Workflow and repeatable engineering checklists directly into root [`README.md`](README.md#-spec-driven-development-workflow-3-phase-protocol) and deleted `context_docs/SPEC_DRIVEN_WORKFLOW.md`, further reducing document overhead.
-  - Formatted Part 1 as an executive Master Engineering Roadmap and Milestones Tracker with status tables, deliverables, and test gates for all core phases and hardening tracks.
-  - Updated living document synchronization references across `README.md`, `AGENTS.md`, `context_docs/QUICK_REFERENCE.md`, `FEATURES.md`, and `TID-01`.
+### [1.4.0] - 2026-09-25
+- Admin governance: courier applicant queue, cash-limit adjustments, Leaflet OSM fleet radar, `?orderNumber=` deep linking, force-assign/force-cancel modals, RFC 4180 CSV settlement export + payout batches.
 
-### Fixed
-- **Documentation Data Gaps**:
-  - Updated `context_docs/AGENT_RULES.md` directory hierarchy to include `QUICK_REFERENCE.md` and `ADR-001 through ADR-011`.
-  - Removed obsolete `WBS` references from `context_docs/technical-implementation-documents/01-system-architecture-and-tech-stack.md`.
-  - Streamlined Master Documentation Index in `README.md` and `AGENTS.md` to reflect unified roadmap and changelog governance.
+### [1.3.0] - 2026-09-25
+- Vendor KDS: 3-lane Kanban, prep countdown timers, rejection reason codes, Web Audio chime loop ([ADR-007](context_docs/architecture-decision-records/ADR-007-web-audio-api-synthesized-kds-chime.md)), rush-hour pause, merchant catalog + stock toggles, sales ledger.
 
----
+### [1.2.0] - 2026-09-24
+- Rider app: background GPS telemetry, 45s dispatch alert with haptics, atomic claim mutex ([ADR-004](context_docs/architecture-decision-records/ADR-004-atomic-dispatch-claim-mutex.md)), 3-step fulfillment, doorstep 5-min SOP, remote cancellation handling, earnings + cash deposits.
 
-## [1.4.4] - 2026-09-26
+### [1.1.0] - 2026-09-24
+- Customer app: instant search with direct add + cart-conflict dialog, store closed/rush banners, switch-to-COD recovery, 6-stage tracking, re-order validation, address book.
 
-### Added
-- **Spec-Driven Development Workflow (`context_docs/SPEC_DRIVEN_WORKFLOW.md`)**:
-  - Defined authoritative 3-phase engineering lifecycle: Phase 1 (Plan & Grounding), Phase 2 (Implementation), Phase 3 (Verification & Living Document Sync).
-  - Authored concrete, repeatable checklists for: (A) Adding new features/sub-features, (B) Fixing existing features/bugs, and (C) Code refactoring.
-  - Linked active plan review (`/grill-me`), zero-assumption clarification, and strict DoD quality gates.
-- **Granular Master System Feature Catalog (`FEATURES.md`)**:
-  - Expanded line-by-line capability index covering all 5 sub-projects (Customer App, Rider App, Vendor Portal, Admin Portal, Backend Core/Database).
-  - Cataloged recent capabilities: Design System token architecture, layout hardening, reusable UI primitives, order cancellation & refund rollback engine, COD cash deposit verification, and net COD offset settlements.
-  - Added automated test suite catalog and complete traceability matrix mapping features to code, context docs, and ADRs.
-- **Master Quick Reference & AI Context Router Overhaul (`context_docs/QUICK_REFERENCE.md`)**:
-  - Integrated 3-phase workflow entry point and task routing matrix for zero token waste.
-- **Comprehensive Platform Documentation & Local Setup Overhaul (`README.md`)**:
-  - Re-architected root documentation with 5-minute local environment setup (Docker Compose, PostGIS, Redis, migrations, seed script, portal and mobile run commands).
-  - Integrated Spec-Driven Workflow architecture, Core Operational Invariants Matrix, and documentation index.
-- **Agent Governance Protocol Update (`AGENTS.md`)**:
-  - Synchronized AI agent rules with Spec-Driven Workflow, QUICK_REFERENCE.md routing, and Design System Invariant.
-- **Documentation Streamlining & Token Optimization (BRD & TID Suites)**:
-  - Audited all 8 Business Requirements Documents (`BRD-00` to `BRD-07`) and 8 Technical Implementation Documents (`TID-01` to `TID-07`).
-  - Stripped duplicate/verbose narrative and converted features into dense, high-signal, list-based specifications with inputs, outputs, rules, and edge cases.
-  - Fixed duplicate GiST index statements in `TID-02` and synchronized Nginx upstreams with ADR-005 in `TID-07`.
-
----
-
-## [1.4.3] - 2026-09-26
-
-### Added
-- **Centralized Design System Governance**:
-  - Added Design System Standards (§ 3.7) to `context_docs/AGENT_RULES.md` and Design System Invariant (`ZERO INLINE STYLING`) to `AGENTS.md`.
-  - Established `AppTypography`, `AppSpacing`, and `AppRadius` in `apps/customer_app/lib/core/constants/`.
-  - Established high-contrast outdoor `AppTypography`, `AppSpacing`, and `AppRadius` in `apps/rider_app/lib/core/constants/`.
-  - Created automated test suites (`test/design_system_test.dart`) for both mobile applications.
-  - Added unified `surface` and `status` semantic palettes in `tailwind.config.js` across both web portals.
-
-### Fixed
-- **Mobile Presentation Layer Ad-hoc Styling**:
-  - Eliminated all raw `Color(0x...)` and `Colors.*` across 26 files in Customer App and 20 files in Rider App, migrating to `AppColors.*`.
-  - Replaced all scattered ad-hoc `TextStyle(...)` calls with semantic `AppTypography` hierarchy tokens.
-  - Replaced magic spacing and border radii numbers with `AppSpacing` and `AppRadius`.
-- **Web Portal Styling & Tokens**:
-  - Unified `Button`, `Badge`, `Modal`, `Table`, `StatCard`, `PageHeader`, and `EmptyState` primitives.
-  - Replaced inline style attributes and hardcoded hex values in `LiveFleetMap.tsx` with semantic Tailwind classes.
-
----
-
-## [1.4.2] - 2026-09-26
-
-### Added
-- **Reusable Web Component Suite**:
-  - Extracted standardized `PageHeader`, `StatCard`, and `EmptyState` across `apps/admin_portal`.
-  - Extracted standardized `PageHeader`, `StatCard`, and accessible `StockToggleSwitch` across `apps/vendor_portal`.
-
-### Fixed
-- **Super Admin Console Layout & Map Overlay**:
-  - Refactored `Modal.tsx` to prevent viewport clipping and support smooth internal body scrolling.
-  - Wrapped tabular views in `overflow-x-auto` to prevent column squishing on mobile and tablet screens.
-  - Added slide-over navigation drawer in `AdminLayout.tsx` for responsive mobile usage.
-  - Fixed `LiveFleetMap.tsx` legend overlay z-index (`z-[500]`), container resize invalidation, and radial marker jitter for overlapping coordinates.
-- **Vendor Kitchen Display System (KDS) Touch Ergonomics**:
-  - Transformed 3-Lane Kanban pipeline into a horizontally scrollable snap-track with minimum lane widths for tablet devices (768px-1024px) plus mobile quick-lane switcher tabs.
-  - Upgraded kitchen action buttons, timers, and prep-time selectors to touch-friendly heights (`>= 44px`).
-  - Added text truncation and responsive constraints to `OutletSwitcher` to eliminate top bar header overflows.
-
-### Changed
-- Enforced strict TypeScript with zero raw `any` types across both web portals.
-- Configured Rollup manual chunking in `apps/admin_portal/vite.config.ts`, eliminating oversized bundle warnings.
-- Cleaned trivial code comments across all portal components per AGENT_RULES.md § 3.6.
-
----
-
-## [1.4.1] - 2026-09-26
-
-### Fixed
-- **Customer Mobile App Layout & Responsiveness**:
-  - Constrained `OrderStepperWidget` stages and clamped label text scaling to prevent horizontal blowout on 320px screens.
-  - Converted `OrderHistoryScreen` and `PaymentRecoveryBanner` action rows to flexible `Wrap` layout to eliminate RenderFlex overflows under dynamic font scaling (1.5x).
-  - Enforced text truncation and ellipsis on outlet cards, search results, and store detail metadata.
-  - Hardened pin code input, phone input, and bottom sheets against keyboard-induced viewport clipping.
-- **Rider Fleet Mobile App Layout & Responsiveness**:
-  - Wrapped duty switch card, top bar metrics, active trip banner, and GPS telemetry card in flexible containers with ellipsis to prevent 320px–360px screen overflows.
-  - Constrained COD cash-in-hand metrics in `CodCashLimitCard` and `EarningsSummaryCard`, eliminating a 47px overflow.
-  - Wrapped 45-second dispatch broadcast modal, 3-step fulfillment action cards, and doorstep SOP sheets in `SingleChildScrollView` to prevent vertical clipping on compact devices.
-- **Backend Test Script Resilience**:
-  - Added operating hours upsert in `test-order-cancellation.ts` to ensure test vendor is open regardless of server execution time and timezone.
-
-### Changed
-- Standardized code-level comments across all Customer and Rider mobile app components per AGENT_RULES.md § 3.6, stripping trivial boilerplate while preserving core state machine and safety invariants.
-
----
-
-## [1.4.0] - 2026-09-25
-
-### Added
-- **Admin Portal Governance & Queue**:
-  - Dedicated Applicant Couriers queue with real-time pending applicant badge counter and 1-click approval/suspension actions (`adminApi.setRiderApproval`).
-  - Cash safety limit adjustment modal allowing platform operators to update courier maximum cash-in-hand thresholds (`adminApi.updateRiderCashLimit`).
-- **Interactive Leaflet Live Fleet Radar**:
-  - Replaced external mapping dependency with free OpenStreetMap tile layers via Leaflet (`LiveFleetMap.tsx`).
-  - Added courier color-coded markers (Emerald for idle, Sky for on-trip, Amber for near-limit, Slate for offline).
-  - Integrated React Router SPA navigation (`/orders?orderNumber=...`) inside popup modals without page reload or dropping WebSocket connections.
-- **Deep Linking & Administrative Overrides**:
-  - URL query parameter deep linking (`?orderNumber=...`) with direct-link filter banner and auto-assignment modal launch.
-  - Itemized order details modal featuring customer cooking instructions, delivery address, and complete dish breakdown.
-  - Force-Assign modal with live courier status, cash-in-hand figures, and itemized dishes summary.
-  - Force-Cancel modal with mandatory audit reason (minimum 5 characters), reversal warning, and itemized dishes to be cancelled.
-- **Financial Settlements & Statement Exports**:
-  - RFC 4180 CSV settlement export (`GET /admin/finance/settlement-export?format=csv`) and JSON query for ERP accounting integration.
-  - Payout batch audit trail and settlement cycle trigger modal (`POST /admin/finance/settlement-cycle`).
-
-### Changed
-- Standardized Admin Portal routing into 6 consolidated views (`/dashboard`, `/dispatch`, `/orders`, `/promotions`, `/vendors`, `/settings`).
-- Hardened Rider App duty switch to strictly handle HTTP 400 when attempting to go offline with an active in-flight delivery.
-
----
-
-## [1.3.0] - 2026-09-25
-
-### Added
-- **Vendor Kitchen Display System (KDS)**:
-  - 3-Lane Kanban progression (`New Orders`, `Preparing`, `Ready for Pickup`) with dynamic badge counters and prep time selection (`[15, 20, 25, 35, 45]` minutes).
-  - Structured order rejection modal with predefined reason codes (`OUT_OF_STOCK`, `KITCHEN_OVERLOAD`, `STORE_CLOSING_SOON`, `OTHER`) and custom notes.
-  - Overdue preparation countdown timer shifting from amber to flashing red upon SLA breach.
-- **Synthesized In-Memory Audio Alerts (ADR-007)**:
-  - Persistent Web Audio API dual-tone chime loop (D5 587 Hz + A5 880 Hz) sounding every 3 seconds upon incoming orders.
-  - Guaranteed silence invariant: chime automatically stops only when zero unaccepted orders remain in Lane 1.
-- **Operational Controls & Stock Management**:
-  - 1-click Rush Hour Pause toggle on top navigation bar with full-width amber banner and quick-resume action.
-  - Dedicated merchant catalog endpoint `GET /vendor/catalog` retaining all sold-out items with total in-stock vs out-of-stock metrics.
-  - Instant 1-click stock switches for products and product variants.
-- **Sales Ledgers & Statements**:
-  - Date filter toggle (`Today` vs `All Time`) with dynamic gross volume, commission (15%), and net payable calculation.
-  - Itemized order details modal with cooking instructions, variant breakdown, and settlement statuses.
-
----
-
-## [1.2.0] - 2026-09-24
-
-### Added
-- **Rider Fleet Telemetry & Background Services**:
-  - Android `FOREGROUND_SERVICE_LOCATION` and iOS background location updates with 10-meter distance filtering.
-  - Dual WebSocket (`rider:location:update`) and HTTP (`PATCH /riders/duty`) location synchronization.
-- **Dispatch Alerting & Claim Mutex (ADR-004)**:
-  - 45-second dispatch broadcast modal with animated progress bar shifting color in final 10 seconds.
-  - Dual audio chime alert and repeating heavy haptic vibration pulsing every 3 seconds.
-  - Atomic Redis `SET NX EX` mutex lock preventing duplicate courier assignments.
-- **3-Step Sequential Fulfillment Workflow**:
-  - Visual 3-stage stepper: `Pick Up Food` ➔ `Deliver to Customer` ➔ `Handover & Cash Verification`.
-  - One-tap external turn-by-turn navigation handoff to Google Maps / Apple Maps.
-  - Mandatory confirmation checkbox for Cash on Delivery orders before delivery completion.
-- **Doorstep Exceptions & Safety**:
-  - 5-minute unresponsive customer SOP countdown modal with direct customer call launcher and failure reporting (`POST /orders/:id/issue`).
-  - Remote cancellation listener and banner displaying server-provided cancellation reason.
-  - Daily earnings history (`Today` vs `This Week`) and hub cash deposit settlement flow.
-
----
-
-## [1.1.0] - 2026-09-24
-
-### Added
-- **Customer Mobile Experience**:
-  - Debounced instant search querying restaurants and items (`GET /vendors/search?q=...`).
-  - Direct `ADD +` from search results launching item customizer sheet with single-vendor conflict dialog.
-  - Category filter grid (`All`, `FOOD`, `GROCERY`, `PHARMACY`) on home screen and sticky category navigation on store menus.
-  - High-contrast Red Store Closed and Amber Rush Hour Paused warning banners with disabled checkout CTAs.
-  - Switch-to-COD payment failure recovery card (`POST /orders/:id/switch-cod`) allowing instant transition to cash upon gateway delays.
-  - 24/7 Support Hotline dialer (+8801700000000) accessible from AppBar and Profile screens.
-  - 6-stage order tracking stepper with live motorcycle GPS tracking.
-  - Smart re-order flow (`POST /orders/validate-reorder`) checking current menu stock and repopulating valid items.
-  - Saved address book CRUD management with coordinate extraction and delivery instructions.
-
----
-
-## [1.0.0] - 2026-09-24
-
-### Added
-- **Platform Foundation & Architecture**:
-  - Production-grade monorepo containing NestJS backend, 2 Flutter mobile apps, and 2 React/Vite web portals.
-  - Docker Compose orchestration with PostgreSQL 16 + PostGIS 3.4, Redis 7.2, and Nginx edge proxy on port 8080.
-  - Modular Monorepo and Nginx Subpath Routing ([ADR-001](context_docs/architecture-decision-records/ADR-001-modular-monorepo-and-ingress-topology.md), [ADR-005](context_docs/architecture-decision-records/ADR-005-micro-frontends-and-subpath-routing.md)).
-  - Dynamic Dual Order Flow State Machine (`RIDER_FIRST` vs `VENDOR_FIRST`) ([ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)).
-  - PostGIS spatial indexing (`ST_DWithin`) and Redis geospatial clustering ([ADR-003](context_docs/architecture-decision-records/ADR-003-postgis-spatial-engine-and-redis-geohash.md)).
-  - Deterministic double-entry commission accounting ledger with 2-decimal rounding ([ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md)).
-  - Multi-gateway payment infrastructure (SSLCommerz, Sandbox gateway, Cash on Delivery) with idempotent webhooks ([ADR-011](context_docs/architecture-decision-records/ADR-011-multi-gateway-online-payment-and-webhook-idempotency.md)).
-  - AI engineering governance and commit authority rules ([ADR-010](context_docs/architecture-decision-records/ADR-010-ai-driven-engineering-governance-and-no-auto-commits.md)).
+### [1.0.0] - 2026-09-24
+- Platform foundation: monorepo (NestJS backend, 2 Flutter apps, 2 React portals), Docker stack, PostGIS spatial engine ([ADR-003](context_docs/architecture-decision-records/ADR-003-postgis-spatial-engine-and-redis-geohash.md)), dual-flow FSM ([ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)), double-entry ledger ([ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md)), idempotent payment webhooks ([ADR-011](context_docs/architecture-decision-records/ADR-011-multi-gateway-online-payment-and-webhook-idempotency.md)), AI engineering governance ([ADR-010](context_docs/architecture-decision-records/ADR-010-ai-driven-engineering-governance-and-no-auto-commits.md)).
