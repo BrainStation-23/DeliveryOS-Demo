@@ -16,6 +16,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/common/PageHeader';
+import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { LedgerItem } from '../../types/ledger';
 import { SalesLedgerKPIs } from './components/SalesLedgerKPIs';
 import { SalesLedgerDetailModal } from './components/SalesLedgerDetailModal';
@@ -28,26 +29,17 @@ export const VendorOrdersPage: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<'TODAY' | 'ALL_TIME'>('TODAY');
   const [selectedOrderForModal, setSelectedOrderForModal] = useState<LedgerItem | null>(null);
 
-  const { data: salesData, isLoading, refetch } = useQuery({
+  const { data: salesData, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['vendor-sales-ledger', activeOutletId],
     queryFn: () => kdsApi.getSalesLedger(activeOutletId),
   });
 
   const rawLedgers: LedgerItem[] = salesData?.ledgers || [];
 
-  const isToday = (dateStr: string) => {
-    const itemDate = new Date(dateStr);
-    const today = new Date();
-    return (
-      itemDate.getDate() === today.getDate() &&
-      itemDate.getMonth() === today.getMonth() &&
-      itemDate.getFullYear() === today.getFullYear()
-    );
-  };
-
   const dateScopedLedgers = useMemo(() => {
     if (dateFilter === 'TODAY') {
-      return rawLedgers.filter((l) => isToday(l.createdAt));
+      const today = new Date();
+      return rawLedgers.filter((l) => isSameDay(new Date(l.createdAt), today));
     }
     return rawLedgers;
   }, [rawLedgers, dateFilter]);
@@ -250,6 +242,10 @@ export const VendorOrdersPage: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {isError && (
+        <QueryErrorBanner error={error} onRetry={() => refetch()} />
+      )}
 
       {isLoading ? (
         <div className="py-24">

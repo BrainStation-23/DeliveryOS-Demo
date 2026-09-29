@@ -47,7 +47,7 @@ This document provides a line-level, granular breakdown of every operational fea
   - `/vendor/` ➔ Vendor KDS Portal (Port 3001)
   - `/api/v1/` ➔ NestJS REST API (Port 4000)
   - `/events` ➔ Socket.IO Real-time Gateway (Port 4000)
-- **Session Namespace Isolation**: Separate browser storage namespaces (`deliveryos_admin_auth` vs `deliveryos_vendor_auth`) preventing session overwrites across multiple tabs.
+- **Session Namespace Isolation**: Separate browser storage namespaces (`deliveryos_admin_token/_refresh/_user` vs `deliveryos_vendor_token/_refresh/_user`) preventing session overwrites across multiple tabs.
 
 ### 1.5. Centralized Design System Governance & Token Architecture
 - **Mobile Design Tokens (Flutter)**:
@@ -90,7 +90,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Address Book Management (CRUD)**:
   - Add, edit, label (`Home`, `Work`, `Other`), and delete saved addresses (`AddressBookScreen`).
   - Coordinate extraction from device GPS with delivery notes (flat number, gate access code).
-  - One-tap default address selection (`PATCH /addresses/:id/default`).
+  - One-tap default address selection (`PATCH /customers/addresses/:id/default`).
 - **Geofenced Coverage Check**: Client and server address validation using PostGIS `ST_DWithin` ensuring customer is within merchant service radius (`POST /vendors/validate-address-coverage`).
 
 ### 2.3. Home Discovery & Promotions
@@ -149,13 +149,13 @@ This document provides a line-level, granular breakdown of every operational fea
 - **In-Flight Duty Lock**: Blocks switching offline with `400 Bad Request` while carrying an active delivery (`RIDER_ASSIGNED` or `DISPATCHED`).
 - **Background GPS Foreground Service**:
   - Android `FOREGROUND_SERVICE_LOCATION` and iOS background location updates.
-  - Streams location every 10 meters via WebSocket (`rider:location:update`) for zero-latency customer tracking and HTTP fallback (`PATCH /riders/duty`).
+  - Streams location every 10 meters via WebSocket (`rider:location:update`) for zero-latency customer tracking and HTTP fallback (`PATCH /rider/duty`).
 
 ### 3.3. Broadcast Alert & Dispatch Claim
 - **45-Second Dispatch Alert**: Full-screen modal popping up on incoming order broadcast (`IncomingTripModal`).
 - **Audio Chime & Repeating Haptic Pulse**: Dual sensory alerts playing `SystemSound.alert` and `HapticFeedback.heavyImpact()` pulsing every 3 seconds until claimed or dismissed.
 - **Dynamic Countdown Progress Bar**: Animated linear bar changing from green to urgent red in the final 10 seconds.
-- **Atomic One-Tap Claim**: Calls `POST /riders/orders/:id/claim` backed by Redis `SET NX EX 10` mutex lock ensuring zero double-assignment ([ADR-004](context_docs/architecture-decision-records/ADR-004-atomic-dispatch-claim-mutex.md)).
+- **Atomic One-Tap Claim**: Calls `POST /rider/orders/:id/claim` backed by Redis `SET NX EX 10` mutex lock ensuring zero double-assignment ([ADR-004](context_docs/architecture-decision-records/ADR-004-atomic-dispatch-claim-mutex.md)).
 
 ### 3.4. 3-Step Sequential Fulfillment Workflow
 - **Step 1: Pick Up Food** (`_buildStep1PickUp` in `ActiveTripScreen`):
@@ -178,7 +178,7 @@ This document provides a line-level, granular breakdown of every operational fea
   2. Ring doorbell / knock at door.
   3. Wait full 5 minutes before reporting failure.
 - **Digital 5-Minute Countdown Timer**: 300-second countdown displaying remaining minutes and seconds. Tapping "Call Customer" starts the timer automatically.
-- **Failure Escalation**: Button `"Report Unresponsive & Release Order"` invokes `POST /orders/:id/issue`, releases the order to Dispatch HQ, and returns courier to dashboard.
+- **Failure Escalation**: Button `"Report Unresponsive & Release Order"` invokes `POST /rider/orders/:id/report-issue`, releases the order to Dispatch HQ, and returns courier to dashboard.
 
 ### 3.6. Real-Time Remote Cancellation Handling
 - **Remote Cancellation Listener**: Captures `order:cancelled` socket event if customer, merchant, or admin cancels the delivery in flight.
@@ -334,7 +334,7 @@ This document provides a line-level, granular breakdown of every operational fea
 
 ## 6. Backend API & Engine Services (`services/backend_api`)
 
-### 6.1. Modular NestJS Architecture (15 Feature Modules)
+### 6.1. Modular NestJS Architecture (14 Feature Modules)
 - **Auth (`/auth`)**: Phone OTP request/verify (mock SMS in dev, SSL Wireless in prod), JWT access + rotating refresh tokens with Redis jti revocation, logout, `GET /auth/me`, FCM device-token registration (`POST /auth/device-token`).
 - **Vendors (`/vendors`, `/cart`)**: PostGIS nearby discovery (`nearby`, `search`, `:id/catalog`) and address-coverage geofence validation (`validate-address-coverage`).
 - **Promotions (`/banners`, `/coupons`)**: Active hero banners, coupon validation, and the pricing engine (`delivery-fee.service.ts`).
@@ -343,7 +343,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Riders (`/rider`)**: Profile, duty toggle with in-flight lock, claim/pickup/deliver flow, trip history, COD cash deposit submission & tracking, issue reporting.
 - **Order Flow (`/admin/settings/order-flow`)**: Config-driven dispatch (`order_flow_config`: `RIDER_FIRST`/`VENDOR_FIRST`, rider search timeout), broadcast engine, escalation scanner (30s leader-locked sweep).
 - **Realtime**: Socket.IO gateway (`/events`) — room topology, JWT handshake auth, GPS telemetry ingestion (§ 6.3).
-- **Admin (`/admin`)**: 36 governance routes — overview KPIs, fleet, orders (force-assign/cancel), rider approval & cash limits, vendor/category/banner/coupon CRUD, media uploads, order-flow + delivery-fee settings, settlement cycles, statements, cash-deposit verification.
+- **Admin (`/admin`)**: 33 governance routes — overview KPIs, fleet, orders (force-assign/cancel), rider approval & cash limits, vendor/category/banner/coupon CRUD, media uploads, order-flow + delivery-fee settings, settlement cycles, statements, cash-deposit verification.
 - **Payments (`/payments`)**: Gateway session initiation, HMAC-verified idempotent webhooks, transaction status, browser callback redirects.
 - **Addresses (`/customers`)**: Customer address book CRUD + default selection, profile management.
 - **Geo (`/geo`)**: OSM Nominatim reverse geocoding with 24h Redis cache.
@@ -400,7 +400,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Background Telemetry**: rider foreground service keeps GPS streaming while backgrounded; synthetic-coordinate fallback removed; HTTP sync throttled to 30s; lifecycle-aware socket reconnect.
 
 ### 6.9. Hardening, Data Integrity & Error UX
-- **Money-Path Unit Tests**: Jest suite (`npm run test:unit`, runs in CI via the root `verify` gate) pinning the ADR-002 FSM, region-time operating-hours math (overnight windows, Asia/Dhaka rollover), coupon eligibility guards, and the webhook atomic-claim idempotency ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)).
+- **Money-Path Unit Tests**: Jest suite (`npm run unit:test`, runs in CI via the root `verify` gate) pinning the ADR-002 FSM, region-time operating-hours math (overnight windows, Asia/Dhaka rollover), coupon eligibility guards, and the webhook atomic-claim idempotency ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)).
 - **Region-Time Hours Gate**: vendor operating hours compare against the active region's wall clock (`Asia/Dhaka`/`Asia/Riyadh` via `REGION_MODE`), never the server's UTC clock.
 - **Atomic Coupon Claims**: checkout claims coupon usage via `UPDATE ... WHERE currentUses < usageLimit` inside the transaction; conflict rolls back the order (no oversell).
 - **Pagination**: customer order history and admin live orders return `{items,total,page,limit,totalPages}` with wired portal `Table` controls; nearby-vendor discovery capped by validated `limit` (default 50).
@@ -438,23 +438,25 @@ The platform is guarded by a layered verification pyramid. Backend integration s
 
 | Suite | Command | Scope & Capabilities Verified |
 | :--- | :--- | :--- |
-| **Repo Quality Gate (CI)** | `npm run verify` (root) | Backend typecheck + ESLint + Jest unit + build, both portal typechecks, `flutter analyze` + `flutter test` ×2 — runs on every push/PR via `.github/workflows/ci.yml` |
-| **Money-Path Unit Tests** | `npm run test:unit` (backend) | Jest (37 tests across 6 suites) pinning the ADR-002 FSM, dispatch order-flow and claim mutex invariants, region-time operating-hours math, coupon eligibility, webhook atomic-claim idempotency, and delivery-fee computation/caching ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)) |
-| **DB & Spatial Integrity** | `npm run test:db` | Prisma models, PostGIS expression GIST indexes, spatial query sanity |
-| **Auth & RBAC Security** | `npm run test:auth` | Phone OTP, JWT + refresh rotation, tenant isolation, Super Admin override guards |
-| **Vendor Discovery & Geofence** | `npm run test:vendor` | PostGIS `ST_DWithin` radius search, vertical filters, distance sorting |
-| **Promotions & Pricing** | `npm run test:promotions` | Banners, coupon validation, flat vs distance delivery fees |
-| **Order Checkout** | `npm run test:order` | Single-vendor cart boundary, coupon claims, fee math |
-| **Vendor & Rider Operations** | `npm run test:vendor-rider` | KDS transitions, stock toggles, rider duty/claim/deliver |
-| **WebSocket Tracking** | `npm run test:ws` | `/events` rooms, join authorization, telemetry fan-out |
-| **Dispatch FSM & Mutex** | `npm run test:dispatch` | Redis `SET NX EX` mutex, race elimination, dual-flow transitions, escalation |
-| **Live Tracking & Escalation** | `npm run test:tracking` / `test:escalation` | GPS streaming payloads, tiered radius escalation |
-| **E2E Lifecycle & Ledger Audit** | `npm run test:e2e` | Full multi-role lifecycle; double-entry ledgers balance to the penny |
-| **Online Payments & IPN** | `npm run test:payment` | Gateway initiation, webhook signature verification, pre-payment broadcast suppression |
-| **Settlement Cycles** | `npm run test:settlement` | Batch settlements, net COD offset, CSV export validation |
-| **Cancellation & Refunds** | `npm run test:cancel` | Pre-prep boundary guard, vendor reject codes, admin force-cancel, ledger rollbacks |
-| **Business Integrity (Track 1)** | `npm run test:track1` | Store hours/busy guards, COD deposits, net COD offset, in-flight duty lock |
-| **Vendor KDS Resilience (Track 3)** | `npm run test:track3` | KDS flows under churn |
+| **Repo Quality Gate (CI)** | `npm run verify` (root) | Backend typecheck + ESLint + Jest unit + build, portal typechecks + production builds, `flutter analyze` + `flutter test` ×2 — runs on every push/PR via `.github/workflows/ci.yml` |
+| **Money-Path Unit Tests** | `npm run unit:test` (backend) | Jest (39 tests across 6 suites) pinning the ADR-002 FSM, dispatch order-flow and claim mutex invariants, region-time operating-hours math, coupon eligibility, webhook atomic-claim idempotency, and delivery-fee computation/caching ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)) |
+| **DB & Spatial Integrity** | `npm run db:test` | Prisma models, PostGIS expression GIST indexes, spatial query sanity |
+| **Auth & RBAC Security** | `npm run auth:test` | Phone OTP, JWT + refresh rotation, tenant isolation, Super Admin override guards |
+| **Vendor Discovery & Geofence** | `npm run vendor:test` | PostGIS `ST_DWithin` radius search, vertical filters, distance sorting |
+| **Promotions & Pricing** | `npm run promotions:test` | Banners, coupon validation, flat vs distance delivery fees |
+| **Order Checkout** | `npm run order:test` | Single-vendor cart boundary, coupon claims, fee math |
+| **Vendor & Rider Operations** | `npm run vendor:test-rider` | KDS transitions, stock toggles, rider duty/claim/deliver |
+| **WebSocket Tracking** | `npm run ws:test` | `/events` rooms, join authorization, telemetry fan-out |
+| **Dispatch FSM & Mutex** | `npm run dispatch:test` | Redis `SET NX EX` mutex, race elimination, dual-flow transitions, escalation |
+| **Live Tracking & Dispatch Escalation** | `npm run tracking:test` | GPS streaming payloads, tiered radius escalation |
+| **FCM Push Notifications** | `npm run escalation:test` | Device-token registry, fan-out delivery (runs `test-fcm-notifications.ts`) |
+| **Health & Address Profile** | `npm run health:test` / `address:test` | Health probes, customer address book + profile flows |
+| **E2E Lifecycle & Ledger Audit** | `npm run e2e:test` | Full multi-role lifecycle; double-entry ledgers balance to the penny |
+| **Online Payments & IPN** | `npm run payment:test` | Gateway initiation, webhook signature verification, pre-payment broadcast suppression |
+| **Settlement Cycles** | `npm run settlement:test` | Batch settlements, net COD offset, CSV export validation |
+| **Cancellation & Refunds** | `npm run cancel:test` | Pre-prep boundary guard, vendor reject codes, admin force-cancel, ledger rollbacks |
+| **Business Integrity (Track 1)** | `npm run track1:test` | Store hours/busy guards, COD deposits, net COD offset, in-flight duty lock |
+| **Vendor KDS Resilience (Track 3)** | `npm run track3:test` | KDS flows under churn |
 | **Web Portal Admin Tests** | `npm test` (admin_portal) | Scaffolding assertions + live governance-endpoint walkthrough |
 | **Web Portal KDS Tests** | `npm test` (vendor_portal) | Scaffolding + KDS operations + multi-tier vendor flows |
 | **Customer App Flutter Tests** | `flutter test` | Riverpod providers, cart conflict modal, stepper layout, design-system tokens |

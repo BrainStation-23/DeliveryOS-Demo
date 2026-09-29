@@ -11,23 +11,43 @@ import {
   Post,
   Put,
   Query,
-  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { Request as ExpressRequest, Response } from 'express';
+import { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadedFile, UseInterceptors } from '@nestjs/common/decorators';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { StorageService } from '../../common/storage/storage.service';
-import { BannerLinkType, DiscountType, PermissionScope, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { AdminService } from './admin.service';
 import { AdminCancelOrderDto } from './dto/admin-cancel-order.dto';
 import { VerifyCashDepositDto } from './dto/verify-cash-deposit.dto';
+import {
+  AssignVendorStaffDto,
+  CreateBannerDto,
+  CreateCategoryDto,
+  CreateCouponDto,
+  CreateVendorDto,
+  ForceAssignRiderDto,
+  GetLiveOrdersQueryDto,
+  GetRidersQueryDto,
+  OverrideProductDto,
+  SetRiderApprovalDto,
+  ToggleProductStockDto,
+  ToggleVendorStatusDto,
+  UpdateBannerDto,
+  UpdateCouponDto,
+  UpdateDeliveryFeeDto,
+  UpdateRiderCashLimitDto,
+  UpdateVendorDto,
+} from './dto/admin-governance.dto';
+
+const ALLOWED_UPLOAD_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
 @ApiTags('Super Admin Master Governance')
 @Controller('admin')
@@ -43,7 +63,18 @@ export class AdminController {
   // 0. Media Uploads
   @Post('uploads')
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { files: 1, fileSize: 5 * 1024 * 1024 },
+      fileFilter: (_req, file, callback) => {
+        if (ALLOWED_UPLOAD_MIME.has(file.mimetype)) {
+          callback(null, true);
+        } else {
+          callback(new BadRequestException('Only JPEG, PNG, WebP, or GIF images are allowed'), false);
+        }
+      },
+    }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload a promotional image (JPEG/PNG/WebP/GIF, max 5 MB)' })
   @ApiResponse({ status: 201, description: 'Stored image URL' })
@@ -84,11 +115,8 @@ export class AdminController {
 
   @Patch('riders/:id/cash-limit')
   @ApiOperation({ summary: 'Update rider maximum COD cash collection threshold' })
-  async updateCashLimit(
-    @Param('id') id: string,
-    @Body('maxCashLimit') maxCashLimit: number,
-  ) {
-    const updated = await this.adminService.updateRiderCashLimit(id, maxCashLimit);
+  async updateCashLimit(@Param('id') id: string, @Body() dto: UpdateRiderCashLimitDto) {
+    const updated = await this.adminService.updateRiderCashLimit(id, dto.maxCashLimit);
     return {
       message: 'Rider cash safety limit updated',
       data: updated,
@@ -98,8 +126,8 @@ export class AdminController {
   // 3. Live Order Monitor & Force-Assign Override
   @Get('orders')
   @ApiOperation({ summary: 'Get paginated live orders queue across all lifecycle stages' })
-  async getOrders(@Query('status') status?: string, @Query() pagination: PaginationQueryDto = new PaginationQueryDto()) {
-    const result = await this.adminService.getLiveOrders(status, pagination);
+  async getOrders(@Query() query: GetLiveOrdersQueryDto = new GetLiveOrdersQueryDto()) {
+    const result = await this.adminService.getLiveOrders(query.status, query);
     return {
       message: `Retrieved ${result.items.length} of ${result.total} orders in queue`,
       data: result,
@@ -110,11 +138,8 @@ export class AdminController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Admin manual dispatch force-assignment override' })
   @ApiResponse({ status: 200, description: 'Rider manually assigned to order' })
-  async forceAssign(
-    @Param('id') orderId: string,
-    @Body('riderId') riderId: string,
-  ) {
-    const result = await this.adminService.forceAssignRider(orderId, riderId);
+  async forceAssign(@Param('id') orderId: string, @Body() dto: ForceAssignRiderDto) {
+    const result = await this.adminService.forceAssignRider(orderId, dto.riderId);
     return {
       message: `Order #${result.orderNumber} successfully force-assigned to rider`,
       data: result,
@@ -134,19 +159,7 @@ export class AdminController {
 
   @Post('banners')
   @ApiOperation({ summary: 'Create new promotional banner' })
-  async createBanner(
-    @Body()
-    dto: {
-      title: string;
-      imageUrl: string;
-      linkType?: BannerLinkType;
-      targetId?: string;
-      sortOrder?: number;
-      isActive?: boolean;
-      startsAt?: Date;
-      endsAt?: Date;
-    },
-  ) {
+  async createBanner(@Body() dto: CreateBannerDto) {
     const banner = await this.adminService.createBanner(dto);
     return {
       message: 'Promotional banner created successfully',
@@ -156,20 +169,7 @@ export class AdminController {
 
   @Patch('banners/:id')
   @ApiOperation({ summary: 'Update or toggle promotional banner' })
-  async updateBanner(
-    @Param('id') id: string,
-    @Body()
-    dto: {
-      title?: string;
-      imageUrl?: string;
-      linkType?: BannerLinkType;
-      targetId?: string;
-      sortOrder?: number;
-      isActive?: boolean;
-      startsAt?: Date;
-      endsAt?: Date;
-    },
-  ) {
+  async updateBanner(@Param('id') id: string, @Body() dto: UpdateBannerDto) {
     const updated = await this.adminService.updateBanner(id, dto);
     return {
       message: 'Promotional banner updated successfully',
@@ -197,21 +197,7 @@ export class AdminController {
 
   @Post('coupons')
   @ApiOperation({ summary: 'Create new discount promo code' })
-  async createCoupon(
-    @Body()
-    dto: {
-      code: string;
-      description?: string;
-      discountType: DiscountType;
-      discountValue: number;
-      minOrderAmount?: number;
-      maxDiscountAmount?: number;
-      usageLimit?: number;
-      validFrom?: Date;
-      validTo?: Date;
-      isActive?: boolean;
-    },
-  ) {
+  async createCoupon(@Body() dto: CreateCouponDto) {
     const coupon = await this.adminService.createCoupon(dto);
     return {
       message: `Coupon code "${coupon.code}" created successfully`,
@@ -221,21 +207,7 @@ export class AdminController {
 
   @Patch('coupons/:id')
   @ApiOperation({ summary: 'Update or toggle coupon code' })
-  async updateCoupon(
-    @Param('id') id: string,
-    @Body()
-    dto: {
-      description?: string;
-      discountType?: DiscountType;
-      discountValue?: number;
-      minOrderAmount?: number;
-      maxDiscountAmount?: number;
-      usageLimit?: number;
-      validFrom?: Date;
-      validTo?: Date;
-      isActive?: boolean;
-    },
-  ) {
+  async updateCoupon(@Param('id') id: string, @Body() dto: UpdateCouponDto) {
     const updated = await this.adminService.updateCoupon(id, dto);
     return {
       message: 'Coupon code updated successfully',
@@ -263,20 +235,7 @@ export class AdminController {
 
   @Post('vendors')
   @ApiOperation({ summary: 'Directly create new vendor outlet' })
-  async createVendor(
-    @Body()
-    dto: {
-      name: string;
-      branchName?: string;
-      brandId?: string;
-      addressText: string;
-      latitude: number;
-      longitude: number;
-      contactPhone: string;
-      commissionRate?: number;
-      defaultPrepTimeMinutes?: number;
-    },
-  ) {
+  async createVendor(@Body() dto: CreateVendorDto) {
     const vendor = await this.adminService.createVendor(dto);
     return {
       message: 'Vendor outlet created successfully',
@@ -286,20 +245,7 @@ export class AdminController {
 
   @Patch('vendors/:id')
   @ApiOperation({ summary: 'Update vendor outlet parameters (commission, radius, prep time, contact)' })
-  async updateVendor(
-    @Param('id') vendorId: string,
-    @Body()
-    dto: {
-      name?: string;
-      brandId?: string;
-      addressText?: string;
-      contactPhone?: string;
-      commissionRate?: number;
-      deliveryRadiusKm?: number;
-      defaultPrepTimeMinutes?: number;
-      isActive?: boolean;
-    },
-  ) {
+  async updateVendor(@Param('id') vendorId: string, @Body() dto: UpdateVendorDto) {
     const updated = await this.adminService.updateVendor(vendorId, dto);
     return {
       message: 'Vendor outlet updated successfully',
@@ -309,29 +255,17 @@ export class AdminController {
 
   @Patch('vendors/:id/status')
   @ApiOperation({ summary: 'Toggle vendor outlet active/suspended status' })
-  async toggleVendorStatus(
-    @Param('id') vendorId: string,
-    @Body('isActive') isActive: boolean,
-  ) {
-    const updated = await this.adminService.toggleVendorStatus(vendorId, isActive);
+  async toggleVendorStatus(@Param('id') vendorId: string, @Body() dto: ToggleVendorStatusDto) {
+    const updated = await this.adminService.toggleVendorStatus(vendorId, dto.isActive);
     return {
-      message: `Vendor outlet ${isActive ? 'activated' : 'suspended'} successfully`,
+      message: `Vendor outlet ${dto.isActive ? 'activated' : 'suspended'} successfully`,
       data: updated,
     };
   }
 
   @Post('vendors/:id/staff')
   @ApiOperation({ summary: 'Assign staff user to vendor outlet with scope (Particular vs Brand Owner)' })
-  async assignStaff(
-    @Param('id') vendorId: string,
-    @Body()
-    dto: {
-      userId: string;
-      scope: PermissionScope;
-      role?: string;
-      brandId?: string;
-    },
-  ) {
+  async assignStaff(@Param('id') vendorId: string, @Body() dto: AssignVendorStaffDto) {
     const staff = await this.adminService.assignVendorStaff(vendorId, dto);
     return {
       message: 'Staff user successfully assigned to vendor outlet',
@@ -352,15 +286,7 @@ export class AdminController {
 
   @Post('catalog/categories')
   @ApiOperation({ summary: 'Create new central category' })
-  async createCategory(
-    @Body()
-    dto: {
-      name: string;
-      imageUrl?: string;
-      sortOrder?: number;
-      isActive?: boolean;
-    },
-  ) {
+  async createCategory(@Body() dto: CreateCategoryDto) {
     const category = await this.adminService.createCentralCategory(dto);
     return {
       message: 'Central category created successfully',
@@ -370,17 +296,7 @@ export class AdminController {
 
   @Put('catalog/products/:id/override')
   @ApiOperation({ summary: 'Centrally override product details across stores' })
-  async overrideProduct(
-    @Param('id') productId: string,
-    @Body()
-    dto: {
-      name?: string;
-      description?: string;
-      basePrice?: number;
-      categoryId?: string;
-      isInStock?: boolean;
-    },
-  ) {
+  async overrideProduct(@Param('id') productId: string, @Body() dto: OverrideProductDto) {
     const updated = await this.adminService.overrideProduct(productId, dto);
     return {
       message: 'Product overridden successfully',
@@ -390,13 +306,10 @@ export class AdminController {
 
   @Patch('catalog/products/:id/disable')
   @ApiOperation({ summary: 'Disable or re-enable product centrally' })
-  async toggleProductDisable(
-    @Param('id') productId: string,
-    @Body('isInStock') isInStock: boolean,
-  ) {
-    const updated = await this.adminService.toggleProductDisable(productId, isInStock);
+  async toggleProductDisable(@Param('id') productId: string, @Body() dto: ToggleProductStockDto) {
+    const updated = await this.adminService.toggleProductDisable(productId, dto.isInStock);
     return {
-      message: `Product stock status updated to ${isInStock ? 'IN_STOCK' : 'OUT_OF_STOCK'}`,
+      message: `Product stock status updated to ${dto.isInStock ? 'IN_STOCK' : 'OUT_OF_STOCK'}`,
       data: updated,
     };
   }
@@ -414,16 +327,7 @@ export class AdminController {
 
   @Patch('settings/delivery-fee')
   @ApiOperation({ summary: 'Update delivery fee mode (FIXED_FLAT vs DISTANCE_TIERED)' })
-  async updateDeliveryFee(
-    @Body()
-    dto: {
-      mode: 'FIXED_FLAT' | 'DISTANCE_TIERED';
-      flatFee?: number;
-      baseFee?: number;
-      baseKm?: number;
-      perKmRate?: number;
-    },
-  ) {
+  async updateDeliveryFee(@Body() dto: UpdateDeliveryFeeDto) {
     const updated = await this.adminService.updateDeliveryFeeMode(dto);
     return {
       message: `Delivery fee mode switched to ${dto.mode}`,
@@ -463,12 +367,8 @@ export class AdminController {
   // 10. Rider Fleet Approval & Governance
   @Get('riders')
   @ApiOperation({ summary: 'List all courier partners with optional approval and online status filters' })
-  async getRiders(
-    @Query('approvalStatus') approvalStatus?: 'PENDING' | 'APPROVED' | 'ALL',
-    @Query('isOnline') isOnlineStr?: string,
-  ) {
-    const isOnline = isOnlineStr !== undefined ? isOnlineStr === 'true' : undefined;
-    const data = await this.adminService.getAllRiders({ approvalStatus, isOnline });
+  async getRiders(@Query() query: GetRidersQueryDto = new GetRidersQueryDto()) {
+    const data = await this.adminService.getAllRiders({ approvalStatus: query.approvalStatus, isOnline: query.isOnlineParsed });
     return {
       message: `Retrieved ${data.length} delivery couriers`,
       data,
@@ -477,13 +377,10 @@ export class AdminController {
 
   @Patch('riders/:id/approval')
   @ApiOperation({ summary: 'Approve or suspend a delivery courier' })
-  async setRiderApproval(
-    @Param('id') riderId: string,
-    @Body('isApproved') isApproved: boolean,
-  ) {
-    const updated = await this.adminService.setRiderApproval(riderId, isApproved);
+  async setRiderApproval(@Param('id') riderId: string, @Body() dto: SetRiderApprovalDto) {
+    const updated = await this.adminService.setRiderApproval(riderId, dto.isApproved);
     return {
-      message: `Courier approval status set to ${isApproved ? 'APPROVED' : 'SUSPENDED'}`,
+      message: `Courier approval status set to ${dto.isApproved ? 'APPROVED' : 'SUSPENDED'}`,
       data: updated,
     };
   }
@@ -491,9 +388,8 @@ export class AdminController {
   // 11. Automated Financial Settlement Cycle Engine
   @Post('finance/settle-cycle')
   @ApiOperation({ summary: 'Execute financial settlement cycle closing pending commission and trip ledgers' })
-  async executeSettlementCycle(@Req() req: ExpressRequest & { user?: { id?: string; sub?: string } }) {
-    const userId = req.user?.id || req.user?.sub;
-    const result = await this.adminService.executeSettlementCycle(userId);
+  async executeSettlementCycle(@CurrentUser('id') adminUserId: string) {
+    const result = await this.adminService.executeSettlementCycle(adminUserId);
     return result;
   }
 
@@ -539,11 +435,10 @@ export class AdminController {
   @ApiResponse({ status: 404, description: 'Order not found' })
   async cancelOrder(
     @Param('id') id: string,
-    @Req() req: ExpressRequest & { user?: { id?: string; sub?: string } },
+    @CurrentUser('id') adminUserId: string,
     @Body() dto: AdminCancelOrderDto,
   ) {
-    const adminUserId = req.user?.id || req.user?.sub || 'SUPER_ADMIN';
-    const order = await this.adminService.cancelOrder(adminUserId, id, dto);
+    const order = await this.adminService.cancelOrder(adminUserId || 'SUPER_ADMIN', id, dto);
     return {
       message: 'Order force-cancelled successfully',
       data: order,

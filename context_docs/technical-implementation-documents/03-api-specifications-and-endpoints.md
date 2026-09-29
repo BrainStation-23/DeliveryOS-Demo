@@ -65,6 +65,9 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Guard*: Public (Throttled: 30 req / min).
   - *Body*: `{ "vendorId": "uuid", "latitude": 23.7808, "longitude": 90.4190 }`.
   - *Response*: `{ "isWithinCoverage": true, "distanceKm": 2.4, "deliveryFee": 50.0, "isActive": true, "isBusy": false }`.
+- **`POST /cart/validate-address-coverage`**
+  - *Guard*: Public (Throttled: 30 req / min). Cart-controller alias of the vendor coverage check.
+  - *Body / Response*: Identical to `POST /vendors/validate-address-coverage`.
 - **`POST /coupons/validate`**
   - *Guard*: `JwtAuthGuard` (`CUSTOMER`).
   - *Body*: `{ "code": "PILOT50", "cartSubtotal": 500.0, "vendorId": "uuid" }`.
@@ -92,6 +95,9 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Guard*: `JwtAuthGuard` (`CUSTOMER`).
   - *Query*: `page` (int, default 1), `limit` (int, default 10).
   - *Response*: Paginated envelope `{ "items": [...], "total": 12, "page": 1, "limit": 10, "totalPages": 2 }`.
+- **`GET /orders/:id`**
+  - *Guard*: `JwtAuthGuard` (owner).
+  - *Response*: Full order detail envelope (status, items, payment, courier snapshot).
 - **`GET /orders/:id/live-tracking`**
   - *Guard*: `JwtAuthGuard` (`CUSTOMER`).
   - *Response*: Current status, stepper step, courier coordinates (`lat`, `lng`, `bearing`), and ETA.
@@ -129,11 +135,13 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Invariant*: Returns `400 Bad Request` if attempting to go offline with an active delivery.
 - **`POST /rider/orders/:id/claim`**
   - *Action*: Acquires atomic Redis mutex `SET lock:order_claim:${id} ${riderId} NX EX 10`.
-  - *Success*: Assigns courier, updates status (`RIDER_ASSIGNED`), and alerts kitchen.
+  - *Invariants*: Rejects offline/unapproved/suspended couriers, orders already claimed, unverified `ONLINE_GATEWAY` payments, and COD claims that would breach `maxCashLimit`. The `rider:active_order` busy key is set only after the DB transaction commits.
+  - *Success*: Assigns courier, updates status (`RIDER_ASSIGNED`), alerts kitchen, and returns the order with server-computed `riderEarnings` (delivery fee × rider share).
 - **`PATCH /rider/orders/:id/pickup`**: Confirms parcel pickup at store counter; transitions order to `DISPATCHED`.
 - **`PATCH /rider/orders/:id/deliver`**
   - *Body*: `{ "codCashCollected": boolean, "amountCollected": 500.0 }`.
-  - *Action*: Validates COD cash receipt, transitions order to `DELIVERED`, and updates ledgers.
+  - *Action*: Guarded `DISPATCHED → DELIVERED` claim (concurrent double-submit loses), caps `amountCollected` at the order total, credits `cashInHand` only on confirmed COD collection, and upserts the trip ledger.
+  - *Response*: `{ "order": {...}, "tripLedger": { "deliveryEarnings", "codCollected", ... } }` — clients reconcile wallets from `tripLedger`, never locally computed payout.
 - **`POST /rider/orders/:id/report-issue`**
   - *Body*: `{ "reason": "Customer unreachable at delivery address" }`.
   - *Action*: Unlocks courier, reports doorstep failure, and alerts Dispatch HQ.
@@ -157,10 +165,15 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`PATCH /admin/riders/:id/approval`**: Body `{ "isApproved": boolean }`.
 - **`PATCH /admin/riders/:id/cash-limit`**: Body `{ "maxCashLimit": 8000.0 }`.
 - **`GET /admin/vendors`** / **`POST /admin/vendors`** / **`PATCH /admin/vendors/:id`**: Complete vendor CRUD.
+- **`POST /admin/vendors/:id/staff`**: Body `{ "userId": "uuid", "scope": "PARTICULAR_OUTLET" | "ALL_OUTLETS_MASTER", "brandId?" }` — assigns outlet staff scope.
+- **`GET /admin/catalog/categories`** / **`POST /admin/catalog/categories`**: Master central category list + creation.
+- **`PUT /admin/catalog/products/:id/override`**: Centrally overrides product name/description/basePrice/category/stock across stores.
+- **`PATCH /admin/catalog/products/:id/disable`**: Body `{ "isInStock": boolean }` — central stock toggle.
 - **`GET /admin/banners`** / **`POST /admin/banners`** / **`PATCH /admin/banners/:id`** / **`DELETE /admin/banners/:id`**: Banner CRUD.
 - **`GET /admin/coupons`** / **`POST /admin/coupons`** / **`PATCH /admin/coupons/:id`** / **`DELETE /admin/coupons/:id`**: Coupon CRUD.
 - **`GET /admin/settings`**: Returns current FSM mode and delivery fee pricing mode.
-- **`PATCH /admin/settings/order-flow`**: Body `{ "mode": "RIDER_FIRST" | "VENDOR_FIRST" }`.
+- **`GET /admin/settings/order-flow`**: Returns the active fulfillment flow config (`mode`, `riderSearchTimeoutSeconds`).
+- **`PATCH /admin/settings/order-flow`**: Body `{ "mode": "RIDER_FIRST" | "VENDOR_FIRST", "riderSearchTimeoutSeconds?" }`.
 - **`PATCH /admin/settings/delivery-fee`**: Body `{ "mode": "FIXED_FLAT" | "DISTANCE_TIERED", "flatFee": 50.0, "baseFee": 40.0, "baseKm": 2.0, "perKmRate": 15.0 }`.
 - **`GET /admin/finance/settlement-export?format=csv`**: Downloads RFC 4180 CSV settlement file.
 - **`POST /admin/finance/settle-cycle`**: Triggers batch settlement cycle for pending orders.
@@ -174,7 +187,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Body*: `{ "orderId": "uuid", "gateway": "SSLCOMMERZ" | "SANDBOX", "redirectUrl": "..." }`.
   - *Response*: `{ "redirectUrl": "https://sandbox.sslcommerz.com/...", "transactionId": "..." }`.
 - **`POST /payments/webhook/:gateway`**: Public HMAC verified webhook endpoint. Idempotently marks payment `PAID` via atomic update.
-- **`GET /payments/status/:transactionId`**: Checks status of transaction session (`PENDING`, `PAID`, `FAILED`).
+- **`GET /payments/status/:transactionId`**: Owner-only (`403` otherwise); returns a redacted view (status `PENDING|PAID|FAILED|REFUNDED`, amount, order snapshot) — `sessionKey` and raw `gatewayResponse` never leave the server.
 - **`GET /payments/callback/:gateway`**: Browser redirect return URL after payment attempt with query parameters `status` and `transactionId`.
 
 ### 2.7 Saved Addresses & Utilities (`/customers`, `/health`, `/geo`)

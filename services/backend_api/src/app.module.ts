@@ -30,13 +30,33 @@ import { AddressesModule } from './modules/addresses/addresses.module';
         NODE_ENV: Joi.string().valid('development', 'test', 'production').default('development'),
         PORT: Joi.number().default(4000),
         API_PREFIX: Joi.string().default('api/v1'),
-        JWT_SECRET: Joi.string().min(32).required(),
-        JWT_REFRESH_SECRET: Joi.string().min(32).required(),
+        JWT_SECRET: Joi.string()
+          .min(32)
+          .required()
+          .invalid('deliveryos-jwt-secret-key-32chars-minimum-dev'),
+        JWT_REFRESH_SECRET: Joi.string()
+          .min(32)
+          .required()
+          .invalid('deliveryos-jwt-refresh-secret-key-32chars-min'),
         DATABASE_URL: Joi.string().required(),
         REDIS_URL: Joi.string().required(),
         SMS_PROVIDER: Joi.alternatives().conditional('NODE_ENV', {
           is: 'production',
           then: Joi.string().required().invalid('mock'),
+          otherwise: Joi.string(),
+        }),
+        SMS_SSLW_API_TOKEN: Joi.alternatives().conditional('SMS_PROVIDER', {
+          is: 'ssl_wireless',
+          then: Joi.string().required().messages({
+            'any.required': 'SMS_SSLW_API_TOKEN is required when SMS_PROVIDER=ssl_wireless',
+          }),
+          otherwise: Joi.string(),
+        }),
+        SMS_SSLW_SID: Joi.alternatives().conditional('SMS_PROVIDER', {
+          is: 'ssl_wireless',
+          then: Joi.string().required().messages({
+            'any.required': 'SMS_SSLW_SID is required when SMS_PROVIDER=ssl_wireless',
+          }),
           otherwise: Joi.string(),
         }),
         SMS_MOCK_STATIC_OTP: Joi.alternatives().conditional('NODE_ENV', {
@@ -47,6 +67,17 @@ import { AddressesModule } from './modules/addresses/addresses.module';
         ALLOW_STATIC_OTP: Joi.alternatives().conditional('NODE_ENV', {
           is: 'production',
           then: Joi.string().forbidden(),
+          otherwise: Joi.string(),
+        }),
+        SSLCOMMERZ_BASE_URL: Joi.alternatives().conditional('NODE_ENV', {
+          is: 'production',
+          then: Joi.string()
+            .required()
+            .uri()
+            .invalid('https://sandbox.sslcommerz.com', 'http://sandbox.sslcommerz.com')
+            .messages({
+              'any.invalid': 'SSLCOMMERZ_BASE_URL must point to the live gateway in production',
+            }),
           otherwise: Joi.string(),
         }),
         CORS_ORIGINS: Joi.string(),

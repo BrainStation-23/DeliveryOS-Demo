@@ -9,7 +9,7 @@
 
 | Fact | Value |
 | :--- | :--- |
-| Monorepo | `services/backend_api` (NestJS 10, Prisma 5, port 4000) • `apps/admin_portal` + `apps/vendor_portal` (React 18 + Vite + Tailwind + Zustand + TanStack Query, dev ports 3000/3001) • `apps/customer_app` + `apps/rider_app` (Flutter, Riverpod 3, Dio, socket_io_client) |
+| Monorepo | `services/backend_api` (NestJS 10, Prisma 5, port 4000) • `apps/admin_portal` + `apps/vendor_portal` (React 18 + Vite + Tailwind + Zustand + TanStack Query, dev servers 3000/3001 via `npm run dev`) • `apps/customer_app` + `apps/rider_app` (Flutter, Riverpod 3, Dio, socket_io_client) |
 | No shared packages | Portals and Flutter apps intentionally duplicate `core/`/UI primitives per app; do not extract cross-app packages without an ADR |
 | Datastores | PostgreSQL 16 + PostGIS 3.4 on **localhost:5433** • Redis 7.2 on **localhost:6380** (dev binds 127.0.0.1) |
 | API surface | Global prefix **`/api/v1`**; Socket.IO namespace **`/events`** (JWT handshake auth); Swagger at `/docs` (non-production only) |
@@ -22,10 +22,10 @@
 
 | Task | Command |
 | :--- | :--- |
-| Full quality gate (CI-identical) | `npm run verify` (root) = backend typecheck+lint+test:unit+build, portal typechecks, `flutter analyze`+`flutter test` ×2 |
+| Full quality gate (CI-identical) | `npm run verify` (root) = backend typecheck+lint+test:unit+build, portal typechecks+builds, `flutter analyze`+`flutter test` ×2 |
 | Boot local infra | `./scripts/start-local.sh` (or `docker compose -f deploy/docker-compose.yml up -d postgres redis`) |
 | Migrate + seed | `npx prisma migrate dev` then `npm run prisma:seed` (or `prisma:seed:massive`) in `services/backend_api` |
-| Backend integration suites (needs live stack) | `npm test` in `services/backend_api` (chains 18 `test:*` scripts: `test:auth`, `test:order`, `test:dispatch`, `test:payment`, `test:settlement`, `test:cancel`, `test:track1`, `test:track3`, …) |
+| Backend integration suites (needs live stack) | `npm test` in `services/backend_api` (chains 18 `*:test` scripts: `auth:test`, `order:test`, `dispatch:test`, `payment:test`, `settlement:test`, `cancel:test`, `track1:test`, `track3:test`, …) |
 | Backend unit tests (no DB needed) | `npm run test:unit` in `services/backend_api` (Jest, `src/**/*.spec.ts`) |
 | Portal smoke tests (live API) | `npm test` in each portal (tsx assertion scripts) |
 | Release AAB | `./scripts/build-android.sh customer|rider` (dart-define injection) |
@@ -108,8 +108,13 @@ DeliveryFeeConfig.mode: 'FIXED_FLAT' | 'DISTANCE_TIERED'           // canonical 
 | `lock:sweep:expired-payments` (55s) • `lock:sweep:dispatch-escalation` (25s) | Leader locks for `setInterval` sweeps (no `@nestjs/schedule`) |
 | `dispatch:escalated:<orderId>:tier<N>` (1h) | Escalation idempotency |
 | `order:live_location:<orderId>` • `rider:telemetry:<id>` (300s) | Tracking caches |
+| `role_req:<phone>` (300s) | Requested onboarding role for new-phone OTP signups |
+| `otp_attempts:<phone>` (120s) | OTP brute-force lockout counter (5 strikes invalidates) |
+| `geo:reverse:<lat4>:<lng4>` (24h) | OSM Nominatim reverse-geocode cache |
+| `order:seq:<YYYYMMDD>` (48h) | Daily order-number INCR counter (`ORD-YYYYMMDD-NNNN`) |
+| `auth:user:<userId>` (30s) | JWT-guard user cache (invalidated on logout) |
 
-**Socket.IO `/events`** — full catalog in `TID-04`. Client→server: `order:join`, `order:leave`, `rider:location:update`. Server→client: `connected`, `error`, `order:new`, `order:status:changed`, `order:rider:moved`, `order:cancelled`, `order:payment:verified`, `dispatch:broadcast`, `dispatch:escalated`, `rider:location`.
+**Socket.IO `/events`** — full catalog in `TID-04`. Client→server: `order:join`, `order:leave`, `rider:location:update`. Server→client: `connected`, `error`, `order:new`, `order:status:changed`, `order:rider:moved`, `order:cancelled`, `order:payment:verified`, `dispatch:broadcast`, `dispatch:escalated`, `order:delivery_failed`, `rider:location`. Acks: `order:joined`, `order:left` (reply to `order:join`/`order:leave`). Alias: `rider:location_update` is accepted for `rider:location:update`.
 
 ---
 

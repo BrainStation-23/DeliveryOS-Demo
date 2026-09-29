@@ -17,6 +17,18 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+// Expose --dart-define values to the manifest (Google Maps API key).
+val dartDefines = mutableMapOf<String, String>()
+if (project.hasProperty("dart-defines")) {
+    (project.property("dart-defines") as String)
+        .split(',')
+        .filter { it.isNotEmpty() }
+        .forEach { entry ->
+            val keyAndValue = String(java.util.Base64.getDecoder().decode(entry))
+            dartDefines[keyAndValue.substringBefore('=')] = keyAndValue.substringAfter('=')
+        }
+}
+
 android {
     namespace = "com.deliveryos.customer_app"
     compileSdk = flutter.compileSdkVersion
@@ -32,14 +44,13 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.deliveryos.customer_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // google_maps_flutter needs API 21+; Android 13 notification permission 23+.
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["googleMapsApiKey"] = dartDefines["GOOGLE_MAPS_API_KEY"] ?: ""
     }
 
 

@@ -43,6 +43,7 @@ export interface DispatchBroadcastPayload {
   itemCount?: number;
   totalAmount?: number;
   riderEarnings?: number;
+  distanceKm?: number;
   timeoutSeconds?: number;
   paymentMethod?: string;
   isCod?: boolean;

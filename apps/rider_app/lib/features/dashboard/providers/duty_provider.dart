@@ -26,6 +26,7 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
     ref.onDispose(() {
       _beaconTimer?.cancel();
       _positionSubscription?.cancel();
+      _backgroundLocationSubscription?.cancel();
     });
 
     final initialCodCash = profile?.cashInHand ?? 0.0;
@@ -63,7 +64,16 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
     _beaconTimer = null;
     _positionSubscription?.cancel();
     _positionSubscription = null;
+    _backgroundLocationSubscription?.cancel();
+    _backgroundLocationSubscription = null;
     state = state.copyWith(isBeaconing: false);
+  }
+
+  /// Full teardown used on logout: stops GPS streams, the background
+  /// foreground-service, and its telemetry subscription.
+  Future<void> teardownForLogout() async {
+    stopBeaconing();
+    await BackgroundLocationService.stop();
   }
 
   Future<bool> toggleDuty({bool? forceState}) async {
@@ -274,7 +284,7 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
             payout: (m['payout'] as num?)?.toDouble() ?? 0.0,
             codCollected: (m['codCollected'] as num?)?.toDouble() ?? 0.0,
             isCod: m['isCod'] == true,
-            distanceKm: 2.5,
+            distanceKm: (m['distanceKm'] as num?)?.toDouble() ?? 0.0,
           );
         }).toList();
 

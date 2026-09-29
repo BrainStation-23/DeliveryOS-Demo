@@ -7,7 +7,7 @@
 
 ## 📌 Repo Facts (Verified)
 
-- **Stack**: `services/backend_api` (NestJS 10 + Prisma 5, port 4000, prefix `/api/v1`) • `apps/admin_portal` + `apps/vendor_portal` (React 18 + Vite + Tailwind + Zustand + TanStack Query; dev ports 3000/3001) • `apps/customer_app` + `apps/rider_app` (Flutter, Riverpod 3, Dio). No shared packages — apps intentionally own their `core/` code.
+- **Stack**: `services/backend_api` (NestJS 10 + Prisma 5, port 4000, prefix `/api/v1`) • `apps/admin_portal` + `apps/vendor_portal` (React 18 + Vite + Tailwind + Zustand + TanStack Query; dev servers 3000/3001 via `npm run dev` — Docker edge serves the same ports) • `apps/customer_app` + `apps/rider_app` (Flutter, Riverpod 3, Dio). No shared packages — apps intentionally own their `core/` code.
 - **Quality gate**: `npm run verify` at root (mirrors CI in `.github/workflows/ci.yml`). Backend integration suites: `npm test` in `services/backend_api` (live stack); unit tests: `npm run test:unit` (no DB needed).
 - **Datastores**: PostgreSQL 16 + PostGIS (`localhost:5433`), Redis 7.2 (`localhost:6380`). Boot via `./scripts/start-local.sh`.
 - **Auth**: phone OTP only (no passwords anywhere). Dev seeded logins use OTP `123456`: Super Admin `+8801700000001`, vendor branch manager `+8801700000002`, brand owner `+8801700000003`.

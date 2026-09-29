@@ -34,7 +34,7 @@ graph TD
 ```
 
 - **Connection URL**: `wss://api.domain.com/events` (locally `ws://localhost:8080/events`)
-- **Transport**: `["websocket"]` (polling disabled in production for low latency)
+- **Transport**: websocket with polling fallback (engine.io default upgrade; no server-side transport restriction)
 - **Handshake Authentication**:
   ```javascript
   const socket = io("https://api.domain.com/events", {
@@ -92,7 +92,7 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
 
 #### `order:new`
 - **Direction**: Server ➔ Vendor KDS & Admin Console
-- **Target Rooms**: `vendor_{vendorId}`, `brand_{brandId}`, `admin_hq`
+- **Target Rooms**: `vendor_{vendorId}`, `admin_hq`
 - **Action**: Triggers persistent Web Audio API bell chime on KDS ([ADR-007](../architecture-decision-records/ADR-007-web-audio-api-synthesized-kds-chime.md)).
 - **Payload**:
   ```json
@@ -129,7 +129,9 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
     "riderEarnings": 40.0,
     "timeoutSeconds": 90,
     "paymentMethod": "CASH_ON_DELIVERY" | "ONLINE_GATEWAY",
-    "isCod": true
+    "isCod": true,
+    "riderEarnings": 40.0,
+    "distanceKm": 3.4
   }
 ```
 
@@ -139,15 +141,17 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
 - **Direction**: Server ➔ Super Admin Console
 - **Target Room**: `admin_hq`
 - **Trigger**: Order unassigned across escalation tiers:
-  - *Tier 1 (45s)*: Radius expands to 6 km.
-  - *Tier 2 (90s)*: Radius expands to 10 km and emits `dispatch:escalated`.
+  - *Tier 1 (riderSearchTimeoutSeconds, default 90s)*: Radius expands to 6 km.
+  - *Tier 2 (2 × timeout, default 180s)*: Radius expands to 10 km and emits `dispatch:escalated`.
 - **Payload**:
   ```json
   {
     "orderId": "uuid",
     "orderNumber": "ORD-20261001-0042",
     "tier": 2,
-    "unassignedSeconds": 92,
+    "agingSeconds": 92,
+    "searchRadiusKm": 10,
+    "vendorName": "Burger Point — Gulshan",
     "timestamp": "2026-10-01T12:06:32.000Z"
   }
   ```
@@ -158,7 +162,7 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
 
 #### `order:status:changed`
 - **Direction**: Server ➔ All Stakeholders
-- **Target Rooms**: `order_{orderId}`, `vendor_{vendorId}`, `brand_{brandId}`, `admin_hq`
+- **Target Rooms**: `order_{orderId}`, `user_{customerId}`, `admin_hq`, `vendor_{vendorId}` (when vendor context is passed)
 - **Payload**:
   ```json
   {
@@ -188,8 +192,8 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
   ```
 
 #### `order:payment:verified`
-- **Direction**: Server ➔ Customer, Vendor, Admin
-- **Target Rooms**: `order_{orderId}`, `vendor_{vendorId}`, `admin_hq`
+- **Direction**: Server ➔ Customer
+- **Target Rooms**: `order_{orderId}`, `user_{customerId}`
 - **Action**: Emitted upon gateway webhook confirmation, unlocking order for dispatch/kitchen.
 - **Payload**:
   ```json
@@ -202,8 +206,8 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
   ```
 
 #### `order:delivery_failed`
-- **Direction**: Server ➔ Admin HQ & Vendor
-- **Target Rooms**: `admin_hq`, `vendor_{vendorId}`
+- **Direction**: Server ➔ Admin HQ
+- **Target Rooms**: `admin_hq`
 - **Payload**:
   ```json
   {
@@ -217,13 +221,18 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
 
 #### `order:rider:moved` & `rider:location`
 - **Direction**: Server ➔ Customer Tracking Screen / Admin Fleet Radar
-- **Target Rooms**: `order:{orderId}` (courier position for the tracking map) and `admin_fleet` (fleet-wide GPS ticks)
+- **Target Rooms**: `order_{orderId}` (courier position for the tracking map) and `admin_fleet` (fleet-wide GPS ticks)
 - **Payload**: `{ "orderId": "uuid", "latitude": 23.78, "longitude": 90.41, "bearing": 182.5, "timestamp": "ISO-8601" }` (`rider:location` adds `riderId` and omits order context when idle).
+
+#### Connection Lifecycle & Acknowledgements
+- **`connected`**: Emitted to the client after successful JWT handshake (includes `socketId`, `userId`, `role`, joined rooms).
+- **`error`**: Emitted on handshake failures (missing/invalid token, inactive user) and unauthorized room joins.
+- **`order:joined` / `order:left`**: Acknowledgement replies to `order:join` / `order:leave` (return `{ orderId, ... }` on success).
 
 ---
 
 ## 4. Reconnection & Resilience Standards
 
-1. **Heartbeat Protocol**: Gateway sends ping every 25 seconds (`pingInterval: 25000`, `pingTimeout: 20000`).
+1. **Heartbeat Protocol**: engine.io default ping/pong (`pingInterval` 25s, `pingTimeout` 20s — not explicitly overridden by the gateway).
 2. **HTTP State Reconciliation Invariant**: On network reconnect, apps and portals execute background HTTP refetch (`GET /vendor/orders/live`, `GET /orders/:id`) before processing buffered socket messages ([ADR-006](../architecture-decision-records/ADR-006-dual-store-frontend-paradigm-and-websocket-invalidation.md)).
 3. **Audio Silence Invariant**: Web Audio chime loop terminates strictly when zero unaccepted orders remain in KDS Lane 1.

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -192,7 +193,25 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       });
 
       if (!payment) {
-        return { payment: null as typeof payment, alreadyProcessed: false };
+        return {
+          payment: null as typeof payment,
+          alreadyProcessed: false,
+          strandedCharge: false,
+          reconciliation: false,
+          amountMismatch: false,
+        };
+      }
+
+      // Amount integrity: a confirmed charge must match the initiated amount.
+      // A mismatch means tampering or a gateway-side partial charge — never mark PAID.
+      if (Math.abs(validation.amount - Number(payment.amount)) > 0.01) {
+        return {
+          payment,
+          alreadyProcessed: false,
+          strandedCharge: false,
+          reconciliation: false,
+          amountMismatch: true,
+        };
       }
 
       const claimed = await tx.payment.updateMany({
@@ -205,12 +224,48 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         },
       });
 
-      if (claimed.count === 0) {
-        return { payment, alreadyProcessed: true };
-      }
-
       const isCancelled = payment.order?.status === OrderStatus.CANCELLED;
       const isCodSwitched = payment.order?.paymentMethod === PaymentMethod.CASH_ON_DELIVERY;
+
+      if (claimed.count === 0) {
+        if (payment.status === PaymentStatus.PAID) {
+          return {
+            payment,
+            alreadyProcessed: true,
+            strandedCharge: false,
+            reconciliation: false,
+            amountMismatch: false,
+          };
+        }
+        if (validation.status === PaymentStatus.PAID) {
+          // Gateway confirmed money taken but our row is already terminal
+          // (e.g. switchToCOD marked it FAILED moments earlier). Record the
+          // confirmed charge so the reconciliation path can refund it instead
+          // of silently dropping a real charge.
+          await tx.payment.update({
+            where: { id: payment.id },
+            data: {
+              status: PaymentStatus.PAID,
+              paidAt: new Date(),
+              gatewayResponse: validation.rawResponse as Prisma.InputJsonValue,
+            },
+          });
+          return {
+            payment,
+            alreadyProcessed: false,
+            strandedCharge: true,
+            reconciliation: false,
+            amountMismatch: false,
+          };
+        }
+        return {
+          payment,
+          alreadyProcessed: true,
+          strandedCharge: false,
+          reconciliation: false,
+          amountMismatch: false,
+        };
+      }
 
       if (validation.status === PaymentStatus.PAID && !isCancelled && !isCodSwitched) {
         await tx.order.update({
@@ -219,7 +274,13 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         });
       }
 
-      return { payment, alreadyProcessed: false };
+      return {
+        payment,
+        alreadyProcessed: false,
+        strandedCharge: false,
+        reconciliation: validation.status === PaymentStatus.PAID && (isCancelled || isCodSwitched),
+        amountMismatch: false,
+      };
     });
 
     if (!outcome.payment) {
@@ -229,44 +290,63 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException('No matching payment transaction found');
     }
 
-    if (outcome.alreadyProcessed) {
-      this.logger.log(`Payment ${outcome.payment.transactionId} already processed. Skipping duplicate webhook.`);
+    const payment = outcome.payment;
+
+    if (outcome.amountMismatch) {
+      this.logger.error(
+        `Webhook amount mismatch for Order ${payment.order?.orderNumber} (Trx: ${payment.transactionId}): expected ${Number(payment.amount)}, gateway reported ${validation.amount}. Transaction NOT marked paid.`,
+      );
       return {
-        success: true,
-        message: 'Payment already processed',
-        transactionId: outcome.payment.transactionId,
+        success: false,
+        message: 'Payment amount mismatch; transaction rejected for manual review',
+        transactionId: payment.transactionId,
       };
     }
 
-    const payment = outcome.payment;
-    const isCancelled = payment.order?.status === OrderStatus.CANCELLED;
-    const isCodSwitched = payment.order?.paymentMethod === PaymentMethod.CASH_ON_DELIVERY;
+    if (outcome.strandedCharge || outcome.reconciliation) {
+      const cause = outcome.strandedCharge
+        ? 'order was switched to Cash on Delivery after the session opened'
+        : `order is ${payment.order?.status === OrderStatus.CANCELLED ? 'CANCELLED' : 'switched to COD'}`;
+      this.logger.error(
+        `Reconciling confirmed charge for Order ${payment.order?.orderNumber} (Trx: ${payment.transactionId}): ${cause}. Withholding dispatch; auto-refunding.`,
+      );
+      const refund = await this.refundForOrder(
+        payment.orderId,
+        `Reconciliation: payment confirmed after ${cause} (Trx: ${payment.transactionId})`,
+      );
+      this.notificationsService
+        .sendToUser(payment.order!.customerId, {
+          title: 'Payment Reconciliation',
+          body: `Your payment for order ${payment.order?.orderNumber} was received after the order changed. ${
+            refund?.success ? 'A refund has been initiated.' : 'Our team will process your refund shortly.'
+          }`,
+          data: { orderId: payment.orderId, type: 'PAYMENT_RECONCILED' },
+        })
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : 'Unknown error';
+          this.logger.warn(`Push notify payment reconciliation failed: ${msg}`);
+        });
+      return {
+        success: true,
+        message: refund?.success
+          ? 'Confirmed charge refunded via gateway reconciliation'
+          : 'Confirmed charge flagged for manual refund reconciliation',
+        transactionId: payment.transactionId,
+        status: PaymentStatus.PAID,
+        refundInitiated: refund?.success === true,
+      };
+    }
+
+    if (outcome.alreadyProcessed) {
+      this.logger.log(`Payment ${payment.transactionId} already processed. Skipping duplicate webhook.`);
+      return {
+        success: true,
+        message: 'Payment already processed',
+        transactionId: payment.transactionId,
+      };
+    }
 
     if (validation.status === PaymentStatus.PAID) {
-      if (isCancelled) {
-        this.logger.error(
-          `Payment confirmed for CANCELLED order ${payment.order.orderNumber} (Trx: ${payment.transactionId}). Withholding dispatch; requires refund.`,
-        );
-        return {
-          success: true,
-          message: 'Payment received for cancelled order; flagged for refund reconciliation',
-          transactionId: payment.transactionId,
-          status: PaymentStatus.PAID,
-        };
-      }
-
-      if (isCodSwitched) {
-        this.logger.warn(
-          `Payment confirmed for order ${payment.order.orderNumber} already switched to CASH_ON_DELIVERY (Trx: ${payment.transactionId}). Withholding dispatch broadcast.`,
-        );
-        return {
-          success: true,
-          message: 'Payment received for order switched to COD; flagged for reconciliation',
-          transactionId: payment.transactionId,
-          status: PaymentStatus.PAID,
-        };
-      }
-
       this.logger.log(`Payment confirmed PAID for Order ${payment.order.orderNumber} (Trx: ${payment.transactionId})`);
 
       // 1. Emit live WebSocket updates to customer order tracking screen
@@ -313,12 +393,34 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * 3. Query Payment Status
+   * Ownership-enforced and redacted: only the paying customer may read it, and
+   * internal fields (sessionKey, raw gatewayResponse) never leave the server.
    */
-  async getPaymentStatus(transactionId: string) {
+  async getPaymentStatus(transactionId: string, userId: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { transactionId },
-      include: {
-        order: { select: { id: true, orderNumber: true, status: true, paymentStatus: true, totalAmount: true } },
+      select: {
+        id: true,
+        transactionId: true,
+        gateway: true,
+        amount: true,
+        currency: true,
+        status: true,
+        paidAt: true,
+        failedAt: true,
+        refundId: true,
+        refundedAt: true,
+        createdAt: true,
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            paymentStatus: true,
+            totalAmount: true,
+            customerId: true,
+          },
+        },
       },
     });
 
@@ -326,7 +428,30 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException(`Payment transaction "${transactionId}" not found`);
     }
 
-    return payment;
+    if (payment.order.customerId !== userId) {
+      throw new ForbiddenException('You do not have permission to view this payment');
+    }
+
+    return {
+      id: payment.id,
+      transactionId: payment.transactionId,
+      gateway: payment.gateway,
+      amount: Number(payment.amount),
+      currency: payment.currency,
+      status: payment.status,
+      paidAt: payment.paidAt,
+      failedAt: payment.failedAt,
+      refundId: payment.refundId,
+      refundedAt: payment.refundedAt,
+      createdAt: payment.createdAt,
+      order: {
+        id: payment.order.id,
+        orderNumber: payment.order.orderNumber,
+        status: payment.order.status,
+        paymentStatus: payment.order.paymentStatus,
+        totalAmount: Number(payment.order.totalAmount),
+      },
+    };
   }
 
   /**
@@ -392,11 +517,27 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     for (const order of expiredOrders) {
       this.logger.warn(`Order ${order.orderNumber} expired after 15m unpaid. Reconciling cancellation.`);
 
-      await this.prisma.$transaction(async (tx) => {
-        // Reconcile coupon quota if used
+      // Claim-then-reconcile: the guarded update is the single source of truth.
+      // If the webhook marks the order PAID between findMany and this tx, the
+      // claim matches 0 rows and every destructive step below is skipped.
+      const cancelled = await this.prisma.$transaction(async (tx) => {
+        const claim = await tx.order.updateMany({
+          where: { id: order.id, status: OrderStatus.PLACED, paymentStatus: PaymentStatus.PENDING },
+          data: {
+            status: OrderStatus.CANCELLED,
+            cancelledAt: new Date(),
+            rejectionReason: reason,
+            paymentStatus: PaymentStatus.FAILED,
+          },
+        });
+        if (claim.count === 0) {
+          return false;
+        }
+
+        // Reconcile coupon quota if used (never below zero)
         if (order.couponId) {
-          await tx.coupon.update({
-            where: { id: order.couponId },
+          await tx.coupon.updateMany({
+            where: { id: order.couponId, currentUses: { gt: 0 } },
             data: { currentUses: { decrement: 1 } },
           });
         }
@@ -409,26 +550,21 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           where: { orderId: order.id, status: SettlementStatus.PENDING },
         });
 
-        // Cancel order and mark payments failed
-        await tx.order.update({
-          where: { id: order.id },
-          data: {
-            status: OrderStatus.CANCELLED,
-            cancelledAt: new Date(),
-            rejectionReason: reason,
-            paymentStatus: PaymentStatus.FAILED,
-          },
+        // Fail any sessions still PENDING at claim time
+        await tx.payment.updateMany({
+          where: { orderId: order.id, status: PaymentStatus.PENDING },
+          data: { status: PaymentStatus.FAILED, failedAt: new Date() },
         });
 
-        for (const p of order.payments) {
-          if (p.status === PaymentStatus.PENDING) {
-            await tx.payment.update({
-              where: { id: p.id },
-              data: { status: PaymentStatus.FAILED, failedAt: new Date() },
-            });
-          }
-        }
+        return true;
       });
+
+      if (!cancelled) {
+        this.logger.log(
+          `Order ${order.orderNumber} left the sweep window (paid or state changed); skipping expiry cancellation.`,
+        );
+        continue;
+      }
 
       // Realtime websocket notifications
       try {

@@ -43,6 +43,8 @@ class BackgroundLocationService {
   static Future<void> stop() async {
     try {
       if (await _service.isRunning()) {
+        // The service isolate must handle this event to cancel its GPS timer
+        // and stop itself; see _onServiceStart.
         _service.invoke('stop');
       }
     } catch (err) {
@@ -58,7 +60,7 @@ class BackgroundLocationService {
   static Future<void> _onServiceStart(ServiceInstance service) async {
     DartPluginRegistrant.ensureInitialized();
 
-    Timer.periodic(const Duration(seconds: 15), (_) async {
+    final timer = Timer.periodic(const Duration(seconds: 15), (_) async {
       try {
         final position = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
@@ -75,6 +77,13 @@ class BackgroundLocationService {
       } catch (_) {
         // GPS fix unavailable in this cycle — retry on the next tick
       }
+    });
+
+    // Duty-off / logout must actually end the foreground service; without this
+    // handler the 15s GPS loop (and the notification) ran until app death.
+    service.on('stop').first.then((_) {
+      timer.cancel();
+      service.stopSelf();
     });
   }
 }

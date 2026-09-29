@@ -115,6 +115,9 @@ class RiderDashboardScreen extends ConsumerWidget {
   }
 
   Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
+    // Stop GPS beaconing and the foreground location service before wiping
+    // credentials — telemetry must never outlive the session.
+    await ref.read(riderDutyProvider.notifier).teardownForLogout();
     await ref.read(riderAuthProvider.notifier).logout();
     if (context.mounted) {
       Navigator.of(context).pushAndRemoveUntil(

@@ -1,0 +1,7 @@
+# Fast pre-push gate: everything hermetic from the CI verify job except the
+# Flutter suites and portal builds (slow); full gate remains `npm run verify`.
+echo "▸ pre-push: backend typecheck + lint + unit tests"
+(cd services/backend_api && npm run --silent typecheck && npm run --silent lint && npm run --silent test:unit) || {
+  echo "✖ pre-push gate failed — fix or bypass with --no-verify"
+  exit 1
+}

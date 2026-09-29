@@ -11,11 +11,12 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { TrackingGateway } from '../realtime/tracking.gateway';
 import { OrderFlowMode, UpdateOrderFlowDto } from './dto/update-order-flow.dto';
-import { AccountStatus, OrderStatus, PaymentMethod, PaymentStatus, UserRole } from '@prisma/client';
+import { AccountStatus, OrderStatus, PaymentMethod, PaymentStatus, Prisma, UserRole } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { assertClaimable, assertTransition } from '../orders/order-state.machine';
 import { DeliveryFeeService } from '../promotions/pricing/delivery-fee.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { haversineKm } from '../../common/utils/haversine';
 
 interface OrderFlowSettingValue {
   mode?: OrderFlowMode;
@@ -50,6 +51,28 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
     private readonly deliveryFeeService: DeliveryFeeService,
     private readonly notificationsService: NotificationsService,
   ) {}
+
+  /**
+   * Rider payout for an order = delivery fee × configured rider share.
+   * Single source of truth for every dispatch broadcast and claim response so
+   * clients never derive earnings from the gross fee.
+   */
+  private async computeRiderEarnings(deliveryFee: Prisma.Decimal | number): Promise<number> {
+    const economics = await this.deliveryFeeService.getEconomicsConfig();
+    const riderShare = (economics.rider_share_percent || 80) / 100;
+    return Math.round(Number(deliveryFee) * riderShare * 100) / 100;
+  }
+
+  /**
+   * Vendor→customer dispatch-card distance; undefined when the address
+   * snapshot carries no coordinates.
+   */
+  private computeDistanceKm(
+    vendor: { latitude: number | null; longitude: number | null },
+    snapshot: AddressSnapshot | null,
+  ): number | undefined {
+    return haversineKm(vendor.latitude, vendor.longitude, snapshot?.latitude as number | undefined, snapshot?.longitude as number | undefined);
+  }
 
   onModuleInit() {
     // Background scanner for unassigned dispatch escalation (runs every 30s).
@@ -203,9 +226,8 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
       // Broadcast immediately to nearby riders in riders_pool.
       // Vendor chime is withheld until a delivery rider is secured!
       const deliveryAddress = (order.deliveryAddressSnapshot as AddressSnapshot | null)?.addressLine || 'Customer Address';
-      const economics = await this.deliveryFeeService.getEconomicsConfig();
-      const riderShare = (economics.rider_share_percent || 80) / 100;
-      const riderEarnings = Math.round(Number(order.deliveryFee) * riderShare * 100) / 100;
+      const riderEarnings = await this.computeRiderEarnings(order.deliveryFee);
+      const distanceKm = this.computeDistanceKm(order.vendor, order.deliveryAddressSnapshot as AddressSnapshot | null);
 
       this.trackingGateway.broadcastDispatch({
         orderId: order.id,
@@ -220,6 +242,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
         timeoutSeconds: riderSearchTimeoutSeconds,
         paymentMethod: order.paymentMethod,
         isCod: order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY,
+        ...(distanceKm !== undefined ? { distanceKm } : {}),
       });
 
       // Push notification to couriers
@@ -284,9 +307,8 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
       if (!order || order.riderId) return; // already assigned or not found
 
       const deliveryAddress = (order.deliveryAddressSnapshot as AddressSnapshot | null)?.addressLine || 'Customer Address';
-      const economics = await this.deliveryFeeService.getEconomicsConfig();
-      const riderShare = (economics.rider_share_percent || 80) / 100;
-      const riderEarnings = Math.round(Number(order.deliveryFee) * riderShare * 100) / 100;
+      const riderEarnings = await this.computeRiderEarnings(order.deliveryFee);
+      const distanceKm = this.computeDistanceKm(order.vendor, order.deliveryAddressSnapshot as AddressSnapshot | null);
 
       this.trackingGateway.broadcastDispatch({
         orderId: order.id,
@@ -301,6 +323,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
         timeoutSeconds: riderSearchTimeoutSeconds,
         paymentMethod: order.paymentMethod,
         isCod: order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY,
+        ...(distanceKm !== undefined ? { distanceKm } : {}),
       });
 
       this.logger.log(`[VENDOR_FIRST] Order ${order.orderNumber} READY_FOR_PICKUP broadcasted to riders_pool.`);
@@ -359,6 +382,12 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
 
         if (order.riderId !== null) {
           throw new ConflictException('This order has already been secured by another delivery rider.');
+        }
+
+        // Online Payment Invariant: an unverified ONLINE_GATEWAY order must
+        // never enter the courier fleet, even by direct claim.
+        if (order.paymentMethod === PaymentMethod.ONLINE_GATEWAY && order.paymentStatus !== PaymentStatus.PAID) {
+          throw new BadRequestException('This order is awaiting payment confirmation and cannot be claimed yet');
         }
 
         if (order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY) {
@@ -461,7 +490,8 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
           this.logger.warn(`Push notify customer failed: ${msg}`);
         });
 
-      return updatedOrder;
+      const riderEarnings = await this.computeRiderEarnings(updatedOrder.deliveryFee);
+      return { ...updatedOrder, riderEarnings };
     } finally {
       // Safely release Redis distributed lock
       await this.redis.releaseLock(lockKey, rider.id);
@@ -491,7 +521,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
         ],
       },
       include: {
-        vendor: { select: { id: true, name: true, addressText: true } },
+        vendor: { select: { id: true, name: true, addressText: true, latitude: true, longitude: true } },
         orderItems: true,
       },
     });
@@ -509,9 +539,8 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
           await this.redis.set(tier1Key, '1', 3600); // 1 hour TTL
 
           const deliveryAddress = (order.deliveryAddressSnapshot as AddressSnapshot | null)?.addressLine || 'Customer Address';
-          const economics = await this.deliveryFeeService.getEconomicsConfig();
-          const riderShare = (economics.rider_share_percent || 80) / 100;
-          const riderEarnings = Math.round(Number(order.deliveryFee) * riderShare * 100) / 100;
+          const riderEarnings = await this.computeRiderEarnings(order.deliveryFee);
+          const distanceKm = this.computeDistanceKm(order.vendor, order.deliveryAddressSnapshot as AddressSnapshot | null);
 
           this.trackingGateway.broadcastDispatch({
             orderId: order.id,
@@ -527,6 +556,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
             searchRadiusKm: 6,
             paymentMethod: order.paymentMethod,
             isCod: order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY,
+            ...(distanceKm !== undefined ? { distanceKm } : {}),
           });
 
           this.trackingGateway.notifyDispatchEscalated({

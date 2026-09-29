@@ -82,7 +82,7 @@ When generating code, you must strictly uphold these inviolable business rules:
 ### 3.5 Mobile Applications (Flutter 3.x)
 - **Architecture**: Feature-First Clean Architecture (Presentation, Domain, Data).
 - **State Management**: Riverpod 3.x (`NotifierProvider` / `AsyncNotifier`).
-- **Localization**: JSON translation dictionaries (`en.json`, `ar.json`, `bn.json`) with auto-mirroring RTL directionality for Arabic.
+- **Localization**: Dart-map `AppLocalizations` (en/ar/bn) with auto-mirroring RTL directionality for Arabic. (The web portals use JSON dictionaries in `src/i18n/locales/`.)
 - **Battery Preservation**: Throttled GPS beaconing (every 5–8 seconds only when rider status is `Online`).
 
 ### 3.6 Code Cleanliness & Commenting Standards

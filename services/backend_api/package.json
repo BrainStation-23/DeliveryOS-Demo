@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test:unit": "jest",
+    "test:unit": "jest --coverage",
     "test": "npm run test:unit && npm run db:test && npm run auth:test && npm run vendor:test && npm run promotions:test && npm run order:test && npm run vendor-rider:test && npm run ws:test && npm run dispatch:test && npm run tracking:test && npm run e2e:test && npm run health:test && npm run escalation:test && npm run payment:test && npm run address:test && npm run settlement:test && npm run cancel:test && npm run track1:test && npm run track3:test",
     "start": "ts-node -r tsconfig-paths/register src/main.ts",
     "start:dev": "ts-node -r tsconfig-paths/register src/main.ts",

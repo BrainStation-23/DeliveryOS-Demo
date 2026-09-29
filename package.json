@@ -7,7 +7,7 @@
     "prepare": "husky",
     "verify": "npm run verify:backend && npm run verify:web && npm run verify:mobile",
     "verify:backend": "npm run typecheck --prefix services/backend_api && npm run lint --prefix services/backend_api && npm run test:unit --prefix services/backend_api && npm run build --prefix services/backend_api",
-    "verify:web": "npm run typecheck --prefix apps/admin_portal && npm run typecheck --prefix apps/vendor_portal",
+    "verify:web": "npm run typecheck --prefix apps/admin_portal && npm run build --prefix apps/admin_portal && npm run typecheck --prefix apps/vendor_portal && npm run build --prefix apps/vendor_portal",
     "verify:mobile": "cd apps/customer_app && flutter pub get && flutter analyze && flutter test && cd ../rider_app && flutter pub get && flutter analyze && flutter test"
   },
   "devDependencies": {

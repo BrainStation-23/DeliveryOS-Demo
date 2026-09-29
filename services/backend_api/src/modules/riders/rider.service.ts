@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { DeliverOrderDto } from './dto/deliver-order.dto';
 import { DepositCashDto } from './dto/deposit-cash.dto';
@@ -13,6 +15,7 @@ import { TrackingGateway } from '../realtime/tracking.gateway';
 import { OrderFlowService } from '../order-flow/order-flow.service';
 import { assertTransition } from '../orders/order-state.machine';
 import { DeliveryFeeService } from '../promotions/pricing/delivery-fee.service';
+import { haversineKm } from '../../common/utils/haversine';
 import type { OrderAddressSnapshot } from '../orders/order.service';
 
 @Injectable()
@@ -158,9 +161,15 @@ export class RiderService {
 
     assertTransition(order.status, OrderStatus.DELIVERED);
 
+    // Single source of truth for cash: only a COD order with the courier's
+    // explicit confirmation moves money. The collected amount is capped at the
+    // order total so an over-reported figure can never inflate cashInHand.
+    const totalAmount = Number(order.totalAmount);
     const isCodOrder = order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY;
-    const codCollected = isCodOrder
-      ? (dto.amountCollected ?? (dto.codCashCollected ? Number(order.totalAmount) : 0))
+    const cashConfirmed = isCodOrder && dto.codCashCollected === true;
+    const requestedCollection = dto.amountCollected ?? totalAmount;
+    const codCollected = cashConfirmed
+      ? Math.round(Math.min(Math.max(requestedCollection, 0), totalAmount) * 100) / 100
       : 0;
 
     const economics = await this.deliveryFeeService.getEconomicsConfig();
@@ -168,19 +177,22 @@ export class RiderService {
     const deliveryEarnings = Math.round(Number(order.deliveryFee) * riderShare * 100) / 100;
 
     const result = await this.prisma.$transaction(async (tx) => {
-      // 1. Update Order Status
-      const updatedOrder = await tx.order.update({
-        where: { id: orderId },
+      // 1. Claim the delivery with a guarded transition: a concurrent
+      //    double-submit loses here instead of incrementing cash twice.
+      const claim = await tx.order.updateMany({
+        where: { id: orderId, status: OrderStatus.DISPATCHED },
         data: {
-          riderId: rider.id,
           status: OrderStatus.DELIVERED,
           deliveredAt: new Date(),
-          paymentStatus:
-            order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY && dto.codCashCollected
-              ? PaymentStatus.PAID
-              : order.paymentStatus,
+          ...(cashConfirmed ? { paymentStatus: PaymentStatus.PAID } : {}),
         },
       });
+
+      if (claim.count === 0) {
+        throw new ConflictException('Order is not awaiting delivery confirmation (already delivered or state changed)');
+      }
+
+      const updatedOrder = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
 
       // 2. If COD cash collected, add to rider cashInHand
       if (codCollected > 0) {
@@ -248,7 +260,7 @@ export class RiderService {
     }
 
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const randSuffix = Math.floor(1000 + Math.random() * 9000).toString();
+    const randSuffix = randomUUID().slice(0, 8);
     const referenceNo = dto.referenceNo || `DEP-${dateStr}-${randSuffix}`;
 
     // Security Guard: Create deposit in PENDING_APPROVAL status.
@@ -331,12 +343,14 @@ export class RiderService {
    */
   async getRiderTrips(userId: string) {
     const rider = await this.getRiderProfile(userId);
+    const economics = await this.deliveryFeeService.getEconomicsConfig();
+    const riderShare = (economics.rider_share_percent || 80) / 100;
     const orders = await this.prisma.order.findMany({
       where: {
         riderId: rider.id,
       },
       include: {
-        vendor: { select: { id: true, name: true, addressText: true } },
+        vendor: { select: { id: true, name: true, addressText: true, latitude: true, longitude: true } },
         orderItems: { select: { productNameSnapshot: true, quantity: true } },
         riderTrip: true,
       },
@@ -345,9 +359,8 @@ export class RiderService {
     });
 
     return orders.map((order) => {
-      const address =
-        (order.deliveryAddressSnapshot as unknown as OrderAddressSnapshot | null)?.addressLine ||
-        'Customer Address';
+      const snapshot = order.deliveryAddressSnapshot as unknown as OrderAddressSnapshot | null;
+      const address = snapshot?.addressLine || 'Customer Address';
       const itemsSummary = order.orderItems.map((i) => `${i.quantity}x ${i.productNameSnapshot}`).join(', ');
       return {
         id: order.id,
@@ -360,8 +373,16 @@ export class RiderService {
         totalAmount: Number(order.totalAmount),
         paymentMethod: order.paymentMethod,
         isCod: order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY,
-        payout: order.riderTrip ? Number(order.riderTrip.deliveryEarnings) : Number(order.deliveryFee) * 0.8,
+        payout: order.riderTrip
+          ? Number(order.riderTrip.deliveryEarnings)
+          : Math.round(Number(order.deliveryFee) * riderShare * 100) / 100,
         codCollected: order.riderTrip ? Number(order.riderTrip.codCollected) : 0,
+        distanceKm: haversineKm(
+          order.vendor.latitude,
+          order.vendor.longitude,
+          snapshot?.latitude,
+          snapshot?.longitude,
+        ),
         placedAt: order.placedAt,
         deliveredAt: order.deliveredAt,
       };

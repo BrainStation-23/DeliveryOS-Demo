@@ -1,4 +1,6 @@
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -34,17 +36,23 @@ Future<void> main() async {
   final localStorage = await LocalStorage.init();
 
   await BackgroundLocationService.initialize();
-  await PushNotificationService(localStorage).initialize();
+  final pushService = PushNotificationService(localStorage);
+  await pushService.initialize();
 
   runApp(
     ProviderScope(
       overrides: [
         localStorageProvider.overrideWithValue(localStorage),
+        pushNotificationServiceProvider.overrideWithValue(pushService),
       ],
       child: const DeliveryOSRiderApp(),
     ),
   );
 }
+
+/// Overridden with the real service in main(); null in tests/embeds where
+/// push is not configured.
+final pushNotificationServiceProvider = Provider<PushNotificationService?>((ref) => null);
 
 class DeliveryOSRiderApp extends ConsumerStatefulWidget {
   const DeliveryOSRiderApp({super.key});
@@ -54,15 +62,47 @@ class DeliveryOSRiderApp extends ConsumerStatefulWidget {
 }
 
 class _DeliveryOSRiderAppState extends ConsumerState<DeliveryOSRiderApp> with WidgetsBindingObserver {
+  StreamSubscription<Map<String, dynamic>>? _pushTapSub;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _routePushTaps();
+  }
+
+  /// Dispatch and trip notifications land on the dashboard, where the socket
+  /// broadcast / active-trip state takes over.
+  void _routePushTaps() {
+    final push = ref.read(pushNotificationServiceProvider);
+    if (push == null) return;
+    final navigator = Navigator.of(context);
+    _pushTapSub = push.taps.listen((data) {
+      final type = data['type']?.toString();
+      final isDispatchFlow = type == 'DISPATCH_BROADCAST' || type == 'ORDER_ASSIGNED' || type == 'TRIP_CANCELLED';
+      if (!isDispatchFlow) return;
+      if (!mounted || !ref.read(riderAuthProvider).isAuthenticated) return;
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const RiderDashboardScreen()),
+        (route) => false,
+      );
+    });
+    push.initialMessageData.then((data) {
+      if (data != null && (data['type']?.toString() == 'DISPATCH_BROADCAST')) {
+        if (mounted && ref.read(riderAuthProvider).isAuthenticated) {
+          navigator.pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const RiderDashboardScreen()),
+            (route) => false,
+          );
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _pushTapSub?.cancel();
     super.dispose();
   }
 

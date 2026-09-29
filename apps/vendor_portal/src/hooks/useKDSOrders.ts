@@ -4,6 +4,7 @@ import kdsApi, { normalizeKDSOrder, RawBackendOrder } from '../services/kdsApi';
 import { getSocket } from '../services/socket';
 import { KDSOrder, KDSOrderStatus } from '../types/kds';
 import { soundEngine } from '../utils/sound';
+import { extractApiError } from '../utils/apiError';
 
 interface SocketOrderPayload {
   data?: RawBackendOrder;
@@ -154,20 +155,45 @@ export const useKDSOrders = (vendorId?: string) => {
     };
   }, [queryClient, queryKey]);
 
+  // Kitchen staff must see (and hear) when an action fails — silent failures
+  // on the KDS board leave orders stuck in the wrong lane.
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const silenceAlarmIfAllAccepted = (next: KDSOrder[]) => {
+    const remainingUnaccepted = next.some((o) => o.status === 'PLACED' || o.status === 'RIDER_ASSIGNED');
+    if (!remainingUnaccepted) {
+      soundEngine.stopOrderAlarm();
+    }
+  };
+
   const acceptMutation = useMutation({
     mutationFn: ({ orderId, prepTimeMinutes }: { orderId: string; prepTimeMinutes?: number }) =>
       kdsApi.acceptOrder(orderId, prepTimeMinutes),
-    onSuccess: (updatedOrder) => {
+    onMutate: async ({ orderId }) => {
+      setActionError(null);
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<KDSOrder[]>(queryKey);
       queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => {
-        const next = old.map((o) => (o.id === updatedOrder.id ? { ...o, ...updatedOrder, status: 'PREPARING' as const } : o));
-        const remainingUnaccepted = next.some(
-          (o) => o.status === 'PLACED' || o.status === 'RIDER_ASSIGNED'
-        );
-        if (!remainingUnaccepted) {
-          soundEngine.stopOrderAlarm();
-        }
+        const next = old.map((o) => (o.id === orderId ? { ...o, status: 'PREPARING' as const } : o));
+        silenceAlarmIfAllAccepted(next);
         return next;
       });
+      return { previous };
+    },
+    onSuccess: (updatedOrder) => {
+      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) =>
+        old.map((o) => (o.id === updatedOrder.id ? { ...o, ...updatedOrder, status: 'PREPARING' as const } : o)),
+      );
+    },
+    onError: (error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+      setActionError(extractApiError(error, 'Accept failed. The order may have been cancelled or claimed — board refreshed.'));
+      void refetch();
+    },
+    onSettled: () => {
+      void refetch();
     },
   });
 
@@ -181,37 +207,97 @@ export const useKDSOrders = (vendorId?: string) => {
       reasonCode: string;
       reasonNotes?: string;
     }) => kdsApi.rejectOrder(orderId, reasonCode, reasonNotes),
-    onSuccess: (updatedOrder) => {
+    onMutate: async ({ orderId }) => {
+      setActionError(null);
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<KDSOrder[]>(queryKey);
       queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => {
-        const next = old.filter((o) => o.id !== updatedOrder.id);
-        const remainingUnaccepted = next.some(
-          (o) => o.status === 'PLACED' || o.status === 'RIDER_ASSIGNED'
-        );
-        if (!remainingUnaccepted) {
-          soundEngine.stopOrderAlarm();
-        }
+        const next = old.filter((o) => o.id !== orderId);
+        silenceAlarmIfAllAccepted(next);
         return next;
       });
+      return { previous };
+    },
+    onSuccess: (updatedOrder) => {
+      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) =>
+        old.filter((o) => o.id !== updatedOrder.id),
+      );
+    },
+    onError: (error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+      setActionError(extractApiError(error, 'Reject failed — the order has been restored. Please retry.'));
+      void refetch();
+    },
+    onSettled: () => {
+      void refetch();
     },
   });
 
   const readyMutation = useMutation({
     mutationFn: (orderId: string) => kdsApi.markOrderReady(orderId),
+    onMutate: async (orderId) => {
+      setActionError(null);
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<KDSOrder[]>(queryKey);
+      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) =>
+        old.map((o) => (o.id === orderId ? { ...o, status: 'READY_FOR_PICKUP' as const } : o)),
+      );
+      return { previous };
+    },
     onSuccess: (updatedOrder) => {
       queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) =>
-        old.map((o) => (o.id === updatedOrder.id ? { ...o, ...updatedOrder, status: 'READY_FOR_PICKUP' } : o))
+        old.map((o) => (o.id === updatedOrder.id ? { ...o, ...updatedOrder, status: 'READY_FOR_PICKUP' } : o)),
       );
+    },
+    onError: (error, _orderId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+      setActionError(extractApiError(error, 'Could not mark the order ready — it has been restored. Please retry.'));
+      void refetch();
+    },
+    onSettled: () => {
+      void refetch();
     },
   });
 
   const handoverMutation = useMutation({
     mutationFn: (orderId: string) => kdsApi.handoverOrder(orderId),
+    onMutate: async (orderId) => {
+      setActionError(null);
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<KDSOrder[]>(queryKey);
+      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => old.filter((o) => o.id !== orderId));
+      return { previous };
+    },
     onSuccess: (updatedOrder) => {
       queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) =>
-        old.filter((o) => o.id !== updatedOrder.id)
+        old.filter((o) => o.id !== updatedOrder.id),
       );
     },
+    onError: (error, _orderId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+      setActionError(extractApiError(error, 'Handover failed — the order has been restored. Please retry.'));
+      void refetch();
+    },
+    onSettled: () => {
+      void refetch();
+    },
   });
+
+  // Errors are handled inside the mutations (rollback + banner); wrappers never
+  // reject so fire-and-forget click handlers can't produce unhandled rejections.
+  const safeMutate = async <TArgs, TFn extends (args: TArgs) => Promise<unknown>>(fn: TFn, args: TArgs) => {
+    try {
+      await fn(args);
+    } catch {
+      // handled by the mutation's onError
+    }
+  };
 
   const safeOrders = useMemo(() => (Array.isArray(orders) ? orders : []), [orders]);
 
@@ -237,15 +323,17 @@ export const useKDSOrders = (vendorId?: string) => {
     error,
     refetch,
     isSocketConnected,
+    actionError,
+    dismissActionError: () => setActionError(null),
     newOrders,
     inPreparationOrders,
     readyOrders,
     acceptOrder: (orderId: string, prepTimeMinutes?: number) =>
-      acceptMutation.mutateAsync({ orderId, prepTimeMinutes }),
+      safeMutate((v: { orderId: string; prepTimeMinutes?: number }) => acceptMutation.mutateAsync(v), { orderId, prepTimeMinutes }),
     rejectOrder: (orderId: string, reasonCode: string, reasonNotes?: string) =>
-      rejectMutation.mutateAsync({ orderId, reasonCode, reasonNotes }),
-    markOrderReady: (orderId: string) => readyMutation.mutateAsync(orderId),
-    handoverOrder: (orderId: string) => handoverMutation.mutateAsync(orderId),
+      safeMutate((v: { orderId: string; reasonCode: string; reasonNotes?: string }) => rejectMutation.mutateAsync(v), { orderId, reasonCode, reasonNotes }),
+    markOrderReady: (orderId: string) => safeMutate((id: string) => readyMutation.mutateAsync(id), orderId),
+    handoverOrder: (orderId: string) => safeMutate((id: string) => handoverMutation.mutateAsync(id), orderId),
     isAccepting: acceptMutation.isPending,
     isRejecting: rejectMutation.isPending,
     isMarkingReady: readyMutation.isPending,

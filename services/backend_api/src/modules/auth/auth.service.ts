@@ -9,7 +9,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { RequestOtpDto } from './dto/request-otp.dto';
@@ -42,7 +42,7 @@ export class AuthService {
 
     const isMock = process.env.SMS_PROVIDER === 'mock' || !process.env.SMS_PROVIDER;
     const staticOtp = process.env.SMS_MOCK_STATIC_OTP;
-    const otp = isMock && staticOtp ? staticOtp : Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = isMock && staticOtp ? staticOtp : randomInt(100000, 1000000).toString();
 
     // Cache OTP in Redis for 2 minutes
     const otpKey = `otp:${phone}`;
@@ -109,8 +109,10 @@ export class AuthService {
     });
 
     if (!user) {
-      const requestedRole = (await this.redis.get(`role_req:${phone}`)) as UserRole | null;
-      const role = requestedRole || UserRole.CUSTOMER;
+      // Whitelist clamp: self-signup can only ever create CUSTOMER or RIDER,
+      // regardless of any stale role request cached in Redis.
+      const requestedRole = await this.redis.get(`role_req:${phone}`);
+      const role: UserRole = requestedRole === UserRole.RIDER ? UserRole.RIDER : UserRole.CUSTOMER;
       const status = role === UserRole.RIDER ? AccountStatus.PENDING_APPROVAL : AccountStatus.ACTIVE;
 
       user = await this.prisma.user.create({

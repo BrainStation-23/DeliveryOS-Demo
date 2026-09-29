@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/dio_client.dart';
@@ -257,7 +258,7 @@ class RiderAuthNotifier extends Notifier<RiderAuthState> {
   }
 
   void forceApproveForDev() {
-    if (state.profile != null) {
+    if (kDebugMode && state.profile != null) {
       final approved = state.profile!.copyWith(status: AccountStatus.active);
       final storage = ref.read(localStorageProvider);
       storage.setRiderProfileJson(jsonEncode(approved.toJson()));

@@ -84,16 +84,19 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
         final isCod = data['isCod'] == true ||
             (data['paymentMethod'] != null && data['paymentMethod'].toString() == 'CASH_ON_DELIVERY') ||
             (data['paymentMethod'] == null && data['isCod'] == null);
+        final double distanceKm = (data['distanceKm'] as num?)?.toDouble() ?? 0.0;
+        final double riderEarnings = (data['riderEarnings'] as num?)?.toDouble() ?? 0.0;
+        final double totalAmount = (data['totalAmount'] as num?)?.toDouble() ?? 0.0;
         final trip = TripOrder(
           id: data['orderId']?.toString() ?? '',
           orderNumber: data['orderNumber']?.toString() ?? 'ORD',
           status: 'PLACED',
           store: store,
           customer: customer,
-          distanceKm: 2.5,
-          payout: (data['riderEarnings'] as num?)?.toDouble() ?? 50.0,
+          distanceKm: distanceKm,
+          payout: riderEarnings,
           isCod: isCod,
-          totalAmount: (data['totalAmount'] as num?)?.toDouble() ?? 300.0,
+          totalAmount: totalAmount,
           itemsCount: (data['itemCount'] as num?)?.toInt() ?? 1,
         );
         triggerBroadcastAlert(trip);
@@ -233,7 +236,9 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
         ? claimedPaymentMethod == 'CASH_ON_DELIVERY'
         : trip.isCod;
     final double totalAmount = (claimedPayload['totalAmount'] as num?)?.toDouble() ?? trip.totalAmount;
-    final double payout = (claimedPayload['deliveryFee'] as num?)?.toDouble() ?? trip.payout;
+    // Earnings must come from the server's rider share computation
+    // (riderEarnings), never from the gross deliveryFee.
+    final double payout = (claimedPayload['riderEarnings'] as num?)?.toDouble() ?? trip.payout;
 
     final claimedTrip = trip.copyWith(
       currentStep: TripStep.pickup,
@@ -320,6 +325,7 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
 
     state = state.copyWith(isUpdating: true, clearError: true);
 
+    Map<String, dynamic> deliverPayload = {};
     try {
       final dio = ref.read(dioClientProvider);
       final response = await dio.patch(
@@ -336,6 +342,8 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
         );
         return false;
       }
+      deliverPayload =
+          response.data['data'] as Map<String, dynamic>? ?? {};
     } catch (e) {
       state = state.copyWith(
         isUpdating: false,
@@ -344,22 +352,30 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
       return false;
     }
 
+    // Server-truth reconciliation: earnings and COD are read from the trip
+    // ledger the backend just wrote, so the wallet never drifts from reality.
+    final ledger = deliverPayload['tripLedger'] as Map<String, dynamic>?;
+    final double serverEarnings =
+        (ledger?['deliveryEarnings'] as num?)?.toDouble() ?? trip.payout;
+    final double serverCod =
+        (ledger?['codCollected'] as num?)?.toDouble() ?? (trip.isCod ? amountCollected : 0.0);
+
     final completedRecord = RiderCompletedTrip(
       orderId: trip.id,
       orderNumber: trip.orderNumber,
       storeName: trip.store.name,
       customerAddress: trip.customer.address,
       completedAt: DateTime.now(),
-      payout: trip.payout,
-      codCollected: trip.isCod ? amountCollected : 0.0,
+      payout: serverEarnings,
+      codCollected: serverCod,
       isCod: trip.isCod,
       distanceKm: trip.distanceKm,
     );
 
     // Credit rider wallet metrics & completed trip history
     ref.read(riderDutyProvider.notifier).simulateTripCompleted(
-          payout: trip.payout,
-          codCollected: trip.isCod ? amountCollected : 0.0,
+          payout: serverEarnings,
+          codCollected: serverCod,
           tripRecord: completedRecord,
         );
 

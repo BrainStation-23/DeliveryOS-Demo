@@ -1011,6 +1011,31 @@ export class AdminService {
         new Set([...pendingCommissions.map((c) => c.orderId), ...pendingTrips.map((t) => t.orderId)]),
       );
 
+      // Claim the ledgers atomically: a concurrent settlement cycle racing us
+      // steals rows out from under the PENDING predicate, and any shortfall
+      // aborts this batch before a double-settled payout can be recorded.
+      const claimedCommissions = pendingCommissions.length
+        ? await tx.commissionLedger.updateMany({
+            where: {
+              id: { in: pendingCommissions.map((c) => c.id) },
+              settlementStatus: SettlementStatus.PENDING,
+            },
+            data: { settlementStatus: SettlementStatus.PROCESSING },
+          })
+        : { count: 0 };
+      const claimedTrips = pendingTrips.length
+        ? await tx.riderTripLedger.updateMany({
+            where: { id: { in: pendingTrips.map((t) => t.id) }, status: SettlementStatus.PENDING },
+            data: { status: SettlementStatus.PROCESSING },
+          })
+        : { count: 0 };
+
+      if (claimedCommissions.count !== pendingCommissions.length || claimedTrips.count !== pendingTrips.length) {
+        throw new ConflictException(
+          'Settlement ledgers are being claimed by another settlement cycle; retry in a moment.',
+        );
+      }
+
       const batchNumber = `SETTLE-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString().slice(-4)}`;
       const now = new Date();
       const oldestDate = pendingCommissions[0]?.createdAt || now;
@@ -1034,7 +1059,10 @@ export class AdminService {
       // Mark CommissionLedgers as SETTLED
       if (pendingCommissions.length > 0) {
         await tx.commissionLedger.updateMany({
-          where: { id: { in: pendingCommissions.map((c) => c.id) } },
+          where: {
+            id: { in: pendingCommissions.map((c) => c.id) },
+            settlementStatus: SettlementStatus.PROCESSING,
+          },
           data: {
             settlementStatus: SettlementStatus.SETTLED,
             settledAt: now,
@@ -1046,7 +1074,7 @@ export class AdminService {
       // Mark RiderTripLedgers as SETTLED
       if (pendingTrips.length > 0) {
         await tx.riderTripLedger.updateMany({
-          where: { id: { in: pendingTrips.map((t) => t.id) } },
+          where: { id: { in: pendingTrips.map((t) => t.id) }, status: SettlementStatus.PROCESSING },
           data: {
             status: SettlementStatus.SETTLED,
             settlementBatchId: batch.id,
@@ -1166,20 +1194,34 @@ export class AdminService {
       const finalNote = `${deposit.note || ''}${noteSuffix}`.trim();
 
       if (action === 'APPROVE') {
-        const updatedDeposit = await tx.cashDeposit.update({
-          where: { id: depositId },
+        const claimed = await tx.cashDeposit.updateMany({
+          where: { id: depositId, status: 'PENDING_APPROVAL' },
           data: {
             status: 'APPROVED',
             note: finalNote,
           },
         });
+        if (claimed.count === 0) {
+          throw new ConflictException(`Cash deposit #${deposit.referenceNo} is being processed concurrently`);
+        }
 
-        const updatedRider = await tx.rider.update({
-          where: { id: deposit.riderId },
+        // Guarded decrement: never drive cashInHand negative on a duplicate or
+        // over-deposited approval.
+        const decremented = await tx.rider.updateMany({
+          where: { id: deposit.riderId, cashInHand: { gte: Number(deposit.amount) } },
           data: {
             cashInHand: { decrement: Number(deposit.amount) },
           },
         });
+        if (decremented.count === 0) {
+          throw new BadRequestException(
+            `Rider cash-in-hand (৳${Number(deposit.rider.cashInHand)}) is lower than the deposit amount (৳${Number(
+              deposit.amount,
+            )}); approval aborted.`,
+          );
+        }
+
+        const updatedRider = await tx.rider.findUniqueOrThrow({ where: { id: deposit.riderId } });
 
         this.logger.log(
           `[Cash Deposit] Approved deposit #${deposit.referenceNo} for rider ${deposit.rider.user?.fullName || deposit.riderId}. Amount: ${deposit.amount} BDT, Remaining cash in hand: ${updatedRider.cashInHand} BDT`,
@@ -1187,17 +1229,20 @@ export class AdminService {
 
         return {
           message: `Deposit #${deposit.referenceNo} approved successfully`,
-          deposit: updatedDeposit,
+          deposit: { ...deposit, status: 'APPROVED', note: finalNote },
           riderCashInHand: Number(updatedRider.cashInHand),
         };
       } else {
-        const updatedDeposit = await tx.cashDeposit.update({
-          where: { id: depositId },
+        const claimed = await tx.cashDeposit.updateMany({
+          where: { id: depositId, status: 'PENDING_APPROVAL' },
           data: {
             status: 'REJECTED',
             note: finalNote,
           },
         });
+        if (claimed.count === 0) {
+          throw new ConflictException(`Cash deposit #${deposit.referenceNo} is being processed concurrently`);
+        }
 
         this.logger.log(
           `[Cash Deposit] Rejected deposit #${deposit.referenceNo} for rider ${deposit.rider.user?.fullName || deposit.riderId}. Reason: ${notes || 'No reason provided'}`,
@@ -1205,7 +1250,7 @@ export class AdminService {
 
         return {
           message: `Deposit #${deposit.referenceNo} rejected`,
-          deposit: updatedDeposit,
+          deposit: { ...deposit, status: 'REJECTED', note: finalNote },
           riderCashInHand: Number(deposit.rider.cashInHand),
         };
       }

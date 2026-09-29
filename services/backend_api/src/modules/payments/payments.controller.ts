@@ -45,9 +45,9 @@ export class PaymentsController {
   @Get('status/:transactionId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current payment status for a transaction' })
-  async getStatus(@Param('transactionId') transactionId: string) {
-    return this.paymentsService.getPaymentStatus(transactionId);
+  @ApiOperation({ summary: 'Get current payment status for a transaction (owner only)' })
+  async getStatus(@Param('transactionId') transactionId: string, @CurrentUser('id') userId: string) {
+    return this.paymentsService.getPaymentStatus(transactionId, userId);
   }
 
   @Get('callback/:gateway')

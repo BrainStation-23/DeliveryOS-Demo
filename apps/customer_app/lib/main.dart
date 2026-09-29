@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/constants/app_colors.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/localization/language_provider.dart';
+import 'core/network/socket_service.dart';
 import 'core/notifications/push_notification_service.dart';
 import 'core/storage/local_storage.dart';
 import 'features/auth/domain/user_model.dart';
@@ -65,13 +66,32 @@ class CustomerApp extends ConsumerStatefulWidget {
   ConsumerState<CustomerApp> createState() => _CustomerAppState();
 }
 
-class _CustomerAppState extends ConsumerState<CustomerApp> {
+class _CustomerAppState extends ConsumerState<CustomerApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Future.microtask(() {
       ref.read(authProvider.notifier).checkSession();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // The socket gives up after ~10 reconnect attempts; without this hook a
+      // backgrounded session loses live order status until full restart.
+      final socket = ref.read(socketServiceProvider);
+      if (!socket.isConnected) {
+        socket.init(ref.read(authProvider).accessToken);
+      }
+    }
   }
 
   @override

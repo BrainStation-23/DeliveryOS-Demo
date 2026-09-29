@@ -29,6 +29,12 @@ export class StorageService {
       throw new BadRequestException('Image exceeds the 5 MB size limit');
     }
 
+    // mimetype is client-controlled; sniff magic bytes so a renamed payload
+    // cannot masquerade as an image.
+    if (!(await this.hasImageMagicBytes(file.buffer))) {
+      throw new BadRequestException('File content does not match an allowed image type');
+    }
+
     const extension = file.mimetype === 'image/jpeg' ? 'jpg' : file.mimetype.split('/')[1];
     const fileName = `${new Date().toISOString().slice(0, 10)}-${randomUUID()}.${extension}`;
     const absolutePath = path.join(this.uploadDir, fileName);
@@ -38,5 +44,27 @@ export class StorageService {
 
     this.logger.log(`Stored upload ${fileName} (${file.size} bytes) via local driver`);
     return { url: `/uploads/${fileName}`, driver: this.driver };
+  }
+
+  private async hasImageMagicBytes(buffer: Buffer): Promise<boolean> {
+    const head = buffer.subarray(0, 12);
+    if (head.length < 12) return false;
+    // JPEG: FF D8 FF — PNG: 89 50 4E 47 0D 0A 1A 0A — GIF: GIF8
+    if (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return true;
+    if (
+      head[0] === 0x89 &&
+      head[1] === 0x50 &&
+      head[2] === 0x4e &&
+      head[3] === 0x47 &&
+      head[4] === 0x0d &&
+      head[5] === 0x0a &&
+      head[6] === 0x1a &&
+      head[7] === 0x0a
+    ) {
+      return true;
+    }
+    if (head.subarray(0, 3).toString('latin1') === 'GIF') return true;
+    // WebP: RIFF....WEBP
+    return head.subarray(0, 4).toString('latin1') === 'RIFF' && head.subarray(8, 12).toString('latin1') === 'WEBP';
   }
 }

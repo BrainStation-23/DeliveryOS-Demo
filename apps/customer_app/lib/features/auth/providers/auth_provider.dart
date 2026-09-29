@@ -56,12 +56,11 @@ class AuthNotifier extends Notifier<AuthState> {
       );
       return false;
     } catch (e) {
-      // In dev mode / offline fallback, still allow advancing
       state = state.copyWith(
-        status: AuthStatus.otpSent,
-        phoneNumber: phone,
+        status: AuthStatus.error,
+        errorMessage: 'Could not send the OTP code. Please check your connection and try again.',
       );
-      return true;
+      return false;
     }
   }
 
@@ -81,9 +80,15 @@ class AuthNotifier extends Notifier<AuthState> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = response.data['data'] as Map<String, dynamic>;
         final token = data['accessToken'] as String? ?? '';
+        final refreshToken = data['refreshToken'] as String?;
         final userMap = data['user'] as Map<String, dynamic>? ?? {};
 
         await storage.setAccessToken(token);
+        // Without the persisted refresh token the 401-rotation path in
+        // DioClient can never run and every access-token expiry logs the user out.
+        if (refreshToken != null && refreshToken.isNotEmpty) {
+          await storage.setRefreshToken(refreshToken);
+        }
         await storage.setUserProfile(userMap);
         await storage.setGuest(false);
 

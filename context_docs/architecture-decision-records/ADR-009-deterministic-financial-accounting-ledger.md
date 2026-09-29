@@ -53,10 +53,10 @@ Customer Checkout: ৳300.00
 ---
 
 ## Technical Implementation Details
-Implemented in [`order.service.ts`](../../services/backend_api/src/modules/orders/order.service.ts) and [`finance.service.ts`](../../services/backend_api/src/modules/admin/admin.service.ts):
+Implemented in [`order.service.ts`](../../services/backend_api/src/modules/orders/order.service.ts) and [`admin.service.ts`](../../services/backend_api/src/modules/admin/admin.service.ts):
 ```typescript
-const commissionRate = Number(vendor.commissionRate || 0.15);
-const platformFee = Math.round(netSubtotal * commissionRate * 100) / 100;
+const commissionRate = Number(vendor.commissionRate); // percentage, default 15.00
+const platformFee = Math.round(netSubtotal * (commissionRate / 100) * 100) / 100;
 const netVendorPayable = Math.round((netSubtotal - platformFee) * 100) / 100;
 
 await tx.commissionLedger.create({

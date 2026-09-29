@@ -49,7 +49,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
         error = typeof resObj.error === 'string' && resObj.error ? resObj.error : exception.name;
       }
     } else if (exception instanceof Error) {
-      message = exception.message;
+      // Never leak internal error details (Prisma/DB/stack traces) to clients;
+      // they are already captured in the structured log below.
+      message = 'Internal server error';
       error = exception.name;
     }
 

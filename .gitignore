@@ -61,3 +61,6 @@ pnpm-debug.log*
 
 # ZCode tooling config (local)
 .zcodeignore
+
+# Jest coverage output
+coverage/

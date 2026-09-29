@@ -211,21 +211,21 @@ PER_KM_DELIVERY_RATE=10.0
 
 # Order Fulfillment Sequence Flow
 ORDER_FLOW_MODE="RIDER_FIRST" # "RIDER_FIRST" (Zero Food Waste) | "VENDOR_FIRST"
-RIDER_SEARCH_TIMEOUT_SECONDS=90
+# Rider search timeout lives in SystemSetting `order_flow_config` (admin PATCH /admin/settings/order-flow), not an env var.
 
-# Google Maps API
-GOOGLE_MAPS_API_KEY="AIzaSy..."
+# Google Maps — mobile-only (Flutter --dart-define via scripts/build-android.sh);
+# backend geocoding is keyless OSM Nominatim.
+# GOOGLE_MAPS_API_KEY="AIzaSy..."
 
-# Online Payment Gateway (SSLCommerz)
-PAYMENT_GATEWAY="SSLCOMMERZ" # "SSLCOMMERZ" | "SANDBOX"
+# Online Payment Gateway (SSLCommerz) — gateway choice is per-request from the
+# client ("SSLCOMMERZ" | "SANDBOX"); sandbox adapter is rejected in production.
 SSLCOMMERZ_STORE_ID="deliveryos_live"
 SSLCOMMERZ_STORE_PASSWORD="password"
-SSLCOMMERZ_IS_LIVE=false
+SSLCOMMERZ_BASE_URL="https://portal.sslcommerz.com" # live gateway; sandbox is fail-fast rejected in prod
 
-# Push Notifications (Firebase Admin SDK)
-FIREBASE_PROJECT_ID="deliveryos-prod"
-FIREBASE_CLIENT_EMAIL="firebase-adminsdk@deliveryos-prod.iam.gserviceaccount.com"
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqh..."
+# Push Notifications (Firebase Admin SDK) — inline service-account JSON or file path
+FIREBASE_SERVICE_ACCOUNT_JSON='{"type": "service_account", ...}'
+FIREBASE_SERVICE_ACCOUNT="./firebase-service-account.json"
 
 # SMS Gateway (SSL Wireless / Mock)
 SMS_PROVIDER="ssl_wireless" # "ssl_wireless" | "mock"

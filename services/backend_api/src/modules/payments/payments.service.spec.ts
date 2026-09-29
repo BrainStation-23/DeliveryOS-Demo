@@ -5,13 +5,14 @@ import { SandboxGatewayAdapter } from './gateways/sandbox.gateway';
 import type { WebhookValidationResult } from './interfaces/payment-gateway.interface';
 
 type TxMock = {
-  payment: { findFirst: jest.Mock; updateMany: jest.Mock };
+  payment: { findFirst: jest.Mock; updateMany: jest.Mock; update: jest.Mock };
   order: { update: jest.Mock };
 };
 
 function buildService(options: {
   claimCount: number;
   existingPayment?: Record<string, unknown> | null;
+  validationAmount?: number;
 }) {
   const tx: TxMock = {
     payment: {
@@ -24,32 +25,55 @@ function buildService(options: {
               orderId: 'order-1',
               gatewayResponse: null,
               amount: '500.00',
-              order: { id: 'order-1', orderNumber: 'ORD-TEST-1', customerId: 'cust-1', paymentStatus: PaymentStatus.PENDING },
+              order: {
+                id: 'order-1',
+                orderNumber: 'ORD-TEST-1',
+                customerId: 'cust-1',
+                paymentStatus: PaymentStatus.PENDING,
+                status: OrderStatus.PLACED,
+                paymentMethod: PaymentMethod.ONLINE_GATEWAY,
+              },
             }
           : options.existingPayment,
       ),
       updateMany: jest.fn().mockResolvedValue({ count: options.claimCount }),
+      update: jest.fn().mockResolvedValue({}),
     },
     order: { update: jest.fn().mockResolvedValue({}) },
   };
 
   const prisma = {
     $transaction: jest.fn((fn: (tx: TxMock) => Promise<unknown>) => fn(tx)),
+    payment: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: 'pay-1',
+        transactionId: 'SSLC-1',
+        status: PaymentStatus.PAID,
+        orderId: 'order-1',
+        gateway: 'SSLCOMMERZ',
+        gatewayResponse: { bank_tran_id: 'bank-1' },
+        amount: '500.00',
+      }),
+      update: jest.fn().mockResolvedValue({}),
+    },
   };
 
   const orderFlowService = { handleOrderPaid: jest.fn().mockResolvedValue(undefined) };
   const notificationsService = { sendToUser: jest.fn().mockResolvedValue(true) };
   const trackingGateway = {} as never;
 
+  const verifyWebhook = jest.fn().mockResolvedValue({
+    isValid: true,
+    transactionId: 'SSLC-1',
+    orderId: 'order-1',
+    amount: options.validationAmount ?? 500,
+    status: PaymentStatus.PAID,
+    rawResponse: {},
+  } satisfies WebhookValidationResult);
+
   const sslcommerz = {
-    verifyWebhook: jest.fn().mockResolvedValue({
-      isValid: true,
-      transactionId: 'SSLC-1',
-      orderId: 'order-1',
-      amount: 500,
-      status: PaymentStatus.PAID,
-      rawResponse: {},
-    } satisfies WebhookValidationResult),
+    verifyWebhook,
+    refund: jest.fn().mockResolvedValue({ success: true, refundId: 'refund-1', raw: {} }),
   } as unknown as SslCommerzGatewayAdapter;
 
   const service = new PaymentsService(
@@ -62,7 +86,7 @@ function buildService(options: {
     {} as SandboxGatewayAdapter,
   );
 
-  return { service, tx, orderFlowService, notificationsService };
+  return { service, tx, prisma, orderFlowService, notificationsService, sslcommerz, verifyWebhook };
 }
 
 const webhookArgs = ['SSLCOMMERZ', {}, {}] as const;
@@ -83,8 +107,26 @@ describe('Payment webhook idempotency (atomic PENDING claim)', () => {
     expect(orderFlowService.handleOrderPaid).toHaveBeenCalledTimes(1);
   });
 
-  it('skips side effects when a concurrent webhook already claimed the payment', async () => {
-    const { service, tx, orderFlowService, notificationsService } = buildService({ claimCount: 0 });
+  it('skips side effects when a concurrent webhook already claimed the payment to PAID', async () => {
+    const { service, tx, orderFlowService, notificationsService } = buildService({
+      claimCount: 0,
+      existingPayment: {
+        id: 'pay-1',
+        transactionId: 'SSLC-1',
+        status: PaymentStatus.PAID,
+        orderId: 'order-1',
+        gatewayResponse: {},
+        amount: '500.00',
+        order: {
+          id: 'order-1',
+          orderNumber: 'ORD-TEST-1',
+          customerId: 'cust-1',
+          paymentStatus: PaymentStatus.PAID,
+          status: OrderStatus.PLACED,
+          paymentMethod: PaymentMethod.ONLINE_GATEWAY,
+        },
+      },
+    });
 
     const result = await service.handleWebhook(...webhookArgs);
 
@@ -100,7 +142,18 @@ describe('Payment webhook idempotency (atomic PENDING claim)', () => {
     await expect(service.handleWebhook(...webhookArgs)).rejects.toMatchObject({ status: 404 });
   });
 
-  it('withholds order promotion and dispatch when payment is confirmed for a CANCELLED order', async () => {
+  it('rejects webhook payloads whose amount does not match the initiated payment', async () => {
+    const { service, tx, orderFlowService } = buildService({ claimCount: 1, validationAmount: 400 });
+
+    const result = await service.handleWebhook(...webhookArgs);
+
+    expect(result).toMatchObject({ success: false, message: expect.stringContaining('amount mismatch') });
+    expect(tx.payment.updateMany).not.toHaveBeenCalled();
+    expect(tx.order.update).not.toHaveBeenCalled();
+    expect(orderFlowService.handleOrderPaid).not.toHaveBeenCalled();
+  });
+
+  it('reconciles (refunds) a confirmed charge landing on a CANCELLED order', async () => {
     const { service, tx, orderFlowService } = buildService({
       claimCount: 1,
       existingPayment: {
@@ -108,7 +161,8 @@ describe('Payment webhook idempotency (atomic PENDING claim)', () => {
         transactionId: 'SSLC-1',
         status: PaymentStatus.PENDING,
         orderId: 'order-cancelled',
-        gatewayResponse: null,
+        gateway: 'SSLCOMMERZ',
+        gatewayResponse: { bank_tran_id: 'bank-1' },
         amount: '500.00',
         order: {
           id: 'order-cancelled',
@@ -123,15 +177,12 @@ describe('Payment webhook idempotency (atomic PENDING claim)', () => {
 
     const result = await service.handleWebhook(...webhookArgs);
 
-    expect(result).toMatchObject({
-      success: true,
-      message: expect.stringContaining('cancelled order'),
-    });
+    expect(result).toMatchObject({ success: true, refundInitiated: true });
     expect(tx.order.update).not.toHaveBeenCalled();
     expect(orderFlowService.handleOrderPaid).not.toHaveBeenCalled();
   });
 
-  it('withholds dispatch broadcast when payment is confirmed for an order switched to COD', async () => {
+  it('reconciles (refunds) a confirmed charge landing on an order switched to COD', async () => {
     const { service, tx, orderFlowService } = buildService({
       claimCount: 1,
       existingPayment: {
@@ -139,7 +190,8 @@ describe('Payment webhook idempotency (atomic PENDING claim)', () => {
         transactionId: 'SSLC-1',
         status: PaymentStatus.PENDING,
         orderId: 'order-cod',
-        gatewayResponse: null,
+        gateway: 'SSLCOMMERZ',
+        gatewayResponse: { bank_tran_id: 'bank-1' },
         amount: '500.00',
         order: {
           id: 'order-cod',
@@ -154,11 +206,43 @@ describe('Payment webhook idempotency (atomic PENDING claim)', () => {
 
     const result = await service.handleWebhook(...webhookArgs);
 
-    expect(result).toMatchObject({
-      success: true,
-      message: expect.stringContaining('switched to COD'),
-    });
+    expect(result).toMatchObject({ success: true, refundInitiated: true });
     expect(tx.order.update).not.toHaveBeenCalled();
+    expect(orderFlowService.handleOrderPaid).not.toHaveBeenCalled();
+  });
+
+  it('rescues a stranded charge: gateway confirms PAID after COD-switch already failed the session', async () => {
+    const { service, tx, orderFlowService } = buildService({
+      claimCount: 0,
+      existingPayment: {
+        id: 'pay-stranded',
+        transactionId: 'SSLC-1',
+        status: PaymentStatus.FAILED,
+        orderId: 'order-stranded',
+        gateway: 'SSLCOMMERZ',
+        gatewayResponse: null,
+        amount: '500.00',
+        order: {
+          id: 'order-stranded',
+          orderNumber: 'ORD-STRANDED',
+          customerId: 'cust-1',
+          paymentStatus: PaymentStatus.PENDING,
+          status: OrderStatus.PLACED,
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+        },
+      },
+    });
+
+    const result = await service.handleWebhook(...webhookArgs);
+
+    expect(result).toMatchObject({ success: true, refundInitiated: true });
+    // The confirmed charge must be recorded before reconciliation
+    expect(tx.payment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'pay-stranded' },
+        data: expect.objectContaining({ status: PaymentStatus.PAID }),
+      }),
+    );
     expect(orderFlowService.handleOrderPaid).not.toHaveBeenCalled();
   });
 

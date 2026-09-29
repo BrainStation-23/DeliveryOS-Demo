@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -175,18 +176,28 @@ export class VendorStaffService {
 
     const prepTimeMinutes = dto.prepTimeMinutes ?? order.vendor.defaultPrepTimeMinutes;
 
-    const updatedOrder = await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: OrderStatus.PREPARING,
-        prepTimeMinutes,
-        acceptedAt: new Date(),
-      },
-      include: {
-        orderItems: true,
-        vendor: true,
-      },
-    });
+    // Conditional on the observed status so a concurrent cancel/claim cannot be
+    // silently overwritten by a stale accept.
+    let updatedOrder;
+    try {
+      updatedOrder = await this.prisma.order.update({
+        where: { id: orderId, status: order.status },
+        data: {
+          status: OrderStatus.PREPARING,
+          prepTimeMinutes,
+          acceptedAt: new Date(),
+        },
+        include: {
+          orderItems: true,
+          vendor: true,
+        },
+      });
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        throw new ConflictException('Order state changed before it could be accepted; refresh and retry');
+      }
+      throw err;
+    }
 
     // Realtime Broadcast
     this.trackingGateway.notifyOrderStatusChanged(

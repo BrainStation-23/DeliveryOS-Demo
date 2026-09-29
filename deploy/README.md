@@ -52,7 +52,6 @@ The backend container runs `prisma migrate deploy` on every start (see `services
 All services rotate their JSON logs (`json-file`, 10 MB × 3 files). The API emits structured JSON logs with an `x-request-id` correlation id on every request (also set as a response header).
 
 ## 6. Backups
-## 6. Backups
 
 `scripts/backup-db.sh` dumps + gzips the database, optionally uploads offsite, and prunes local copies after 7 days.
 

@@ -170,7 +170,7 @@ flowchart LR
 | :--- | :--- | :--- | :--- |
 | **1. Plan & Grounding** | Understand the task before writing code | • Route via [`QUICK_REFERENCE.md`](context_docs/QUICK_REFERENCE.md) — load **only** the 1–2 relevant ADR/BRD/TID files.<br>• Verify architectural contracts in the [ADR Index](context_docs/architecture-decision-records/README.md), [BRDs](context_docs/business-requirements-documents/README.md), and [TIDs](context_docs/technical-implementation-documents/README.md).<br>• Resolve ambiguity with structured questions (recommended options; `/grill-me` for plan review). | A written plan aligned 100% with the specs — **zero open assumptions**. |
 | **2. Implementation** | Production-ready code, built in dependency order | • Sequence: Prisma schema ➔ backend services & DTOs ➔ realtime events ➔ UI.<br>• Enforce `AGENT_RULES.md` § 3: strict typing (zero raw `any`), design tokens only (zero inline styles), ACID transactions for every money/state mutation, comments only for non-obvious invariants, zero mocks or `TODO`s. | Code complete and convention-clean per `AGENT_RULES.md` (§ 3). |
-| **3. Verify & Sync** | Prove correctness and leave zero documentation drift | • Run the CI-identical quality gate: `npm run verify` (backend typecheck + lint + Jest unit tests + build, both portal typechecks, `flutter analyze` + `flutter test` ×2).<br>• Execute the test cases covering the change: targeted backend integration suites (`npm run test:auth`, `test:order`, `test:payment`, …) and portal smoke tests (`npm test`) against a live stack.<br>• Sync **every living document the change affects** — [`FEATURES.md`](FEATURES.md), [`CHANGELOG.md`](CHANGELOG.md), ADRs, plus any BRD/TID section, schema/endpoint spec, deploy note, or app README the change invalidates. | Quality gate green **and** living docs synced. |
+| **3. Verify & Sync** | Prove correctness and leave zero documentation drift | • Run the CI-identical quality gate: `npm run verify` (backend typecheck + lint + Jest unit tests + build, portal typechecks + production builds, `flutter analyze` + `flutter test` ×2).<br>• Execute the test cases covering the change: targeted backend integration suites (`npm run auth:test`, `order:test`, `payment:test`, …) and portal smoke tests (`npm test`) against a live stack.<br>• Sync **every living document the change affects** — [`FEATURES.md`](FEATURES.md), [`CHANGELOG.md`](CHANGELOG.md), ADRs, plus any BRD/TID section, schema/endpoint spec, deploy note, or app README the change invalidates. | Quality gate green **and** living docs synced. |
 
 **Git invariant (applies to every phase)**: **NO auto-commits** — `git commit` runs only on an explicit user command; **NO auto-push** — pushing requires its own explicit command.
 
@@ -198,7 +198,7 @@ flowchart LR
 - [ ] **2. Spec Verification**: Confirm intended behavior in BRD and TID documents; verify no invariant is violated.
 - [ ] **3. Surgical Fix**: Apply targeted code changes without broad, unnecessary rewrites.
 - [ ] **4. Type & Style Adherence**: Zero raw `any`, zero inline colors/styles, zero trivial comments.
-- [ ] **5. Regression Testing**: Run regression test suites (`npm run test:track1`, `flutter test`, etc.).
+- [ ] **5. Regression Testing**: Run regression test suites (`npm run track1:test`, `flutter test`, etc.).
 - [ ] **6. Living Docs Sync**: Record fix in `CHANGELOG.md` under `### Fixed`, update `FEATURES.md` if behavior changed.
 - [ ] **7. Commit Protocol**: Await explicit user command before executing `git commit`.
 

@@ -801,6 +801,42 @@ export class OrderService {
     // 1. Assert state machine transition legality
     assertTransition(order.status, OrderStatus.CANCELLED);
 
+    // Serialize concurrent cancellations so the gateway refund below can never
+    // run twice for the same order (the guarded DB update is the hard backstop).
+    const cancelLock = `lock:order_cancel:${order.id}`;
+    const lockOwner = `cancel:${order.id}`;
+    const lockAcquired = await this.redis.acquireLock(cancelLock, lockOwner, 15);
+    if (!lockAcquired) {
+      throw new ConflictException('A cancellation for this order is already in progress');
+    }
+
+    try {
+      return await this.performCancellation(order, reason, cancelledByRole);
+    } finally {
+      try {
+        await this.redis.releaseLock(cancelLock, lockOwner);
+      } catch (err: unknown) {
+        this.logger.warn(`Failed to release cancel lock: ${err instanceof Error ? err.message : 'Unknown'}`);
+      }
+    }
+  }
+
+  private async performCancellation(
+    order: {
+      id: string;
+      orderNumber: string;
+      customerId: string;
+      vendorId: string;
+      riderId: string | null;
+      couponId: string | null;
+      status: OrderStatus;
+      paymentMethod: PaymentMethod;
+      paymentStatus: PaymentStatus;
+      rider?: { id: string; userId: string } | null;
+    },
+    reason: string,
+    cancelledByRole: UserRole,
+  ) {
     // 2. Execute gateway refund BEFORE the DB reconciliation so a failed refund
     //    aborts the cancellation and the operator sees the gateway error.
     if (order.paymentStatus === PaymentStatus.PAID) {
@@ -824,8 +860,24 @@ export class OrderService {
     const riderIdToRelease = order.riderId;
     const riderUserId = order.rider?.userId;
 
-    // 2. Execute DB transaction
+    // 3. Execute DB transaction: the guarded claim is the source of truth — a
+    //    concurrent cancel/delivery that won the state transition makes this
+    //    whole reconciliation a no-op.
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.order.updateMany({
+        where: { id: order.id, status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] } },
+        data: {
+          status: OrderStatus.CANCELLED,
+          cancelledAt: new Date(),
+          rejectionReason: reason,
+          riderId: null,
+        },
+      });
+
+      if (claim.count === 0) {
+        return null;
+      }
+
       // Reconcile Payment state
       let nextPaymentStatus = order.paymentStatus;
       if (order.paymentStatus === PaymentStatus.PAID) {
@@ -849,10 +901,10 @@ export class OrderService {
         });
       }
 
-      // Reconcile Coupon usage
+      // Reconcile Coupon usage (never below zero)
       if (order.couponId) {
-        await tx.coupon.update({
-          where: { id: order.couponId },
+        await tx.coupon.updateMany({
+          where: { id: order.couponId, currentUses: { gt: 0 } },
           data: {
             currentUses: { decrement: 1 },
           },
@@ -869,15 +921,11 @@ export class OrderService {
         where: { orderId: order.id, status: SettlementStatus.PENDING },
       });
 
-      // Update Order to CANCELLED
+      // Apply the reconciled payment status onto the claimed cancellation
       return tx.order.update({
         where: { id: order.id },
         data: {
-          status: OrderStatus.CANCELLED,
-          cancelledAt: new Date(),
-          rejectionReason: reason,
           paymentStatus: nextPaymentStatus,
-          riderId: null,
         },
         include: {
           orderItems: true,
@@ -886,6 +934,10 @@ export class OrderService {
         },
       });
     });
+
+    if (!updatedOrder) {
+      throw new ConflictException(`Order ${order.orderNumber} was already cancelled or delivered`);
+    }
 
     // 3. Post-transaction Side Effects: Release Rider Mutex in Redis
     if (riderIdToRelease) {
@@ -1009,17 +1061,45 @@ export class OrderService {
         },
       });
 
-      return tx.order.update({
-        where: { id: orderId },
-        data: {
-          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
-        },
-        include: {
-          vendor: true,
-          orderItems: true,
-        },
-      });
+      // Conditional flip: a concurrent webhook that just marked the order paid
+      // (or a rival COD switch) makes this match zero rows instead of overwriting.
+      try {
+        return await tx.order.update({
+          where: {
+            id: orderId,
+            paymentMethod: PaymentMethod.ONLINE_GATEWAY,
+            paymentStatus: { not: PaymentStatus.PAID },
+            status: OrderStatus.PLACED,
+          },
+          data: {
+            paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+          },
+          include: {
+            vendor: true,
+            orderItems: true,
+          },
+        });
+      } catch (err: unknown) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+          return null;
+        }
+        throw err;
+      }
     });
+
+    if (!updatedOrder) {
+      const current = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: { vendor: true, orderItems: true },
+      });
+      if (!current) {
+        throw new NotFoundException(`Order with ID ${orderId} not found`);
+      }
+      if (current.paymentStatus === PaymentStatus.PAID) {
+        throw new BadRequestException('Order is already marked as paid');
+      }
+      return current; // Already switched to COD concurrently
+    }
 
     try {
       this.trackingGateway.notifyOrderStatusChanged(

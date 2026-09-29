@@ -103,9 +103,10 @@ services:
       SMS_SSLW_SID: ${SMS_SSLW_SID:-}
       SSLCOMMERZ_STORE_ID: ${SSLCOMMERZ_STORE_ID:-}
       SSLCOMMERZ_STORE_PASSWORD: ${SSLCOMMERZ_STORE_PASSWORD:-}
-      SSLCOMMERZ_BASE_URL: ${SSLCOMMERZ_BASE_URL:-https://sandbox.sslcommerz.com}
+      SSLCOMMERZ_BASE_URL: ${SSLCOMMERZ_BASE_URL:?SSLCOMMERZ_BASE_URL is required in production (live gateway, never sandbox)}
       SSLCOMMERZ_CALLBACK_BASE: ${SSLCOMMERZ_CALLBACK_BASE:-https://${DOMAIN}}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
       STORAGE_DRIVER: local
       UPLOAD_DIR: /app/uploads
       CORS_ORIGINS: ${CORS_ORIGINS:-https://${DOMAIN:?DOMAIN is required for TLS}}
@@ -174,7 +175,9 @@ services:
   # LAYER 3: PRODUCTION EDGE INGRESS & SSL REVERSE PROXY
   # ============================================================================
 
-  # 6. Production Nginx Reverse Proxy with Let's Encrypt SSL
+  # 6. Production Nginx Reverse Proxy with Let's Encrypt SSL.
+  #    Reloads every 6h so renewed certificates load without manual intervention
+  #    (reload is zero-downtime).
   nginx:
     image: nginx:1.25-alpine
     restart: always
@@ -184,6 +187,8 @@ services:
     environment:
       DOMAIN: ${DOMAIN:?DOMAIN is required for TLS}
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required for Let's Encrypt}
+    command: >
+      /bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & exec nginx -g "daemon off;"'
     volumes:
       - ./nginx-templates:/etc/nginx/templates:ro
       - certbot_conf:/etc/letsencrypt
@@ -208,7 +213,7 @@ services:
 
   # 7. Let's Encrypt certificate issuance & renewal (webroot via nginx)
   certbot:
-    image: certbot/certbot:latest
+    image: certbot/certbot:v3.0.1
     container_name: deliveryos_prod_certbot
     volumes:
       - certbot_conf:/etc/letsencrypt

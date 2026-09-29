@@ -42,6 +42,8 @@ export const VendorDashboardPage: React.FC = () => {
     error,
     refetch,
     isSocketConnected,
+    actionError,
+    dismissActionError,
     newOrders,
     inPreparationOrders,
     readyOrders,
@@ -60,6 +62,22 @@ export const VendorDashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-5">
+      {actionError && (
+        <div
+          role="alert"
+          className="flex items-center gap-3 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300"
+        >
+          <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+          {actionError}
+          <button
+            type="button"
+            onClick={dismissActionError}
+            className="underline underline-offset-2 hover:text-red-900 dark:hover:text-red-200"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       {(!isSocketConnected || isError) && (
         <div
           role="alert"
