@@ -72,7 +72,7 @@ void main() {
     );
   }
 
-  group('Task 5.4 - Domain & Unit Logic Tests', () {
+  group('Order Tracking Domain & Unit Logic', () {
     test('OrderStage contains sequential stages with proper metadata', () {
       expect(OrderStage.placed.title, 'Order Placed');
       expect(OrderStage.dispatched.title, 'Courier on the Way');
@@ -220,7 +220,7 @@ void main() {
     });
   });
 
-  group('Task 5.4 - UI & Widget Tests', () {
+  group('Order Tracking UI & Widgets', () {
     testWidgets('OrderStepperWidget renders active stage title', (tester) async {
       await tester.pumpWidget(
         createTestWidget(

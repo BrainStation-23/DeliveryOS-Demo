@@ -45,7 +45,7 @@ void main() {
     );
   }
 
-  group('Task 5.2 - Promotional Banners & Carousel Tests', () {
+  group('Promotional Banners & Carousel', () {
     test('BannerModel parses from JSON correctly', () {
       final json = {
         'id': 'b-101',
@@ -72,7 +72,7 @@ void main() {
     });
   });
 
-  group('Task 5.2 - Universal Search Tests', () {
+  group('Universal Search', () {
     testWidgets('SearchScreen renders query input, suggestions, and matches',
         (WidgetTester tester) async {
       await tester.pumpWidget(createTestWidget(child: const SearchScreen()));
@@ -93,7 +93,7 @@ void main() {
     });
   });
 
-  group('Task 5.2 - Outlet Menu & Categorized Catalog Tests', () {
+  group('Outlet Menu & Categorized Catalog', () {
     testWidgets('OutletDetailScreen displays outlet header, category tabs, and items',
         (WidgetTester tester) async {
       await tester.pumpWidget(
@@ -117,7 +117,7 @@ void main() {
     });
   });
 
-  group('Task 5.2 - Item Customizer Dynamic Recalculation & Sold-Out Guard Tests', () {
+  group('Item Customizer Dynamic Recalculation & Sold-Out Guard', () {
     final availableProduct = ProductModel(
       id: 'prod-test-1',
       name: 'Shahi Kacchi Platter',

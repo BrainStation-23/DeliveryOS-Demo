@@ -104,6 +104,27 @@ When generating code, you must strictly uphold these inviolable business rules:
 - **Separation of Concerns**: Strictly isolate business and state logic (Riverpod notifiers/providers in Flutter, custom hooks/stores in React, service classes in NestJS) from presentation/UI code. Never mix ad-hoc HTTP/API calls directly inside widget trees or view components.
 - **Avoid Over-Engineering**: Keep components simple, functional, and self-documenting. Do not introduce premature abstractions, unnecessary wrapper layers, or excessive fragmentation for trivial code.
 
+### 3.9 Test Integrity & Verification Standards (Anti-Bypass Gate)
+Every change that alters behavior must keep the automated verification system green and must never weaken it. See [ADR-014](./architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md) for the toolchain rationale.
+
+**Naming & placement**
+- Backend unit specs: `<unit>.spec.ts` colocated with the source file (`src/**/*.spec.ts`, Jest).
+- Web portal unit tests: `<unit>.test.ts` colocated with the source file (`src/**/*.test.{ts,tsx}`, Vitest).
+- Flutter tests: behavior-named `<behavior>_test.dart` under `test/` (mirroring `lib/` layout for feature tests). **Never name tests after work packages or task numbers** (`task_5_2_test.dart` is forbidden; use `cart_checkout_test.dart`).
+- Test suites are named after the behavior under test ("Coupon validation guard"), not the class under test alone.
+
+**Mandatory coverage**
+- Every money-path or security-path backend module requires a unit spec with per-file coverage floors enforced in `services/backend_api/jest.config.mjs` (FSM, order-flow dispatch, payments/webhooks, coupons, delivery fees, auth/OTP, guards, financial utils).
+- Tests must assert business rules, edge cases (boundary values, overnight windows, rounding), and failure scenarios (DB errors, invalid input, concurrency losses) — not just the happy path.
+- Money-path status changes are asserted via mock call-shapes (`updateMany` guarded claims, transaction payloads), never by re-checking constants.
+
+**Forbidden bypasses (enforced in CI)**
+- No `.skip` / `.only` / `.todo`, no `xit`/`xdescribe`/`xtest`, no Dart `skip: true` — ESLint rule for TS specs, `scripts/check-test-integrity.mjs` for everything (runs first in `npm run verify`).
+- No tautological assertions (`expect(true)...`, comparing two constants).
+- No deleting or hollowing out tests: required spec files and per-area test-count floors are locked in `scripts/check-test-integrity.mjs`; lowering a floor or removing a required file is an explicit, reviewable edit to that script.
+- No replacing real assertions with `expect(fn).not.toThrow()` alone when the return value is the contract.
+- Lowering coverage thresholds in `jest.config.mjs` requires a justification note in the same PR; raising them is always allowed.
+
 ---
 
 ## 4. Spec-Driven Implementation Workflow
@@ -133,6 +154,7 @@ Before marking any engineering task as complete, verify that:
 - [ ] Code is clean and self-documenting with **zero redundant comments on basic or obvious logic**.
 - [ ] The implementation aligns 100% with the requirements in `context_docs/`.
 - [ ] Any changed constant, enum value, or invariant has been grep-checked across `context_docs/` and `FEATURES.md`, and drifted documentation updated.
+- [ ] Behavior changes ship with tests (§ 3.9): happy path + edge cases + failure scenarios; `npm run verify` (including the test-integrity guard) passes without weakening thresholds, floors, or skipping tests.
 
 ---
 

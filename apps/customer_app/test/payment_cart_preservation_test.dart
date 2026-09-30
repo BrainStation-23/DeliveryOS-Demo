@@ -19,7 +19,7 @@ void main() {
     storage = LocalStorage(prefs);
   });
 
-  group('Phase 1 - Online Payment & Cart Preservation Tests', () {
+  group('Online Payment & Cart Preservation', () {
     test('Step 1.8: checkout returns chosen ONLINE_GATEWAY payment method after clearCart', () async {
       final mockDio = createTestMockDioClient();
       final container = ProviderContainer(

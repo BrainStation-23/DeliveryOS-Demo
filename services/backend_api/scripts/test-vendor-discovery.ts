@@ -3,7 +3,12 @@ import { AppModule } from '../src/app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
+import { config as loadEnv } from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+
+// Same resolution order as AppModule's ConfigModule so standalone
+// suites run without manually exporting the repo .env.
+loadEnv({ path: ['../../.env', '.env'] });
 
 async function runVendorDiscoveryTest() {
   console.log('====================================================');
@@ -148,7 +153,17 @@ async function runVendorDiscoveryTest() {
         await prisma.vendor.update({ where: { id: vendorId }, data: { isActive: false } });
       }
     }
-    await app.close();
+    // socket.io's redis-adapter leaves floating punsubscribe rejections during
+    // shutdown; scope a handler to the teardown window so a passing suite exits 0.
+    const onShutdownRejection = (reason: unknown) => {
+      console.warn('   ⚠ shutdown warning (ignored):', reason instanceof Error ? reason.message : String(reason));
+    };
+    process.on('unhandledRejection', onShutdownRejection);
+    process.on('uncaughtException', onShutdownRejection);
+    await app.close().catch(() => undefined);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    process.off('unhandledRejection', onShutdownRejection);
+    process.off('uncaughtException', onShutdownRejection);
     await prisma.$disconnect();
   }
 }

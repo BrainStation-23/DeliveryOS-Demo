@@ -137,5 +137,79 @@ describe('DeliveryFeeService', () => {
       expect(mockPrisma.systemSetting.findUnique).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('failure fallbacks', () => {
+    it('falls back to defaults when the database read throws', async () => {
+      const mockPrisma = {
+        systemSetting: { findUnique: jest.fn().mockRejectedValue(new Error('connection refused')) },
+      };
+      const service = new DeliveryFeeService(mockPrisma as never);
+
+      await expect(service.getConfig()).resolves.toEqual({
+        mode: 'FIXED_FLAT',
+        flatFee: 50.0,
+        baseFee: 30.0,
+        baseKm: 2.0,
+        perKmRate: 10.0,
+      });
+    });
+
+    it('falls back to defaults when no setting row exists', async () => {
+      const mockPrisma = {
+        systemSetting: { findUnique: jest.fn().mockResolvedValue(null) },
+      };
+      const service = new DeliveryFeeService(mockPrisma as never);
+
+      const config = await service.getConfig();
+      expect(config.flatFee).toBe(50.0);
+      expect(config.mode).toBe('FIXED_FLAT');
+    });
+
+    it('falls back to default economics when the database read throws', async () => {
+      const mockPrisma = {
+        systemSetting: { findUnique: jest.fn().mockRejectedValue(new Error('timeout')) },
+      };
+      const service = new DeliveryFeeService(mockPrisma as never);
+
+      await expect(service.getEconomicsConfig()).resolves.toEqual({
+        rider_share_percent: 80,
+        eta_avg_speed_kmh: 25,
+        eta_fallback_minutes: 10,
+      });
+    });
+
+    it('returns stored economics config and caches it for subsequent reads', async () => {
+      const mockPrisma = {
+        systemSetting: {
+          findUnique: jest.fn().mockResolvedValue({
+            value: { rider_share_percent: 70, eta_avg_speed_kmh: 30, eta_fallback_minutes: 12 },
+          }),
+        },
+      };
+      const service = new DeliveryFeeService(mockPrisma as never);
+
+      const first = await service.getEconomicsConfig();
+      expect(first.rider_share_percent).toBe(70);
+
+      await service.getEconomicsConfig();
+      expect(mockPrisma.systemSetting.findUnique).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('calculateFee', () => {
+    it('combines config fetch and computation into one money-path result', async () => {
+      const mockPrisma = {
+        systemSetting: {
+          findUnique: jest.fn().mockResolvedValue({
+            value: { mode: 'DISTANCE_TIERED', baseFee: 40.0, baseKm: 2.0, perKmRate: 15.0 },
+          }),
+        },
+      };
+      const service = new DeliveryFeeService(mockPrisma as never);
+
+      const result = await service.calculateFee(5.5);
+      expect(result).toEqual({ deliveryFee: 92.5, mode: 'DISTANCE_TIERED', distanceKm: 5.5 });
+    });
+  });
 });
 

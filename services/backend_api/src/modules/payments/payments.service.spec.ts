@@ -247,9 +247,186 @@ describe('Payment webhook idempotency (atomic PENDING claim)', () => {
     expect(orderFlowService.handleOrderPaid).not.toHaveBeenCalled();
   });
 
-  it('keeps COD orders out of the webhook path', async () => {
-    // Sanity guard for the money-path invariant: only ONLINE_GATEWAY orders flow here
-    expect(PaymentMethod.CASH_ON_DELIVERY).not.toBe(PaymentMethod.ONLINE_GATEWAY);
+  it('marks the payment FAILED and skips dispatch when the gateway reports failure', async () => {
+    const { service, tx, orderFlowService, verifyWebhook } = buildService({ claimCount: 1 });
+    verifyWebhook.mockResolvedValue({
+      isValid: true,
+      transactionId: 'SSLC-1',
+      orderId: 'order-1',
+      amount: 500,
+      status: PaymentStatus.FAILED,
+      rawResponse: { status: 'FAILED' },
+    } satisfies WebhookValidationResult);
+
+    const result = await service.handleWebhook(...webhookArgs);
+
+    expect(result).toMatchObject({ success: true, status: PaymentStatus.FAILED });
+    expect(tx.payment.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: PaymentStatus.FAILED }),
+      }),
+    );
+    // A failed charge must never release fulfillment
+    expect(tx.order.update).not.toHaveBeenCalled();
+    expect(orderFlowService.handleOrderPaid).not.toHaveBeenCalled();
+  });
+
+  it('rejects webhooks with invalid signatures before touching the ledger', async () => {
+    const { service, tx, verifyWebhook } = buildService({ claimCount: 1 });
+    verifyWebhook.mockResolvedValue({
+      isValid: false,
+      transactionId: 'SSLC-1',
+      orderId: 'order-1',
+      amount: 500,
+      status: PaymentStatus.PAID,
+      rawResponse: {},
+    } satisfies WebhookValidationResult);
+
+    await expect(service.handleWebhook(...webhookArgs)).rejects.toMatchObject({ status: 401 });
+    expect(tx.payment.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('initiatePayment validation guards', () => {
+  function buildInitiateService(order: Record<string, unknown> | null) {
+    const prisma = {
+      order: { findUnique: jest.fn().mockResolvedValue(order) },
+      payment: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'pay-new' }),
+      },
+    };
+    const redis = {
+      acquireLock: jest.fn().mockResolvedValue(true),
+      releaseLock: jest.fn().mockResolvedValue(true),
+    };
+    const sslcommerz = {
+      initiatePayment: jest.fn().mockResolvedValue({
+        transactionId: 'TRX-NEW',
+        sessionKey: 'sk-1',
+        paymentUrl: 'https://sandbox.sslcommerz.com/pay/TRX-NEW',
+      }),
+    };
+    const service = new PaymentsService(
+      prisma as never,
+      redis as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      sslcommerz as never,
+      {} as never,
+    );
+    return { service, prisma, redis, sslcommerz };
+  }
+
+  const payableOrder = {
+    id: 'order-1',
+    orderNumber: 'ORD-001',
+    customerId: 'user-1',
+    paymentMethod: PaymentMethod.ONLINE_GATEWAY,
+    paymentStatus: PaymentStatus.PENDING,
+    status: OrderStatus.PLACED,
+    totalAmount: '250.00',
+    customer: { id: 'user-1', phone: '+8801700000009', fullName: 'User 1' },
+    vendor: { id: 'v-1', name: 'Store 1' },
+  };
+
+  it('returns 404 when the order does not exist', async () => {
+    const { service } = buildInitiateService(null);
+
+    await expect(
+      service.initiatePayment('user-1', { orderId: 'order-1', gateway: SupportedPaymentGateway.SSLCOMMERZ }),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('returns 401 when a different user tries to pay for the order', async () => {
+    const { service } = buildInitiateService(payableOrder);
+
+    await expect(
+      service.initiatePayment('intruder-1', { orderId: 'order-1', gateway: SupportedPaymentGateway.SSLCOMMERZ }),
+    ).rejects.toMatchObject({ status: 401 });
+  });
+
+  it('rejects orders placed with Cash on Delivery', async () => {
+    const { service } = buildInitiateService({
+      ...payableOrder,
+      paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+    });
+
+    await expect(
+      service.initiatePayment('user-1', { orderId: 'order-1', gateway: SupportedPaymentGateway.SSLCOMMERZ }),
+    ).rejects.toThrow(/Cash on Delivery/);
+  });
+
+  it('rejects re-payment of an already PAID order (409)', async () => {
+    const { service } = buildInitiateService({
+      ...payableOrder,
+      paymentStatus: PaymentStatus.PAID,
+    });
+
+    await expect(
+      service.initiatePayment('user-1', { orderId: 'order-1', gateway: SupportedPaymentGateway.SSLCOMMERZ }),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('rejects payment for a CANCELLED order', async () => {
+    const { service } = buildInitiateService({
+      ...payableOrder,
+      status: OrderStatus.CANCELLED,
+    });
+
+    await expect(
+      service.initiatePayment('user-1', { orderId: 'order-1', gateway: SupportedPaymentGateway.SSLCOMMERZ }),
+    ).rejects.toThrow(/cancelled order/);
+  });
+
+  it('creates a PENDING ledger record and returns the gateway payment URL', async () => {
+    const { service, prisma, redis, sslcommerz } = buildInitiateService(payableOrder);
+
+    const result = await service.initiatePayment('user-1', {
+      orderId: 'order-1',
+      gateway: SupportedPaymentGateway.SSLCOMMERZ,
+    });
+
+    expect(result).toMatchObject({
+      paymentUrl: 'https://sandbox.sslcommerz.com/pay/TRX-NEW',
+      transactionId: 'TRX-NEW',
+      amount: 250,
+      currency: 'BDT',
+    });
+    expect(prisma.payment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          orderId: 'order-1',
+          status: PaymentStatus.PENDING,
+          gatewayResponse: { paymentUrl: 'https://sandbox.sslcommerz.com/pay/TRX-NEW' },
+        }),
+      }),
+    );
+    expect(sslcommerz.initiatePayment).toHaveBeenCalled();
+    expect(redis.releaseLock).toHaveBeenCalled();
+  });
+
+  it('refuses unsupported gateway names', async () => {
+    const { service } = buildInitiateService(payableOrder);
+
+    await expect(
+      service.initiatePayment('user-1', { orderId: 'order-1', gateway: 'crypto' as never }),
+    ).rejects.toThrow(/Unsupported payment gateway/);
+  });
+
+  it('refuses the sandbox gateway when NODE_ENV is production', async () => {
+    const previousEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    const { service } = buildInitiateService(payableOrder);
+
+    try {
+      await expect(
+        service.initiatePayment('user-1', { orderId: 'order-1', gateway: SupportedPaymentGateway.SANDBOX }),
+      ).rejects.toThrow(/disabled in production/);
+    } finally {
+      process.env.NODE_ENV = previousEnv;
+    }
   });
 });
 
@@ -394,6 +571,191 @@ describe('Step 1.1 & 1.2: PaymentsService refund idempotency and initiate concur
     expect(result.paymentUrl).toBe('https://sandbox.sslcommerz.com/gwprocess/v4/cached');
     expect(sslcommerz.initiatePayment).not.toHaveBeenCalled();
     expect(redis.releaseLock).toHaveBeenCalled();
+  });
+});
+
+describe('getPaymentStatus ownership enforcement', () => {
+  function buildStatusService(payment: Record<string, unknown> | null) {
+    const prisma = {
+      payment: { findUnique: jest.fn().mockResolvedValue(payment) },
+    };
+    const service = new PaymentsService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    return { service, prisma };
+  }
+
+  const storedPayment = {
+    id: 'pay-1',
+    transactionId: 'TRX-9',
+    gateway: 'SSLCOMMERZ',
+    amount: '500.00',
+    currency: 'BDT',
+    status: PaymentStatus.PAID,
+    paidAt: new Date('2026-09-01T10:00:00Z'),
+    failedAt: null,
+    refundId: null,
+    refundedAt: null,
+    createdAt: new Date('2026-09-01T09:58:00Z'),
+    order: {
+      id: 'order-1',
+      orderNumber: 'ORD-1',
+      status: OrderStatus.PLACED,
+      paymentStatus: PaymentStatus.PAID,
+      totalAmount: '500.00',
+      customerId: 'owner-1',
+    },
+  };
+
+  it('returns a redacted status payload to the owning customer', async () => {
+    const { service } = buildStatusService(storedPayment);
+
+    const result = await service.getPaymentStatus('TRX-9', 'owner-1');
+
+    expect(result).toMatchObject({ transactionId: 'TRX-9', status: PaymentStatus.PAID });
+    expect(result.order).toEqual({
+      id: 'order-1',
+      orderNumber: 'ORD-1',
+      status: OrderStatus.PLACED,
+      paymentStatus: PaymentStatus.PAID,
+      totalAmount: 500,
+    });
+  });
+
+  it('returns 403 when another user queries a transaction they do not own', async () => {
+    const { service } = buildStatusService(storedPayment);
+
+    await expect(service.getPaymentStatus('TRX-9', 'intruder-1')).rejects.toMatchObject({
+      status: 403,
+    });
+  });
+
+  it('returns 404 for unknown transaction ids', async () => {
+    const { service } = buildStatusService(null);
+
+    await expect(service.getPaymentStatus('TRX-404', 'owner-1')).rejects.toMatchObject({
+      status: 404,
+    });
+  });
+});
+
+describe('sweepExpiredPayments claim-then-reconcile cancellation', () => {
+  type SweepTx = {
+    order: { updateMany: jest.Mock };
+    coupon: { updateMany: jest.Mock };
+    commissionLedger: { deleteMany: jest.Mock };
+    riderTripLedger: { deleteMany: jest.Mock };
+    payment: { updateMany: jest.Mock };
+  };
+
+  function buildSweepService(options: {
+    expiredOrder: Record<string, unknown> | null;
+    claimCount: number;
+  }) {
+    const tx: SweepTx = {
+      order: { updateMany: jest.fn().mockResolvedValue({ count: options.claimCount }) },
+      coupon: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      commissionLedger: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      riderTripLedger: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      payment: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    };
+    const trackingGateway = { server: { to: jest.fn().mockReturnThis(), emit: jest.fn() } };
+    const prisma = {
+      order: { findMany: jest.fn().mockResolvedValue(options.expiredOrder ? [options.expiredOrder] : []) },
+      $transaction: jest.fn((fn: (t: SweepTx) => Promise<unknown>) => fn(tx)),
+    };
+    const notificationsService = { sendToUser: jest.fn().mockResolvedValue(true) };
+    const service = new PaymentsService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      trackingGateway as never,
+      notificationsService as never,
+      {} as never,
+      {} as never,
+    );
+    return { service, tx, prisma, notificationsService, trackingGateway };
+  }
+
+  const expiredOrder = {
+    id: 'order-expired',
+    orderNumber: 'ORD-EXPIRED',
+    customerId: 'cust-1',
+    vendorId: 'vendor-1',
+    status: OrderStatus.PLACED,
+    couponId: 'coupon-1',
+    placedAt: new Date(Date.now() - 20 * 60 * 1000),
+    payments: [],
+  };
+
+  it('does nothing when no orders have breached the 15-minute window', async () => {
+    const { service, prisma, tx } = buildSweepService({ expiredOrder: null, claimCount: 1 });
+
+    await service.sweepExpiredPayments();
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(tx.order.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('atomically cancels an expired order and rolls back coupon + pending ledgers', async () => {
+    const { service, tx, notificationsService, trackingGateway } = buildSweepService({
+      expiredOrder,
+      claimCount: 1,
+    });
+
+    await service.sweepExpiredPayments();
+
+    expect(tx.order.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'order-expired', status: OrderStatus.PLACED, paymentStatus: PaymentStatus.PENDING },
+        data: expect.objectContaining({
+          status: OrderStatus.CANCELLED,
+          paymentStatus: PaymentStatus.FAILED,
+        }),
+      }),
+    );
+    // Coupon usage is rolled back but never below zero
+    expect(tx.coupon.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'coupon-1', currentUses: { gt: 0 } },
+        data: { currentUses: { decrement: 1 } },
+      }),
+    );
+    expect(tx.commissionLedger.deleteMany).toHaveBeenCalled();
+    expect(tx.riderTripLedger.deleteMany).toHaveBeenCalled();
+    expect(tx.payment.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { orderId: 'order-expired', status: PaymentStatus.PENDING },
+        data: expect.objectContaining({ status: PaymentStatus.FAILED }),
+      }),
+    );
+    expect(notificationsService.sendToUser).toHaveBeenCalledWith(
+      'cust-1',
+      expect.objectContaining({ data: expect.objectContaining({ status: OrderStatus.CANCELLED }) }),
+    );
+    expect(trackingGateway.server.to).toHaveBeenCalledWith('order_order-expired');
+  });
+
+  it('skips every destructive step when the claim loses to a concurrent webhook (count=0)', async () => {
+    const { service, tx, notificationsService } = buildSweepService({
+      expiredOrder,
+      claimCount: 0,
+    });
+
+    await service.sweepExpiredPayments();
+
+    expect(tx.order.updateMany).toHaveBeenCalled();
+    expect(tx.coupon.updateMany).not.toHaveBeenCalled();
+    expect(tx.commissionLedger.deleteMany).not.toHaveBeenCalled();
+    expect(tx.riderTripLedger.deleteMany).not.toHaveBeenCalled();
+    expect(tx.payment.updateMany).not.toHaveBeenCalled();
+    expect(notificationsService.sendToUser).not.toHaveBeenCalled();
   });
 });
 

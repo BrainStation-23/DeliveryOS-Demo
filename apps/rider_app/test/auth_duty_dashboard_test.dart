@@ -41,7 +41,7 @@ void main() {
     );
   }
 
-  group('Task 6.1 - Domain & Invariant Tests', () {
+  group('Auth & Duty Domain Invariants', () {
     test('VehicleType enum maps to correct API keys and display names', () {
       expect(VehicleType.motorcycle.apiKey, 'motorcycle');
       expect(VehicleType.bicycle.apiKey, 'bicycle');
@@ -146,7 +146,7 @@ void main() {
     });
   });
 
-  group('Task 6.1 - UI & Widget Tests', () {
+  group('Auth & Duty UI & Widgets', () {
     testWidgets('PhoneLoginScreen renders vehicle options and input elements', (tester) async {
       await tester.pumpWidget(
         createTestWidget(child: const PhoneLoginScreen()),

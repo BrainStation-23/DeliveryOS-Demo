@@ -63,7 +63,7 @@ void main() {
     );
   }
 
-  group('Task 5.3 - Single-Outlet Invariant Tests', () {
+  group('Cart Single-Outlet Invariant', () {
     test('Cart enforces single outlet and guards cross-vendor additions', () {
       final container = ProviderContainer(
         overrides: [localStorageProvider.overrideWithValue(storage)],
@@ -120,7 +120,7 @@ void main() {
     });
   });
 
-  group('Task 5.3 - Item Count Adjustments & Price Equations Tests', () {
+  group('Item Count Adjustments & Price Equations', () {
     test('Adjusting quantities recalculates item total, gross subtotal, and total payable', () {
       final container = ProviderContainer(
         overrides: [localStorageProvider.overrideWithValue(storage)],
@@ -154,7 +154,7 @@ void main() {
     });
   });
 
-  group('Task 5.3 - Cart Address Geofence Guard Tests', () {
+  group('Cart Address Geofence Guard', () {
     test('Address inside radius enables checkout; moving outside disables checkout and warns', () async {
       final container = ProviderContainer(
         overrides: [localStorageProvider.overrideWithValue(storage)],
@@ -196,7 +196,7 @@ void main() {
     });
   });
 
-  group('Task 5.3 - Coupon Deduction Tests', () {
+  group('Coupon Deduction', () {
     test('Applying coupon WELCOME50 deducts ৳50 from gross subtotal', () async {
       final container = ProviderContainer(
         overrides: [
@@ -225,7 +225,7 @@ void main() {
     });
   });
 
-  group('Task 5.3 - CartScreen Widget UI Tests', () {
+  group('CartScreen Widget UI', () {
     testWidgets('CartScreen displays item details, geofence status, bill summary, and place order CTA',
         (WidgetTester tester) async {
       final container = ProviderContainer(

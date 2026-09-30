@@ -1,4 +1,9 @@
+import { config as loadEnv } from 'dotenv';
 import { PrismaClient, OrderStatus, PaymentMethod, PaymentStatus, SettlementStatus } from '@prisma/client';
+
+// Same resolution order as AppModule's ConfigModule so standalone
+// suites run without manually exporting the repo .env.
+loadEnv({ path: ['../../.env', '.env'] });
 
 const API_BASE = process.env.API_BASE_URL || 'http://localhost:4000/api/v1';
 const prisma = new PrismaClient();

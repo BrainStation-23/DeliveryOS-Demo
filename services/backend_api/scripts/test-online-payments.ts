@@ -1,7 +1,12 @@
 import * as crypto from 'crypto';
 import { PrismaClient, PaymentStatus } from '@prisma/client';
 import { io as ClientIO } from 'socket.io-client';
+import { config as loadEnv } from 'dotenv';
 import { SandboxGatewayAdapter } from '../src/modules/payments/gateways/sandbox.gateway';
+
+// Same resolution order as AppModule's ConfigModule so standalone
+// suites run without manually exporting the repo .env.
+loadEnv({ path: ['../../.env', '.env'] });
 
 const API_BASE = 'http://localhost:4000/api/v1';
 const WS_BASE = 'http://localhost:4000/events';

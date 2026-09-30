@@ -64,7 +64,7 @@ void main() {
     );
   }
 
-  group('Task 6.2 - Domain & State Machine Tests', () {
+  group('Trip Lifecycle Domain & State Machine', () {
     test('TripStep provides sequential fulfillment step numbering and titles', () {
       expect(TripStep.accept.stepNumber, 0);
       expect(TripStep.pickup.stepNumber, 1);
@@ -169,7 +169,7 @@ void main() {
     });
   });
 
-  group('Task 6.2 - UI & Widget Tests', () {
+  group('Trip Lifecycle UI & Widgets', () {
     testWidgets('IncomingTripModal displays payout, store, drop-off, and accept button', (tester) async {
       final container = createContainer();
       final testTrip = TripOrder.pilotKacchiOrder();

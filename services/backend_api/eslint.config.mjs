@@ -23,4 +23,23 @@ export default tseslint.config(
       '@typescript-eslint/no-require-imports': 'off',
     },
   },
+  {
+    // Test-integrity rules: skipped, focused, or stubbed tests are forbidden in
+    // CI-tracked spec files. Removing this block is a reviewable config change.
+    files: ['src/**/*.spec.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.object.name=/^(it|test|describe)$/][callee.property.name=/^(skip|only|todo)$/]",
+          message: 'Test focus/skip/todo markers (.skip/.only/.todo) are forbidden — every test must run in CI.',
+        },
+        {
+          selector: "CallExpression[callee.name=/^(xit|xtest|xdescribe)$/]",
+          message: 'Temporarily disabled tests (xit/xtest/xdescribe) are forbidden — fix or delete the test.',
+        },
+      ],
+    },
+  },
 );

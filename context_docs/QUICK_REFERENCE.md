@@ -22,11 +22,13 @@
 
 | Task | Command |
 | :--- | :--- |
-| Full quality gate (CI-identical) | `npm run verify` (root) = backend typecheck+lint+test:unit+build, portal typechecks+builds, `flutter analyze`+`flutter test` ×2 |
+| Full quality gate (CI-identical) | `npm run verify` (root) = test-integrity guard + backend typecheck+lint+test:unit+build, portal typechecks+test:unit+builds, `flutter analyze`+`flutter test` ×2 |
+| Test-integrity guard alone | `npm run verify:tests` (root) — bans skip/only markers, tautologies, deleted/trivial tests |
 | Boot local infra | `./scripts/start-local.sh` (or `docker compose -f deploy/docker-compose.yml up -d postgres redis`) |
 | Migrate + seed | `npx prisma migrate dev` then `npm run prisma:seed` (or `prisma:seed:massive`) in `services/backend_api` |
 | Backend integration suites (needs live stack) | `npm test` in `services/backend_api` (chains 18 `*:test` scripts: `auth:test`, `order:test`, `dispatch:test`, `payment:test`, `settlement:test`, `cancel:test`, `track1:test`, `track3:test`, …) |
-| Backend unit tests (no DB needed) | `npm run test:unit` in `services/backend_api` (Jest, `src/**/*.spec.ts`) |
+| Backend unit tests (no DB needed) | `npm run test:unit` in `services/backend_api` (Jest, `src/**/*.spec.ts`, per-file coverage floors in `jest.config.mjs`) |
+| Portal unit tests (no API needed) | `npm run test:unit` in each portal (Vitest, `src/**/*.test.ts`) |
 | Portal smoke tests (live API) | `npm test` in each portal (tsx assertion scripts) |
 | Release AAB | `./scripts/build-android.sh customer|rider` (dart-define injection) |
 | DB backup / restore | `./scripts/backup-db.sh` / `./scripts/restore-db.sh` |
@@ -43,6 +45,7 @@
 | If Your Task Involves… | Load Docs | Key Code Paths |
 | :--- | :--- | :--- |
 | Workflow / DoD / commit rules | [AGENT_RULES.md](./AGENT_RULES.md) | — |
+| Writing or modifying tests | [AGENT_RULES.md](./AGENT_RULES.md) §3.9 + [ADR-014](./architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md) | `scripts/check-test-integrity.mjs`, `services/backend_api/jest.config.mjs`, portal `vitest.config.ts` |
 | Feature inventory & traceability | [FEATURES.md](../FEATURES.md) | — |
 | Release history & roadmap | [CHANGELOG.md](../CHANGELOG.md) | — |
 | Monorepo topology & ingress | `ADR-001`, `ADR-005`, `TID-01` | `deploy/nginx.local.conf`, `deploy/nginx-templates/` |

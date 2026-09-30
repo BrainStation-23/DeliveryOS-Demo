@@ -20,7 +20,7 @@ import 'mock_dio_client.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('Task 5.1 - Trilingual Localization & RTL Tests', () {
+  group('Trilingual Localization & RTL', () {
     test('English translations exist and isRtl is false', () {
       final l10n = AppLocalizations(const Locale('en'));
       expect(l10n.translate('app_title'), 'DeliveryOS');
@@ -46,7 +46,7 @@ void main() {
     });
   });
 
-  group('Task 5.1 - Auth & Guest Mode Provider Tests', () {
+  group('Auth & Guest Mode Providers', () {
     late LocalStorage storage;
 
     setUp(() async {
@@ -97,7 +97,7 @@ void main() {
     });
   });
 
-  group('Task 5.1 - Location Selection & Dhaka Pilot Neighborhoods Tests', () {
+  group('Location Selection & Dhaka Pilot Neighborhoods', () {
     late LocalStorage storage;
 
     setUp(() async {
@@ -156,7 +156,7 @@ void main() {
     });
   });
 
-  group('Task 5.1 - Widget UI Flow Tests', () {
+  group('Core Widget UI Flows', () {
     late LocalStorage storage;
 
     setUp(() async {

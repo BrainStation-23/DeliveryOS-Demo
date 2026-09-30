@@ -64,7 +64,7 @@ void main() {
     );
   }
 
-  group('Task 6.3 - Unit Tests: Rider Duty & Earnings Logic', () {
+  group('Rider Duty & Earnings Logic', () {
     test('RiderDutyState calculates remainingCashLimit and usage ratio correctly', () {
       final state = RiderDutyState(
         codCashInHand: 2500.0,
@@ -162,7 +162,7 @@ void main() {
     });
   });
 
-  group('Task 6.3 - Safety Limit Guard: claimTrip Enforcement', () {
+  group('Safety Limit Guard: claimTrip Enforcement', () {
     test('claimTrip blocks COD orders when rider cash limit is reached', () async {
       final container = createContainer();
       addTearDown(container.dispose);
@@ -200,7 +200,7 @@ void main() {
     });
   });
 
-  group('Task 6.3 - Widget Tests: Rider Earnings & Safety Limit UI', () {
+  group('Rider Earnings & Safety Limit UI', () {
     testWidgets('IncomingTripModal shows lock alert and disables Accept button for COD orders when cash limit reached',
         (tester) async {
       final container = ProviderContainer(

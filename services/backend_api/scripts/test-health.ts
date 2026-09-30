@@ -26,7 +26,17 @@ async function testHealthEndpoint() {
 
     console.log('✅ Health check verification PASSED: Database and Redis are healthy!');
   } finally {
-    await app.close();
+    // socket.io's redis-adapter leaves floating punsubscribe rejections during
+    // shutdown; scope a handler to the teardown window so a passing suite exits 0.
+    const onShutdownRejection = (reason: unknown) => {
+      console.warn('   ⚠ shutdown warning (ignored):', reason instanceof Error ? reason.message : String(reason));
+    };
+    process.on('unhandledRejection', onShutdownRejection);
+    process.on('uncaughtException', onShutdownRejection);
+    await app.close().catch(() => undefined);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    process.off('unhandledRejection', onShutdownRejection);
+    process.off('uncaughtException', onShutdownRejection);
   }
 }
 
