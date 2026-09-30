@@ -39,6 +39,9 @@ Capability detail: [`FEATURES.md`](FEATURES.md) • Architectural rationale: [AD
 
 #### Changed
 - **Flutter test files renamed to behavior-based conventions**: `task_5_2_test.dart` → `discovery_catalog_test.dart`, `task_5_3_test.dart` → `cart_checkout_test.dart`, `task_5_4_test.dart` → `order_tracking_test.dart`, `app_test.dart` → `localization_auth_home_test.dart`, `phase_1_payment_cart_test.dart` → `payment_cart_preservation_test.dart` (customer); `task_6_1_test.dart` → `auth_duty_dashboard_test.dart`, `task_6_2_test.dart` → `trip_lifecycle_test.dart`, `task_6_3_test.dart` → `earnings_safety_test.dart` (rider); work-package group labels ("Task 5.x") replaced with behavior descriptions; rider `widget_test.dart` smoke suite strengthened with an overflow-safety assertion.
+
+#### Removed
+- **`docs/MASTER_REMEDIATION_PLAN.md`**: all four phases fully executed and committed (last: `4ac6f12`); the audit trail lives in git history and [`CHANGELOG.md`](CHANGELOG.md), so the completed execution plan was retired.
 - **Server-Computed Rider Economics in Dispatch & Claim**: `dispatch:broadcast` now carries `riderEarnings` and haversine `distanceKm`; `POST /rider/orders/:id/claim` returns server-computed `riderEarnings`; `GET /rider/trips` includes real per-trip `distanceKm`; the rider app reconciles post-delivery earnings/COD from the `tripLedger` in the deliver response (never gross `deliveryFee` or client-side math).
 
 #### Fixed
