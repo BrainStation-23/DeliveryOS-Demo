@@ -1,3 +1,9 @@
+# On Apple Silicon Macs, ensure hook commands run under native arm64 architecture
+# even if git was invoked via an x86_64 binary (e.g. /usr/local/bin/git under Rosetta).
+if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ] && [ "$(sysctl -in sysctl.proc_translated 2>/dev/null)" = "1" ]; then
+  exec arch -arm64 /bin/sh "$0" "$@"
+fi
+
 # Fast pre-push gate: everything hermetic from the CI verify job except the
 # Flutter suites and portal builds (slow); full gate remains `npm run verify`.
 echo "▸ pre-push: backend typecheck + lint + unit tests"
