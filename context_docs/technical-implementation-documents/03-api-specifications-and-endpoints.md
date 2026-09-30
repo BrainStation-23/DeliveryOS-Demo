@@ -26,7 +26,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`POST /auth/otp/request`**
   - *Guard*: Public (Throttled: 5 req / min per IP).
   - *Body*: `{ "phone": "+8801700000000", "role": "CUSTOMER" }` (role: `CUSTOMER` | `RIDER` | `VENDOR_ADMIN`).
-  - *Response*: `{ "referenceId": "otp-uuid" }`.
+  - *Response*: `{ "retryAfterSeconds": 60 }`.
 - **`POST /auth/otp/verify`**
   - *Guard*: Public (Throttled: 30 req / min per IP; 5-attempt brute-force lockout).
   - *Body*: `{ "phone": "+8801700000000", "otp": "123456" }`.
@@ -63,15 +63,15 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Response*: Outlet categories and active products with `isInStock = true`.
 - **`POST /vendors/validate-address-coverage`**
   - *Guard*: Public (Throttled: 30 req / min).
-  - *Body*: `{ "vendorId": "uuid", "latitude": 23.7808, "longitude": 90.4190 }`.
-  - *Response*: `{ "isWithinCoverage": true, "distanceKm": 2.4, "deliveryFee": 50.0, "isActive": true, "isBusy": false }`.
+  - *Body*: `{ "vendorId": "uuid", "latitude": 23.7808, "longitude": 90.4190 }` or `{ "vendorId": "uuid", "addressId": "uuid" }`.
+  - *Response*: `{ "isWithinCoverage": true, "distanceKm": 2.4, "deliveryRadiusKm": 5.0, "estimatedDeliveryFee": 50.0, "isActive": true, "isBusy": false }`.
 - **`POST /cart/validate-address-coverage`**
   - *Guard*: Public (Throttled: 30 req / min). Cart-controller alias of the vendor coverage check.
   - *Body / Response*: Identical to `POST /vendors/validate-address-coverage`.
 - **`POST /coupons/validate`**
-  - *Guard*: `JwtAuthGuard` (`CUSTOMER`).
+  - *Guard*: Public (Throttled: 30 req / min).
   - *Body*: `{ "code": "PILOT50", "cartSubtotal": 500.0, "vendorId": "uuid" }`.
-  - *Response*: `{ "isValid": true, "discountAmount": 50.0, "discountType": "FLAT" }`.
+  - *Response*: `{ "isValid": true, "code": "PILOT50", "discountAmount": 50.0, "minOrderAmount": 300.0, "discountType": "FLAT" }`.
 - **`POST /orders/checkout`**
   - *Guard*: `JwtAuthGuard` (`CUSTOMER`).
   - *Body*:
@@ -88,9 +88,9 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
     ```
   - *Response*: `{ "orderId": "uuid", "orderNumber": "ORD-20261001-0042", "totalAmount": 500.0, "status": "PLACED" }`.
 - **`POST /orders/validate-reorder`**
-  - *Guard*: `JwtAuthGuard` (`CUSTOMER`).
+  - *Guard*: `JwtAuthGuard` (`CUSTOMER`). Checks customer ownership of previous order to eliminate IDOR.
   - *Body*: `{ "previousOrderId": "uuid" }`.
-  - *Response*: `{ "isStoreOpen": true, "unavailableItemIds": [], "updatedItems": [...] }`.
+  - *Response*: `{ "isStoreOperational": true, "hasStockChanges": false, "vendorId": "uuid", "vendorName": "Sweet Treats", "validItems": [{ "productId": "uuid", "name": "Cupcake", "currentBasePrice": 120.0, "quantity": 2, "variantId": null, "isAvailable": true }], "unavailableItems": [] }`.
 - **`GET /orders/history`**
   - *Guard*: `JwtAuthGuard` (`CUSTOMER`).
   - *Query*: `page` (int, default 1), `limit` (int, default 10).
@@ -130,6 +130,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 
 ### 2.4 Rider Fleet Operations Module (`/rider`)
 - **`GET /rider/profile`**: Returns courier status, vehicle, cash in hand, and max safety limit.
+- **`GET /rider/active-trip`**: Returns active in-flight delivery trip envelope (`RIDER_ASSIGNED`, `ACCEPTED`, `PREPARING`, `READY_FOR_PICKUP`, or `DISPATCHED`) for courier mobile app rehydration on startup or reconnection, or `null` if idle.
 - **`PATCH /rider/duty`**
   - *Body*: `{ "isOnline": boolean }`.
   - *Invariant*: Returns `400 Bad Request` if attempting to go offline with an active delivery.
@@ -195,4 +196,5 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`PATCH /customers/addresses/:id/default`**: Sets default delivery address.
 - **`GET /customers/profile`** / **`PATCH /customers/profile`**: Customer profile management.
 - **`GET /health`**: Health check probe returning PostgreSQL and Redis connection status.
-- **`GET /geo/reverse-geocode?lat=...&lng=...`**: Reverse geocoding cached in Redis for 24 hours.
+- **`GET /geo/reverse-geocode`**: Reverse geocoding (`lat`, `lng`) returning `{ displayName, addressLine, city }`, cached in Redis for 24 hours.
+- **`GET /geo/geocode`**: Forward geocoding query string (`q`) returning array of `{ displayName, addressLine, latitude, longitude, city, postcode, country }` with regional Bangladesh biasing and 24-hour Redis caching.

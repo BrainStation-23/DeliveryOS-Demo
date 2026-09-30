@@ -161,7 +161,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Step 1: Pick Up Food** (`_buildStep1PickUp` in `ActiveTripScreen`):
   - Store address, one-tap navigation handoff to Google Maps/Apple Maps, direct store phone dialer.
   - Prominent visual package label (`LOOK FOR PACKAGE BAG - Order #...`).
-  - Primary Action: `"ORDER PICKED UP ➔ START DELIVERY"` (`POST /orders/:id/pickup`).
+  - Primary Action: `"ORDER PICKED UP ➔ START DELIVERY"` (`PATCH /rider/orders/:id/pickup`).
 - **Step 2: Deliver to Customer** (`_buildStep2Deliver`):
   - Doorstep navigation shortcut, customer address, special gate/floor instructions.
   - Direct customer phone dialer.
@@ -169,7 +169,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Step 3: Complete Handover & Cash Verification** (`_buildStep3Handover`):
   - Prepaid orders: Green confirmation banner indicating zero cash collection.
   - COD orders: Amber banner with collected amount and mandatory confirmation checkbox: *"I have collected ৳[Amount] in cash from customer"*.
-  - Primary Action: `"COMPLETE DELIVERY"` (`POST /orders/:id/deliver`).
+  - Primary Action: `"COMPLETE DELIVERY"` (`PATCH /rider/orders/:id/deliver`).
 
 ### 3.5. Doorstep Delivery Failure SOP (5-Minute Countdown)
 - **Unresponsive Customer SOP Modal**: Accessible from Step 2 and Step 3 via `"Customer Unreachable at Doorstep?"` button (`_showUnreachableBottomSheet`).
@@ -400,7 +400,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Background Telemetry**: rider foreground service keeps GPS streaming while backgrounded; synthetic-coordinate fallback removed; HTTP sync throttled to 30s; lifecycle-aware socket reconnect.
 
 ### 6.9. Hardening, Data Integrity & Error UX
-- **Money-Path Unit Tests**: Jest suite (`npm run unit:test`, runs in CI via the root `verify` gate) pinning the ADR-002 FSM, region-time operating-hours math (overnight windows, Asia/Dhaka rollover), coupon eligibility guards, and the webhook atomic-claim idempotency ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)).
+- **Money-Path Unit Tests**: Jest suite (`npm run test:unit`, runs in CI via the root `verify` gate) pinning the ADR-002 FSM, region-time operating-hours math (overnight windows, Asia/Dhaka rollover), coupon eligibility guards, and the webhook atomic-claim idempotency ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)).
 - **Region-Time Hours Gate**: vendor operating hours compare against the active region's wall clock (`Asia/Dhaka`/`Asia/Riyadh` via `REGION_MODE`), never the server's UTC clock.
 - **Atomic Coupon Claims**: checkout claims coupon usage via `UPDATE ... WHERE currentUses < usageLimit` inside the transaction; conflict rolls back the order (no oversell).
 - **Pagination**: customer order history and admin live orders return `{items,total,page,limit,totalPages}` with wired portal `Table` controls; nearby-vendor discovery capped by validated `limit` (default 50).
@@ -439,13 +439,13 @@ The platform is guarded by a layered verification pyramid. Backend integration s
 | Suite | Command | Scope & Capabilities Verified |
 | :--- | :--- | :--- |
 | **Repo Quality Gate (CI)** | `npm run verify` (root) | Backend typecheck + ESLint + Jest unit + build, portal typechecks + production builds, `flutter analyze` + `flutter test` ×2 — runs on every push/PR via `.github/workflows/ci.yml` |
-| **Money-Path Unit Tests** | `npm run unit:test` (backend) | Jest (39 tests across 6 suites) pinning the ADR-002 FSM, dispatch order-flow and claim mutex invariants, region-time operating-hours math, coupon eligibility, webhook atomic-claim idempotency, and delivery-fee computation/caching ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)) |
+| **Money-Path Unit Tests** | `npm run test:unit` (backend) | Jest (71 tests across 11 suites) pinning the ADR-002 FSM, dispatch order-flow and claim mutex invariants, region-time operating-hours math, coupon eligibility, webhook atomic-claim idempotency, delivery-fee computation/caching, and forward/reverse geocoding ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)) |
 | **DB & Spatial Integrity** | `npm run db:test` | Prisma models, PostGIS expression GIST indexes, spatial query sanity |
 | **Auth & RBAC Security** | `npm run auth:test` | Phone OTP, JWT + refresh rotation, tenant isolation, Super Admin override guards |
 | **Vendor Discovery & Geofence** | `npm run vendor:test` | PostGIS `ST_DWithin` radius search, vertical filters, distance sorting |
 | **Promotions & Pricing** | `npm run promotions:test` | Banners, coupon validation, flat vs distance delivery fees |
 | **Order Checkout** | `npm run order:test` | Single-vendor cart boundary, coupon claims, fee math |
-| **Vendor & Rider Operations** | `npm run vendor:test-rider` | KDS transitions, stock toggles, rider duty/claim/deliver |
+| **Vendor & Rider Operations** | `npm run vendor-rider:test` | KDS transitions, stock toggles, rider duty/claim/deliver |
 | **WebSocket Tracking** | `npm run ws:test` | `/events` rooms, join authorization, telemetry fan-out |
 | **Dispatch FSM & Mutex** | `npm run dispatch:test` | Redis `SET NX EX` mutex, race elimination, dual-flow transitions, escalation |
 | **Live Tracking & Dispatch Escalation** | `npm run tracking:test` | GPS streaming payloads, tiered radius escalation |

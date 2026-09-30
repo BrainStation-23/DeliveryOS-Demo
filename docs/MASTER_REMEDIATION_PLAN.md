@@ -722,11 +722,11 @@ flowchart TD
 ## 4. Definition of Done (DoD) & Sign-Off Checklist
 
 Before considering this remediation complete, every assertion in this checklist must be verified:
-- [ ] **P0 Money Path**: No double refunds, no stranded charges, idempotent refund execution, serializable DB state mutations.
-- [ ] **P0 Security**: Zero IDOR in reorders, zero BOLA in order tracking, fail-close vendor staff scoping, safe staff upserts.
-- [ ] **Mobile Stability**: Zero unhandled 401 polling loops, checkout preserves payment method, tolerant numeric parsers eliminate `Decimal` string type errors.
-- [ ] **Operational Dispatch**: Zero zombie orders on courier issues, active trip rehydration functional, radar throttled per-courier, realtime KDS inserts working.
-- [ ] **Data Consistency**: Addon group limits enforced, variant price modifiers applied, store contact phones present, delivery fees match server estimates.
-- [ ] **Clean Code & Design Tokens**: Zero raw `any` types, zero hardcoded inline styles, strict null safety.
-- [ ] **Git Discipline**: Zero auto-commits, zero auto-pushes.
-- [ ] **Quality Gate**: `npm run verify` passes with 0 diagnostics across all packages.
+- [x] **P0 Money Path**: No double refunds, no stranded charges, idempotent refund execution, serializable DB state mutations.
+- [x] **P0 Security**: Zero IDOR in reorders, zero BOLA in order tracking, fail-close vendor staff scoping, safe staff upserts.
+- [x] **Mobile Stability**: Zero unhandled 401 polling loops, checkout preserves payment method, tolerant numeric parsers eliminate `Decimal` string type errors.
+- [x] **Operational Dispatch**: Zero zombie orders on courier issues, active trip rehydration functional, radar throttled per-courier, realtime KDS inserts working.
+- [x] **Data Consistency**: Addon group limits enforced, variant price modifiers applied, store contact phones present, delivery fees match server estimates, dynamic geocoding replacing static dictionaries.
+- [x] **Clean Code & Design Tokens**: Zero raw `any` types, zero hardcoded inline styles, strict null safety.
+- [x] **Git Discipline**: Zero auto-commits, zero auto-pushes.
+- [x] **Quality Gate**: `npm run verify` passes with 0 diagnostics across all packages.

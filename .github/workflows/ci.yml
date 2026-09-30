@@ -54,12 +54,11 @@ jobs:
 
   integration:
     # Live-stack money-path suites (18 chained scripts against Postgres+Redis).
-    # Staged as non-blocking until seed-dependent assertions prove stable on CI
-    # hardware; flip continue-on-error to false to make it a merge gate.
+    # Strict blocking merge gate.
     name: Backend Integration Suites (live stack)
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    continue-on-error: true
+    continue-on-error: false
     services:
       postgres:
         image: postgis/postgis:16-3.4

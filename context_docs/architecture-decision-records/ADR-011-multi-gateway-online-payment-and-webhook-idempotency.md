@@ -47,16 +47,15 @@ flowchart TD
 ```
 
 ### 2. Multi-Gateway Adapter Topology
-Payment integrations implement a common `PaymentGatewayAdapter` interface:
+Payment integrations implement a common `PaymentGateway` interface (`gateways/`):
 ```typescript
-export interface PaymentGatewayAdapter {
+export interface PaymentGateway {
   initiatePayment(order: Order, amount: number, customerPhone: string): Promise<PaymentSessionResult>;
   verifyWebhook(payload: unknown, headers: Record<string, string>): Promise<WebhookVerificationResult>;
 }
 ```
-- **`BkashGatewayAdapter`**: Tokenized checkout flow with create/execute payment lifecycle and signature verification.
-- **`SslCommerzGatewayAdapter`**: Hosted checkout session with IPN verification and hash validation.
-- **`SandboxGatewayAdapter`**: In-memory and local development simulator utilizing HMAC-SHA256 signatures (`x-webhook-signature`).
+- **`SslCommerzGateway`**: Primary production gateway aggregator handling bKash, Nagad, Upay, Visa, and Mastercard via hosted checkout with SHA-256 IPN verification and server-to-server validation. (*Note: Standalone direct bKash adapter was superseded by this multi-channel aggregator to simplify compliance and reconciliation*).
+- **`SandboxGateway`**: In-memory and local development simulator utilizing HMAC-SHA256 signatures (`x-webhook-signature`).
 
 ### 3. Cryptographic Webhook Security & Idempotency
 1. **Signature Verification**: Every incoming webhook must validate its cryptographic signature (`HMAC-SHA256` or gateway secret) before parsing payload. Unsigned or tampered requests return `401 Unauthorized`.
