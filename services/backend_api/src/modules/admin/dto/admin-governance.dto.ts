@@ -39,6 +39,11 @@ export class GetLiveOrdersQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(OrderStatus)
   status?: OrderStatus;
+
+  @ApiPropertyOptional({ description: 'Search term for order number, customer name, or customer phone' })
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
 
 class BannerFields {

@@ -117,10 +117,10 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
 
     ref.onDispose(() {
       socket.leaveOrder(orderId);
-      socket.off('order:status:changed');
-      socket.off('order:status_changed');
-      socket.off('order:cancelled');
-      socket.off('order:rider:moved');
+      socket.off('order:status:changed', handleStatusChanged);
+      socket.off('order:status_changed', handleStatusChanged);
+      socket.off('order:cancelled', handleOrderCancelled);
+      socket.off('order:rider:moved', handleRiderMoved);
       _telemetryTimer?.cancel();
     });
 
@@ -138,6 +138,7 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
   }
 
   Future<bool> cancelOrder(String reason) async {
+    if (!ref.mounted) return false;
     try {
       state = state.copyWith(isLoading: true, error: null);
       final dio = ref.read(dioClientProvider);
@@ -145,6 +146,7 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
         '${ApiConstants.orderDetails}/$orderId/cancel',
         data: {'reason': reason},
       );
+      if (!ref.mounted) return false;
       if (response.statusCode == 200) {
         final resData = response.data['data'] as Map<String, dynamic>? ?? {};
         final refundStatus = resData['refundStatus'] as String?;
@@ -158,19 +160,23 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
       }
     } catch (e) {
       debugPrint('Error cancelling order: $e');
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Failed to cancel order: ${e.toString()}',
-      );
+      if (ref.mounted) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Failed to cancel order: ${e.toString()}',
+        );
+      }
     }
     return false;
   }
 
   Future<bool> switchToCOD() async {
+    if (!ref.mounted) return false;
     state = state.copyWith(isLoading: true, error: null);
     try {
       final dio = ref.read(dioClientProvider);
       final response = await dio.post('${ApiConstants.orderDetails}/$orderId/switch-cod');
+      if (!ref.mounted) return false;
       if (response.statusCode == 200) {
         state = state.copyWith(
           paymentMethod: 'CASH_ON_DELIVERY',
@@ -181,18 +187,22 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
       }
     } catch (e) {
       debugPrint('Error switching payment method to COD: $e');
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Failed to switch to COD. Please try again.',
-      );
+      if (ref.mounted) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Failed to switch to COD. Please try again.',
+        );
+      }
     }
     return false;
   }
 
   Future<void> refreshDetails() async {
+    if (!ref.mounted) return;
     try {
       final dio = ref.read(dioClientProvider);
       final response = await dio.get('${ApiConstants.orderDetails}/$orderId');
+      if (!ref.mounted) return;
       if (response.statusCode == 200) {
         final data = response.data['data'] as Map<String, dynamic>? ?? {};
         final statusStr = data['status'] as String? ?? 'PLACED';
@@ -246,6 +256,6 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
 }
 
 final trackingProvider =
-    NotifierProvider.family<TrackingNotifier, OrderTrackingState, String>(
-  (orderId) => TrackingNotifier(orderId),
+    NotifierProvider.autoDispose.family<TrackingNotifier, OrderTrackingState, String>(
+  TrackingNotifier.new,
 );

@@ -1,7 +1,8 @@
 import 'dart:async';
-import '../../../core/constants/map_defaults.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/constants/map_defaults.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/network/socket_service.dart';
@@ -125,13 +126,44 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
       }
     }
 
+    void handleStatusChanged(dynamic payload) {
+      if (payload is Map<String, dynamic>) {
+        final data = payload['data'] is Map<String, dynamic>
+            ? payload['data'] as Map<String, dynamic>
+            : payload;
+        final orderId = data['orderId']?.toString() ?? data['id']?.toString();
+        final newStatus = data['newStatus']?.toString() ?? data['status']?.toString();
+        if (state.activeTrip != null && state.activeTrip!.id == orderId && newStatus != null) {
+          state = state.copyWith(
+            activeTrip: state.activeTrip!.copyWith(status: newStatus),
+          );
+        }
+      }
+    }
+
+    void handleOrderAssigned(dynamic payload) {
+      rehydrateActiveTrip();
+    }
+
     socket.on('dispatch:broadcast', handleBroadcast);
     socket.on('order:cancelled', handleOrderCancelled);
+    socket.on('order:status:changed', handleStatusChanged);
+    socket.on('order:status_changed', handleStatusChanged);
+    socket.on('order:assigned', handleOrderAssigned);
 
     ref.onDispose(() {
-      socket.off('dispatch:broadcast');
-      socket.off('order:cancelled');
+      socket.off('dispatch:broadcast', handleBroadcast);
+      socket.off('order:cancelled', handleOrderCancelled);
+      socket.off('order:status:changed', handleStatusChanged);
+      socket.off('order:status_changed', handleStatusChanged);
+      socket.off('order:assigned', handleOrderAssigned);
       _countdownTimer?.cancel();
+    });
+
+    Future.microtask(() {
+      if (ref.mounted) {
+        rehydrateActiveTrip();
+      }
     });
     return RiderTripState();
   }
@@ -265,6 +297,14 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
   Future<bool> confirmPickup() async {
     final trip = state.activeTrip;
     if (trip == null) return false;
+
+    // FSM Guard (B8): Order cannot be picked up while kitchen is actively preparing
+    if (trip.status == 'PREPARING') {
+      state = state.copyWith(
+        error: 'Order is still being prepared by kitchen. Please wait until ready for pickup.',
+      );
+      return false;
+    }
 
     state = state.copyWith(isUpdating: true, clearError: true);
 
@@ -427,6 +467,84 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
     );
 
     return true;
+  }
+
+  Future<void> rehydrateActiveTrip() async {
+    if (!ref.mounted) return;
+    try {
+      final dio = ref.read(dioClientProvider);
+      final response = await dio.get(ApiConstants.activeTrip);
+      if (!ref.mounted) return;
+      if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
+        final rawData = response.data['data'];
+        if (rawData is! Map<String, dynamic>) {
+          if (state.activeTrip != null) {
+            state = state.copyWith(clearActiveTrip: true);
+          }
+          return;
+        }
+        final data = rawData;
+
+        final vendor = data['vendor'] as Map<String, dynamic>? ?? {};
+        final addressSnapshot = data['deliveryAddressSnapshot'] as Map<String, dynamic>? ?? {};
+        final customer = data['customer'] as Map<String, dynamic>? ?? {};
+        final customerPhone = data['customerPhoneSnapshot']?.toString() ??
+            customer['phone']?.toString() ??
+            '';
+        final customerName = customer['fullName']?.toString() ?? 'Customer';
+        final items = (data['orderItems'] as List<dynamic>?) ?? [];
+
+        final store = TripStoreMeta(
+          id: vendor['id']?.toString() ?? data['vendorId']?.toString() ?? 'store-01',
+          name: vendor['name']?.toString() ?? 'Restaurant',
+          address: vendor['addressText']?.toString() ?? 'Store Address',
+          phone: vendor['contactPhone']?.toString() ?? '',
+          latitude: (vendor['latitude'] as num?)?.toDouble() ?? MapDefaults.centerLatitude,
+          longitude: (vendor['longitude'] as num?)?.toDouble() ?? MapDefaults.centerLongitude,
+        );
+
+        final customerMeta = TripCustomerMeta(
+          name: customerName,
+          address: addressSnapshot['addressLine']?.toString() ?? 'Delivery Address',
+          phone: customerPhone,
+          latitude: (addressSnapshot['latitude'] as num?)?.toDouble() ?? MapDefaults.centerLatitude,
+          longitude: (addressSnapshot['longitude'] as num?)?.toDouble() ?? MapDefaults.centerLongitude,
+        );
+
+        final paymentMethod = data['paymentMethod']?.toString();
+        final isCod = paymentMethod == 'CASH_ON_DELIVERY';
+        final totalAmount = (data['totalAmount'] as num?)?.toDouble() ?? 0.0;
+        final payout = (data['riderEarnings'] as num?)?.toDouble() ?? 0.0;
+        final status = data['status']?.toString() ?? 'RIDER_ASSIGNED';
+
+        TripStep step = TripStep.pickup;
+        if (status == 'DISPATCHED') {
+          step = TripStep.delivering;
+        }
+
+        final trip = TripOrder(
+          id: data['id']?.toString() ?? '',
+          orderNumber: data['orderNumber']?.toString() ?? 'ORD',
+          status: status,
+          currentStep: step,
+          store: store,
+          customer: customerMeta,
+          distanceKm: 0.0,
+          payout: payout,
+          isCod: isCod,
+          totalAmount: totalAmount,
+          itemsCount: items.isNotEmpty ? items.length : 1,
+        );
+
+        if (!ref.mounted) return;
+        ref.read(riderSocketServiceProvider).joinOrder(trip.id);
+        state = state.copyWith(activeTrip: trip, clearIncomingTrip: true);
+      }
+    } on DioException {
+      // Quietly ignore network/mock status errors during active trip polling
+    } catch (e) {
+      debugPrint('Error rehydrating active rider trip: $e');
+    }
   }
 
   void simulateIncomingBroadcast({TripOrder? customTrip}) {

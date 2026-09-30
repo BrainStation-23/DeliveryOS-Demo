@@ -39,15 +39,26 @@ export class RiderController {
     };
   }
 
+  @Get('active-trip')
+  @ApiOperation({ summary: 'Get current in-flight active delivery trip for rehydration' })
+  @ApiResponse({ status: 200, description: 'Active delivery trip if present, otherwise null' })
+  async getActiveTrip(@CurrentUser() user: User) {
+    const activeTrip = await this.riderService.getActiveTrip(user.id);
+    return {
+      message: activeTrip ? 'Active trip retrieved' : 'No active trip in progress',
+      data: activeTrip,
+    };
+  }
+
   @Patch('duty')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Toggle rider online/offline duty status' })
+  @ApiOperation({ summary: 'Toggle rider online/offline duty status and sync telemetry' })
   @ApiResponse({ status: 200, description: 'Duty status updated' })
   async toggleDuty(
     @CurrentUser() user: User,
     @Body() dto: ToggleDutyDto,
   ) {
-    const rider = await this.riderService.toggleDuty(user.id, dto.isOnline);
+    const rider = await this.riderService.toggleDuty(user.id, dto);
     return {
       message: `Rider is now ${rider.isOnline ? 'ONLINE' : 'OFFLINE'}`,
       data: rider,

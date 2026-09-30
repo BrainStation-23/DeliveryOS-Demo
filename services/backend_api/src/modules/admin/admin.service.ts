@@ -10,7 +10,7 @@ import { RedisService } from '../../common/redis/redis.service';
 import { TrackingGateway } from '../realtime/tracking.gateway';
 import { OrderFlowService } from '../order-flow/order-flow.service';
 import { OrderFlowMode } from '../order-flow/dto/update-order-flow.dto';
-import { PaginatedResult, PaginationQueryDto, toPaginatedResult } from '../../common/dto/pagination.dto';
+import { PaginatedResult, toPaginatedResult } from '../../common/dto/pagination.dto';
 
 export interface LiveOrderView {
   id: string;
@@ -50,6 +50,8 @@ import {
 import { OrderService } from '../orders/order.service';
 import { AdminCancelOrderDto } from './dto/admin-cancel-order.dto';
 import { DeliveryFeeConfig, DeliveryFeeService, normalizeDeliveryFeeConfig } from '../promotions/pricing/delivery-fee.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { GetLiveOrdersQueryDto } from './dto/admin-governance.dto';
 
 export interface OrderFlowSettingPayload {
   mode: OrderFlowMode;
@@ -67,6 +69,7 @@ export class AdminService {
     private readonly orderFlowService: OrderFlowService,
     private readonly orderService: OrderService,
     private readonly deliveryFeeService: DeliveryFeeService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // ===========================================================================
@@ -238,11 +241,20 @@ export class AdminService {
   // ===========================================================================
   async getLiveOrders(
     statusFilter: string | undefined,
-    pagination: PaginationQueryDto,
+    pagination: GetLiveOrdersQueryDto,
   ): Promise<PaginatedResult<LiveOrderView>> {
     const where: Prisma.OrderWhereInput = {};
     if (statusFilter && statusFilter !== 'ALL') {
       where.status = statusFilter as OrderStatus;
+    }
+
+    if (pagination.search?.trim()) {
+      const term = pagination.search.trim();
+      where.OR = [
+        { orderNumber: { contains: term, mode: 'insensitive' } },
+        { customer: { phone: { contains: term } } },
+        { customer: { fullName: { contains: term, mode: 'insensitive' } } },
+      ];
     }
 
     const [orders, total] = await this.prisma.$transaction([
@@ -369,6 +381,35 @@ export class AdminService {
         vendorId: order.vendorId,
       },
     );
+
+    // Direct realtime socket notification to the courier's private rooms
+    if (this.trackingGateway?.server) {
+      this.trackingGateway.server
+        .to(`rider_${rider.id}`)
+        .to(`user_${rider.userId}`)
+        .emit('order:assigned', {
+          orderId: updatedOrder.id,
+          orderNumber: updatedOrder.orderNumber,
+          vendorName: updatedOrder.vendor?.name,
+          totalAmount: Number(updatedOrder.totalAmount),
+        });
+    }
+
+    // High-priority FCM Push Notification
+    this.notificationsService
+      .sendToUser(rider.userId, {
+        title: 'New Order Assigned! 📦',
+        body: `You have been manually assigned order #${updatedOrder.orderNumber} from ${updatedOrder.vendor?.name || 'Restaurant'}`,
+        data: {
+          orderId: updatedOrder.id,
+          orderNumber: updatedOrder.orderNumber,
+          type: 'ORDER_ASSIGNED',
+        },
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        this.logger.warn(`Push notify rider failed on force-assign: ${msg}`);
+      });
 
     this.logger.log(
       `[ADMIN FORCE-ASSIGN] Order #${order.orderNumber} manually assigned to rider ${rider.user.fullName} (${rider.id})`,
@@ -656,19 +697,44 @@ export class AdminService {
       });
     }
 
+    const targetVendorId = data.scope === PermissionScope.PARTICULAR_OUTLET ? vendorId : null;
     const effectiveBrandId = data.scope === PermissionScope.ALL_OUTLETS_MASTER
       ? (data.brandId || vendor.brandId)
       : null;
 
-    return this.prisma.vendorStaff.create({
-      data: {
+    const existing = await this.prisma.vendorStaff.findFirst({
+      where: {
         userId: data.userId,
-        vendorId: data.scope === PermissionScope.PARTICULAR_OUTLET ? vendorId : null,
-        brandId: effectiveBrandId,
-        scope: data.scope,
-        isActive: true,
+        vendorId: targetVendorId,
       },
     });
+
+    let staffRecord;
+    if (existing) {
+      staffRecord = await this.prisma.vendorStaff.update({
+        where: { id: existing.id },
+        data: {
+          brandId: effectiveBrandId,
+          scope: data.scope,
+          isActive: true,
+        },
+      });
+    } else {
+      staffRecord = await this.prisma.vendorStaff.create({
+        data: {
+          userId: data.userId,
+          vendorId: targetVendorId,
+          brandId: effectiveBrandId,
+          scope: data.scope,
+          isActive: true,
+        },
+      });
+    }
+
+    // Invalidate Redis user session cache so JwtAuthGuard re-fetches updated role/scope
+    await this.redis.del(`auth:user:${user.id}`);
+
+    return staffRecord;
   }
 
   // ===========================================================================

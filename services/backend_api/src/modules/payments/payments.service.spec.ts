@@ -2,6 +2,7 @@ import { OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { PaymentsService } from './payments.service';
 import { SslCommerzGatewayAdapter } from './gateways/sslcommerz.gateway';
 import { SandboxGatewayAdapter } from './gateways/sandbox.gateway';
+import { SupportedPaymentGateway } from './dto/initiate-payment.dto';
 import type { WebhookValidationResult } from './interfaces/payment-gateway.interface';
 
 type TxMock = {
@@ -251,3 +252,148 @@ describe('Payment webhook idempotency (atomic PENDING claim)', () => {
     expect(PaymentMethod.CASH_ON_DELIVERY).not.toBe(PaymentMethod.ONLINE_GATEWAY);
   });
 });
+
+describe('Step 1.1 & 1.2: PaymentsService refund idempotency and initiate concurrency', () => {
+  it('refundForOrder is idempotent: returns existing refund when status is already REFUNDED', async () => {
+    const { service, prisma, sslcommerz } = buildService({ claimCount: 1 });
+    prisma.payment.findFirst.mockImplementation(({ where }: { where: { status?: PaymentStatus } }) => {
+      if (where.status === PaymentStatus.REFUNDED) {
+        return Promise.resolve({
+          id: 'pay-refunded',
+          orderId: 'order-1',
+          status: PaymentStatus.REFUNDED,
+          refundId: 'existing-refund-id',
+          gatewayResponse: { refund: { note: 'Already refunded' } },
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    const result = await service.refundForOrder('order-1', 'Cancelled');
+
+    expect(result).toMatchObject({
+      success: true,
+      refundId: 'existing-refund-id',
+    });
+    // Adapter refund method must not be called when already REFUNDED
+    expect(sslcommerz.refund).not.toHaveBeenCalled();
+  });
+
+  it('refundForOrder updates status to REFUNDED when adapter succeeds', async () => {
+    const { service, prisma } = buildService({ claimCount: 1 });
+    prisma.payment.findFirst.mockImplementation(({ where }: { where: { status?: PaymentStatus } }) => {
+      if (where.status === PaymentStatus.REFUNDED) {
+        return Promise.resolve(null);
+      }
+      return Promise.resolve({
+        id: 'pay-paid',
+        transactionId: 'TRX-100',
+        orderId: 'order-1',
+        status: PaymentStatus.PAID,
+        gateway: 'SSLCOMMERZ',
+        gatewayResponse: { bank_tran_id: 'bank-1' },
+        amount: '500.00',
+      });
+    });
+
+    const result = await service.refundForOrder('order-1', 'Cancelled');
+
+    expect(result?.success).toBe(true);
+    expect(prisma.payment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'pay-paid' },
+        data: expect.objectContaining({
+          status: PaymentStatus.REFUNDED,
+          refundId: 'refund-1',
+        }),
+      }),
+    );
+  });
+
+  it('initiatePayment rejects with ConflictException if lock is not acquired', async () => {
+    const prisma = {
+      order: { findUnique: jest.fn() },
+      payment: { findFirst: jest.fn(), create: jest.fn() },
+    };
+    const redis = {
+      acquireLock: jest.fn().mockResolvedValue(false),
+      releaseLock: jest.fn().mockResolvedValue(true),
+    };
+
+    const service = new PaymentsService(
+      prisma as never,
+      redis as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.initiatePayment('user-1', {
+        orderId: 'order-1',
+        gateway: SupportedPaymentGateway.SSLCOMMERZ,
+      }),
+    ).rejects.toThrow('Payment initiation is already in progress');
+  });
+
+  it('initiatePayment reuses active pending session if created within 15 minutes', async () => {
+    const prisma = {
+      order: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'order-1',
+          orderNumber: 'ORD-001',
+          customerId: 'user-1',
+          paymentMethod: PaymentMethod.ONLINE_GATEWAY,
+          paymentStatus: PaymentStatus.PENDING,
+          status: OrderStatus.PLACED,
+          totalAmount: '250.00',
+          customer: { id: 'user-1', phone: '+8801700000001', fullName: 'User 1' },
+          vendor: { id: 'v-1', name: 'Store 1' },
+        }),
+      },
+      payment: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'pay-existing',
+          transactionId: 'TRX-EXISTING',
+          gateway: 'SSLCOMMERZ',
+          amount: '250.00',
+          currency: 'BDT',
+          gatewayResponse: { paymentUrl: 'https://sandbox.sslcommerz.com/gwprocess/v4/cached' },
+        }),
+        create: jest.fn(),
+      },
+    };
+    const redis = {
+      acquireLock: jest.fn().mockResolvedValue(true),
+      releaseLock: jest.fn().mockResolvedValue(true),
+    };
+
+    const sslcommerz = {
+      initiatePayment: jest.fn(),
+    };
+
+    const service = new PaymentsService(
+      prisma as never,
+      redis as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      sslcommerz as never,
+      {} as never,
+    );
+
+    const result = await service.initiatePayment('user-1', {
+      orderId: 'order-1',
+      gateway: SupportedPaymentGateway.SSLCOMMERZ,
+    });
+
+    expect(result.paymentId).toBe('pay-existing');
+    expect(result.transactionId).toBe('TRX-EXISTING');
+    expect(result.paymentUrl).toBe('https://sandbox.sslcommerz.com/gwprocess/v4/cached');
+    expect(sslcommerz.initiatePayment).not.toHaveBeenCalled();
+    expect(redis.releaseLock).toHaveBeenCalled();
+  });
+});
+

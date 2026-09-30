@@ -166,6 +166,7 @@ void main() {
           dioClientProvider.overrideWithValue(createTestMockDioClient()),
         ],
       );
+      final sub = container.listen(trackingProvider('test-ord-123'), (_, __) {});
       final notifier = container.read(trackingProvider('test-ord-123').notifier);
       await notifier.refreshDetails();
       final state = container.read(trackingProvider('test-ord-123'));
@@ -175,6 +176,7 @@ void main() {
       expect(state.rider, isNotNull);
       expect(state.rider!.name, 'Karim Hossain');
       notifier.stopSimulation();
+      sub.close();
     });
 
     test('Re-order validation repopulates cart provider successfully', () async {

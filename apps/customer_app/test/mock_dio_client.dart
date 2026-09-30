@@ -367,6 +367,22 @@ DioClient createTestMockDioClient() {
           );
         }
 
+        if (path.contains('/payments/status')) {
+          return handler.resolve(
+            Response(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'status': 'success',
+                'data': {
+                  'status': 'PAID',
+                  'paymentStatus': 'PAID',
+                },
+              },
+            ),
+          );
+        }
+
         return handler.resolve(
           Response(
             requestOptions: options,

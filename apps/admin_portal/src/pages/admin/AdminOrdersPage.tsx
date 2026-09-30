@@ -48,8 +48,8 @@ export const AdminOrdersPage: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const { data: ordersData, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['admin-orders', selectedStatus, page],
-    queryFn: () => adminApi.getOrders(selectedStatus, page, 20),
+    queryKey: ['admin-orders', selectedStatus, page, searchQuery],
+    queryFn: () => adminApi.getOrders(selectedStatus, page, 20, searchQuery),
     refetchInterval: 30000,
     placeholderData: (previous) => previous,
   });
@@ -130,6 +130,7 @@ export const AdminOrdersPage: React.FC = () => {
 
   const clearSearch = () => {
     setSearchQuery('');
+    setPage(1);
     if (orderNumberParam) {
       searchParams.delete('orderNumber');
       setSearchParams(searchParams);
@@ -347,7 +348,10 @@ export const AdminOrdersPage: React.FC = () => {
               type="text"
               placeholder="Filter by Order #, Store, Customer, Courier..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
               className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-8 py-1.5 text-xs text-slate-900 focus:border-primary-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             />
             {searchQuery && (

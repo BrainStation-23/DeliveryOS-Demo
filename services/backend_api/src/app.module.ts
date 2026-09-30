@@ -27,17 +27,29 @@ import { AddressesModule } from './modules/addresses/addresses.module';
       isGlobal: true,
       envFilePath: ['../../.env', '.env'],
       validationSchema: Joi.object({
-        NODE_ENV: Joi.string().valid('development', 'test', 'production').default('development'),
+        NODE_ENV: Joi.string().valid('development', 'test', 'production').required(),
         PORT: Joi.number().default(4000),
         API_PREFIX: Joi.string().default('api/v1'),
-        JWT_SECRET: Joi.string()
-          .min(32)
-          .required()
-          .invalid('deliveryos-jwt-secret-key-32chars-minimum-dev'),
-        JWT_REFRESH_SECRET: Joi.string()
-          .min(32)
-          .required()
-          .invalid('deliveryos-jwt-refresh-secret-key-32chars-min'),
+        JWT_SECRET: Joi.alternatives().conditional('NODE_ENV', {
+          is: 'production',
+          then: Joi.string()
+            .min(32)
+            .required()
+            .invalid('deliveryos-jwt-secret-key-32chars-minimum-dev'),
+          otherwise: Joi.string().min(32).required(),
+        }),
+        JWT_REFRESH_SECRET: Joi.alternatives().conditional('NODE_ENV', {
+          is: 'production',
+          then: Joi.string()
+            .min(32)
+            .required()
+            .invalid(
+              'deliveryos-jwt-refresh-secret-key-32chars-min',
+              'deliveryos-refresh-secret-key-32chars-dev',
+            )
+            .disallow(Joi.ref('JWT_SECRET')),
+          otherwise: Joi.string().min(32).required(),
+        }),
         DATABASE_URL: Joi.string().required(),
         REDIS_URL: Joi.string().required(),
         SMS_PROVIDER: Joi.alternatives().conditional('NODE_ENV', {

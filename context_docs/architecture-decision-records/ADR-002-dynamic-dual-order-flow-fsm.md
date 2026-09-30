@@ -101,6 +101,26 @@ When an order is cancelled:
 
 ---
 
+## Delivery Issue, Re-Dispatch Recovery & Fulfillment Invariants
+
+### 1. Delivery Issue Re-Dispatch Flow (`DISPATCHED → READY_FOR_PICKUP`)
+- When a courier encounters vehicle breakdown, road accident, or customer reachability failure on an in-flight order (`POST /rider/orders/:id/report-issue`):
+  1. The FSM permits transition `DISPATCHED → READY_FOR_PICKUP`.
+  2. The database updates `riderId = null`, status to `READY_FOR_PICKUP`, and records the audit trail in `rejectionReason`.
+  3. The courier's Redis busy lock `rider:active_order:${riderId}` is released via `releaseRiderActiveTrip`.
+  4. Realtime status events are broadcast to customer/vendor rooms and dispatch room `admin_hq` (`order:delivery_failed`).
+  5. The order automatically re-enters dispatch via `orderFlowService.handleOrderReady`, broadcasting to `riders_pool` so a replacement courier can fulfill delivery without customer cancellation.
+
+### 2. Courier In-Flight Active Trip Rehydration
+- `GET /rider/active-trip` queries live in-flight orders (`[RIDER_ASSIGNED, ACCEPTED, PREPARING, READY_FOR_PICKUP, DISPATCHED]`) for the authenticated courier.
+- The courier mobile client restores full navigation and handover state upon app reboot, OS process recreation, or reconnect, preventing stranded active locks.
+
+### 3. Takeaway Order Fulfillment Bypass
+- Orders with `deliveryAddressSnapshot.deliveryMethod === 'TAKEAWAY'` represent self-pickup orders.
+- Upon placement (`handleOrderPlaced`) or ready status (`handleOrderReady`), the KDS kitchen console is notified immediately, while courier pool broadcasting and dispatch escalation sweeps are completely bypassed.
+
+---
+
 ## Compliance & Verification
 - Integration verification: [`test-order-dispatch-fsm.ts`](../../services/backend_api/scripts/test-order-dispatch-fsm.ts) validates runtime switching and concurrent claims.
 - Fulfillment verification: [`test-vendor-rider.ts`](../../services/backend_api/scripts/test-vendor-rider.ts) and [`test-e2e-lifecycle.ts`](../../services/backend_api/scripts/test-e2e-lifecycle.ts) validate full lifecycle progression and penny-perfect financial balancing.

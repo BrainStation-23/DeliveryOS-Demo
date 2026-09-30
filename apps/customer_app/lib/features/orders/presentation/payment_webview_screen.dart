@@ -1,52 +1,59 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/dio_client.dart';
+import '../../auth/providers/auth_provider.dart';
 
 enum PaymentWebViewResult { paid, failed, cancelled }
 
 /// Hosts the SSLCommerz payment page and polls the payment status endpoint
 /// until the transaction settles or the user closes the sheet.
-class PaymentWebViewScreen extends StatefulWidget {
+class PaymentWebViewScreen extends ConsumerStatefulWidget {
   const PaymentWebViewScreen({
     super.key,
     required this.paymentUrl,
     required this.transactionId,
+    this.dioClient,
   });
 
   final String paymentUrl;
   final String transactionId;
+  final DioClient? dioClient;
 
-  static Future<PaymentWebViewResult> launch(BuildContext context, {
+  static Future<PaymentWebViewResult> launch(
+    BuildContext context, {
     required String paymentUrl,
     required String transactionId,
+    DioClient? dioClient,
   }) {
     return Navigator.of(context).push<PaymentWebViewResult>(
       MaterialPageRoute(
         builder: (_) => PaymentWebViewScreen(
           paymentUrl: paymentUrl,
           transactionId: transactionId,
+          dioClient: dioClient,
         ),
       ),
     ).then((result) => result ?? PaymentWebViewResult.cancelled);
   }
 
   @override
-  State<PaymentWebViewScreen> createState() => _PaymentWebViewScreenState();
+  ConsumerState<PaymentWebViewScreen> createState() => _PaymentWebViewScreenState();
 }
 
-class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
+class _PaymentWebViewScreenState extends ConsumerState<PaymentWebViewScreen> {
   late final WebViewController _controller;
-  late final DioClient _dioClient;
   Timer? _pollTimer;
   bool _settled = false;
+  int _pollCount = 0;
+  static const int _maxPolls = 300; // 15 minutes max at 3s intervals
 
   @override
   void initState() {
     super.initState();
-    _dioClient = DioClient();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
@@ -69,11 +76,19 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
 
   Future<void> _checkStatusOnce() async {
     if (_settled || !mounted) return;
+    _pollCount++;
+    if (_pollCount > _maxPolls) {
+      _pollTimer?.cancel();
+      _settle(PaymentWebViewResult.failed);
+      return;
+    }
+
     try {
-      final response = await _dioClient.get(
+      final DioClient client = widget.dioClient ?? ref.read(dioClientProvider);
+      final response = await client.get(
         '${ApiConstants.paymentStatus}/${widget.transactionId}',
       );
-      final data = response.data['data'] as Map<String, dynamic>?;
+      final data = response.data is Map ? (response.data['data'] as Map<String, dynamic>?) : null;
       final status = (data?['status'] ?? data?['paymentStatus'])?.toString().toUpperCase();
       if (status == 'PAID') {
         _settle(PaymentWebViewResult.paid);

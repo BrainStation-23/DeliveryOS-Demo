@@ -18,6 +18,9 @@ class PickupStepCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isPreparing = trip.status == 'PREPARING';
+    final bool isReadyForPickup = !isPreparing;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -35,43 +38,76 @@ class PickupStepCard extends StatelessWidget {
           noteText: trip.store.instructions,
         ),
         const SizedBox(height: AppSpacing.lg),
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: AppColors.dutyOnlineBackground,
-            borderRadius: AppRadius.roundedLg,
-            border: Border.all(color: AppColors.dutyOnline.withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.inventory_2_rounded, color: AppColors.dutyOnline, size: 28),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'LOOK FOR PACKAGE BAG',
-                      style: AppTypography.badgeText.copyWith(color: AppColors.dutyOnline),
-                    ),
-                    Text(
-                      'Order ${trip.orderNumber}',
-                      style: AppTypography.h3.copyWith(fontWeight: FontWeight.w900),
-                    ),
-                  ],
+        if (isReadyForPickup)
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.dutyOnlineBackground,
+              borderRadius: AppRadius.roundedLg,
+              border: Border.all(color: AppColors.dutyOnline.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.inventory_2_rounded, color: AppColors.dutyOnline, size: 28),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'LOOK FOR PACKAGE BAG',
+                        style: AppTypography.badgeText.copyWith(color: AppColors.dutyOnline),
+                      ),
+                      Text(
+                        'Order ${trip.orderNumber}',
+                        style: AppTypography.h3.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.warningBackground,
+              borderRadius: AppRadius.roundedLg,
+              border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.soup_kitchen_rounded, color: AppColors.warning, size: 28),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'KITCHEN PREPARING FOOD',
+                        style: AppTypography.badgeText.copyWith(color: AppColors.warning),
+                      ),
+                      Text(
+                        'Waiting for kitchen to mark ready',
+                        style: AppTypography.h3.copyWith(fontWeight: FontWeight.w700, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
         const SizedBox(height: AppSpacing.xxl),
         SizedBox(
           height: 56,
           child: ElevatedButton(
-            onPressed: isUpdating ? null : onConfirmPickup,
+            onPressed: (!isReadyForPickup || isUpdating) ? null : onConfirmPickup,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.dutyOnline,
+              backgroundColor: isReadyForPickup ? AppColors.dutyOnline : AppColors.grey400,
               foregroundColor: AppColors.white,
+              disabledBackgroundColor: AppColors.grey300,
+              disabledForegroundColor: AppColors.grey600,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               elevation: 0,
             ),
@@ -84,11 +120,16 @@ class PickupStepCard extends StatelessWidget {
                 : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.takeout_dining_rounded, size: 22),
+                      Icon(
+                        isReadyForPickup ? Icons.takeout_dining_rounded : Icons.hourglass_top_rounded,
+                        size: 22,
+                      ),
                       const SizedBox(width: AppSpacing.sm),
                       Flexible(
                         child: Text(
-                          'ORDER PICKED UP ➔ START DELIVERY',
+                          isReadyForPickup
+                              ? 'ORDER PICKED UP ➔ START DELIVERY'
+                              : 'ORDER PICKED UP (WAITING FOR KITCHEN)',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTypography.buttonText.copyWith(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 0.3),

@@ -9,6 +9,8 @@ import '../../features/auth/providers/auth_provider.dart';
 class RiderSocketService {
   io.Socket? _socket;
   final _connectionStateController = StreamController<bool>.broadcast();
+  final Map<String, List<Function(dynamic)>> _listeners = {};
+  final Set<String> _joinedOrders = {};
 
   Stream<bool> get connectionStream => _connectionStateController.stream;
   bool get isConnected => _socket?.connected ?? false;
@@ -37,6 +39,19 @@ class RiderSocketService {
     _socket!.onConnect((_) {
       debugPrint('✅ [Rider] WebSocket Connected: ${_socket?.id}');
       _connectionStateController.add(true);
+
+      // Auto re-register all persistent event listeners upon reconnect
+      _listeners.forEach((event, handlers) {
+        for (final handler in handlers) {
+          _socket!.on(event, handler);
+        }
+      });
+
+      // Auto re-join all active order rooms upon reconnect
+      for (final orderId in _joinedOrders) {
+        debugPrint('📡 [Rider] Auto re-joining order $orderId on reconnect');
+        _socket!.emit('order:join', {'orderId': orderId});
+      }
     });
 
     _socket!.onDisconnect((reason) {
@@ -71,26 +86,37 @@ class RiderSocketService {
   }
 
   void joinOrder(String orderId) {
+    _joinedOrders.add(orderId);
     if (_socket?.connected == true) {
       _socket!.emit('order:join', {'orderId': orderId});
     }
   }
 
   void leaveOrder(String orderId) {
+    _joinedOrders.remove(orderId);
     if (_socket?.connected == true) {
       _socket!.emit('order:leave', {'orderId': orderId});
     }
   }
 
   void on(String event, Function(dynamic) handler) {
+    _listeners.putIfAbsent(event, () => []).add(handler);
     _socket?.on(event, handler);
   }
 
-  void off(String event) {
-    _socket?.off(event);
+  void off(String event, [Function(dynamic)? handler]) {
+    if (handler != null) {
+      _listeners[event]?.remove(handler);
+      _socket?.off(event, handler);
+    } else {
+      _listeners.remove(event);
+      _socket?.off(event);
+    }
   }
 
   void dispose() {
+    _listeners.clear();
+    _joinedOrders.clear();
     _socket?.dispose();
     _socket = null;
     _connectionStateController.close();

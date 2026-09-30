@@ -226,9 +226,10 @@ export const adminApi = {
   },
 
   // 3. Live Order Monitor & Force Assign
-  async getOrders(status?: string, page = 1, limit = 20): Promise<PaginatedOrders> {
+  async getOrders(status?: string, page = 1, limit = 20, search?: string): Promise<PaginatedOrders> {
     const params = {
       ...(status && status !== 'ALL' ? { status } : {}),
+      ...(search?.trim() ? { search: search.trim() } : {}),
       page,
       limit,
     };

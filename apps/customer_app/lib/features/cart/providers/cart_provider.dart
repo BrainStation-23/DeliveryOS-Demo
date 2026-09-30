@@ -311,12 +311,13 @@ class CartNotifier extends Notifier<CartState> {
           } catch (_) {}
         }
 
+        final chosenMethod = state.paymentMethod.apiKey;
         clearCart();
         return {
           'success': true,
           'orderId': orderId,
           'orderNumber': orderNumber,
-          'paymentMethod': state.paymentMethod.apiKey,
+          'paymentMethod': chosenMethod,
           'paymentSession': paymentSession,
         };
       }

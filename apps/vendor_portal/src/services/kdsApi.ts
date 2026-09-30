@@ -19,7 +19,8 @@ export interface RawBackendOrderItem {
 }
 
 export interface RawBackendOrder {
-  id: string;
+  id?: string;
+  orderId?: string;
   orderNumber?: string;
   vendorId?: string;
   status: KDSOrder['status'];
@@ -103,7 +104,7 @@ export function normalizeKDSOrder(raw: RawBackendOrder): KDSOrder {
       };
 
   return {
-    id: raw.id,
+    id: raw.id || raw.orderId || '',
     orderNumber: raw.orderNumber || '',
     vendorId: raw.vendorId || '',
     status: raw.status,

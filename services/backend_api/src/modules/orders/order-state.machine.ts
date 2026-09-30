@@ -8,11 +8,16 @@ import { OrderFlowMode } from '../order-flow/dto/update-order-flow.dto';
  */
 export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PLACED: [OrderStatus.RIDER_ASSIGNED, OrderStatus.PREPARING, OrderStatus.CANCELLED],
-  RIDER_ASSIGNED: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
+  RIDER_ASSIGNED: [
+    OrderStatus.PREPARING,
+    OrderStatus.READY_FOR_PICKUP,
+    OrderStatus.DISPATCHED,
+    OrderStatus.CANCELLED,
+  ],
   ACCEPTED: [OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED], // Deprecated, preserved for safety
   PREPARING: [OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED],
   READY_FOR_PICKUP: [OrderStatus.DISPATCHED, OrderStatus.CANCELLED],
-  DISPATCHED: [OrderStatus.DELIVERED],
+  DISPATCHED: [OrderStatus.DELIVERED, OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED],
   DELIVERED: [],
   CANCELLED: [],
 };

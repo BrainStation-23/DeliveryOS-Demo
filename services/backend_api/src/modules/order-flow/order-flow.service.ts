@@ -219,6 +219,32 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    // Takeaway Fulfillment Invariant:
+    // Takeaway orders (deliveryMethod: 'TAKEAWAY') are picked up by the customer at the store.
+    // Notify vendor kitchen immediately and skip rider pool broadcast regardless of mode.
+    const addressSnap = order.deliveryAddressSnapshot as Record<string, unknown> | null;
+    const isTakeaway = addressSnap?.deliveryMethod === 'TAKEAWAY';
+    if (isTakeaway) {
+      this.logger.log(`Order ${order.orderNumber} is TAKEAWAY; notifying kitchen and skipping courier dispatch.`);
+      this.trackingGateway.notifyNewOrder(order.vendorId, {
+        id: order.id,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        vendorId: order.vendorId,
+        vendorName: order.vendor.name,
+        itemCount: order.orderItems.reduce((acc, i) => acc + i.quantity, 0),
+        totalAmount: Number(order.totalAmount),
+        paymentMethod: order.paymentMethod,
+        customerNotes: order.customerNotes,
+        items: order.orderItems.map((i) => ({
+          name: i.productNameSnapshot,
+          quantity: i.quantity,
+        })),
+        placedAt: order.placedAt.toISOString(),
+      });
+      return;
+    }
+
     const { mode, riderSearchTimeoutSeconds } = await this.getOrderFlowConfig();
 
     if (mode === OrderFlowMode.RIDER_FIRST) {
@@ -264,6 +290,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
       // VENDOR_FIRST: Traditional Retail Mode
       // Trigger vendor chime immediately
       this.trackingGateway.notifyNewOrder(order.vendorId, {
+        id: order.id,
         orderId: order.id,
         orderNumber: order.orderNumber,
         vendorId: order.vendorId,
@@ -305,6 +332,13 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
       });
 
       if (!order || order.riderId) return; // already assigned or not found
+
+      const addressSnap = order.deliveryAddressSnapshot as Record<string, unknown> | null;
+      const isTakeaway = addressSnap?.deliveryMethod === 'TAKEAWAY';
+      if (isTakeaway) {
+        this.logger.log(`Order ${order.orderNumber} is TAKEAWAY; skipping courier dispatch on ready.`);
+        return;
+      }
 
       const deliveryAddress = (order.deliveryAddressSnapshot as AddressSnapshot | null)?.addressLine || 'Customer Address';
       const riderEarnings = await this.computeRiderEarnings(order.deliveryFee);
@@ -528,6 +562,11 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
 
     const now = Date.now();
     for (const order of unassignedOrders) {
+      const addressSnap = order.deliveryAddressSnapshot as Record<string, unknown> | null;
+      if (addressSnap?.deliveryMethod === 'TAKEAWAY') {
+        continue;
+      }
+
       const agingSeconds = Math.round((now - order.placedAt.getTime()) / 1000);
 
       // Tier 1 Escalation: aging exceeds configured timeout (default 90s)

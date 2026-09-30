@@ -119,7 +119,12 @@ export class VendorStaffService {
       },
     };
 
-    if (targetVendorIds.length > 0) {
+    if (user.role !== UserRole.SUPER_ADMIN) {
+      if (targetVendorIds.length === 0) {
+        return []; // Safe fail-close: unassigned staff see zero orders
+      }
+      whereClause.vendorId = { in: targetVendorIds };
+    } else if (targetVendorIds.length > 0) {
       whereClause.vendorId = { in: targetVendorIds };
     }
 

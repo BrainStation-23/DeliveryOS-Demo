@@ -15,7 +15,7 @@ import { CheckoutDto, DeliveryMethod } from './dto/checkout.dto';
 import { ValidateReorderDto } from './dto/validate-reorder.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { assertTransition } from './order-state.machine';
-import { Order, OrderStatus, PaymentMethod, PaymentStatus, Prisma, SettlementStatus, UserRole } from '@prisma/client';
+import { Order, OrderStatus, PaymentMethod, PaymentStatus, PermissionScope, Prisma, SettlementStatus, UserRole } from '@prisma/client';
 
 import { TrackingGateway } from '../realtime/tracking.gateway';
 import { OrderFlowService } from '../order-flow/order-flow.service';
@@ -450,6 +450,10 @@ export class OrderService {
       throw new NotFoundException('Previous order record not found');
     }
 
+    if (previousOrder.customerId !== customerId) {
+      throw new ForbiddenException('You do not have permission to reorder from this order');
+    }
+
     const vendor = previousOrder.vendor;
     const isStoreOperational = vendor.isActive && !vendor.isBusy;
 
@@ -529,6 +533,7 @@ export class OrderService {
         vendor: {
           select: {
             id: true,
+            brandId: true,
             name: true,
             contactPhone: true,
             logoUrl: true,
@@ -556,9 +561,28 @@ export class OrderService {
       throw new NotFoundException('Order not found');
     }
 
-    // Permission check: Customers can only view their own orders
-    if (role === UserRole.CUSTOMER && order.customerId !== userId) {
-      throw new ForbiddenException('You do not have permission to view this order');
+    // Role-based authorization scoping
+    if (role === UserRole.CUSTOMER) {
+      if (order.customerId !== userId) {
+        throw new ForbiddenException('You do not have permission to view this order');
+      }
+      delete (order as Record<string, unknown>).commission;
+    } else if (role === UserRole.RIDER) {
+      if (order.rider?.userId !== userId) {
+        throw new ForbiddenException('You do not have permission to view this order');
+      }
+    } else if (role === UserRole.VENDOR_ADMIN) {
+      const staffRecords = await this.prisma.vendorStaff.findMany({
+        where: { userId, isActive: true },
+      });
+      const hasAccess = staffRecords.some((record) => {
+        if (record.scope === PermissionScope.PARTICULAR_OUTLET && record.vendorId === order.vendorId) return true;
+        if (record.scope === PermissionScope.ALL_OUTLETS_MASTER && record.brandId && order.vendor?.brandId === record.brandId) return true;
+        return false;
+      });
+      if (!hasAccess) {
+        throw new ForbiddenException('You do not have permission to view this order');
+      }
     }
 
     return order;
@@ -612,8 +636,26 @@ export class OrderService {
       throw new NotFoundException('Order not found');
     }
 
-    if (role === UserRole.CUSTOMER && order.customerId !== userId) {
-      throw new ForbiddenException('You do not have permission to view live tracking for this order');
+    if (role === UserRole.CUSTOMER) {
+      if (order.customerId !== userId) {
+        throw new ForbiddenException('You do not have permission to view live tracking for this order');
+      }
+    } else if (role === UserRole.RIDER) {
+      if (order.rider?.userId !== userId) {
+        throw new ForbiddenException('You do not have permission to view live tracking for this order');
+      }
+    } else if (role === UserRole.VENDOR_ADMIN) {
+      const staffRecords = await this.prisma.vendorStaff.findMany({
+        where: { userId, isActive: true },
+      });
+      const hasAccess = staffRecords.some((record) => {
+        if (record.scope === PermissionScope.PARTICULAR_OUTLET && record.vendorId === order.vendorId) return true;
+        if (record.scope === PermissionScope.ALL_OUTLETS_MASTER && record.brandId && order.vendor?.brandId === record.brandId) return true;
+        return false;
+      });
+      if (!hasAccess) {
+        throw new ForbiddenException('You do not have permission to view live tracking for this order');
+      }
     }
 
     const destSnap = order.deliveryAddressSnapshot as unknown as OrderAddressSnapshot;
@@ -837,35 +879,25 @@ export class OrderService {
     reason: string,
     cancelledByRole: UserRole,
   ) {
-    // 2. Execute gateway refund BEFORE the DB reconciliation so a failed refund
-    //    aborts the cancellation and the operator sees the gateway error.
-    if (order.paymentStatus === PaymentStatus.PAID) {
-      const refund = await this.paymentsService.refundForOrder(order.id, reason);
-      if (refund && !refund.success) {
-        this.logger.error(
-          `Gateway refund failed for Order ${order.orderNumber}; cancellation aborted: ${JSON.stringify(refund.raw)}`,
-        );
-        throw new HttpException(
-          {
-            success: false,
-            statusCode: HttpStatus.BAD_GATEWAY,
-            error: 'REFUND_FAILED',
-            message: 'Payment refund failed at the gateway. The order was NOT cancelled; retry or reconcile manually.',
-          },
-          HttpStatus.BAD_GATEWAY,
-        );
-      }
-    }
-
     const riderIdToRelease = order.riderId;
     const riderUserId = order.rider?.userId;
 
-    // 3. Execute DB transaction: the guarded claim is the source of truth — a
-    //    concurrent cancel/delivery that won the state transition makes this
-    //    whole reconciliation a no-op.
+    // 1. Execute DB transaction FIRST: the guarded claim is the source of truth.
+    //    Guarantees no double-refund on concurrently delivered/dispatched orders.
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
       const claim = await tx.order.updateMany({
-        where: { id: order.id, status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] } },
+        where: {
+          id: order.id,
+          status: {
+            in: [
+              OrderStatus.PLACED,
+              OrderStatus.RIDER_ASSIGNED,
+              OrderStatus.ACCEPTED,
+              OrderStatus.PREPARING,
+              OrderStatus.READY_FOR_PICKUP,
+            ],
+          },
+        },
         data: {
           status: OrderStatus.CANCELLED,
           cancelledAt: new Date(),
@@ -936,7 +968,22 @@ export class OrderService {
     });
 
     if (!updatedOrder) {
-      throw new ConflictException(`Order ${order.orderNumber} was already cancelled or delivered`);
+      throw new ConflictException(`Order ${order.orderNumber} cannot be cancelled (already delivered, dispatched, or cancelled)`);
+    }
+
+    // 2. Gateway Refund: Fires strictly AFTER DB state claim has succeeded!
+    if (order.paymentStatus === PaymentStatus.PAID) {
+      try {
+        const refund = await this.paymentsService.refundForOrder(order.id, reason);
+        if (refund && !refund.success) {
+          this.logger.error(
+            `Gateway refund failed for Order ${order.orderNumber}; flagged for reconciliation: ${JSON.stringify(refund.raw)}`,
+          );
+        }
+      } catch (refundErr: unknown) {
+        const msg = refundErr instanceof Error ? refundErr.message : 'Unknown error';
+        this.logger.error(`Error triggering gateway refund for Order ${order.orderNumber}: ${msg}`);
+      }
     }
 
     // 3. Post-transaction Side Effects: Release Rider Mutex in Redis

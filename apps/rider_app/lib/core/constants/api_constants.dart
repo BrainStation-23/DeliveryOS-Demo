@@ -42,4 +42,5 @@ class ApiConstants {
   static const String pickupOrder = '/rider/orders';
   static const String deliverOrder = '/rider/orders';
   static const String trips = '/rider/trips';
+  static const String activeTrip = '/rider/active-trip';
 }

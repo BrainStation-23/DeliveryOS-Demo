@@ -83,72 +83,113 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
    * 1. Initiate Online Payment Session
    */
   async initiatePayment(userId: string, dto: InitiatePaymentDto) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: dto.orderId },
-      include: {
-        customer: { select: { id: true, fullName: true, phone: true } },
-        vendor: { select: { id: true, name: true } },
-      },
-    });
-
-    if (!order) {
-      throw new NotFoundException(`Order with ID "${dto.orderId}" not found`);
+    const lockKey = `lock:payment:order:${dto.orderId}`;
+    const lockVal = randomUUID();
+    const acquired = await this.redis.acquireLock(lockKey, lockVal, 10);
+    if (!acquired) {
+      throw new ConflictException('Payment initiation is already in progress for this order');
     }
 
-    if (order.customerId !== userId) {
-      throw new UnauthorizedException('You do not have permission to pay for this order');
-    }
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: dto.orderId },
+        include: {
+          customer: { select: { id: true, fullName: true, phone: true } },
+          vendor: { select: { id: true, name: true } },
+        },
+      });
 
-    if (order.paymentMethod !== PaymentMethod.ONLINE_GATEWAY) {
-      throw new BadRequestException('Order was placed with Cash on Delivery and does not require online checkout');
-    }
+      if (!order) {
+        throw new NotFoundException(`Order with ID "${dto.orderId}" not found`);
+      }
 
-    if (order.paymentStatus === PaymentStatus.PAID) {
-      throw new ConflictException('This order has already been paid successfully');
-    }
+      if (order.customerId !== userId) {
+        throw new UnauthorizedException('You do not have permission to pay for this order');
+      }
 
-    if (order.status === OrderStatus.CANCELLED) {
-      throw new BadRequestException('Cannot initiate payment for a cancelled order');
-    }
+      if (order.paymentMethod !== PaymentMethod.ONLINE_GATEWAY) {
+        throw new BadRequestException('Order was placed with Cash on Delivery and does not require online checkout');
+      }
 
-    const adapter = this.getGatewayAdapter(dto.gateway);
+      if (order.paymentStatus === PaymentStatus.PAID) {
+        throw new ConflictException('This order has already been paid successfully');
+      }
 
-    const initiation = await adapter.initiatePayment({
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      amount: Number(order.totalAmount),
-      currency: 'BDT',
-      customerPhone: order.customer.phone,
-      customerName: order.customer.fullName || 'Valued Customer',
-      redirectUrl: dto.redirectUrl,
-    });
+      if (order.status === OrderStatus.CANCELLED) {
+        throw new BadRequestException('Cannot initiate payment for a cancelled order');
+      }
 
-    // Create payment ledger record
-    const payment = await this.prisma.payment.create({
-      data: {
+      // Check for an existing PENDING payment session created within the last 15 minutes
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+      const existingPending = await this.prisma.payment.findFirst({
+        where: {
+          orderId: order.id,
+          status: PaymentStatus.PENDING,
+          createdAt: { gte: fifteenMinutesAgo },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (existingPending && existingPending.gateway === dto.gateway && existingPending.transactionId) {
+        const cachedUrl = (existingPending.gatewayResponse as { paymentUrl?: string } | null)?.paymentUrl;
+        if (cachedUrl) {
+          this.logger.log(
+            `Reusing active payment session for Order ${order.orderNumber} (Trx: ${existingPending.transactionId})`,
+          );
+          return {
+            paymentId: existingPending.id,
+            paymentUrl: cachedUrl,
+            transactionId: existingPending.transactionId,
+            gateway: existingPending.gateway,
+            amount: Number(existingPending.amount),
+            currency: existingPending.currency,
+            orderNumber: order.orderNumber,
+          };
+        }
+      }
+
+      const adapter = this.getGatewayAdapter(dto.gateway);
+
+      const initiation = await adapter.initiatePayment({
         orderId: order.id,
-        gateway: dto.gateway,
-        transactionId: initiation.transactionId,
-        sessionKey: initiation.sessionKey,
-        amount: order.totalAmount,
+        orderNumber: order.orderNumber,
+        amount: Number(order.totalAmount),
         currency: 'BDT',
-        status: PaymentStatus.PENDING,
-      },
-    });
+        customerPhone: order.customer.phone,
+        customerName: order.customer.fullName || 'Valued Customer',
+        redirectUrl: dto.redirectUrl,
+      });
 
-    this.logger.log(
-      `Created Payment ${payment.id} for Order ${order.orderNumber} via ${dto.gateway} (Trx: ${initiation.transactionId})`,
-    );
+      // Create payment ledger record with paymentUrl persisted for idempotency
+      const payment = await this.prisma.payment.create({
+        data: {
+          orderId: order.id,
+          gateway: dto.gateway,
+          transactionId: initiation.transactionId,
+          sessionKey: initiation.sessionKey,
+          amount: order.totalAmount,
+          currency: 'BDT',
+          status: PaymentStatus.PENDING,
+          gatewayResponse: { paymentUrl: initiation.paymentUrl },
+        },
+      });
 
-    return {
-      paymentId: payment.id,
-      paymentUrl: initiation.paymentUrl,
-      transactionId: initiation.transactionId,
-      gateway: dto.gateway,
-      amount: Number(order.totalAmount),
-      currency: 'BDT',
-      orderNumber: order.orderNumber,
-    };
+      this.logger.log(
+        `Created Payment ${payment.id} for Order ${order.orderNumber} via ${dto.gateway} (Trx: ${initiation.transactionId})`,
+      );
+
+      return {
+        paymentId: payment.id,
+        paymentUrl: initiation.paymentUrl,
+        transactionId: initiation.transactionId,
+        gateway: dto.gateway,
+        amount: Number(order.totalAmount),
+        currency: 'BDT',
+        orderNumber: order.orderNumber,
+      };
+    } finally {
+      await this.redis.releaseLock(lockKey, lockVal);
+    }
   }
 
   /**
@@ -171,26 +212,47 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     // transition inside a single guarded update so concurrent webhook replays
     // cannot double-run side effects.
     const outcome = await this.prisma.$transaction(async (tx) => {
-      const payment = await tx.payment.findFirst({
-        where: {
-          OR: [
-            ...(validation.transactionId ? [{ transactionId: validation.transactionId }] : []),
-            ...(validation.orderId ? [{ orderId: validation.orderId }] : []),
-          ],
-        },
-        include: {
-          order: {
-            select: {
-              id: true,
-              orderNumber: true,
-              customerId: true,
-              paymentStatus: true,
-              status: true,
-              paymentMethod: true,
+      let payment = null;
+
+      if (validation.transactionId) {
+        payment = await tx.payment.findFirst({
+          where: { transactionId: validation.transactionId },
+          include: {
+            order: {
+              select: {
+                id: true,
+                orderNumber: true,
+                customerId: true,
+                paymentStatus: true,
+                status: true,
+                paymentMethod: true,
+              },
             },
           },
-        },
-      });
+        });
+      }
+
+      if (!payment && validation.orderId) {
+        payment = await tx.payment.findFirst({
+          where: {
+            orderId: validation.orderId,
+            status: PaymentStatus.PENDING,
+          },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            order: {
+              select: {
+                id: true,
+                orderNumber: true,
+                customerId: true,
+                paymentStatus: true,
+                status: true,
+                paymentMethod: true,
+              },
+            },
+          },
+        });
+      }
 
       if (!payment) {
         return {
@@ -458,6 +520,22 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
    * 4. Execute gateway refund for a PAID payment (cancellation reconciliation)
    */
   async refundForOrder(orderId: string, remarks?: string): Promise<RefundResult | null> {
+    // 1. Idempotency: check if payment for this order is already refunded
+    const existingRefund = await this.prisma.payment.findFirst({
+      where: { orderId, status: PaymentStatus.REFUNDED },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (existingRefund) {
+      this.logger.log(
+        `Order ${orderId} already refunded (Payment: ${existingRefund.id}, Ref: ${existingRefund.refundId})`,
+      );
+      return {
+        success: true,
+        refundId: existingRefund.refundId ?? null,
+        raw: ((existingRefund.gatewayResponse as Record<string, unknown>)?.refund as Record<string, unknown>) || {},
+      };
+    }
+
     const payment = await this.prisma.payment.findFirst({
       where: { orderId, status: PaymentStatus.PAID },
       orderBy: { createdAt: 'desc' },
@@ -484,6 +562,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       await this.prisma.payment.update({
         where: { id: payment.id },
         data: {
+          status: PaymentStatus.REFUNDED,
           refundId: result.refundId,
           refundedAt: new Date(),
           gatewayResponse: { ...gatewayResponse, refund: result.raw } as Prisma.InputJsonValue,

@@ -56,7 +56,7 @@ export const AdminDispatchPage: React.FC = () => {
   });
   const unassignedOrders: AdminOrder[] = unassignedData?.items ?? [];
 
-  const lastLocationPatchRef = React.useRef(0);
+  const lastLocationPatchMapRef = React.useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     const socket = getSocket();
@@ -67,7 +67,7 @@ export const AdminDispatchPage: React.FC = () => {
     };
 
     // GPS events stream continuously — patch the cached fleet rows directly
-    // (throttled) instead of refetching per beacon.
+    // throttled to once per 5s per courier instead of refetching per beacon.
     const handleRiderLocation = (payload: {
       data?: {
         riderId: string;
@@ -79,10 +79,11 @@ export const AdminDispatchPage: React.FC = () => {
       };
     }) => {
       const fix = payload?.data;
-      if (!fix) return;
+      if (!fix?.riderId) return;
       const now = Date.now();
-      if (now - lastLocationPatchRef.current < 5000) return;
-      lastLocationPatchRef.current = now;
+      const lastTime = lastLocationPatchMapRef.current.get(fix.riderId) ?? 0;
+      if (now - lastTime < 5000) return;
+      lastLocationPatchMapRef.current.set(fix.riderId, now);
 
       queryClient.setQueryData<FleetRider[]>(['admin-fleet'], (current) =>
         (current ?? []).map((rider) =>

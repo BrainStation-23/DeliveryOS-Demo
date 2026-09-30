@@ -8,9 +8,11 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { RedisService } from '../../common/redis/redis.service';
 import { DeliverOrderDto } from './dto/deliver-order.dto';
 import { DepositCashDto } from './dto/deposit-cash.dto';
-import { OrderStatus, PaymentMethod, PaymentStatus, SettlementStatus } from '@prisma/client';
+import { ToggleDutyDto } from './dto/toggle-duty.dto';
+import { OrderStatus, PaymentMethod, PaymentStatus, Prisma, SettlementStatus } from '@prisma/client';
 import { TrackingGateway } from '../realtime/tracking.gateway';
 import { OrderFlowService } from '../order-flow/order-flow.service';
 import { assertTransition } from '../orders/order-state.machine';
@@ -24,6 +26,7 @@ export class RiderService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
     private readonly trackingGateway: TrackingGateway,
     private readonly orderFlowService: OrderFlowService,
     private readonly deliveryFeeService: DeliveryFeeService,
@@ -57,9 +60,11 @@ export class RiderService {
   }
 
   /**
-   * 1. Toggle Duty State (Online/Offline)
+   * 1. Toggle Duty State (Online/Offline) and Sync GPS Telemetry
    */
-  async toggleDuty(userId: string, isOnline: boolean) {
+  async toggleDuty(userId: string, dtoOrOnline: ToggleDutyDto | boolean) {
+    const dto: ToggleDutyDto = typeof dtoOrOnline === 'boolean' ? { isOnline: dtoOrOnline } : dtoOrOnline;
+    const { isOnline, latitude, longitude } = dto;
     const rider = await this.getRiderProfile(userId);
 
     if (isOnline && (rider.isApproved === false || rider.user?.status !== 'ACTIVE')) {
@@ -85,10 +90,28 @@ export class RiderService {
       }
     }
 
-    return this.prisma.rider.update({
+    const dataToUpdate: Prisma.RiderUpdateInput = { isOnline };
+    if (latitude !== undefined && longitude !== undefined) {
+      dataToUpdate.latitude = latitude;
+      dataToUpdate.longitude = longitude;
+    }
+
+    const updatedRider = await this.prisma.rider.update({
       where: { id: rider.id },
-      data: { isOnline },
+      data: dataToUpdate,
     });
+
+    if (latitude !== undefined && longitude !== undefined) {
+      try {
+        await this.redis.geoadd('riders:locations', longitude, latitude, rider.id);
+      } catch (err: unknown) {
+        this.logger.warn(
+          `Failed to update redis geoadd for rider ${rider.id}: ${err instanceof Error ? err.message : 'Unknown'}`,
+        );
+      }
+    }
+
+    return updatedRider;
   }
 
   /**
@@ -296,7 +319,74 @@ export class RiderService {
   }
 
   /**
+   * Helper / Rehydration: Retrieve current active in-flight trip for rider
+   */
+  async getActiveTrip(userId: string) {
+    const rider = await this.getRiderProfile(userId);
+
+    const activeOrder = await this.prisma.order.findFirst({
+      where: {
+        riderId: rider.id,
+        status: {
+          in: [
+            OrderStatus.RIDER_ASSIGNED,
+            OrderStatus.ACCEPTED,
+            OrderStatus.PREPARING,
+            OrderStatus.READY_FOR_PICKUP,
+            OrderStatus.DISPATCHED,
+          ],
+        },
+      },
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true,
+            addressText: true,
+            contactPhone: true,
+            latitude: true,
+            longitude: true,
+          },
+        },
+        orderItems: {
+          select: {
+            id: true,
+            productNameSnapshot: true,
+            quantity: true,
+            unitPrice: true,
+            totalPrice: true,
+          },
+        },
+        customer: {
+          select: {
+            fullName: true,
+            phone: true,
+          },
+        },
+      },
+      orderBy: { placedAt: 'desc' },
+    });
+
+    if (!activeOrder) {
+      return null;
+    }
+
+    const economics = await this.deliveryFeeService.getEconomicsConfig();
+    const riderShare = (economics.rider_share_percent || 80) / 100;
+    const riderEarnings = Math.round(Number(activeOrder.deliveryFee) * riderShare * 100) / 100;
+
+    return {
+      ...activeOrder,
+      totalAmount: Number(activeOrder.totalAmount),
+      deliveryFee: Number(activeOrder.deliveryFee),
+      riderEarnings,
+    };
+  }
+
+  /**
    * 6. Report Delivery Issue / Failed Delivery
+   * Resets order status to READY_FOR_PICKUP, clears assigned courier, logs audit reason,
+   * releases rider lock, alerts dispatch, and triggers redispatch broadcast.
    */
   async reportDeliveryIssue(userId: string, orderId: string, reason: string) {
     const rider = await this.getRiderProfile(userId);
@@ -313,8 +403,29 @@ export class RiderService {
       throw new ForbiddenException('You are not assigned to this order');
     }
 
+    // Asserts legal transition (DISPATCHED → READY_FOR_PICKUP)
+    assertTransition(order.status, OrderStatus.READY_FOR_PICKUP);
+
+    const updatedOrder = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        riderId: null,
+        status: OrderStatus.READY_FOR_PICKUP,
+        rejectionReason: `Delivery issue reported by rider ${rider.user?.fullName || rider.id}: ${reason}`,
+      },
+    });
+
     // Release rider active trip state in Redis
     await this.orderFlowService.releaseRiderActiveTrip(rider.id);
+
+    // Broadcast realtime status change (READY_FOR_PICKUP) to customer and merchant
+    this.trackingGateway.notifyOrderStatusChanged(
+      order.id,
+      order.customerId,
+      order.status,
+      OrderStatus.READY_FOR_PICKUP,
+      { riderId: null, reason, vendorId: order.vendorId },
+    );
 
     // Notify realtime sockets and admin HQ
     try {
@@ -332,9 +443,17 @@ export class RiderService {
       this.logger.warn(`Failed to emit order:delivery_failed: ${err instanceof Error ? err.message : 'Unknown'}`);
     }
 
+    // Trigger redispatch broadcast to riders_pool
+    try {
+      await this.orderFlowService.handleOrderReady(order.id);
+    } catch (err: unknown) {
+      this.logger.warn(`Failed to re-broadcast order ready: ${err instanceof Error ? err.message : 'Unknown'}`);
+    }
+
     return {
       success: true,
-      message: 'Delivery issue recorded. Dispatcher alerted and courier released.',
+      message: 'Delivery issue recorded. Order reverted to READY_FOR_PICKUP, dispatcher alerted, and courier released.',
+      order: updatedOrder,
     };
   }
 
