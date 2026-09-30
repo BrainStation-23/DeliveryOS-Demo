@@ -36,7 +36,7 @@ export const SalesLedgerKPIs: React.FC<SalesLedgerKPIsProps> = ({ summary }) => 
       />
 
       <StatCard
-        title="Platform Fee (15%)"
+        title="Platform Fee"
         value={`-${formatCurrency(summary.commissionDeducted)}`}
         subtitle="Platform revenue share"
         icon={<Receipt className="h-5 w-5" />}

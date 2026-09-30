@@ -1,3 +1,5 @@
+import '../../../../core/utils/numeric_parser.dart';
+
 class AddonModel {
   final String id;
   final String name;
@@ -15,7 +17,7 @@ class AddonModel {
     return AddonModel(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      price: parseDouble(json['price'] ?? json['priceModifier'] ?? json['price_modifier']),
       isInStock: json['isInStock'] as bool? ?? json['is_in_stock'] as bool? ?? true,
     );
   }
@@ -40,9 +42,9 @@ class AddonGroupModel {
     final addonsRaw = json['addons'] as List<dynamic>? ?? [];
     return AddonGroupModel(
       id: json['id'] as String? ?? '',
-      name: json['name'] as String? ?? '',
-      minSelections: (json['minSelections'] as num?)?.toInt() ?? 0,
-      maxSelections: (json['maxSelections'] as num?)?.toInt() ?? 5,
+      name: json['title'] as String? ?? json['name'] as String? ?? '',
+      minSelections: parseInt(json['minSelection'] ?? json['minSelections'] ?? json['min_selection'], 0),
+      maxSelections: parseInt(json['maxSelection'] ?? json['maxSelections'] ?? json['max_selection'], 5),
       addons: addonsRaw.map((e) => AddonModel.fromJson(e as Map<String, dynamic>)).toList(),
     );
   }
@@ -65,7 +67,7 @@ class VariantModel {
     return VariantModel(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      price: parseDouble(json['priceModifier'] ?? json['price_modifier'] ?? json['price']),
       isInStock: json['isInStock'] as bool? ?? json['is_in_stock'] as bool? ?? true,
     );
   }
@@ -102,7 +104,7 @@ class ProductModel {
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       description: json['description'] as String?,
-      basePrice: (json['basePrice'] as num?)?.toDouble() ?? (json['base_price'] as num?)?.toDouble() ?? 0.0,
+      basePrice: parseDouble(json['basePrice'] ?? json['base_price']),
       unitType: json['unitType'] as String? ?? json['unit_type'] as String? ?? 'piece',
       imageUrl: json['imageUrl'] as String? ?? json['image_url'] as String?,
       isInStock: json['isInStock'] as bool? ?? json['is_in_stock'] as bool? ?? true,
@@ -130,7 +132,7 @@ class CategoryModel {
     return CategoryModel(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
+      sortOrder: parseInt(json['sortOrder'] ?? json['sort_order'], 0),
       products: productsRaw.map((e) => ProductModel.fromJson(e as Map<String, dynamic>)).toList(),
     );
   }
@@ -170,8 +172,8 @@ class VendorCatalog {
       bannerUrl: json['bannerUrl'] as String? ?? json['banner_url'] as String?,
       addressText: json['addressText'] as String? ?? json['address_text'] as String? ?? '',
       contactPhone: json['contactPhone'] as String? ?? json['contact_phone'] as String?,
-      deliveryRadiusKm: (json['deliveryRadiusKm'] as num?)?.toDouble() ?? (json['delivery_radius_km'] as num?)?.toDouble() ?? 5.0,
-      estimatedPrepTimeMinutes: (json['estimatedPrepTimeMinutes'] as num?)?.toInt() ?? (json['estimated_prep_time_minutes'] as num?)?.toInt() ?? 25,
+      deliveryRadiusKm: parseDouble(json['deliveryRadiusKm'] ?? json['delivery_radius_km'], 5.0),
+      estimatedPrepTimeMinutes: parseInt(json['estimatedPrepTimeMinutes'] ?? json['estimated_prep_time_minutes'], 25),
       isActive: json['isActive'] as bool? ?? json['is_active'] as bool? ?? true,
       categories: categoriesRaw.map((e) => CategoryModel.fromJson(e as Map<String, dynamic>)).toList(),
     );

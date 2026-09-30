@@ -6,6 +6,7 @@ import '../../../core/constants/map_defaults.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/network/socket_service.dart';
+import '../../../core/utils/numeric_parser.dart';
 import '../../dashboard/domain/duty_models.dart';
 import '../../dashboard/providers/duty_provider.dart';
 import '../domain/trip_models.dart';
@@ -85,9 +86,10 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
         final isCod = data['isCod'] == true ||
             (data['paymentMethod'] != null && data['paymentMethod'].toString() == 'CASH_ON_DELIVERY') ||
             (data['paymentMethod'] == null && data['isCod'] == null);
-        final double distanceKm = (data['distanceKm'] as num?)?.toDouble() ?? 0.0;
-        final double riderEarnings = (data['riderEarnings'] as num?)?.toDouble() ?? 0.0;
-        final double totalAmount = (data['totalAmount'] as num?)?.toDouble() ?? 0.0;
+        final double distanceKm = parseDouble(data['distanceKm'], 0.0);
+        final double riderEarnings = parseDouble(data['riderEarnings'], 0.0);
+        final double totalAmount = parseDouble(data['totalAmount'], 0.0);
+        final int itemsCount = parseInt(data['itemCount'], 1);
         final trip = TripOrder(
           id: data['orderId']?.toString() ?? '',
           orderNumber: data['orderNumber']?.toString() ?? 'ORD',
@@ -98,7 +100,7 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
           payout: riderEarnings,
           isCod: isCod,
           totalAmount: totalAmount,
-          itemsCount: (data['itemCount'] as num?)?.toInt() ?? 1,
+          itemsCount: itemsCount,
         );
         triggerBroadcastAlert(trip);
       }
@@ -484,57 +486,7 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
           return;
         }
         final data = rawData;
-
-        final vendor = data['vendor'] as Map<String, dynamic>? ?? {};
-        final addressSnapshot = data['deliveryAddressSnapshot'] as Map<String, dynamic>? ?? {};
-        final customer = data['customer'] as Map<String, dynamic>? ?? {};
-        final customerPhone = data['customerPhoneSnapshot']?.toString() ??
-            customer['phone']?.toString() ??
-            '';
-        final customerName = customer['fullName']?.toString() ?? 'Customer';
-        final items = (data['orderItems'] as List<dynamic>?) ?? [];
-
-        final store = TripStoreMeta(
-          id: vendor['id']?.toString() ?? data['vendorId']?.toString() ?? 'store-01',
-          name: vendor['name']?.toString() ?? 'Restaurant',
-          address: vendor['addressText']?.toString() ?? 'Store Address',
-          phone: vendor['contactPhone']?.toString() ?? '',
-          latitude: (vendor['latitude'] as num?)?.toDouble() ?? MapDefaults.centerLatitude,
-          longitude: (vendor['longitude'] as num?)?.toDouble() ?? MapDefaults.centerLongitude,
-        );
-
-        final customerMeta = TripCustomerMeta(
-          name: customerName,
-          address: addressSnapshot['addressLine']?.toString() ?? 'Delivery Address',
-          phone: customerPhone,
-          latitude: (addressSnapshot['latitude'] as num?)?.toDouble() ?? MapDefaults.centerLatitude,
-          longitude: (addressSnapshot['longitude'] as num?)?.toDouble() ?? MapDefaults.centerLongitude,
-        );
-
-        final paymentMethod = data['paymentMethod']?.toString();
-        final isCod = paymentMethod == 'CASH_ON_DELIVERY';
-        final totalAmount = (data['totalAmount'] as num?)?.toDouble() ?? 0.0;
-        final payout = (data['riderEarnings'] as num?)?.toDouble() ?? 0.0;
-        final status = data['status']?.toString() ?? 'RIDER_ASSIGNED';
-
-        TripStep step = TripStep.pickup;
-        if (status == 'DISPATCHED') {
-          step = TripStep.delivering;
-        }
-
-        final trip = TripOrder(
-          id: data['id']?.toString() ?? '',
-          orderNumber: data['orderNumber']?.toString() ?? 'ORD',
-          status: status,
-          currentStep: step,
-          store: store,
-          customer: customerMeta,
-          distanceKm: 0.0,
-          payout: payout,
-          isCod: isCod,
-          totalAmount: totalAmount,
-          itemsCount: items.isNotEmpty ? items.length : 1,
-        );
+        final trip = TripOrder.fromJson(data);
 
         if (!ref.mounted) return;
         ref.read(riderSocketServiceProvider).joinOrder(trip.id);

@@ -112,6 +112,7 @@ class OrderTrackingScreen extends ConsumerWidget {
 
                   if (trackingState.isCancelled &&
                       (trackingState.paymentStatus == 'REFUNDED' ||
+                          trackingState.paymentMethod == 'ONLINE_GATEWAY' ||
                           trackingState.paymentMethod == 'ONLINE')) ...[
                     _buildRefundBanner(trackingState),
                     const SizedBox(height: AppSpacing.md),

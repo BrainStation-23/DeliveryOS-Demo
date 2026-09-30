@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/constants.dart';
+import '../../location/presentation/map_location_picker_screen.dart';
 import '../../location/providers/location_provider.dart';
 import '../domain/address_model.dart';
 import '../providers/address_provider.dart';
@@ -26,6 +27,20 @@ class _AddressBookScreenState extends ConsumerState<AddressBookScreen> {
     });
   }
 
+  static const Map<String, ({double lat, double lng})> _dhakaAreas = {
+    'mirpur': (lat: 23.8067, lng: 90.3683),
+    'gulshan': (lat: 23.7780, lng: 90.4180),
+    'banani': (lat: 23.7925, lng: 90.4078),
+    'dhanmondi': (lat: 23.7465, lng: 90.3760),
+    'uttara': (lat: 23.8759, lng: 90.3795),
+    'mohammadpur': (lat: 23.7658, lng: 90.3584),
+    'mohakhali': (lat: 23.7778, lng: 90.4057),
+    'bashundhara': (lat: 23.8191, lng: 90.4326),
+    'motijheel': (lat: 23.7330, lng: 90.4172),
+    'badda': (lat: 23.7806, lng: 90.4267),
+    'baridhara': (lat: 23.8000, lng: 90.4200),
+  };
+
   void _showAddEditAddressSheet({CustomerAddressModel? existingAddress}) {
     final labelOptions = ['Home', 'Work', 'Other'];
     String selectedLabel = existingAddress?.label ?? 'Home';
@@ -35,6 +50,8 @@ class _AddressBookScreenState extends ConsumerState<AddressBookScreen> {
     bool isDefault = existingAddress?.isDefault ?? false;
 
     final currentLoc = ref.read(locationProvider).location;
+    double? customLat;
+    double? customLng;
     final lat = existingAddress?.latitude ?? currentLoc.latitude;
     final lng = existingAddress?.longitude ?? currentLoc.longitude;
 
@@ -122,6 +139,44 @@ class _AddressBookScreenState extends ConsumerState<AddressBookScreen> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 10),
                   ),
                 ),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: InkWell(
+                    onTap: () async {
+                      await Navigator.push(
+                        ctx,
+                        MaterialPageRoute(
+                          builder: (_) => const MapLocationPickerScreen(),
+                        ),
+                      );
+                      final updatedLoc = ref.read(locationProvider).location;
+                      setSheetState(() {
+                        customLat = updatedLoc.latitude;
+                        customLng = updatedLoc.longitude;
+                        addressLineController.text = updatedLoc.addressLine;
+                      });
+                    },
+                    borderRadius: AppRadius.borderSm,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.map_rounded, size: 14, color: AppColors.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Pick Location on Map',
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: AppSpacing.md),
                 Text('Apartment / Building / Floor (Optional)', style: AppTypography.caption.copyWith(fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
                 const SizedBox(height: 6),
@@ -170,6 +225,20 @@ class _AddressBookScreenState extends ConsumerState<AddressBookScreen> {
                       final line = addressLineController.text.trim();
                       if (line.isEmpty) return;
 
+                      double resolvedLat = customLat ?? (existingAddress?.latitude ?? lat);
+                      double resolvedLng = customLng ?? (existingAddress?.longitude ?? lng);
+
+                      if (customLat == null && existingAddress == null) {
+                        final lowerLine = line.toLowerCase();
+                        for (final entry in _dhakaAreas.entries) {
+                          if (lowerLine.contains(entry.key)) {
+                            resolvedLat = entry.value.lat;
+                            resolvedLng = entry.value.lng;
+                            break;
+                          }
+                        }
+                      }
+
                       Navigator.pop(ctx);
                       if (existingAddress != null) {
                         await ref.read(addressProvider.notifier).updateAddress(
@@ -178,6 +247,8 @@ class _AddressBookScreenState extends ConsumerState<AddressBookScreen> {
                               addressLine: line,
                               buildingFloor: buildingFloorController.text.trim(),
                               deliveryNote: deliveryNoteController.text.trim(),
+                              latitude: resolvedLat,
+                              longitude: resolvedLng,
                               isDefault: isDefault,
                             );
                       } else {
@@ -186,8 +257,8 @@ class _AddressBookScreenState extends ConsumerState<AddressBookScreen> {
                               addressLine: line,
                               buildingFloor: buildingFloorController.text.trim(),
                               deliveryNote: deliveryNoteController.text.trim(),
-                              latitude: lat,
-                              longitude: lng,
+                              latitude: resolvedLat,
+                              longitude: resolvedLng,
                               isDefault: isDefault,
                             );
                       }

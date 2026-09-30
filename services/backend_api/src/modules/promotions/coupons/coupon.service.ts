@@ -59,6 +59,7 @@ export class CouponService {
       discountType: coupon.discountType,
       discountValue: discountVal,
       discountAmount,
+      minOrderAmount: minSpend,
       finalSubtotal,
       usageLimit: coupon.usageLimit,
     };

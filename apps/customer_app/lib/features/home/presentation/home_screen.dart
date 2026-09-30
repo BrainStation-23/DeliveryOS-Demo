@@ -342,7 +342,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 padding: const EdgeInsets.only(top: 6.0, bottom: 8.0),
                 child: BannerCarousel(
                   onBannerTap: (banner) {
-                    if (banner.actionType == 'OUTLET' && banner.actionValue != null) {
+                    if ((banner.actionType == 'OUTLET' || banner.actionType == 'VENDOR') && banner.actionValue != null) {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => OutletDetailScreen(

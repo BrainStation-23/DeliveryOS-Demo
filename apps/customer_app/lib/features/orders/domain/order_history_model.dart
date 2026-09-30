@@ -1,3 +1,5 @@
+import '../../../../core/utils/numeric_parser.dart';
+
 class OrderItemSummary {
   final String productId;
   final String name;
@@ -16,12 +18,22 @@ class OrderItemSummary {
   double get totalPrice => unitPrice * quantity;
 
   factory OrderItemSummary.fromJson(Map<String, dynamic> json) {
+    final variantSnap = json['variantSnapshot'] is Map<String, dynamic>
+        ? json['variantSnapshot'] as Map<String, dynamic>
+        : null;
+    final variantName = variantSnap?['name']?.toString() ??
+        json['variantName']?.toString() ??
+        json['variant_name']?.toString();
+
     return OrderItemSummary(
       productId: json['productId'] as String? ?? json['product_id'] as String? ?? '',
-      name: json['productName'] as String? ?? json['name'] as String? ?? 'Menu Item',
-      quantity: (json['quantity'] as num?)?.toInt() ?? 1,
-      unitPrice: (json['unitPrice'] as num?)?.toDouble() ?? (json['unit_price'] as num?)?.toDouble() ?? 0.0,
-      variantName: json['variantName'] as String? ?? json['variant_name'] as String?,
+      name: json['productNameSnapshot'] as String? ??
+          json['productName'] as String? ??
+          json['name'] as String? ??
+          'Menu Item',
+      quantity: parseInt(json['quantity'], 1),
+      unitPrice: parseDouble(json['unitPrice'] ?? json['unit_price']),
+      variantName: variantName,
     );
   }
 }
@@ -52,6 +64,7 @@ class PastOrder {
   factory PastOrder.fromJson(Map<String, dynamic> json) {
     final itemsRaw = json['orderItems'] as List<dynamic>? ?? json['items'] as List<dynamic>? ?? [];
     final vendor = json['vendor'] as Map<String, dynamic>? ?? {};
+    final rawDate = json['placedAt'] ?? json['createdAt'];
 
     return PastOrder(
       id: json['id'] as String? ?? '',
@@ -59,9 +72,9 @@ class PastOrder {
       vendorId: json['vendorId'] as String? ?? json['vendor_id'] as String? ?? vendor['id'] as String? ?? '',
       vendorName: vendor['name'] as String? ?? json['vendorName'] as String? ?? 'Outlet',
       status: json['status'] as String? ?? 'DELIVERED',
-      totalAmount: (json['totalAmount'] as num?)?.toDouble() ?? (json['total_amount'] as num?)?.toDouble() ?? 0.0,
-      createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+      totalAmount: parseDouble(json['totalAmount'] ?? json['total_amount']),
+      createdAt: rawDate != null
+          ? DateTime.tryParse(rawDate.toString()) ?? DateTime.now()
           : DateTime.now(),
       items: itemsRaw.map((i) => OrderItemSummary.fromJson(i as Map<String, dynamic>)).toList(),
     );
@@ -86,7 +99,15 @@ class ReorderValidationResult {
       isStoreOperational: json['isStoreOperational'] as bool? ?? true,
       hasStockChanges: json['hasStockChanges'] as bool? ?? false,
       validItems: json['validItems'] as List<dynamic>? ?? [],
-      unavailableItems: (json['unavailableItems'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      unavailableItems: (json['unavailableItems'] as List<dynamic>?)?.map((e) {
+        if (e is Map<String, dynamic>) {
+          return e['productNameSnapshot']?.toString() ??
+              e['name']?.toString() ??
+              e['productId']?.toString() ??
+              e.toString();
+        }
+        return e.toString();
+      }).toList() ?? [],
     );
   }
 }

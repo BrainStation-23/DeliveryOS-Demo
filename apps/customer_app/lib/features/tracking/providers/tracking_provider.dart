@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/socket_service.dart';
+import '../../../core/utils/numeric_parser.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../location/providers/location_provider.dart';
 import '../domain/tracking_models.dart';
@@ -216,9 +217,9 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
           id: vendor['id'] as String? ?? state.store.id,
           name: vendor['name'] as String? ?? state.store.name,
           address: vendor['addressText'] as String? ?? state.store.address,
-          phone: vendor['phone'] as String? ?? state.store.phone,
-          latitude: (vendor['latitude'] as num?)?.toDouble() ?? state.store.latitude,
-          longitude: (vendor['longitude'] as num?)?.toDouble() ?? state.store.longitude,
+          phone: vendor['contactPhone'] as String? ?? vendor['phone'] as String? ?? state.store.phone,
+          latitude: parseDouble(vendor['latitude'], state.store.latitude),
+          longitude: parseDouble(vendor['longitude'], state.store.longitude),
         );
 
         final riderData = data['rider'] as Map<String, dynamic>?;
@@ -243,7 +244,7 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
           store: storeMeta,
           rider: riderMeta ?? state.rider,
           itemsCount: items.isNotEmpty ? items.length : state.itemsCount,
-          totalAmount: (data['totalAmount'] as num?)?.toDouble() ?? state.totalAmount,
+          totalAmount: parseDouble(data['totalAmount'], state.totalAmount),
           cancellationReason: rejectionReason ?? state.cancellationReason,
           paymentStatus: paymentStatus ?? state.paymentStatus,
           paymentMethod: paymentMethod ?? state.paymentMethod,

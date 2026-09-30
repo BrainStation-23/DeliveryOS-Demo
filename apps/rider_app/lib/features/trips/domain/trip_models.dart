@@ -1,4 +1,5 @@
 import '../../../core/constants/map_defaults.dart';
+import '../../../core/utils/numeric_parser.dart';
 
 enum TripStep {
   accept, // Step 0: Broadcast alert
@@ -156,34 +157,60 @@ class TripOrder {
   factory TripOrder.fromJson(Map<String, dynamic> json) {
     final storeRaw = json['vendor'] as Map<String, dynamic>? ?? {};
     final addressRaw = json['deliveryAddressSnapshot'] as Map<String, dynamic>? ?? {};
+    final customerRaw = json['customer'] as Map<String, dynamic>? ?? {};
+
+    final status = json['status'] as String? ?? 'RIDER_ASSIGNED';
+    TripStep step = TripStep.pickup;
+    if (status == 'DISPATCHED' || status == 'OUT_FOR_DELIVERY' || status == 'PICKED_UP') {
+      step = TripStep.delivering;
+    } else if (status == 'ARRIVED_AT_CUSTOMER') {
+      step = TripStep.handover;
+    } else if (status == 'DELIVERED') {
+      step = TripStep.completed;
+    }
+
+    final items = (json['orderItems'] as List<dynamic>?) ?? [];
+    final itemsCount = (json['itemsCount'] != null)
+        ? parseInt(json['itemsCount'], 1)
+        : (items.isNotEmpty ? items.length : 1);
+
+    final customerPhone = json['customerPhoneSnapshot'] as String? ??
+        json['customerPhone'] as String? ??
+        customerRaw['phone'] as String? ??
+        '';
+
+    final customerName = customerRaw['fullName'] as String? ??
+        json['customerName'] as String? ??
+        'Customer';
 
     return TripOrder(
       id: json['id'] as String? ?? 'ord-mock-01',
       orderNumber: json['orderNumber'] as String? ?? '#ORD-2026',
-      status: json['status'] as String? ?? 'RIDER_ASSIGNED',
+      status: status,
       store: TripStoreMeta(
-        id: storeRaw['id'] as String? ?? 'store-01',
-        name: storeRaw['name'] as String? ?? "Sultan's Dine",
-        address: storeRaw['address'] as String? ?? 'Banani, Dhaka',
-        phone: storeRaw['phone'] as String? ?? '',
-        latitude: (storeRaw['latitude'] as num?)?.toDouble() ?? MapDefaults.centerLatitude,
-        longitude: (storeRaw['longitude'] as num?)?.toDouble() ?? MapDefaults.centerLongitude,
+        id: storeRaw['id'] as String? ?? json['vendorId'] as String? ?? 'store-01',
+        name: storeRaw['name'] as String? ?? "Restaurant",
+        address: storeRaw['addressText'] as String? ?? storeRaw['address'] as String? ?? 'Banani, Dhaka',
+        phone: storeRaw['contactPhone'] as String? ?? storeRaw['phone'] as String? ?? '',
+        latitude: parseDouble(storeRaw['latitude'], MapDefaults.centerLatitude),
+        longitude: parseDouble(storeRaw['longitude'], MapDefaults.centerLongitude),
       ),
       customer: TripCustomerMeta(
-        name: json['customerName'] as String? ?? 'Customer',
+        name: customerName,
         address: addressRaw['addressLine'] as String? ?? 'Banani, Dhaka',
-        phone: json['customerPhone'] as String? ?? '',
-        latitude: (addressRaw['latitude'] as num?)?.toDouble() ?? MapDefaults.centerLatitude,
-        longitude: (addressRaw['longitude'] as num?)?.toDouble() ?? MapDefaults.centerLongitude,
+        phone: customerPhone,
+        latitude: parseDouble(addressRaw['latitude'], MapDefaults.centerLatitude),
+        longitude: parseDouble(addressRaw['longitude'], MapDefaults.centerLongitude),
         deliveryNotes: json['customerNotes'] as String?,
       ),
-      itemsCount: (json['itemsCount'] as num?)?.toInt() ?? 2,
-      itemsSummary: json['itemsSummary'] as String? ?? 'Fresh Meal Package',
+      itemsCount: itemsCount,
+      itemsSummary: json['itemsSummary'] as String? ??
+          (items.isNotEmpty ? '${items.length} items' : 'Fresh Meal Package'),
       isCod: json['paymentMethod'] == 'CASH_ON_DELIVERY' || json['isCod'] == true,
-      totalAmount: (json['totalAmount'] as num?)?.toDouble() ?? 480.0,
-      payout: (json['deliveryFee'] as num?)?.toDouble() ?? 60.0,
-      distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 2.4,
-      currentStep: TripStep.pickup,
+      totalAmount: parseDouble(json['totalAmount'], 480.0),
+      payout: parseDouble(json['deliveryFee'] ?? json['riderEarnings'], 60.0),
+      distanceKm: parseDouble(json['distanceKm'], 2.4),
+      currentStep: step,
     );
   }
 

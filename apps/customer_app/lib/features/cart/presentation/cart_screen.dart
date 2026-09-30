@@ -106,9 +106,8 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           customerNotes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
           deliveryAddressId: deliveryAddressId,
         );
-    setState(() => _isSubmitting = false);
-
     if (!mounted) return;
+    setState(() => _isSubmitting = false);
 
     if (result['success'] == true) {
       final orderId = result['orderId'] as String? ?? '';

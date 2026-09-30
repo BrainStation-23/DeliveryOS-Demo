@@ -113,12 +113,25 @@ export const VendorOrdersPage: React.FC = () => {
     },
     {
       key: 'commissionAmount',
-      header: 'Platform Fee (15%)',
-      render: (item) => (
-        <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">
-          -{formatCurrency(item.commissionAmount)}
-        </span>
-      ),
+      header: 'Platform Fee',
+      render: (item) => {
+        const rate =
+          item.grossAmount > 0
+            ? Math.round((item.commissionAmount / item.grossAmount) * 100)
+            : null;
+        return (
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+              -{formatCurrency(item.commissionAmount)}
+            </span>
+            {rate !== null && rate > 0 && (
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                ({rate}%)
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'netVendorPayable',

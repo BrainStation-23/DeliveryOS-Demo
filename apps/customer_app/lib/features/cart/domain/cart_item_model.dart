@@ -93,6 +93,8 @@ class CartState {
   final String? couponMessage;
   final bool isVendorActive;
   final bool isVendorBusy;
+  final double? estimatedDeliveryFee;
+  final double? couponMinSpend;
 
   CartState({
     this.vendorId,
@@ -112,6 +114,8 @@ class CartState {
     this.couponMessage,
     this.isVendorActive = true,
     this.isVendorBusy = false,
+    this.estimatedDeliveryFee,
+    this.couponMinSpend,
   });
 
   bool get isEmpty => items.isEmpty;
@@ -122,7 +126,9 @@ class CartState {
       items.fold<double>(0.0, (sum, item) => sum + item.totalPrice);
 
   double get deliveryFee =>
-      (deliveryMethod == DeliveryMethod.takeaway || isEmpty) ? 0.0 : 60.0;
+      (deliveryMethod == DeliveryMethod.takeaway || isEmpty)
+          ? 0.0
+          : (estimatedDeliveryFee ?? 60.0);
 
   double get discountedSubtotal {
     final sub = grossSubtotal - couponDiscount;
@@ -161,6 +167,8 @@ class CartState {
     bool clearCouponMessage = false,
     bool? isVendorActive,
     bool? isVendorBusy,
+    double? estimatedDeliveryFee,
+    double? couponMinSpend,
   }) {
     return CartState(
       vendorId: vendorId ?? this.vendorId,
@@ -184,6 +192,8 @@ class CartState {
           clearCouponMessage ? null : (couponMessage ?? this.couponMessage),
       isVendorActive: isVendorActive ?? this.isVendorActive,
       isVendorBusy: isVendorBusy ?? this.isVendorBusy,
+      estimatedDeliveryFee: estimatedDeliveryFee ?? this.estimatedDeliveryFee,
+      couponMinSpend: clearCoupon ? null : (couponMinSpend ?? this.couponMinSpend),
     );
   }
 }

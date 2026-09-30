@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/numeric_parser.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../location/providers/location_provider.dart';
 import '../../store/domain/store_catalog_model.dart';
@@ -115,10 +116,11 @@ class CartNotifier extends Notifier<CartState> {
     state = state.copyWith(items: updatedItems);
 
     // Recheck coupon minimum spend
-    if (state.couponCode != null && state.grossSubtotal < 250) {
+    final minSpend = state.couponMinSpend ?? 250.0;
+    if (state.couponCode != null && state.grossSubtotal < minSpend) {
       state = state.copyWith(
         clearCoupon: true,
-        couponMessage: 'Coupon removed: subtotal below minimum spend',
+        couponMessage: 'Coupon removed: subtotal below minimum spend of ${CurrencyFormatter.format(minSpend)}',
       );
     }
   }
@@ -171,12 +173,15 @@ class CartNotifier extends Notifier<CartState> {
 
       if (response.statusCode == 200) {
         final data = response.data['data'] as Map<String, dynamic>? ?? {};
+        final dynamic rawFee = data['estimatedDeliveryFee'];
+        final double? fee = rawFee != null ? parseDouble(rawFee, 60.0) : null;
         state = state.copyWith(
           isWithinCoverage: true,
           clearCoverageError: true,
           isCheckingCoverage: false,
           isVendorActive: data['isActive'] as bool? ?? true,
           isVendorBusy: data['isBusy'] as bool? ?? false,
+          estimatedDeliveryFee: fee,
         );
         return;
       }
@@ -224,11 +229,13 @@ class CartNotifier extends Notifier<CartState> {
 
       if (response.statusCode == 200) {
         final data = response.data['data'] as Map<String, dynamic>? ?? {};
-        final discount = (data['discountAmount'] as num?)?.toDouble() ?? 0.0;
+        final discount = parseDouble(data['discountAmount'], 0.0);
+        final minOrderAmount = data['minOrderAmount'] != null ? parseDouble(data['minOrderAmount']) : null;
         state = state.copyWith(
           isApplyingCoupon: false,
           couponCode: cleanCode,
           couponDiscount: discount,
+          couponMinSpend: minOrderAmount,
           couponMessage: 'Coupon "$cleanCode" applied! (Saved ${CurrencyFormatter.format(discount)})',
         );
         return true;

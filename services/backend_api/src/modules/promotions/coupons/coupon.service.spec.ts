@@ -30,6 +30,7 @@ describe('Coupon validation guard', () => {
     expect(result.isValid).toBe(true);
     expect(result.usageLimit).toBe(100);
     expect(result.discountAmount).toBe(50);
+    expect(result.minOrderAmount).toBe(0);
   });
 
   it('rejects an exhausted coupon before any discount is computed', async () => {

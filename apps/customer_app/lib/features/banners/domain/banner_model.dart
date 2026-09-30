@@ -1,3 +1,5 @@
+import '../../../../core/utils/numeric_parser.dart';
+
 class BannerModel {
   final String id;
   final String title;
@@ -25,10 +27,10 @@ class BannerModel {
       title: json['title'] as String? ?? '',
       subtitle: json['subtitle'] as String?,
       imageUrl: json['imageUrl'] as String? ?? json['image_url'] as String? ?? '',
-      actionType: json['actionType'] as String? ?? json['action_type'] as String?,
-      actionValue: json['actionValue'] as String? ?? json['action_value'] as String?,
-      deepLink: json['deepLink'] as String? ?? json['deep_link'] as String?,
-      sortOrder: (json['sortOrder'] as num?)?.toInt() ?? (json['sort_order'] as num?)?.toInt() ?? 0,
+      actionType: (json['linkType'] ?? json['link_type'] ?? json['actionType'] ?? json['action_type'])?.toString(),
+      actionValue: (json['targetId'] ?? json['target_id'] ?? json['actionValue'] ?? json['action_value'])?.toString(),
+      deepLink: (json['deepLink'] ?? json['deep_link'])?.toString(),
+      sortOrder: parseInt(json['sortOrder'] ?? json['sort_order'], 0),
     );
   }
 }
