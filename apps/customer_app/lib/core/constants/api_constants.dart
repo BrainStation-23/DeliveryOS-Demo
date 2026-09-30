@@ -53,6 +53,8 @@ class ApiConstants {
   static const String activeBanners = '/banners/active';
   static const String validateCoupon = '/coupons/validate';
   static const String cartValidateCoverage = '/vendors/validate-address-coverage';
+  static const String forwardGeocode = '/geo/geocode';
+  static const String reverseGeocode = '/geo/reverse-geocode';
 
   static const String customerAddresses = '/customers/addresses';
   static const String customerProfile = '/customers/profile';

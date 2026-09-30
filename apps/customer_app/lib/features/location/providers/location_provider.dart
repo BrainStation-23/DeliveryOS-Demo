@@ -161,7 +161,7 @@ class LocationNotifier extends Notifier<LocationState> {
     try {
       final dio = ref.read(dioClientProvider);
       final response = await dio.get(
-        '/geo/reverse-geocode',
+        ApiConstants.reverseGeocode,
         queryParameters: {'lat': lat, 'lng': lng},
       );
       if (response.statusCode == 200) {
@@ -173,6 +173,26 @@ class LocationNotifier extends Notifier<LocationState> {
       }
     } catch (_) {}
     return 'Lat: ${lat.toStringAsFixed(4)}, Lng: ${lng.toStringAsFixed(4)}';
+  }
+
+  Future<List<Map<String, dynamic>>> forwardGeocode(String query) async {
+    final clean = query.trim();
+    if (clean.isEmpty) return const [];
+    try {
+      final dio = ref.read(dioClientProvider);
+      final response = await dio.get(
+        ApiConstants.forwardGeocode,
+        queryParameters: {'q': clean},
+      );
+      if (response.statusCode == 200) {
+        final payload = response.data['data'] as List<dynamic>? ?? [];
+        return payload
+            .whereType<Map>()
+            .map((item) => item.cast<String, dynamic>())
+            .toList();
+      }
+    } catch (_) {}
+    return const [];
   }
 }
 

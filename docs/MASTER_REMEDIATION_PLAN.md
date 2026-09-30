@@ -619,7 +619,9 @@ flowchart TD
 - **Fix Point**:
   - `apps/customer_app/lib/features/addresses/presentation/address_book_screen.dart`
 - **Solution**:
-  - Use geocoded coordinates when an address suggestion is selected, or preserve explicit map pin coordinates.
+  - Map Location Picker: Priority goes to explicit map pin coordinates selected in `MapLocationPickerScreen` (`customLat`/`customLng`).
+  - Dynamic Forward Geocoding: For typed addresses without manual pin adjustments, query backend `GET /geo/geocode?q=...` via `LocationNotifier.forwardGeocode` (backed by OpenStreetMap and 24-hour Redis caching), replacing static coordinate dictionaries.
+  - Fallback: Gracefully falls back to device GPS location if geocoding returns no match or network is unavailable.
 - **Verification Plan**:
   - Save address in Mirpur while device is in Gulshan; verify saved coordinates reflect Mirpur.
 - **Blast Radius / Side-Effect Guard**:

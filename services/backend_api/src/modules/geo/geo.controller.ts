@@ -31,4 +31,20 @@ export class GeoController {
       data,
     };
   }
+
+  @Get('geocode')
+  @ApiOperation({ summary: 'Forward geocode address query to coordinates with 24h Redis cache' })
+  @ApiQuery({ name: 'q', type: String, required: true, example: 'Mirpur 10, Dhaka' })
+  @ApiResponse({ status: 200, description: 'Geocoded location results' })
+  async geocode(@Query('q') query: string) {
+    if (!query || !query.trim()) {
+      throw new BadRequestException('q query parameter must be a non-empty string');
+    }
+
+    const data = await this.geoService.forwardGeocode(query);
+    return {
+      message: 'Geocode successful',
+      data,
+    };
+  }
 }

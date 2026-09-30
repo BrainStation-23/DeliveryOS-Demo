@@ -27,20 +27,6 @@ class _AddressBookScreenState extends ConsumerState<AddressBookScreen> {
     });
   }
 
-  static const Map<String, ({double lat, double lng})> _dhakaAreas = {
-    'mirpur': (lat: 23.8067, lng: 90.3683),
-    'gulshan': (lat: 23.7780, lng: 90.4180),
-    'banani': (lat: 23.7925, lng: 90.4078),
-    'dhanmondi': (lat: 23.7465, lng: 90.3760),
-    'uttara': (lat: 23.8759, lng: 90.3795),
-    'mohammadpur': (lat: 23.7658, lng: 90.3584),
-    'mohakhali': (lat: 23.7778, lng: 90.4057),
-    'bashundhara': (lat: 23.8191, lng: 90.4326),
-    'motijheel': (lat: 23.7330, lng: 90.4172),
-    'badda': (lat: 23.7806, lng: 90.4267),
-    'baridhara': (lat: 23.8000, lng: 90.4200),
-  };
-
   void _showAddEditAddressSheet({CustomerAddressModel? existingAddress}) {
     final labelOptions = ['Home', 'Work', 'Other'];
     String selectedLabel = existingAddress?.label ?? 'Home';
@@ -229,16 +215,21 @@ class _AddressBookScreenState extends ConsumerState<AddressBookScreen> {
                       double resolvedLng = customLng ?? (existingAddress?.longitude ?? lng);
 
                       if (customLat == null && existingAddress == null) {
-                        final lowerLine = line.toLowerCase();
-                        for (final entry in _dhakaAreas.entries) {
-                          if (lowerLine.contains(entry.key)) {
-                            resolvedLat = entry.value.lat;
-                            resolvedLng = entry.value.lng;
-                            break;
+                        try {
+                          final matches = await ref.read(locationProvider.notifier).forwardGeocode(line);
+                          if (matches.isNotEmpty) {
+                            final first = matches.first;
+                            final fLat = (first['latitude'] as num?)?.toDouble();
+                            final fLng = (first['longitude'] as num?)?.toDouble();
+                            if (fLat != null && fLng != null) {
+                              resolvedLat = fLat;
+                              resolvedLng = fLng;
+                            }
                           }
-                        }
+                        } catch (_) {}
                       }
 
+                      if (!ctx.mounted) return;
                       Navigator.pop(ctx);
                       if (existingAddress != null) {
                         await ref.read(addressProvider.notifier).updateAddress(
