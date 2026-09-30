@@ -40,8 +40,8 @@ class SocketService {
           .build(),
     );
 
-    // Access tokens rotate (15m): every reconnect must re-read the stored
-    // token or the handshake would replay a stale, already-expired credential.
+    // Re-read the rotated token on every reconnect so handshakes never replay
+    // a stale credential.
     _socket!.io.on('reconnect_attempt', (_) {
       final fresh = _storage?.getAccessToken();
       if (fresh != null && fresh.isNotEmpty) {

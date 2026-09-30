@@ -178,10 +178,9 @@ export class VendorStaffService {
 
     await this.validateStaffOutletAccess(user, order.vendorId);
 
-    // RIDER_FIRST invariant (ADR-002 / TID-05): the kitchen must not begin
-    // preparation before a courier has secured the order. Accepting a PLACED
-    // order here would move it to PREPARING, which assertClaimable() rejects
-    // in RIDER_FIRST mode — stranding the order without a rider forever.
+    // RIDER_FIRST invariant: accepting a PLACED order would move it to
+    // PREPARING, where assertClaimable() rejects every claim — stranding the
+    // order without a rider forever.
     if (order.status === OrderStatus.PLACED) {
       const { mode } = await this.orderFlowService.getOrderFlowConfig();
       if (mode === OrderFlowMode.RIDER_FIRST) {
@@ -338,10 +337,9 @@ export class VendorStaffService {
 
     await this.validateStaffOutletAccess(user, order.vendorId);
 
-    // Delivery orders require an assigned courier before handover: dispatching
-    // a delivery order with no rider leaves it in DISPATCHED — a status no
-    // rider can claim — stranding the order. Takeaway orders hand over to the
-    // customer and legitimately carry no rider.
+    // Delivery orders require an assigned courier: dispatching a riderless
+    // delivery order leaves it in DISPATCHED, a status no rider can claim.
+    // Takeaway hands over to the customer and legitimately carries no rider.
     const snapshot = order.deliveryAddressSnapshot as { deliveryMethod?: string; type?: string } | null;
     const deliveryMethod = snapshot?.deliveryMethod ?? snapshot?.type;
     const isTakeaway = deliveryMethod === 'TAKEAWAY';

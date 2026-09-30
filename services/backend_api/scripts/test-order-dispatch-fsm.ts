@@ -95,7 +95,7 @@ async function runOrderDispatchFsmTest() {
       where: { userId: customer.userId, isDefault: true },
     });
     const product = gulshanOutlet!.products[0];
-    // Fixture hygiene: prior suites toggle stock flags; order from an in-stock product.
+    // Prior suites toggle stock flags; order from an in-stock product.
     if (product && !product.isInStock) {
       await prisma.product.update({ where: { id: product.id }, data: { isInStock: true } });
       product.isInStock = true;
@@ -198,9 +198,9 @@ async function runOrderDispatchFsmTest() {
     }
     console.log('   ✅ Redis distributed mutex strictly prevented race conditions (1 winner, 5 rejected)!\n');
 
-    // Clean up active order from winner: release the Redis busy marker AND
-    // cancel the in-flight DB assignment (the claim-time DB backstop refuses
-    // new claims while the winner's contested order is still open).
+    // Release the Redis busy marker AND cancel the winner's in-flight DB
+    // assignment — the claim-time backstop refuses new claims while the
+    // contested order is open.
     await orderFlowService.releaseRiderActiveTrip(assignedDbOrder.riderId);
     await prisma.order.update({
       where: { id: contestedOrderId },

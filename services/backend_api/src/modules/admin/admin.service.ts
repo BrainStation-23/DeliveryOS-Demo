@@ -180,8 +180,7 @@ export class AdminService {
       orderBy: { isOnline: 'desc' },
     });
 
-    // Single batched query for every courier's in-flight order (the database
-    // is the busy-signal source of truth; per-rider lookups were O(n) queries).
+    // Single batched lookup; the database is the busy-signal source of truth.
     const inFlightStatuses = [
       OrderStatus.RIDER_ASSIGNED,
       OrderStatus.ACCEPTED,
@@ -234,8 +233,8 @@ export class AdminService {
         cashInHand: Number(r.cashInHand),
         maxCashLimit: Number(r.maxCashLimit),
         cashSafetyWarning: Number(r.cashInHand) >= Number(r.maxCashLimit) * 0.9,
-        // Null when the courier has never beaconed a fix — the map must never
-        // plot a fake default position for an offline rider.
+        // Null when the courier has never beaconed a fix; the map skips nulls
+        // instead of plotting a fake default position.
         latitude: r.latitude ?? null,
         longitude: r.longitude ?? null,
         activeOrder,
@@ -363,9 +362,8 @@ export class AdminService {
       throw new NotFoundException('Rider not found');
     }
 
-    // Fleet governance guards: an admin override must never be able to hand an
-    // order to an unapproved, suspended, or offline courier, nor to one who is
-    // already mid-trip on another delivery (the Redis marker alone is not a
+    // Fleet governance guards: no override to unapproved/suspended/offline
+    // couriers or couriers already mid-trip (the Redis marker alone is not a
     // reliable busy signal — the database is).
     if (!rider.isApproved || rider.user?.status !== 'ACTIVE') {
       throw new BadRequestException('This courier is unapproved or suspended and cannot be assigned orders');

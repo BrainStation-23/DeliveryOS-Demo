@@ -340,7 +340,7 @@ async function runTrack3VendorKDSTests() {
       where: { id: courier.id },
       data: { cashInHand: 0, isOnline: true },
     });
-    // Also clear the Redis busy marker prior suites may have leaked
+    // Prior suites may leak the Redis busy marker as well.
     const { Redis } = await import('ioredis');
     const redisUrl = String(process.env.REDIS_URL || 'redis://localhost:6380');
     const redis = new Redis(redisUrl, { maxRetriesPerRequest: 1 });

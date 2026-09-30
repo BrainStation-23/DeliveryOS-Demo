@@ -33,9 +33,8 @@ interface AddressSnapshot {
 
 /**
  * Takeaway detection must read the same field checkout writes. Checkout stamps
- * `deliveryMethod` (canonical); `type` is honored for snapshots created before
- * that field existed. Reading a single hard-coded key here previously disabled
- * the entire takeaway bypass.
+ * `deliveryMethod` (canonical); `type` is honored for legacy snapshots — a
+ * hard-coded single key here previously disabled the entire takeaway bypass.
  */
 function isTakeawayOrder(snapshot: AddressSnapshot | null | undefined): boolean {
   if (!snapshot) return false;
@@ -338,8 +337,6 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
         ...(distanceKm !== undefined ? { distanceKm } : {}),
       });
 
-      // Geo-targeted push ring around the pickup outlet (socket broadcast above
-      // remains pool-wide so no connected courier misses the order)
       await this.notifyNearbyRiders(
         order.vendor,
         order.id,
@@ -469,7 +466,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
 
       const updatedOrder = await this.prisma.$transaction(async (tx) => {
         // DB backstop for the busy check: the Redis `rider:active_order` marker
-        // can be lost (crash between commit and SET, eviction, flush). The
+        // can be lost to eviction or a crash between commit and SET — the
         // database remains the source of truth for in-flight assignments.
         const inFlight = await tx.order.findFirst({
           where: {
@@ -697,7 +694,6 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
             vendorName: order.vendor.name,
           });
 
-          // Escalation tier widens the geo-targeted push ring to 6 km
           await this.notifyNearbyRiders(order.vendor, order.id, order.orderNumber, 6);
 
           this.logger.warn(
@@ -723,7 +719,6 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
             vendorName: order.vendor.name,
           });
 
-          // Tier 2 widens the geo-targeted push ring to 10 km
           await this.notifyNearbyRiders(order.vendor, order.id, order.orderNumber, 10);
 
           this.logger.error(

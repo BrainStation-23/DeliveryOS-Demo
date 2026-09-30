@@ -46,9 +46,8 @@ class RiderTopBar extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    // Lifetime completed trips come from the rider profile API;
-                    // courier ratings are not a live data model yet, so no
-                    // fabricated score badge is rendered.
+                    // No courier-rating model exists yet — show the real
+                    // completed-trip count from the profile API instead.
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(

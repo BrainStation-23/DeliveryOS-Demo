@@ -23,9 +23,9 @@ async function runVendorRiderTest() {
   const prisma = app.get(PrismaService);
 
   try {
-    // Fixture hygiene: prior runs can leave the seeded courier with a stale
-    // in-flight order (the DB busy backstop would then correctly refuse new
-    // claims). Cancel those leftovers so this suite starts from a clean trip.
+    // Prior runs can leave the courier with a stale in-flight order (the DB
+    // busy backstop would then refuse new claims) — cancel the leftovers so
+    // the suite starts from a clean trip.
     const seededCourier = await prisma.rider.findFirst({
       where: { user: { phone: '+8801700000004' } },
     });
@@ -37,7 +37,7 @@ async function runVendorRiderTest() {
         },
         data: { status: 'CANCELLED', cancelledAt: new Date(), riderId: null },
       });
-      // ...and the Redis busy marker left by the pre-cancel claim
+      // Prior suites may leak the Redis busy marker as well.
       const { RedisService } = await import('../src/common/redis/redis.service');
       app.get(RedisService).del(`rider:active_order:${seededCourier.id}`);
       // Repeated suite runs accumulate collected COD cash until the (correct)
@@ -272,7 +272,7 @@ async function runVendorRiderTest() {
     // -------------------------------------------------------------------------
     console.log('🛡️  4. Testing RIDER_FIRST accept guard + claim-to-accept sequence...');
 
-    // 4a. The courier must go online before claiming (was Test 6's duty step)
+    // 4a. Courier must be online before claiming
     const dutyRes = await fetch(`${baseUrl}/rider/duty`, {
       method: 'PATCH',
       headers: {
@@ -287,9 +287,8 @@ async function runVendorRiderTest() {
       throw new Error('Failed to toggle rider duty');
     }
 
-    // 4b. RIDER_FIRST invariant: a PLACED order cannot be accepted by the
-    // kitchen before a courier secures it (accepting would strand the order
-    // in PREPARING where no rider can ever claim it).
+    // 4b. RIDER_FIRST invariant: the kitchen cannot accept a PLACED order
+    // before a courier secures it (it would strand the order in PREPARING).
     const blockedAcceptRes = await fetch(`${baseUrl}/vendor/orders/${testOrderId}/accept`, {
       method: 'PATCH',
       headers: {
@@ -322,7 +321,7 @@ async function runVendorRiderTest() {
     }
     console.log('   ✅ Rider secured the order (RIDER_ASSIGNED)!');
 
-    // 4d. Now the Gulshan Branch Manager accepts without prepTimeMinutes
+    // 4d. Branch Manager accepts without prepTimeMinutes
     const acceptRes = await fetch(`${baseUrl}/vendor/orders/${testOrderId}/accept`, {
       method: 'PATCH',
       headers: {
@@ -372,8 +371,8 @@ async function runVendorRiderTest() {
     }
     console.log('   ✅ Kitchen ready & handover state transitions verified!\n');
 
-    // Complete the trip so the courier is free for the next test (the DB
-    // in-flight backstop blocks a second claim while a trip is open).
+    // Free the courier for the next test: the DB in-flight backstop blocks a
+    // second claim while a trip is open.
     const completeRes = await fetch(`${baseUrl}/rider/orders/${testOrderId}/deliver`, {
       method: 'PATCH',
       headers: {
@@ -392,7 +391,7 @@ async function runVendorRiderTest() {
     // -------------------------------------------------------------------------
     console.log('🛵 6. Testing Rider Duty & COD Delivery Settlement...');
 
-    // Rider is already online from Test 4; confirm duty state is sticky.
+    // Confirm the duty state is sticky across the flow.
     const dutyCheckRes = await fetch(`${baseUrl}/rider/profile`, {
       headers: { Authorization: `Bearer ${rider.token}` },
     });

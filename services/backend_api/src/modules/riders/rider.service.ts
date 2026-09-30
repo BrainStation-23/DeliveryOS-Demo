@@ -33,9 +33,8 @@ export class RiderService {
   ) {}
 
   /**
-   * Helper: Retrieve rider profile by userId.
-   * Lifetime earnings and completed-trip counts are computed from the trip
-   * ledger so rider-app dashboards never boot from fabricated defaults.
+   * Helper: Retrieve rider profile by userId, with computed lifetime earnings
+   * (trip-ledger sum) and delivered-trip count for rider-app dashboards.
    */
   async getRiderProfile(userId: string) {
     const rider = await this.prisma.rider.findUnique({
@@ -90,8 +89,7 @@ export class RiderService {
     }
 
     if (!isOnline) {
-      // Mirror the in-flight set used by getActiveTrip: a courier may not go
-      // offline while any assigned order is still working toward delivery.
+      // Mirrors the in-flight set used by getActiveTrip.
       const activeOrder = await this.prisma.order.findFirst({
         where: {
           riderId: rider.id,
@@ -159,10 +157,9 @@ export class RiderService {
       throw new NotFoundException('Order not found');
     }
 
-    // Assignment guard: only the assigned courier may confirm pickup. A null
-    // riderId must never fall through — doing so previously let any rider scoop
-    // an unassigned order, bypassing the claim mutex, the dispatch-mode check,
-    // and the COD cash-limit projection.
+    // Only the assigned courier may confirm pickup: a null riderId must never
+    // fall through, or any rider could scoop an unassigned order — bypassing
+    // the claim mutex, mode check, and COD cash-limit projection.
     if (!order.riderId || order.riderId !== rider.id) {
       throw new ForbiddenException('You are not the assigned rider for this order');
     }

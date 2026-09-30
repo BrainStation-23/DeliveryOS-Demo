@@ -46,8 +46,7 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
         final newStatusStr = data['newStatus'] as String? ?? '';
         final newStage = OrderStageExtension.fromString(newStatusStr);
         final reason = data['reason'] as String?;
-        // Backend cancellation payloads carry `paymentStatus`; `refundStatus`
-        // is accepted as a legacy alias only.
+        // Backend cancels carry `paymentStatus`; `refundStatus` is a legacy alias.
         final paymentStatusUpdate =
             (data['paymentStatus'] ?? data['refundStatus']) as String?;
 

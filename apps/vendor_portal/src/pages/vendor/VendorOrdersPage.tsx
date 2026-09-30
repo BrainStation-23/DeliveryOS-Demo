@@ -29,8 +29,8 @@ export const VendorOrdersPage: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<'TODAY' | 'ALL_TIME'>('TODAY');
   const [selectedOrderForModal, setSelectedOrderForModal] = useState<LedgerItem | null>(null);
 
-  // Server-side date scoping: the TODAY view fetches only the current business
-  // day instead of filtering the full history on the client.
+  // Server-side date scoping: Today fetches one business day instead of
+  // filtering the full history on the client.
   const dateFromIso = useMemo(() => {
     if (dateFilter !== 'TODAY') return undefined;
     const start = new Date();

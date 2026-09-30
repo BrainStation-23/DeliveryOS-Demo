@@ -305,7 +305,6 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
 
       // The in-tx reconcile must never touch PAID payment rows
       expect(prisma.payment.updateMany).not.toHaveBeenCalled();
-      // Gateway refund runs first, then the order flips to REFUNDED
       expect(paymentsService.refundForOrder).toHaveBeenCalledWith('order-1', 'R');
       expect(prisma.order.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { paymentStatus: PaymentStatus.REFUNDED } }),
@@ -395,7 +394,6 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
 
       await orderService.sweepStaleOrders();
 
-      // The guarded cancellation claim ran against the stale order
       expect(prisma.order.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ id: 'order-stale' }) }),
       );

@@ -36,8 +36,8 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or expired token');
     }
 
-    // Token-shape failures get a precise message (no account info leaked);
-    // everything below collapses to the generic message for the same reason.
+    // Token-shape failures get a precise message; everything below collapses
+    // to a generic one to avoid leaking account-state details.
     if (decoded.type === 'refresh') {
       throw new UnauthorizedException('Refresh tokens cannot be used for API access');
     }

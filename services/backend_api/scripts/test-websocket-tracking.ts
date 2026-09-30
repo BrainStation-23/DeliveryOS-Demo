@@ -115,7 +115,7 @@ async function runWebSocketTrackingTest() {
       where: { userId: customer.userId, isDefault: true },
     });
     const product = gulshanOutlet!.products[0];
-    // Fixture hygiene: prior suites toggle stock flags; order from an in-stock product.
+    // Prior suites toggle stock flags; order from an in-stock product.
     if (product && !product.isInStock) {
       await prisma.product.update({ where: { id: product.id }, data: { isInStock: true } });
       product.isInStock = true;
@@ -239,8 +239,8 @@ async function runWebSocketTrackingTest() {
     // 3C. Rider Claims the ready order, then picks it up -> Expect DISPATCHED
     console.log('   🛵 Rider claims the ready order and picks it up...');
     const pickupPromise = waitForStatus('DISPATCHED');
-    // Duty online + atomic claim: pickup is restricted to the ASSIGNED courier,
-    // so the rider must secure the order first (VENDOR_FIRST keeps it READY_FOR_PICKUP).
+    // Pickup is restricted to the assigned courier, so the rider must claim
+    // the order first (VENDOR_FIRST keeps it READY_FOR_PICKUP).
     await fetch(`${baseUrl}/rider/duty`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rider.token}` },

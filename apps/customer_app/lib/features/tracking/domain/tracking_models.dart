@@ -123,8 +123,8 @@ class RiderMeta {
   final String name;
   final String phone;
   final String vehicleType;
-  // Nullable by design: the platform has no courier-rating model yet, so the
-  // UI must never render a fabricated score. Null hides the rating row.
+  // Nullable: no courier-rating model exists yet, so the UI never renders a
+  // fabricated score.
   final double? rating;
   final double latitude;
   final double longitude;

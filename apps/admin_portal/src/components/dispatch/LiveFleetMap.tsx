@@ -61,8 +61,7 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
     const bounds: L.LatLngExpression[] = [];
 
     fleet.forEach((rider) => {
-      // Riders without a GPS fix are intentionally not plotted — a fabricated
-      // default position would mislead dispatchers about a courier's location.
+      // Riders without a GPS fix are not plotted.
       if (rider.latitude == null || rider.longitude == null) return;
       const lat = rider.latitude;
       const lng = rider.longitude;

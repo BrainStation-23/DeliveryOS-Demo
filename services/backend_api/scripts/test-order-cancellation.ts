@@ -69,7 +69,7 @@ async function runCancellationTests() {
       throw new Error('No active vendor with in-stock products found');
     }
     const product = vendor.products[0];
-    // Fixture hygiene: prior suites toggle stock flags; order from an in-stock product.
+    // Prior suites toggle stock flags; order from an in-stock product.
     if (product && !product.isInStock) {
       await prisma.product.update({ where: { id: product.id }, data: { isInStock: true } });
       product.isInStock = true;

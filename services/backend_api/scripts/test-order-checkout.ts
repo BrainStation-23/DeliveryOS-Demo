@@ -67,8 +67,8 @@ async function runOrderCheckoutTest() {
     const gulshanProduct = gulshanOutlet.products.find((p) => Number(p.basePrice) >= 250) || gulshanOutlet.products[0];
     const freshmartProduct = freshmartOutlet.products[0];
 
-    // Fixture hygiene: prior suites toggle stock flags; this suite must order
-    // from an in-stock catalog, so restore any sold-out fixture products.
+    // Prior suites toggle stock flags; this suite must order from an
+    // in-stock products, so restore any sold-out fixture items.
     for (const p of [gulshanProduct, freshmartProduct]) {
       if (p && !p.isInStock) {
         await prisma.product.update({ where: { id: p.id }, data: { isInStock: true } });

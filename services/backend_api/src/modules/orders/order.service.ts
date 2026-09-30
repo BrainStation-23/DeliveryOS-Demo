@@ -96,9 +96,9 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
-    // 60s leader-elected sweep: auto-cancel orders the kitchen never accepted
-    // within the configured stale TTL. Without it, PLACED/RIDER_ASSIGNED
-    // orders could sit unassigned forever (and re-trigger escalations hourly).
+    // Leader-elected auto-cancel for orders the kitchen never accepted;
+    // without it PLACED/RIDER_ASSIGNED orders sit forever and re-trigger
+    // dispatch escalations hourly.
     this.staleSweepTimer = setInterval(() => {
       this.runStaleSweepIfLeader().catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -216,8 +216,8 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
 
     // 3. Validate Delivery Address & Spatial Geofence Guard
     let distanceKm = 0;
-    // `deliveryMethod` is the canonical dispatch-routing field consumed by the
-    // order-flow engine (takeaway bypass); `type` is kept for older readers.
+    // Canonical dispatch-routing field for the order-flow takeaway bypass;
+    // `type` is kept for legacy readers.
     let addressSnapshot: OrderAddressSnapshot = {
       type: 'TAKEAWAY',
       deliveryMethod: DeliveryMethod.TAKEAWAY,
@@ -992,11 +992,9 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
         return null;
       }
 
-      // Reconcile Payment state.
-      // PAID orders are deliberately LEFT PAID here: the gateway refund runs
-      // after this transaction commits, and REFUNDED is only recorded once the
-      // gateway confirms. Prematurely marking REFUNDED painted refunds as
-      // complete when the money had never moved.
+      // Reconcile Payment state: PAID orders are deliberately left PAID here —
+      // the gateway refund runs after this transaction commits and only its
+      // success records REFUNDED.
       let nextPaymentStatus = order.paymentStatus;
       if (order.paymentStatus === PaymentStatus.PENDING) {
         nextPaymentStatus = PaymentStatus.FAILED;
@@ -1048,10 +1046,9 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
       throw new ConflictException(`Order ${order.orderNumber} cannot be cancelled (already delivered, dispatched, or cancelled)`);
     }
 
-    // 2. Gateway Refund: Fires strictly AFTER DB state claim has succeeded.
-    //    REFUNDED is only recorded (payment row + order) on gateway success —
-    //    a failed refund leaves the order honestly PAID and flagged for
-    //    reconciliation instead of silently claiming the money was returned.
+    // 2. Gateway Refund: fires strictly after the DB state claim succeeded;
+    //    REFUNDED is recorded only on gateway success — a failed refund leaves
+    //    the order honestly PAID and flagged for reconciliation.
     let finalPaymentStatus = updatedOrder.paymentStatus;
     if (order.paymentStatus === PaymentStatus.PAID) {
       try {

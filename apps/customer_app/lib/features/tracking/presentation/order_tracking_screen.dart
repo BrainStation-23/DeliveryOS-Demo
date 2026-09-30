@@ -129,8 +129,7 @@ class OrderTrackingScreen extends ConsumerWidget {
                         child: const Icon(Icons.person_rounded, color: AppColors.primary, size: 26),
                       ),
                       title: trackingState.rider!.name,
-                      // Courier ratings are not a live data model yet — render
-                      // the star row only when a real score exists.
+                      // No courier-rating model exists yet — hide the star row.
                       titleTrailing: trackingState.rider!.rating != null
                           ? Row(
                               mainAxisSize: MainAxisSize.min,

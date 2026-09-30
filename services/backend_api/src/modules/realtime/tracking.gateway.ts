@@ -277,8 +277,7 @@ export class TrackingGateway
     const user = client.data?.user;
     if (!user || user.role !== UserRole.RIDER) return;
 
-    // Payload hardening: untrusted socket input must never reach GEOADD or the
-    // ETA math — non-finite or out-of-range fixes are dropped silently.
+    // Untrusted socket input must never reach GEOADD or the ETA math.
     const { latitude, longitude } = payload;
     const isFiniteCoord =
       typeof latitude === 'number' &&
