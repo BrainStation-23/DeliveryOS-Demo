@@ -7,7 +7,7 @@ import '../storage/local_storage.dart';
 class DioClient {
   final Dio _dio;
   final LocalStorage? _storage;
-  bool _isRefreshing = false;
+  Completer<String?>? _refreshCompleter;
   final List<void Function(String)> _refreshListeners = [];
 
   DioClient({LocalStorage? storage, Dio? dio})
@@ -56,6 +56,8 @@ class DioClient {
 
   /// On a 401 (not from the refresh call itself and not already retried),
   /// rotate the refresh token once and return the new access token.
+  /// Single-flight: concurrent 401s await the one in-flight rotation instead
+  /// of each firing its own refresh (which would revoke the shared token).
   Future<String?> _tryRefreshOn401(DioException error) async {
     if (error.response?.statusCode != 401 || _storage == null) return null;
 
@@ -66,8 +68,13 @@ class DioClient {
     final refreshToken = _storage.getRefreshToken();
     if (refreshToken == null || refreshToken.isEmpty) return null;
 
-    if (_isRefreshing) return null;
-    _isRefreshing = true;
+    final inFlight = _refreshCompleter;
+    if (inFlight != null) {
+      return inFlight.future;
+    }
+
+    final completer = Completer<String?>();
+    _refreshCompleter = completer;
     try {
       final response = await Dio(BaseOptions(baseUrl: ApiConstants.baseUrl)).post(
         ApiConstants.refreshAuth,
@@ -76,7 +83,10 @@ class DioClient {
       final data = response.data['data'] as Map<String, dynamic>? ?? response.data as Map<String, dynamic>;
       final newAccess = data['accessToken'] as String?;
       final newRefresh = data['refreshToken'] as String?;
-      if (newAccess == null || newAccess.isEmpty) return null;
+      if (newAccess == null || newAccess.isEmpty) {
+        completer.complete(null);
+        return null;
+      }
 
       await _storage.setAccessToken(newAccess);
       if (newRefresh != null && newRefresh.isNotEmpty) {
@@ -85,13 +95,15 @@ class DioClient {
       for (final listener in _refreshListeners) {
         listener(newAccess);
       }
+      completer.complete(newAccess);
       return newAccess;
     } catch (_) {
       // Refresh failed — session is unrecoverable
       await _storage.clearSession();
+      completer.complete(null);
       return null;
     } finally {
-      _isRefreshing = false;
+      _refreshCompleter = null;
     }
   }
 

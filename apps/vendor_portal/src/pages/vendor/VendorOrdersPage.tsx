@@ -20,7 +20,7 @@ import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { LedgerItem } from '../../types/ledger';
 import { SalesLedgerKPIs } from './components/SalesLedgerKPIs';
 import { SalesLedgerDetailModal } from './components/SalesLedgerDetailModal';
-import { formatCurrency, formatDateTime, isSameDay } from '../../utils/formatters';
+import { formatCurrency, formatDateTime } from '../../utils/formatters';
 
 export const VendorOrdersPage: React.FC = () => {
   const { activeOutletId, activeOutlet, outlets } = useVendorOutlet();
@@ -29,31 +29,32 @@ export const VendorOrdersPage: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<'TODAY' | 'ALL_TIME'>('TODAY');
   const [selectedOrderForModal, setSelectedOrderForModal] = useState<LedgerItem | null>(null);
 
+  // Server-side date scoping: the TODAY view fetches only the current business
+  // day instead of filtering the full history on the client.
+  const dateFromIso = useMemo(() => {
+    if (dateFilter !== 'TODAY') return undefined;
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    return start.toISOString();
+  }, [dateFilter]);
+
   const { data: salesData, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['vendor-sales-ledger', activeOutletId],
-    queryFn: () => kdsApi.getSalesLedger(activeOutletId),
+    queryKey: ['vendor-sales-ledger', activeOutletId, dateFilter],
+    queryFn: () => kdsApi.getSalesLedger(activeOutletId, dateFromIso),
   });
 
   const rawLedgers: LedgerItem[] = salesData?.ledgers || [];
 
-  const dateScopedLedgers = useMemo(() => {
-    if (dateFilter === 'TODAY') {
-      const today = new Date();
-      return rawLedgers.filter((l) => isSameDay(new Date(l.createdAt), today));
-    }
-    return rawLedgers;
-  }, [rawLedgers, dateFilter]);
-
   const summary = useMemo(() => {
-    if (dateFilter === 'ALL_TIME' && salesData?.summary) {
+    if (salesData?.summary) {
       return salesData.summary;
     }
-    const totalOrders = dateScopedLedgers.length;
-    const grossSales = dateScopedLedgers.reduce((acc, l) => acc + Number(l.grossAmount || 0), 0);
+    const totalOrders = rawLedgers.length;
+    const grossSales = rawLedgers.reduce((acc, l) => acc + Number(l.grossAmount || 0), 0);
     const commissionDeducted =
-      Math.round(dateScopedLedgers.reduce((acc, l) => acc + Number(l.commissionAmount || 0), 0) * 100) / 100;
+      Math.round(rawLedgers.reduce((acc, l) => acc + Number(l.commissionAmount || 0), 0) * 100) / 100;
     const netVendorPayable =
-      Math.round(dateScopedLedgers.reduce((acc, l) => acc + Number(l.netVendorPayable || 0), 0) * 100) / 100;
+      Math.round(rawLedgers.reduce((acc, l) => acc + Number(l.netVendorPayable || 0), 0) * 100) / 100;
 
     return {
       totalOrders,
@@ -61,9 +62,9 @@ export const VendorOrdersPage: React.FC = () => {
       commissionDeducted,
       netVendorPayable,
     };
-  }, [salesData, dateScopedLedgers, dateFilter]);
+  }, [salesData, rawLedgers]);
 
-  const filteredLedgers = dateScopedLedgers.filter((l) => {
+  const filteredLedgers = rawLedgers.filter((l) => {
     const matchesSearch =
       l.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       l.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||

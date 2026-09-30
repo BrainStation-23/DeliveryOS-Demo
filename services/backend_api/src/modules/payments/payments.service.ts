@@ -518,8 +518,30 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * 4. Execute gateway refund for a PAID payment (cancellation reconciliation)
+   * A per-order Redis mutex serializes concurrent refund attempts (cancel +
+   * webhook reconciliation) so the gateway can never be asked to refund the
+   * same charge twice.
    */
   async refundForOrder(orderId: string, remarks?: string): Promise<RefundResult | null> {
+    const lockKey = `lock:refund:order:${orderId}`;
+    const lockVal = randomUUID();
+    const acquired = await this.redis.acquireLock(lockKey, lockVal, 30);
+    if (!acquired) {
+      // Another refund for this order is in flight; report not-done so the
+      // caller never records REFUNDED on the strength of someone else's
+      // in-flight attempt (that path owns the final state).
+      this.logger.warn(`Refund for Order ${orderId} already in progress; skipping duplicate gateway call`);
+      return { success: false, refundId: null, raw: { status: 'ALREADY_IN_PROGRESS' } };
+    }
+
+    try {
+      return await this.executeRefund(orderId, remarks);
+    } finally {
+      await this.redis.releaseLock(lockKey, lockVal);
+    }
+  }
+
+  private async executeRefund(orderId: string, remarks?: string): Promise<RefundResult | null> {
     // 1. Idempotency: check if payment for this order is already refunded
     const existingRefund = await this.prisma.payment.findFirst({
       where: { orderId, status: PaymentStatus.REFUNDED },

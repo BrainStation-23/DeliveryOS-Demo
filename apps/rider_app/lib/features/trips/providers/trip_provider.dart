@@ -415,7 +415,7 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
     );
 
     // Credit rider wallet metrics & completed trip history
-    ref.read(riderDutyProvider.notifier).simulateTripCompleted(
+    ref.read(riderDutyProvider.notifier).recordTripCompleted(
           payout: serverEarnings,
           codCollected: serverCod,
           tripRecord: completedRecord,

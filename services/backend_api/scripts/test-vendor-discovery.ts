@@ -5,6 +5,7 @@ import { TransformInterceptor } from '../src/common/interceptors/transform.inter
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { config as loadEnv } from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+import * as jwt from 'jsonwebtoken';
 
 // Same resolution order as AppModule's ConfigModule so standalone
 // suites run without manually exporting the repo .env.
@@ -47,6 +48,18 @@ async function runVendorDiscoveryTest() {
   const testPort = 4098;
   await app.listen(testPort);
   const baseUrl = `http://localhost:${testPort}/api/v1`;
+
+  // Coverage validation is an authenticated endpoint: mint a short-lived
+  // access token for an active seeded user (mirrors auth.service claims).
+  const activeUser = await prisma.user.findFirst({ where: { status: 'ACTIVE' } });
+  if (!activeUser) {
+    throw new Error('No active user found in database. Please run seed script first.');
+  }
+  const authToken = jwt.sign(
+    { sub: activeUser.id, phone: activeUser.phone, role: activeUser.role, type: 'access' },
+    String(process.env.JWT_SECRET),
+    { expiresIn: '10m' },
+  );
 
   try {
     // -------------------------------------------------------------------------
@@ -108,9 +121,22 @@ async function runVendorDiscoveryTest() {
     // Test 4: Cart Address Geofence Guard (Inside Coverage - Banani)
     // -------------------------------------------------------------------------
     console.log('🛡️  4. Testing POST /cart/validate-address-coverage (Inside Coverage - Banani)...');
-    const validCoordRes = await fetch(`${baseUrl}/cart/validate-address-coverage`, {
+
+    // Security invariant: the coverage oracle is authenticated — anonymous
+    // probes must be rejected with 401 before any coordinate math runs.
+    const anonRes = await fetch(`${baseUrl}/cart/validate-address-coverage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vendorId: gulshanStore.id, latitude: 23.7937, longitude: 90.4043 }),
+    });
+    if (anonRes.status !== 401) {
+      throw new Error(`Anonymous coverage probe should be 401, received ${anonRes.status}`);
+    }
+    console.log('   ✅ Anonymous probe correctly rejected with 401 (authenticated oracle)!');
+
+    const validCoordRes = await fetch(`${baseUrl}/cart/validate-address-coverage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
       body: JSON.stringify({
         vendorId: gulshanStore.id,
         latitude: 23.7937,
@@ -130,7 +156,7 @@ async function runVendorDiscoveryTest() {
     console.log('🚫 5. Testing POST /cart/validate-address-coverage (Outside Coverage - Uttara)...');
     const invalidCoordRes = await fetch(`${baseUrl}/cart/validate-address-coverage`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
       body: JSON.stringify({
         vendorId: gulshanStore.id,
         latitude: 23.8759,

@@ -44,14 +44,14 @@ stateDiagram-v2
 | From State | Allowed Target | Permitted Roles | Invariants & Side Effects |
 | :--- | :--- | :--- | :--- |
 | `PLACED` | `RIDER_ASSIGNED` | `RIDER`, `SUPER_ADMIN` | In `RIDER_FIRST`: Courier claims order; triggers kitchen chime with guaranteed rider badge. |
-| `PLACED` | `PREPARING` | `VENDOR_ADMIN`, `SUPER_ADMIN` | In `VENDOR_FIRST`: Vendor sets prep timer, sets `accepted_at = NOW()`, begins cooking. |
+| `PLACED` | `PREPARING` | `VENDOR_ADMIN`, `SUPER_ADMIN` | **`VENDOR_FIRST` only — enforced by the mode guard in `acceptOrder`**: vendor sets prep timer, sets `accepted_at = NOW()`, begins cooking. In `RIDER_FIRST` the accept returns `409` until a courier secures the order (accepting a riderless order would strand it in `PREPARING`, unclaimable forever). |
 | `PLACED` | `CANCELLED` | `CUSTOMER`, `VENDOR_ADMIN`, `SUPER_ADMIN` | Pre-preparation cancellation. Releases payment holds or triggers refund. |
 | `RIDER_ASSIGNED` | `PREPARING` | `VENDOR_ADMIN`, `SUPER_ADMIN` | Vendor reviews items, chooses prep duration, and taps Accept. |
 | `RIDER_ASSIGNED` | `CANCELLED` | `CUSTOMER`, `SUPER_ADMIN` | Customer cancellation prior to kitchen prep. Releases courier lock. |
 | `PREPARING` | `READY_FOR_PICKUP` | `VENDOR_ADMIN`, `SUPER_ADMIN` | Items packed at counter. In `VENDOR_FIRST`, triggers courier broadcast now. |
 | `READY_FOR_PICKUP` | `DISPATCHED` | `RIDER`, `SUPER_ADMIN` | Courier confirms physical pickup at counter. Activates live GPS streaming. |
 | `DISPATCHED` | `DELIVERED` | `RIDER`, `SUPER_ADMIN` | Confirms doorstep handover, validates COD cash checkbox, updates ledgers. |
-| *Any Pre-Dispatched* | `CANCELLED` | `SUPER_ADMIN` | Administrative override cancellation with mandatory min-5-char audit reason. |
+| *Any Pre-Dispatched* | `CANCELLED` | `SUPER_ADMIN` | Administrative override cancellation with mandatory min-5-char audit reason. `DISPATCHED → CANCELLED` is **not** a legal edge: once the courier is on the road the trip never auto-unwinds — the rider reports a delivery issue (back to `READY_FOR_PICKUP`) or completes the delivery. Admin cancel blocks `DISPATCHED` with the same rule. |
 
 ---
 
@@ -190,10 +190,24 @@ async function claimOrder(riderUserId: string, orderId: string): Promise<Order> 
 ```
 
 ### 5.1 Leader-Locked Background Sweeps (ADR-015)
-To ensure background sweeps (unpaid payment expiry at 15 minutes, dispatch radius escalation) do not execute concurrently across scaled replicas, each sweep tick acquires a short-TTL Redis distributed mutex:
+To ensure background sweeps (unpaid payment expiry at 15 minutes, stale-order reaping, dispatch radius escalation) do not execute concurrently across scaled replicas, each sweep tick acquires a short-TTL Redis distributed mutex:
 - **Payment Expiry Mutex**: `SET lock:sweep:expired-payments 1 NX EX 55` (60s sweep interval)
+- **Stale Order Mutex**: `SET lock:sweep:stale-orders 1 NX EX 55` (60s sweep interval)
 - **Dispatch Escalation Mutex**: `SET lock:sweep:dispatch-escalation 1 NX EX 25` (30s sweep interval)
 Only the replica acquiring the mutex processes the tick, guaranteeing race-free escalation and cancellation side effects.
+
+### 5.2 Geo-Targeted Push Rings & Pool-Wide Socket Broadcast
+The socket `[dispatch:broadcast]` always reaches the entire `riders_pool` room (no connected courier can miss an order), while the **FCM push ring is geo-targeted** from the Redis GEO index around the pickup outlet:
+- **Tier 0**: push to available riders within **5 km** of the outlet.
+- **Tier 1**: push ring widens to **6 km**; admin radar alerted.
+- **Tier 2**: push ring widens to **10 km**; `[dispatch:escalated]` emitted to `admin_hq`.
+When the geo index has no candidates (cold start), the push falls back to a role-wide courier broadcast.
+
+### 5.3 Stale-Order Reaper
+Orders that never reached kitchen acceptance (`PLACED` / `RIDER_ASSIGNED`, COD or verified-paid online) older than `order_flow_config.stale_order_ttl_minutes` (default **60**) are auto-cancelled by `OrderService.sweepStaleOrders()` through the central cancellation engine (refund reconciliation, coupon restoration, ledger cleanup, courier release, realtime events). Unpaid online orders are excluded — the payment expiry sweep owns those. The escalation scanner caps its scan window at the same TTL, so a forgotten order can never re-broadcast or re-alert admins indefinitely.
+
+### 5.4 Takeaway Routing
+Takeaway detection reads the address snapshot's canonical `deliveryMethod` field (written by checkout; legacy snapshots carrying only `type` are honored). Takeaway orders notify the kitchen immediately, never enter the courier pool, and are excluded from escalation scans and the stale-order reaper is capped to unaccepted orders.
 
 ---
 

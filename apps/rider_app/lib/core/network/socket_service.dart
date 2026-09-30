@@ -11,6 +11,9 @@ class RiderSocketService {
   final _connectionStateController = StreamController<bool>.broadcast();
   final Map<String, List<Function(dynamic)>> _listeners = {};
   final Set<String> _joinedOrders = {};
+  final LocalStorage? _storage;
+
+  RiderSocketService({LocalStorage? storage}) : _storage = storage;
 
   Stream<bool> get connectionStream => _connectionStateController.stream;
   bool get isConnected => _socket?.connected ?? false;
@@ -35,6 +38,15 @@ class RiderSocketService {
           .setAuth({'token': token ?? ''})
           .build(),
     );
+
+    // Access tokens rotate (15m): every reconnect must re-read the stored
+    // token or the handshake would replay a stale, already-expired credential.
+    _socket!.io.on('reconnect_attempt', (_) {
+      final fresh = _storage?.getAccessToken();
+      if (fresh != null && fresh.isNotEmpty) {
+        _socket?.auth = {'token': fresh};
+      }
+    });
 
     _socket!.onConnect((_) {
       debugPrint('✅ [Rider] WebSocket Connected: ${_socket?.id}');
@@ -124,9 +136,9 @@ class RiderSocketService {
 }
 
 final riderSocketServiceProvider = Provider<RiderSocketService>((ref) {
-  final service = RiderSocketService();
-  final authState = ref.watch(riderAuthProvider);
   final storage = ref.watch(localStorageProvider);
+  final service = RiderSocketService(storage: storage);
+  final authState = ref.watch(riderAuthProvider);
 
   if (authState.isAuthenticated) {
     final token = storage.getAccessToken();

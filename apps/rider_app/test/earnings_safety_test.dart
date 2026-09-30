@@ -117,7 +117,7 @@ void main() {
       final initialEarnings = container.read(riderDutyProvider).todayEarnings;
       final initialCod = container.read(riderDutyProvider).codCashInHand;
 
-      notifier.simulateTripCompleted(
+      notifier.recordTripCompleted(
         payout: 65.0,
         codCollected: 850.0,
         tripRecord: RiderCompletedTrip(
@@ -146,7 +146,7 @@ void main() {
       final notifier = container.read(riderDutyProvider.notifier);
 
       // Force cash limit reached
-      notifier.simulateTripCompleted(
+      notifier.recordTripCompleted(
         payout: 100.0,
         codCollected: 5000.0,
       );
@@ -168,7 +168,7 @@ void main() {
       addTearDown(container.dispose);
 
       // Push rider to limit
-      container.read(riderDutyProvider.notifier).simulateTripCompleted(
+      container.read(riderDutyProvider.notifier).recordTripCompleted(
             payout: 50.0,
             codCollected: 6000.0,
           );
@@ -186,7 +186,7 @@ void main() {
       addTearDown(container.dispose);
 
       // Push rider to limit
-      container.read(riderDutyProvider.notifier).simulateTripCompleted(
+      container.read(riderDutyProvider.notifier).recordTripCompleted(
             payout: 50.0,
             codCollected: 6000.0,
           );
@@ -211,7 +211,7 @@ void main() {
       addTearDown(container.dispose);
 
       // Push rider to cash limit
-      container.read(riderDutyProvider.notifier).simulateTripCompleted(
+      container.read(riderDutyProvider.notifier).recordTripCompleted(
             payout: 50.0,
             codCollected: 5000.0,
           );
@@ -267,7 +267,7 @@ void main() {
       expect(find.text('THIS WEEK\'S COMPLETED TRIPS'), findsOneWidget);
 
       // Collect COD cash so deposit button becomes enabled
-      container.read(riderDutyProvider.notifier).simulateTripCompleted(
+      container.read(riderDutyProvider.notifier).recordTripCompleted(
             payout: 60.0,
             codCollected: 1200.0,
           );

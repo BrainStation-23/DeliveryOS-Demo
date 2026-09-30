@@ -1,11 +1,12 @@
-import { ForbiddenException } from '@nestjs/common';
-import { PermissionScope, User, UserRole } from '@prisma/client';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { OrderStatus, PermissionScope, Prisma, User, UserRole } from '@prisma/client';
 import { VendorStaffService } from './vendor-staff.service';
+import { OrderFlowMode } from '../order-flow/dto/update-order-flow.dto';
 
 type MockPrisma = {
   vendorStaff: { findMany: jest.Mock };
-  vendor: { findMany: jest.Mock };
-  order: { findMany: jest.Mock };
+  vendor: { findUnique: jest.Mock; findMany: jest.Mock };
+  order: { findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
 };
 
 describe('VendorStaffService - Step 1.5: Safe Live Orders Scoping', () => {
@@ -18,10 +19,13 @@ describe('VendorStaffService - Step 1.5: Safe Live Orders Scoping', () => {
         findMany: jest.fn(),
       },
       vendor: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'vendor-1', brandId: 'brand-1' }),
         findMany: jest.fn(),
       },
       order: {
         findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn(),
+        update: jest.fn(),
       },
     };
 
@@ -97,6 +101,163 @@ describe('VendorStaffService - Step 1.5: Safe Live Orders Scoping', () => {
           vendorId: { in: ['vendor-10'] },
         }),
       }),
+    );
+  });
+});
+
+describe('VendorStaffService - accept/handover flow-mode guards', () => {
+  let service: VendorStaffService;
+  let prisma: MockPrisma;
+  let orderFlowService: { getOrderFlowConfig: jest.Mock; handleOrderReady: jest.Mock };
+
+  const staffUser: User = {
+    id: 'user-staff-1',
+    phone: '+8801700000002',
+    fullName: 'Staff User',
+    email: null,
+    fcmToken: null,
+    devicePlatform: null,
+    role: UserRole.VENDOR_ADMIN,
+    status: 'ACTIVE',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const baseOrder = {
+    id: 'order-1',
+    orderNumber: 'ORD-1',
+    customerId: 'customer-1',
+    vendorId: 'vendor-1',
+    status: OrderStatus.PLACED,
+    riderId: null as string | null,
+    deliveryAddressSnapshot: {
+      type: 'HOME_DELIVERY',
+      deliveryMethod: 'HOME_DELIVERY',
+      addressLine: 'Road 12',
+    },
+  };
+
+  beforeEach(() => {
+    prisma = {
+      vendorStaff: {
+        findMany: jest.fn().mockResolvedValue([
+          { scope: PermissionScope.PARTICULAR_OUTLET, vendorId: 'vendor-1', isActive: true },
+        ]),
+      },
+      vendor: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'vendor-1', brandId: 'brand-1', defaultPrepTimeMinutes: 20 }),
+        findMany: jest.fn(),
+      },
+      order: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue({ ...baseOrder, vendor: { defaultPrepTimeMinutes: 20 } }),
+        update: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+          ...baseOrder,
+          ...data,
+        })),
+      },
+    };
+
+    orderFlowService = {
+      getOrderFlowConfig: jest.fn().mockResolvedValue({
+        mode: OrderFlowMode.RIDER_FIRST,
+        riderSearchTimeoutSeconds: 90,
+        staleOrderTtlMinutes: 60,
+      }),
+      handleOrderReady: jest.fn().mockResolvedValue(undefined),
+    };
+
+    service = new VendorStaffService(
+      prisma as never,
+      { notifyOrderStatusChanged: jest.fn() } as never,
+      orderFlowService as never,
+      {} as never,
+    );
+  });
+
+  it('blocks accepting a PLACED order in RIDER_FIRST mode (courier must secure it first)', async () => {
+    await expect(service.acceptOrder(staffUser, 'order-1', {})).rejects.toThrow(ConflictException);
+    expect(prisma.order.update).not.toHaveBeenCalled();
+  });
+
+  it('allows accepting a PLACED order in VENDOR_FIRST mode with a status-conditional update', async () => {
+    orderFlowService.getOrderFlowConfig.mockResolvedValue({
+      mode: OrderFlowMode.VENDOR_FIRST,
+      riderSearchTimeoutSeconds: 90,
+      staleOrderTtlMinutes: 60,
+    });
+
+    const result = await service.acceptOrder(staffUser, 'order-1', {});
+    expect(result.status).toBe(OrderStatus.PREPARING);
+    expect(prisma.order.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'order-1', status: OrderStatus.PLACED } }),
+    );
+  });
+
+  it('allows accepting in RIDER_FIRST once a rider has secured the order', async () => {
+    prisma.order.findUnique.mockResolvedValue({
+      ...baseOrder,
+      status: OrderStatus.RIDER_ASSIGNED,
+      riderId: 'rider-1',
+      vendor: { defaultPrepTimeMinutes: 20 },
+    });
+
+    const result = await service.acceptOrder(staffUser, 'order-1', {});
+    expect(result.status).toBe(OrderStatus.PREPARING);
+  });
+
+  it('rejects a lost accept race with a ConflictException instead of overwriting', async () => {
+    orderFlowService.getOrderFlowConfig.mockResolvedValue({
+      mode: OrderFlowMode.VENDOR_FIRST,
+      riderSearchTimeoutSeconds: 90,
+      staleOrderTtlMinutes: 60,
+    });
+    prisma.order.update.mockImplementation(() => {
+      throw new Prisma.PrismaClientKnownRequestError('record not found', {
+        code: 'P2025',
+        clientVersion: '5.0.0',
+      });
+    });
+
+    await expect(service.acceptOrder(staffUser, 'order-1', {})).rejects.toThrow(ConflictException);
+  });
+
+  it('blocks handover of a delivery order with no assigned courier (zombie DISPATCH guard)', async () => {
+    prisma.order.findUnique.mockResolvedValue({
+      ...baseOrder,
+      status: OrderStatus.READY_FOR_PICKUP,
+      riderId: null,
+      vendor: { defaultPrepTimeMinutes: 20 },
+    });
+
+    await expect(service.handoverOrder(staffUser, 'order-1')).rejects.toThrow(BadRequestException);
+    expect(prisma.order.update).not.toHaveBeenCalled();
+  });
+
+  it('allows takeaway handover to the customer without a courier', async () => {
+    prisma.order.findUnique.mockResolvedValue({
+      ...baseOrder,
+      status: OrderStatus.READY_FOR_PICKUP,
+      riderId: null,
+      deliveryAddressSnapshot: { type: 'TAKEAWAY', deliveryMethod: 'TAKEAWAY' },
+      vendor: { defaultPrepTimeMinutes: 20 },
+    });
+
+    const result = await service.handoverOrder(staffUser, 'order-1');
+    expect(result.status).toBe(OrderStatus.DISPATCHED);
+  });
+
+  it('marks ready with a status-conditional update', async () => {
+    prisma.order.findUnique.mockResolvedValue({
+      ...baseOrder,
+      status: OrderStatus.PREPARING,
+      vendor: { defaultPrepTimeMinutes: 20 },
+    });
+
+    const result = await service.markOrderReady(staffUser, 'order-1');
+    expect(result.status).toBe(OrderStatus.READY_FOR_PICKUP);
+    expect(prisma.order.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'order-1', status: OrderStatus.PREPARING } }),
     );
   });
 });

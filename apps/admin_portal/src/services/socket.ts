@@ -10,6 +10,14 @@ export const getSocket = (): Socket => {
       transports: ['websocket'],
       autoConnect: false,
     });
+    // Access tokens rotate (15m): every reconnect must re-read the stored
+    // token or the handshake would replay a stale, already-expired credential.
+    socket.io.on('reconnect_attempt', () => {
+      const fresh = localStorage.getItem('deliveryos_admin_token');
+      if (fresh && socket) {
+        socket.auth = { token: fresh };
+      }
+    });
   }
   return socket;
 };

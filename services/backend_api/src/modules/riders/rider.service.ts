@@ -33,7 +33,9 @@ export class RiderService {
   ) {}
 
   /**
-   * Helper: Retrieve rider profile by userId
+   * Helper: Retrieve rider profile by userId.
+   * Lifetime earnings and completed-trip counts are computed from the trip
+   * ledger so rider-app dashboards never boot from fabricated defaults.
    */
   async getRiderProfile(userId: string) {
     const rider = await this.prisma.rider.findUnique({
@@ -56,7 +58,21 @@ export class RiderService {
       throw new NotFoundException('Rider profile not found for this user account');
     }
 
-    return rider;
+    const [earningsAggregate, completedTripsCount] = await Promise.all([
+      this.prisma.riderTripLedger.aggregate({
+        where: { riderId: rider.id },
+        _sum: { deliveryEarnings: true },
+      }),
+      this.prisma.order.count({
+        where: { riderId: rider.id, status: OrderStatus.DELIVERED },
+      }),
+    ]);
+
+    return {
+      ...rider,
+      earningsBalance: Number(earningsAggregate._sum.deliveryEarnings ?? 0),
+      completedTripsCount,
+    };
   }
 
   /**
@@ -74,11 +90,19 @@ export class RiderService {
     }
 
     if (!isOnline) {
+      // Mirror the in-flight set used by getActiveTrip: a courier may not go
+      // offline while any assigned order is still working toward delivery.
       const activeOrder = await this.prisma.order.findFirst({
         where: {
           riderId: rider.id,
           status: {
-            in: [OrderStatus.RIDER_ASSIGNED, OrderStatus.DISPATCHED],
+            in: [
+              OrderStatus.RIDER_ASSIGNED,
+              OrderStatus.ACCEPTED,
+              OrderStatus.PREPARING,
+              OrderStatus.READY_FOR_PICKUP,
+              OrderStatus.DISPATCHED,
+            ],
           },
         },
       });
@@ -135,20 +159,33 @@ export class RiderService {
       throw new NotFoundException('Order not found');
     }
 
-    if (order.riderId && order.riderId !== rider.id) {
-      throw new ForbiddenException('This order is assigned to another delivery rider');
+    // Assignment guard: only the assigned courier may confirm pickup. A null
+    // riderId must never fall through — doing so previously let any rider scoop
+    // an unassigned order, bypassing the claim mutex, the dispatch-mode check,
+    // and the COD cash-limit projection.
+    if (!order.riderId || order.riderId !== rider.id) {
+      throw new ForbiddenException('You are not the assigned rider for this order');
     }
 
     assertTransition(order.status, OrderStatus.DISPATCHED);
 
-    const updatedOrder = await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        riderId: rider.id,
-        status: OrderStatus.DISPATCHED,
-        pickedUpAt: new Date(),
-      },
-    });
+    // Conditional on the observed status so a concurrent cancellation cannot
+    // be silently overwritten by a stale pickup confirmation.
+    let updatedOrder;
+    try {
+      updatedOrder = await this.prisma.order.update({
+        where: { id: orderId, status: order.status },
+        data: {
+          status: OrderStatus.DISPATCHED,
+          pickedUpAt: new Date(),
+        },
+      });
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        throw new ConflictException('Order state changed before pickup could be confirmed; refresh and retry');
+      }
+      throw err;
+    }
 
     // Realtime Broadcast: order:status:changed (DISPATCHED)
     this.trackingGateway.notifyOrderStatusChanged(
@@ -406,14 +443,24 @@ export class RiderService {
     // Asserts legal transition (DISPATCHED → READY_FOR_PICKUP)
     assertTransition(order.status, OrderStatus.READY_FOR_PICKUP);
 
-    const updatedOrder = await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        riderId: null,
-        status: OrderStatus.READY_FOR_PICKUP,
-        rejectionReason: `Delivery issue reported by rider ${rider.user?.fullName || rider.id}: ${reason}`,
-      },
-    });
+    // Conditional on the observed status so a concurrent cancellation or
+    // delivery confirmation cannot be overwritten by a stale issue report.
+    let updatedOrder;
+    try {
+      updatedOrder = await this.prisma.order.update({
+        where: { id: orderId, status: order.status },
+        data: {
+          riderId: null,
+          status: OrderStatus.READY_FOR_PICKUP,
+          rejectionReason: `Delivery issue reported by rider ${rider.user?.fullName || rider.id}: ${reason}`,
+        },
+      });
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        throw new ConflictException('Order state changed before the issue report could be applied; refresh and retry');
+      }
+      throw err;
+    }
 
     // Release rider active trip state in Redis
     await this.orderFlowService.releaseRiderActiveTrip(rider.id);

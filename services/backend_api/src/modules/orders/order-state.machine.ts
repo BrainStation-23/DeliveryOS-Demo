@@ -17,7 +17,11 @@ export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   ACCEPTED: [OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED], // Deprecated, preserved for safety
   PREPARING: [OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED],
   READY_FOR_PICKUP: [OrderStatus.DISPATCHED, OrderStatus.CANCELLED],
-  DISPATCHED: [OrderStatus.DELIVERED, OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED],
+  // No CANCELLED edge from DISPATCHED by policy: once the courier is on the
+  // road the platform never auto-unwinds the trip — the rider reports a
+  // delivery issue (back to READY_FOR_PICKUP) or completes the delivery.
+  // Admin cancellation blocks DISPATCHED with the same rule (admin.service).
+  DISPATCHED: [OrderStatus.DELIVERED, OrderStatus.READY_FOR_PICKUP],
   DELIVERED: [],
   CANCELLED: [],
 };

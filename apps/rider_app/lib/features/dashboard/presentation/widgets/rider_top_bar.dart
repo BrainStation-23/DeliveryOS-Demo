@@ -46,6 +46,9 @@ class RiderTopBar extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 6),
+                    // Lifetime completed trips come from the rider profile API;
+                    // courier ratings are not a live data model yet, so no
+                    // fabricated score badge is rendered.
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
@@ -55,10 +58,10 @@ class RiderTopBar extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.star_rounded, size: 13, color: AppColors.star),
+                          const Icon(Icons.route_rounded, size: 13, color: AppColors.dutyOnline),
                           const SizedBox(width: 2),
                           Text(
-                            profile?.rating.toString() ?? '5.0',
+                            '${profile?.completedTripsCount ?? 0} trips',
                             style: AppTypography.badgeText.copyWith(color: AppColors.dutyOnline),
                           ),
                         ],

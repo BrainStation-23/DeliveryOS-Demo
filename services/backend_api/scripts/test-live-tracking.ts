@@ -78,6 +78,11 @@ async function runLiveTrackingTest() {
       where: { userId: customer.userId, isDefault: true },
     });
     const product = gulshanOutlet!.products[0];
+    // Fixture hygiene: prior suites toggle stock flags; order from an in-stock product.
+    if (product && !product.isInStock) {
+      await prisma.product.update({ where: { id: product.id }, data: { isInStock: true } });
+      product.isInStock = true;
+    }
 
     // Place an order for live tracking test
     const orderRes = await fetch(`${baseUrl}/orders/checkout`, {

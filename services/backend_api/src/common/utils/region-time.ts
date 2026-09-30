@@ -18,6 +18,32 @@ export function getRegionTimezone(): string {
 }
 
 /**
+ * UTC instant of the current business-region's local midnight. Dashboard
+ * "today" windows must roll over at region-local midnight, not the server's
+ * UTC clock (e.g. Asia/Dhaka days change at 18:00 UTC).
+ */
+export function startOfRegionToday(): Date {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: getRegionTimezone(),
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+  const get = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((p) => p.type === type)?.value ?? '0');
+  const hour = get('hour') === 24 ? 0 : get('hour');
+
+  const wallClockAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), hour, get('minute'), get('second'));
+  const midnightAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), 0, 0, 0);
+  const offsetMs = now.getTime() - wallClockAsUtc;
+  return new Date(midnightAsUtc + offsetMs);
+}
+
+/**
  * Wall-clock time in the active business region (vendor-local hours are stored
  * in region time, so comparisons must never use the server's UTC clock).
  */

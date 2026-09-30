@@ -223,11 +223,27 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
 - **Direction**: Server ➔ Customer Tracking Screen / Admin Fleet Radar
 - **Target Rooms**: `order_{orderId}` (courier position for the tracking map) and `admin_fleet` (fleet-wide GPS ticks)
 - **Payload**: `{ "orderId": "uuid", "latitude": 23.78, "longitude": 90.41, "bearing": 182.5, "timestamp": "ISO-8601" }` (`rider:location` adds `riderId` and omits order context when idle).
+- **Hardening**: Inbound `rider:location:update` payloads are validated — non-finite or out-of-range coordinates (lat ∉ [-90, 90], lng ∉ [-180, 180]) are dropped before reaching GEOADD or the ETA math.
+
+#### `order:assigned`
+- **Direction**: Server ➔ Assigned Courier
+- **Target Rooms**: `rider_{riderId}`, `user_{riderUserId}`
+- **Trigger**: Super Admin manual dispatch override (`POST /admin/orders/:id/force-assign`). Paired with a high-priority FCM push.
+- **Payload**:
+  ```json
+  {
+    "orderId": "uuid",
+    "orderNumber": "ORD-20261001-0042",
+    "vendorName": "Burger Point — Gulshan Branch",
+    "totalAmount": 540.0
+  }
+  ```
 
 #### Connection Lifecycle & Acknowledgements
-- **`connected`**: Emitted to the client after successful JWT handshake (includes `socketId`, `userId`, `role`, joined rooms).
+- **`connected`**: Emitted to the client after successful JWT handshake (includes `message`, `userId`, `role`).
 - **`error`**: Emitted on handshake failures (missing/invalid token, inactive user) and unauthorized room joins.
 - **`order:joined` / `order:left`**: Acknowledgement replies to `order:join` / `order:leave` (return `{ orderId, ... }` on success).
+- **Token rotation**: clients must re-read their stored access token on every `reconnect_attempt` so the handshake never replays a stale (already rotated) credential — implemented in both portals and both Flutter apps.
 
 ---
 

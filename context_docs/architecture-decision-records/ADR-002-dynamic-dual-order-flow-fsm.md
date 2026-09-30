@@ -125,3 +125,15 @@ When an order is cancelled:
 - Integration verification: [`test-order-dispatch-fsm.ts`](../../services/backend_api/scripts/test-order-dispatch-fsm.ts) validates runtime switching and concurrent claims.
 - Fulfillment verification: [`test-vendor-rider.ts`](../../services/backend_api/scripts/test-vendor-rider.ts) and [`test-e2e-lifecycle.ts`](../../services/backend_api/scripts/test-e2e-lifecycle.ts) validate full lifecycle progression and penny-perfect financial balancing.
 - Cancellation verification: [`test-order-cancellation.ts`](../../services/backend_api/scripts/test-order-cancellation.ts) validates all 4 boundary conditions: customer cancel, pre-prep boundary guard, vendor rejection, and admin force-cancel with refund.
+
+---
+
+## Amendments
+
+### 2026-09-30 — Hardened mode scoping, dead-edge removal & stale-order reaper
+- **`PLACED → PREPARING` is now mode-enforced**: `acceptOrder` returns `409` for a `PLACED` order while `RIDER_FIRST` is active. Previously the FSM permitted the transition in both modes; a kitchen accepting a riderless order in `RIDER_FIRST` moved it to `PREPARING`, where `assertClaimable()` rejects every claim — stranding the order with no courier and no customer-cancellation path. The KDS board's New lane still shows the order, but Accept is server-blocked until a rider secures it.
+- **`DISPATCHED → CANCELLED` removed from the transition graph**: no code path could legally execute it (admin cancel blocks `DISPATCHED` by policy — the rider reports a delivery issue or completes the trip). The dead edge is deleted from `ORDER_TRANSITIONS` so the machine matches enforced behavior.
+- **Status-conditional writes on all fulfillment mutations**: `markOrderReady`, `handoverOrder`, `pickupOrder`, and `reportDeliveryIssue` now update `WHERE id AND status = observed` (P2025 → `409`), matching `acceptOrder`. A concurrent cancellation can never be silently resurrected.
+- **Handover requires an assigned courier for delivery orders** (takeaway excepted): dispatching a riderless delivery order left it in `DISPATCHED`, a status no rider can claim.
+- **Stale-order reaper**: `OrderService.sweepStaleOrders()` (leader-locked, 60s tick) auto-cancels kitchen-unaccepted orders older than `order_flow_config.stale_order_ttl_minutes` (default 60) via the central cancellation engine; the escalation scanner caps its window at the same TTL so forgotten orders stop re-broadcasting hourly.
+- **Takeaway snapshot field**: checkout now stamps the canonical `deliveryMethod` field (legacy `type`-only snapshots are honored). Section 3's bypass previously read a field checkout never wrote and was dead in production — unit tests now pin the exact checkout-produced snapshot shape.

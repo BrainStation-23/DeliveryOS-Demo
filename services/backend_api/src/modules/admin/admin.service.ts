@@ -49,9 +49,10 @@ import {
 } from '@prisma/client';
 import { OrderService } from '../orders/order.service';
 import { AdminCancelOrderDto } from './dto/admin-cancel-order.dto';
-import { DeliveryFeeConfig, DeliveryFeeService, normalizeDeliveryFeeConfig } from '../promotions/pricing/delivery-fee.service';
+import { DeliveryFeeConfig, DeliveryFeeService, DEFAULT_DELIVERY_FEE_CONFIG, normalizeDeliveryFeeConfig } from '../promotions/pricing/delivery-fee.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GetLiveOrdersQueryDto } from './dto/admin-governance.dto';
+import { startOfRegionToday } from '../../common/utils/region-time';
 
 export interface OrderFlowSettingPayload {
   mode: OrderFlowMode;
@@ -76,8 +77,9 @@ export class AdminService {
   // 1. Overview & Dashboard Statistics
   // ===========================================================================
   async getOverviewStats() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Region-local midnight (e.g. Asia/Dhaka) so "today" rolls over on the
+    // business calendar rather than the server's UTC clock.
+    const today = startOfRegionToday();
 
     const [
       totalOrdersCount,
@@ -178,50 +180,68 @@ export class AdminService {
       orderBy: { isOnline: 'desc' },
     });
 
-    const fleet = await Promise.all(
-      riders.map(async (r) => {
-        const activeOrderId = await this.redis.get(`rider:active_order:${r.id}`);
-        let activeOrder = null;
+    // Single batched query for every courier's in-flight order (the database
+    // is the busy-signal source of truth; per-rider lookups were O(n) queries).
+    const inFlightStatuses = [
+      OrderStatus.RIDER_ASSIGNED,
+      OrderStatus.ACCEPTED,
+      OrderStatus.PREPARING,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.DISPATCHED,
+    ];
+    const activeOrders = await this.prisma.order.findMany({
+      where: { riderId: { not: null }, status: { in: inFlightStatuses } },
+      select: {
+        riderId: true,
+        id: true,
+        orderNumber: true,
+        status: true,
+        placedAt: true,
+        vendor: { select: { name: true } },
+      },
+      orderBy: { placedAt: 'desc' },
+    });
+    const activeOrderByRider = new Map<string, (typeof activeOrders)[number]>();
+    for (const ord of activeOrders) {
+      if (ord.riderId && !activeOrderByRider.has(ord.riderId)) {
+        activeOrderByRider.set(ord.riderId, ord);
+      }
+    }
 
-        if (activeOrderId) {
-          const ord = await this.prisma.order.findUnique({
-            where: { id: activeOrderId },
-            select: { id: true, orderNumber: true, status: true, vendor: { select: { name: true } } },
-          });
-          if (ord) {
-            activeOrder = {
-              id: ord.id,
-              orderNumber: ord.orderNumber,
-              status: ord.status,
-              vendorName: ord.vendor?.name,
-            };
+    const fleet = riders.map((r) => {
+      const ord = activeOrderByRider.get(r.id);
+
+      const activeOrder = ord
+        ? {
+            id: ord.id,
+            orderNumber: ord.orderNumber,
+            status: ord.status,
+            vendorName: ord.vendor?.name,
           }
-        }
+        : null;
 
-        let status: 'ONLINE' | 'ON_TRIP' | 'OFFLINE' = 'OFFLINE';
-        if (r.isOnline) {
-          status = activeOrderId ? 'ON_TRIP' : 'ONLINE';
-        }
+      const status: 'ONLINE' | 'ON_TRIP' | 'OFFLINE' = r.isOnline ? (ord ? 'ON_TRIP' : 'ONLINE') : 'OFFLINE';
 
-        return {
-          id: r.id,
-          userId: r.userId,
-          riderName: r.user.fullName,
-          phone: r.user.phone,
-          vehicleType: r.vehicleType,
-          isOnline: r.isOnline,
-          isApproved: r.isApproved ?? true,
-          status,
-          cashInHand: Number(r.cashInHand),
-          maxCashLimit: Number(r.maxCashLimit),
-          cashSafetyWarning: Number(r.cashInHand) >= Number(r.maxCashLimit) * 0.9,
-          latitude: r.latitude ?? 23.7925,
-          longitude: r.longitude ?? 90.4078,
-          activeOrder,
-          updatedAt: r.updatedAt,
-        };
-      }),
-    );
+      return {
+        id: r.id,
+        userId: r.userId,
+        riderName: r.user.fullName,
+        phone: r.user.phone,
+        vehicleType: r.vehicleType,
+        isOnline: r.isOnline,
+        isApproved: r.isApproved ?? true,
+        status,
+        cashInHand: Number(r.cashInHand),
+        maxCashLimit: Number(r.maxCashLimit),
+        cashSafetyWarning: Number(r.cashInHand) >= Number(r.maxCashLimit) * 0.9,
+        // Null when the courier has never beaconed a fix — the map must never
+        // plot a fake default position for an offline rider.
+        latitude: r.latitude ?? null,
+        longitude: r.longitude ?? null,
+        activeOrder,
+        updatedAt: r.updatedAt,
+      };
+    });
 
     return fleet;
   }
@@ -336,11 +356,54 @@ export class AdminService {
 
     const rider = await this.prisma.rider.findUnique({
       where: { id: riderId },
-      include: { user: { select: { fullName: true, phone: true } } },
+      include: { user: { select: { id: true, fullName: true, phone: true, status: true } } },
     });
 
     if (!rider) {
       throw new NotFoundException('Rider not found');
+    }
+
+    // Fleet governance guards: an admin override must never be able to hand an
+    // order to an unapproved, suspended, or offline courier, nor to one who is
+    // already mid-trip on another delivery (the Redis marker alone is not a
+    // reliable busy signal — the database is).
+    if (!rider.isApproved || rider.user?.status !== 'ACTIVE') {
+      throw new BadRequestException('This courier is unapproved or suspended and cannot be assigned orders');
+    }
+    if (!rider.isOnline) {
+      throw new BadRequestException('This courier is currently offline. The rider must go on duty before assignment');
+    }
+
+    // Online Payment Invariant (ADR-011): an unverified ONLINE_GATEWAY order
+    // must never enter the courier fleet, even by admin override.
+    if (order.paymentMethod === 'ONLINE_GATEWAY' && order.paymentStatus !== 'PAID') {
+      throw new BadRequestException(
+        'This order is awaiting online payment confirmation and cannot be assigned to a courier yet',
+      );
+    }
+
+    if (rider.id !== order.riderId) {
+      const riderInFlight = await this.prisma.order.findFirst({
+        where: {
+          riderId: rider.id,
+          id: { not: order.id },
+          status: {
+            in: [
+              OrderStatus.RIDER_ASSIGNED,
+              OrderStatus.ACCEPTED,
+              OrderStatus.PREPARING,
+              OrderStatus.READY_FOR_PICKUP,
+              OrderStatus.DISPATCHED,
+            ],
+          },
+        },
+        select: { orderNumber: true },
+      });
+      if (riderInFlight) {
+        throw new ConflictException(
+          `Courier is already mid-trip on Order #${riderInFlight.orderNumber}. Complete or reassign that trip first.`,
+        );
+      }
     }
 
     // Release any previous rider if reassigned
@@ -348,21 +411,31 @@ export class AdminService {
       await this.redis.del(`rider:active_order:${order.riderId}`);
     }
 
-    // Advance status to RIDER_ASSIGNED if it was still in PLACED
+    // Advance status to RIDER_ASSIGNED if it was still in PLACED.
+    // Conditional on the observed status so a concurrent cancellation, claim,
+    // or delivery cannot be silently overwritten by a stale override.
     const newStatus = order.status === OrderStatus.PLACED ? OrderStatus.RIDER_ASSIGNED : order.status;
 
-    const updatedOrder = await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        riderId: rider.id,
-        status: newStatus,
-      },
-      include: {
-        customer: { select: { fullName: true, phone: true } },
-        vendor: true,
-        orderItems: true,
-      },
-    });
+    let updatedOrder;
+    try {
+      updatedOrder = await this.prisma.order.update({
+        where: { id: orderId, status: order.status },
+        data: {
+          riderId: rider.id,
+          status: newStatus,
+        },
+        include: {
+          customer: { select: { fullName: true, phone: true } },
+          vendor: true,
+          orderItems: true,
+        },
+      });
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        throw new ConflictException('Order state changed before the assignment could be applied; refresh and retry');
+      }
+      throw err;
+    }
 
     // Mark rider busy in Redis
     await this.redis.set(`rider:active_order:${rider.id}`, orderId);
@@ -809,13 +882,7 @@ export class AdminService {
       },
       deliveryFee: normalizeDeliveryFeeConfig(
         deliveryFeeSetting?.value as Record<string, unknown> | null,
-        {
-          mode: 'FIXED_FLAT',
-          flatFee: 50.0,
-          baseFee: 40.0,
-          baseKm: 2.0,
-          perKmRate: 15.0,
-        },
+        DEFAULT_DELIVERY_FEE_CONFIG,
       ),
     };
   }

@@ -111,8 +111,18 @@ export class SslCommerzGatewayAdapter implements IPaymentGateway {
     const validation = await this.validateWithSslCommerz({ tranId: transactionId, valId });
     const isSuccess = validation.status === 'VALID' || validation.status === 'VALIDATED';
 
+    // Only statuses returned by a successful server-to-server gateway query are
+    // trusted — including gateway-confirmed FAILED/CANCELLED payments, which
+    // previously bounced as "tamper" and left the row PENDING until the sweep.
+    // Transport/config errors (VALIDATION_ERROR, UNCONFIGURED) and missing
+    // status remain fail-closed.
+    const isGatewayVerified =
+      validation.status !== 'VALIDATION_ERROR' &&
+      validation.status !== 'UNCONFIGURED' &&
+      validation.status !== 'UNKNOWN';
+
     return {
-      isValid: isSuccess,
+      isValid: isGatewayVerified,
       transactionId: transactionId || validation.tranId,
       orderId,
       amount: validation.amount,

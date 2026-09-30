@@ -23,6 +23,41 @@ async function runVendorRiderTest() {
   const prisma = app.get(PrismaService);
 
   try {
+    // Fixture hygiene: prior runs can leave the seeded courier with a stale
+    // in-flight order (the DB busy backstop would then correctly refuse new
+    // claims). Cancel those leftovers so this suite starts from a clean trip.
+    const seededCourier = await prisma.rider.findFirst({
+      where: { user: { phone: '+8801700000004' } },
+    });
+    if (seededCourier) {
+      await prisma.order.updateMany({
+        where: {
+          riderId: seededCourier.id,
+          status: { in: ['RIDER_ASSIGNED', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'DISPATCHED'] },
+        },
+        data: { status: 'CANCELLED', cancelledAt: new Date(), riderId: null },
+      });
+      // ...and the Redis busy marker left by the pre-cancel claim
+      const { RedisService } = await import('../src/common/redis/redis.service');
+      app.get(RedisService).del(`rider:active_order:${seededCourier.id}`);
+      // Repeated suite runs accumulate collected COD cash until the (correct)
+      // claim-time cash-limit guard blocks new COD claims — reset the wallet.
+      await prisma.rider.update({
+        where: { id: seededCourier.id },
+        data: { cashInHand: 0 },
+      });
+    }
+
+    // This suite verifies the RIDER_FIRST contract (courier-before-kitchen);
+    // other suites may leave the global flow mode in VENDOR_FIRST, so pin it.
+    await prisma.systemSetting.upsert({
+      where: { key: 'order_flow_config' },
+      update: { value: { mode: 'RIDER_FIRST', rider_search_timeout_seconds: 90, stale_order_ttl_minutes: 60 } },
+      create: {
+        key: 'order_flow_config',
+        value: { mode: 'RIDER_FIRST', rider_search_timeout_seconds: 90, stale_order_ttl_minutes: 60 },
+      },
+    });
     // -------------------------------------------------------------------------
     // Helper: Authenticate by Phone
     // -------------------------------------------------------------------------
@@ -232,7 +267,62 @@ async function runVendorRiderTest() {
       throw new Error('Expected 403 Forbidden when Branch Manager attempts to accept another branch order');
     }
 
-    // Now Gulshan Branch Manager accepts Gulshan order without prepTimeMinutes
+    // -------------------------------------------------------------------------
+    // Test 4: RIDER_FIRST accept guard, courier claim, then kitchen accept
+    // -------------------------------------------------------------------------
+    console.log('🛡️  4. Testing RIDER_FIRST accept guard + claim-to-accept sequence...');
+
+    // 4a. The courier must go online before claiming (was Test 6's duty step)
+    const dutyRes = await fetch(`${baseUrl}/rider/duty`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${rider.token}`,
+      },
+      body: JSON.stringify({ isOnline: true }),
+    });
+    const dutyJson = await dutyRes.json();
+    console.log(`   Rider Duty Response: status=${dutyRes.status}, isOnline=${dutyJson.data?.isOnline}`);
+    if (dutyRes.status !== 200 || dutyJson.data?.isOnline !== true) {
+      throw new Error('Failed to toggle rider duty');
+    }
+
+    // 4b. RIDER_FIRST invariant: a PLACED order cannot be accepted by the
+    // kitchen before a courier secures it (accepting would strand the order
+    // in PREPARING where no rider can ever claim it).
+    const blockedAcceptRes = await fetch(`${baseUrl}/vendor/orders/${testOrderId}/accept`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${branchManager.token}`,
+      },
+      body: JSON.stringify({}),
+    });
+    console.log(`   Blocked PLACED accept: status=${blockedAcceptRes.status}`);
+    if (blockedAcceptRes.status !== 409) {
+      throw new Error(
+        `Expected 409 when accepting a PLACED order in RIDER_FIRST mode, received ${blockedAcceptRes.status}`,
+      );
+    }
+    console.log('   ✅ Kitchen accept correctly withheld until a courier secures the order!');
+
+    // 4c. Courier claims the broadcast order (atomic Redis mutex + DB backstop)
+    const riderRow = await prisma.rider.findFirst({ where: { userId: rider.userId } });
+    if (!riderRow) {
+      throw new Error('Seeded rider profile not found for the courier login');
+    }
+    const claimRes = await fetch(`${baseUrl}/rider/orders/${testOrderId}/claim`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${rider.token}` },
+    });
+    const claimJson = await claimRes.json();
+    console.log(`   Rider Claim: status=${claimRes.status}, orderStatus=${claimJson.data?.status}`);
+    if (claimRes.status !== 200 || claimJson.data?.riderId !== riderRow.id) {
+      throw new Error(`Failed to claim order: ${JSON.stringify(claimJson)}`);
+    }
+    console.log('   ✅ Rider secured the order (RIDER_ASSIGNED)!');
+
+    // 4d. Now the Gulshan Branch Manager accepts without prepTimeMinutes
     const acceptRes = await fetch(`${baseUrl}/vendor/orders/${testOrderId}/accept`, {
       method: 'PATCH',
       headers: {
@@ -282,25 +372,35 @@ async function runVendorRiderTest() {
     }
     console.log('   ✅ Kitchen ready & handover state transitions verified!\n');
 
-    // -------------------------------------------------------------------------
-    // Test 6: Rider Duty & COD Delivery Lifecycle
-    // -------------------------------------------------------------------------
-    console.log('🛵 6. Testing Rider Duty & COD Delivery Settlement...');
-
-    // Toggle Rider Duty
-    const dutyRes = await fetch(`${baseUrl}/rider/duty`, {
+    // Complete the trip so the courier is free for the next test (the DB
+    // in-flight backstop blocks a second claim while a trip is open).
+    const completeRes = await fetch(`${baseUrl}/rider/orders/${testOrderId}/deliver`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${rider.token}`,
       },
-      body: JSON.stringify({ isOnline: true }),
+      body: JSON.stringify({ codCashCollected: true }),
     });
-    const dutyJson = await dutyRes.json();
-    console.log(`   Rider Duty Response: status=${dutyRes.status}, isOnline=${dutyJson.data?.isOnline}`);
-    if (dutyRes.status !== 200 || dutyJson.data?.isOnline !== true) {
-      throw new Error('Failed to toggle rider duty');
+    if (completeRes.status !== 200) {
+      throw new Error('Failed to complete the first trip before starting the second');
     }
+    console.log('   ✅ First trip completed; courier released for the next dispatch.\n');
+
+    // -------------------------------------------------------------------------
+    // Test 6: Rider Duty & COD Delivery Lifecycle
+    // -------------------------------------------------------------------------
+    console.log('🛵 6. Testing Rider Duty & COD Delivery Settlement...');
+
+    // Rider is already online from Test 4; confirm duty state is sticky.
+    const dutyCheckRes = await fetch(`${baseUrl}/rider/profile`, {
+      headers: { Authorization: `Bearer ${rider.token}` },
+    });
+    const dutyCheckJson = await dutyCheckRes.json();
+    if (dutyCheckRes.status !== 200 || dutyCheckJson.data?.isOnline !== true) {
+      throw new Error('Rider duty state was not retained across the flow');
+    }
+    console.log('   ✅ Rider duty state retained (online).');
 
     // Create a fresh COD order for rider delivery test
     const codOrderRes = await fetch(`${baseUrl}/orders/checkout`, {
@@ -321,7 +421,14 @@ async function runVendorRiderTest() {
     const codOrderId = codOrderJson.data.orderId;
     const orderTotal = codOrderJson.data.totalAmount;
 
-    // Kitchen accepts and marks ready
+    // Courier claims the fresh dispatch, THEN the kitchen accepts and marks ready
+    const claim2Res = await fetch(`${baseUrl}/rider/orders/${codOrderId}/claim`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${rider.token}` },
+    });
+    if (claim2Res.status !== 200) {
+      throw new Error(`Rider failed to claim the second order: ${JSON.stringify(await claim2Res.json())}`);
+    }
     await fetch(`${baseUrl}/vendor/orders/${codOrderId}/accept`, {
       method: 'PATCH',
       headers: {

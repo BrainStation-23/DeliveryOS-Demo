@@ -65,6 +65,11 @@ async function runOnlinePaymentTests() {
       });
     }
     const product = vendor.products[0];
+    // Fixture hygiene: prior suites toggle stock flags; order from an in-stock product.
+    if (product && !product.isInStock) {
+      await prisma.product.update({ where: { id: product.id }, data: { isInStock: true } });
+      product.isInStock = true;
+    }
 
     // 2. Connect WebSockets for Rider and Vendor to monitor broadcast withholding
     console.log('\n📡 2. Establishing Realtime Listeners for Riders Pool & Customer Tracking...');

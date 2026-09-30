@@ -21,11 +21,26 @@ import { haversineKm } from '../../common/utils/haversine';
 interface OrderFlowSettingValue {
   mode?: OrderFlowMode;
   rider_search_timeout_seconds?: number;
+  stale_order_ttl_minutes?: number;
 }
 
 interface AddressSnapshot {
   addressLine?: string;
+  deliveryMethod?: string;
+  type?: string;
   [key: string]: unknown;
+}
+
+/**
+ * Takeaway detection must read the same field checkout writes. Checkout stamps
+ * `deliveryMethod` (canonical); `type` is honored for snapshots created before
+ * that field existed. Reading a single hard-coded key here previously disabled
+ * the entire takeaway bypass.
+ */
+function isTakeawayOrder(snapshot: AddressSnapshot | null | undefined): boolean {
+  if (!snapshot) return false;
+  const method = snapshot.deliveryMethod ?? snapshot.type;
+  return method === 'TAKEAWAY';
 }
 
 @Injectable()
@@ -63,6 +78,51 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
     return Math.round(Number(deliveryFee) * riderShare * 100) / 100;
   }
 
+  /** Radius (km) around the pickup outlet for the initial courier FCM push ring. */
+  private static readonly INITIAL_PUSH_RADIUS_KM = 5;
+
+  /**
+   * Geo-targeted courier push: riders within `radiusKm` of the pickup outlet
+   * (Redis GEO index) receive the FCM alert. The socket broadcast to
+   * riders_pool stays pool-wide so no connected courier ever misses an order;
+   * this only narrows the push-notification blast radius. Falls back to a
+   * role-wide push when the geo index has no candidates yet (cold start).
+   */
+  private async notifyNearbyRiders(
+    vendor: { id: string; name: string; latitude: number | null; longitude: number | null },
+    orderId: string,
+    orderNumber: string,
+    radiusKm: number,
+  ): Promise<void> {
+    let targetUserIds: string[] = [];
+    if (vendor.latitude != null && vendor.longitude != null) {
+      const nearby = await this.findNearbyAvailableRiders(vendor.latitude, vendor.longitude, radiusKm);
+      if (nearby.length > 0) {
+        const riders = await this.prisma.rider.findMany({
+          where: { id: { in: nearby.map((n) => n.riderId) } },
+          select: { userId: true },
+        });
+        targetUserIds = riders.map((r) => r.userId);
+      }
+    }
+
+    const payload = {
+      title: 'New Delivery Opportunity! 📦',
+      body: `Order ${orderNumber} available near ${vendor.name}. Tap to accept.`,
+      data: { orderId, type: 'DISPATCH_BROADCAST' },
+    };
+
+    const dispatch =
+      targetUserIds.length > 0
+        ? this.notificationsService.sendToUsers(targetUserIds, payload)
+        : this.notificationsService.sendToRole(UserRole.RIDER, payload);
+
+    dispatch.catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.warn(`Push notify riders failed: ${msg}`);
+    });
+  }
+
   /**
    * Vendor→customer dispatch-card distance; undefined when the address
    * snapshot carries no coordinates.
@@ -95,12 +155,14 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * 1. Get Active Order Flow Configuration
-   * Reads from Redis cache (or Postgres fallback) to determine whether
-   * the system is operating in RIDER_FIRST or VENDOR_FIRST.
+   * Reads the Postgres system setting to determine whether the system is
+   * operating in RIDER_FIRST or VENDOR_FIRST. Reads are cheap and single-row;
+   * hot-path callers (dispatch) tolerate the round trip.
    */
   async getOrderFlowConfig(): Promise<{
     mode: OrderFlowMode;
     riderSearchTimeoutSeconds: number;
+    staleOrderTtlMinutes: number;
   }> {
     const setting = await this.prisma.systemSetting.findUnique({
       where: { key: 'order_flow_config' },
@@ -110,31 +172,37 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
     return {
       mode: val.mode === OrderFlowMode.VENDOR_FIRST ? OrderFlowMode.VENDOR_FIRST : OrderFlowMode.RIDER_FIRST,
       riderSearchTimeoutSeconds: val.rider_search_timeout_seconds || 90,
+      staleOrderTtlMinutes: val.stale_order_ttl_minutes || 60,
     };
   }
 
   /**
    * 2. Update Order Flow Configuration
+   * The setting is a single JSON blob: preserve fields the caller did not
+   * send (e.g. stale_order_ttl_minutes) instead of clobbering them.
    */
   async setOrderFlowConfig(dto: UpdateOrderFlowDto) {
+    const existing = await this.prisma.systemSetting.findUnique({
+      where: { key: 'order_flow_config' },
+    });
+    const existingValue = (existing?.value as OrderFlowSettingValue | null) || {};
+
+    const nextValue = {
+      mode: dto.mode,
+      rider_search_timeout_seconds: dto.riderSearchTimeoutSeconds ?? existingValue.rider_search_timeout_seconds ?? 90,
+      stale_order_ttl_minutes: existingValue.stale_order_ttl_minutes ?? 60,
+      description:
+        dto.mode === OrderFlowMode.RIDER_FIRST
+          ? 'Zero Food Waste Mode: Secures rider before kitchen begins prep.'
+          : 'Traditional Retail Mode: Store preps first, broadcasts to riders when ready.',
+    };
+
     const updated = await this.prisma.systemSetting.upsert({
       where: { key: 'order_flow_config' },
-      update: {
-        value: {
-          mode: dto.mode,
-          rider_search_timeout_seconds: dto.riderSearchTimeoutSeconds ?? 90,
-          description:
-            dto.mode === OrderFlowMode.RIDER_FIRST
-              ? 'Zero Food Waste Mode: Secures rider before kitchen begins prep.'
-              : 'Traditional Retail Mode: Store preps first, broadcasts to riders when ready.',
-        },
-      },
+      update: { value: nextValue },
       create: {
         key: 'order_flow_config',
-        value: {
-          mode: dto.mode,
-          rider_search_timeout_seconds: dto.riderSearchTimeoutSeconds ?? 90,
-        },
+        value: nextValue,
         description: 'Order fulfillment flow sequence (RIDER_FIRST vs VENDOR_FIRST)',
       },
     });
@@ -220,11 +288,10 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
     }
 
     // Takeaway Fulfillment Invariant:
-    // Takeaway orders (deliveryMethod: 'TAKEAWAY') are picked up by the customer at the store.
+    // Takeaway orders are picked up by the customer at the store.
     // Notify vendor kitchen immediately and skip rider pool broadcast regardless of mode.
-    const addressSnap = order.deliveryAddressSnapshot as Record<string, unknown> | null;
-    const isTakeaway = addressSnap?.deliveryMethod === 'TAKEAWAY';
-    if (isTakeaway) {
+    const addressSnap = order.deliveryAddressSnapshot as AddressSnapshot | null;
+    if (isTakeawayOrder(addressSnap)) {
       this.logger.log(`Order ${order.orderNumber} is TAKEAWAY; notifying kitchen and skipping courier dispatch.`);
       this.trackingGateway.notifyNewOrder(order.vendorId, {
         id: order.id,
@@ -271,17 +338,14 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
         ...(distanceKm !== undefined ? { distanceKm } : {}),
       });
 
-      // Push notification to couriers
-      this.notificationsService
-        .sendToRole(UserRole.RIDER, {
-          title: 'New Delivery Opportunity! 📦',
-          body: `Order ${order.orderNumber} available near ${order.vendor.name}. Tap to accept.`,
-          data: { orderId: order.id, type: 'DISPATCH_BROADCAST' },
-        })
-        .catch((err: unknown) => {
-          const msg = err instanceof Error ? err.message : 'Unknown error';
-          this.logger.warn(`Push notify riders failed: ${msg}`);
-        });
+      // Geo-targeted push ring around the pickup outlet (socket broadcast above
+      // remains pool-wide so no connected courier misses the order)
+      await this.notifyNearbyRiders(
+        order.vendor,
+        order.id,
+        order.orderNumber,
+        OrderFlowService.INITIAL_PUSH_RADIUS_KM,
+      );
 
       this.logger.log(
         `[RIDER_FIRST] Order ${order.orderNumber} broadcasted to riders_pool. Vendor chime held until rider claim.`,
@@ -333,9 +397,8 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
 
       if (!order || order.riderId) return; // already assigned or not found
 
-      const addressSnap = order.deliveryAddressSnapshot as Record<string, unknown> | null;
-      const isTakeaway = addressSnap?.deliveryMethod === 'TAKEAWAY';
-      if (isTakeaway) {
+      const addressSnap = order.deliveryAddressSnapshot as AddressSnapshot | null;
+      if (isTakeawayOrder(addressSnap)) {
         this.logger.log(`Order ${order.orderNumber} is TAKEAWAY; skipping courier dispatch on ready.`);
         return;
       }
@@ -405,6 +468,30 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
       const { mode } = await this.getOrderFlowConfig();
 
       const updatedOrder = await this.prisma.$transaction(async (tx) => {
+        // DB backstop for the busy check: the Redis `rider:active_order` marker
+        // can be lost (crash between commit and SET, eviction, flush). The
+        // database remains the source of truth for in-flight assignments.
+        const inFlight = await tx.order.findFirst({
+          where: {
+            riderId: rider.id,
+            status: {
+              in: [
+                OrderStatus.RIDER_ASSIGNED,
+                OrderStatus.ACCEPTED,
+                OrderStatus.PREPARING,
+                OrderStatus.READY_FOR_PICKUP,
+                OrderStatus.DISPATCHED,
+              ],
+            },
+          },
+          select: { orderNumber: true },
+        });
+        if (inFlight) {
+          throw new ConflictException(
+            `You already have an active delivery trip (Order #${inFlight.orderNumber}). Complete it before claiming another.`,
+          );
+        }
+
         const order = await tx.order.findUnique({
           where: { id: orderId },
           include: { vendor: true, orderItems: true },
@@ -541,14 +628,18 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * 9. Evaluate Unassigned Order Dispatch Escalations (Tier 1 & Tier 2)
+   * Scanning is capped at the stale-order TTL: older unassigned orders are the
+   * reaper's responsibility (OrderService.sweepStaleOrders), so a forgotten
+   * order can never re-broadcast and re-alert admins every hour forever.
    */
   async evaluateDispatchEscalations() {
-    const { mode, riderSearchTimeoutSeconds } = await this.getOrderFlowConfig();
+    const { mode, riderSearchTimeoutSeconds, staleOrderTtlMinutes } = await this.getOrderFlowConfig();
 
     const unassignedOrders = await this.prisma.order.findMany({
       where: {
         riderId: null,
         status: mode === OrderFlowMode.RIDER_FIRST ? OrderStatus.PLACED : OrderStatus.READY_FOR_PICKUP,
+        placedAt: { gte: new Date(Date.now() - staleOrderTtlMinutes * 60_000) },
         OR: [
           { paymentMethod: PaymentMethod.CASH_ON_DELIVERY },
           { paymentMethod: PaymentMethod.ONLINE_GATEWAY, paymentStatus: PaymentStatus.PAID },
@@ -562,8 +653,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
 
     const now = Date.now();
     for (const order of unassignedOrders) {
-      const addressSnap = order.deliveryAddressSnapshot as Record<string, unknown> | null;
-      if (addressSnap?.deliveryMethod === 'TAKEAWAY') {
+      if (isTakeawayOrder(order.deliveryAddressSnapshot as AddressSnapshot | null)) {
         continue;
       }
 
@@ -607,8 +697,11 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
             vendorName: order.vendor.name,
           });
 
+          // Escalation tier widens the geo-targeted push ring to 6 km
+          await this.notifyNearbyRiders(order.vendor, order.id, order.orderNumber, 6);
+
           this.logger.warn(
-            `[Escalation Tier 1] Order ${order.orderNumber} unassigned for ${agingSeconds}s. Search radius expanded to 6km.`,
+            `[Escalation Tier 1] Order ${order.orderNumber} unassigned for ${agingSeconds}s. Priority push ring expanded to 6km.`,
           );
         }
       }
@@ -629,6 +722,9 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
             searchRadiusKm: 10,
             vendorName: order.vendor.name,
           });
+
+          // Tier 2 widens the geo-targeted push ring to 10 km
+          await this.notifyNearbyRiders(order.vendor, order.id, order.orderNumber, 10);
 
           this.logger.error(
             `[Escalation Tier 2 - CRITICAL] Order ${order.orderNumber} unassigned for ${agingSeconds}s! High priority alert emitted to admin_hq.`,

@@ -7,13 +7,16 @@ import {
   Param,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { VendorService } from './vendor.service';
 import { GetNearbyVendorsDto } from './dto/get-nearby-vendors.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { ValidateAddressCoverageDto } from './dto/validate-address-coverage.dto';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Vendors & Discovery')
 @Controller('vendors')
@@ -55,12 +58,17 @@ export class VendorController {
 
   @Post('validate-address-coverage')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiOperation({ summary: 'Validate if an address coordinate is within outlet delivery coverage' })
   @ApiResponse({ status: 200, description: 'Address is strictly within coverage radius' })
   @ApiResponse({ status: 422, description: 'Address is outside outlet coverage radius' })
-  async validateCoverage(@Body() dto: ValidateAddressCoverageDto) {
-    const result = await this.vendorService.validateAddressCoverage(dto);
+  async validateCoverage(
+    @CurrentUser('id') userId: string | undefined,
+    @Body() dto: ValidateAddressCoverageDto,
+  ) {
+    const result = await this.vendorService.validateAddressCoverage(dto, userId);
     return {
       message: 'Address is within outlet delivery coverage',
       data: result,
@@ -75,11 +83,16 @@ export class CartController {
 
   @Post('validate-address-coverage')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Cart Address Geofence Guard: Verify delivery address coverage' })
   @ApiResponse({ status: 200, description: 'Address is strictly within coverage radius' })
   @ApiResponse({ status: 422, description: 'Address is outside outlet coverage radius' })
-  async validateCartCoverage(@Body() dto: ValidateAddressCoverageDto) {
-    const result = await this.vendorService.validateAddressCoverage(dto);
+  async validateCartCoverage(
+    @CurrentUser('id') userId: string | undefined,
+    @Body() dto: ValidateAddressCoverageDto,
+  ) {
+    const result = await this.vendorService.validateAddressCoverage(dto, userId);
     return {
       message: 'Address is within outlet delivery coverage',
       data: result,

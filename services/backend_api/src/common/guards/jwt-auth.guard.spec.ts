@@ -55,13 +55,13 @@ describe('JwtAuthGuard', () => {
     );
   });
 
-  it('rejects refresh tokens used as API access tokens', async () => {
+  it('rejects refresh tokens used as API access tokens with a precise message', async () => {
     const { guard, makeContext } = buildGuard();
     const refresh = jwt.sign({ sub: 'user-1', type: 'refresh', jti: 'j-1' }, TEST_JWT_SECRET);
 
     await expect(
       guard.canActivate(makeContext({ authorization: `Bearer ${refresh}` })),
-    ).rejects.toThrow('Invalid or expired token');
+    ).rejects.toThrow('Refresh tokens cannot be used for API access');
   });
 
   it('attaches the active user from the database and seeds the 30s cache', async () => {

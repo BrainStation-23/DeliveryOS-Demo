@@ -3,7 +3,7 @@ import { OrderStatus, PaymentStatus, PermissionScope, UserRole } from '@prisma/c
 import { OrderService } from './order.service';
 
 type MockPrisma = {
-  order: { findUnique: jest.Mock; updateMany: jest.Mock; update: jest.Mock };
+  order: { findUnique: jest.Mock; findMany: jest.Mock; updateMany: jest.Mock; update: jest.Mock };
   payment: { updateMany: jest.Mock };
   commissionLedger: { deleteMany: jest.Mock };
   riderTripLedger: { deleteMany: jest.Mock };
@@ -44,6 +44,7 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
     prisma = {
       order: {
         findUnique: jest.fn(),
+        findMany: jest.fn(),
         updateMany: jest.fn(),
         update: jest.fn(),
       },
@@ -267,6 +268,161 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
 
       expect(result.status).toBe(OrderStatus.CANCELLED);
       expect(paymentsService.refundForOrder).toHaveBeenCalledWith('order-1', 'Changed mind');
+    });
+  });
+
+  describe('Step 1.7: refund honesty (REFUNDED only after gateway confirmation)', () => {
+    const paidPlacedOrder = {
+      id: 'order-1',
+      orderNumber: 'ORD-1',
+      customerId: 'customer-1',
+      vendorId: 'vendor-1',
+      paymentMethod: 'ONLINE_GATEWAY',
+      paymentStatus: PaymentStatus.PAID,
+      status: OrderStatus.PLACED,
+      riderId: null,
+      couponId: null,
+    };
+
+    function primeClaimableCancellation() {
+      prisma.order.findUnique.mockResolvedValue(paidPlacedOrder);
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+      prisma.order.update.mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+        ...paidPlacedOrder,
+        ...data,
+        cancelledAt: new Date(),
+        orderItems: [],
+        vendor: { id: 'vendor-1', name: 'V' },
+        customer: { id: 'customer-1', fullName: 'C', phone: 'p' },
+      }));
+    }
+
+    it('does NOT mark payments REFUNDED inside the transaction — only after the gateway succeeds', async () => {
+      primeClaimableCancellation();
+      paymentsService.refundForOrder.mockResolvedValue({ success: true, refundId: 'ref-1', raw: {} });
+
+      const result = await orderService.cancelCustomerOrder('customer-1', 'order-1', { reason: 'R' });
+
+      // The in-tx reconcile must never touch PAID payment rows
+      expect(prisma.payment.updateMany).not.toHaveBeenCalled();
+      // Gateway refund runs first, then the order flips to REFUNDED
+      expect(paymentsService.refundForOrder).toHaveBeenCalledWith('order-1', 'R');
+      expect(prisma.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { paymentStatus: PaymentStatus.REFUNDED } }),
+      );
+      expect(result.paymentStatus).toBe(PaymentStatus.REFUNDED);
+    });
+
+    it('keeps the order honestly PAID when the gateway refund fails', async () => {
+      primeClaimableCancellation();
+      paymentsService.refundForOrder.mockResolvedValue({ success: false, refundId: null, raw: { error: 'x' } });
+
+      const result = await orderService.cancelCustomerOrder('customer-1', 'order-1', { reason: 'R' });
+
+      expect(prisma.order.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({ data: { paymentStatus: PaymentStatus.REFUNDED } }),
+      );
+      expect(result.paymentStatus).toBe(PaymentStatus.PAID);
+    });
+
+    it('still fails PENDING payment sessions inside the transaction', async () => {
+      prisma.order.findUnique.mockResolvedValue({ ...paidPlacedOrder, paymentStatus: PaymentStatus.PENDING });
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+      prisma.order.update.mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+        ...paidPlacedOrder,
+        ...data,
+        cancelledAt: new Date(),
+        orderItems: [],
+        vendor: { id: 'vendor-1', name: 'V' },
+        customer: { id: 'customer-1', fullName: 'C', phone: 'p' },
+      }));
+
+      await orderService.cancelCustomerOrder('customer-1', 'order-1', { reason: 'R' });
+
+      expect(prisma.payment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: PaymentStatus.FAILED }) }),
+      );
+      expect(paymentsService.refundForOrder).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Step 1.8: sweepStaleOrders (leader-elected stale order reaper)', () => {
+    it('auto-cancels kitchen-unaccepted orders older than the configured TTL', async () => {
+      orderFlowService = {
+        getOrderFlowConfig: jest
+          .fn()
+          .mockResolvedValue({ mode: 'RIDER_FIRST', riderSearchTimeoutSeconds: 90, staleOrderTtlMinutes: 60 }),
+        releaseRiderActiveTrip: jest.fn().mockResolvedValue(undefined),
+      };
+      orderService = new OrderService(
+        prisma as never,
+        {} as never,
+        {} as never,
+        trackingGateway as never,
+        orderFlowService as never,
+        redis as never,
+        notificationsService as never,
+        paymentsService as never,
+      );
+
+      prisma.order.findMany.mockResolvedValue([
+        {
+          ...{
+            id: 'order-stale',
+            orderNumber: 'ORD-STALE',
+            customerId: 'customer-1',
+            vendorId: 'vendor-1',
+            riderId: null,
+            couponId: null,
+            paymentMethod: 'CASH_ON_DELIVERY',
+            paymentStatus: PaymentStatus.PENDING,
+            status: OrderStatus.PLACED,
+          },
+          vendor: { id: 'vendor-1' },
+          rider: null,
+          payments: [],
+        },
+      ]);
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+      prisma.order.update.mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+        id: 'order-stale',
+        ...data,
+        cancelledAt: new Date(),
+        orderItems: [],
+        vendor: { id: 'vendor-1', name: 'V' },
+        customer: { id: 'customer-1', fullName: 'C', phone: 'p' },
+      }));
+
+      await orderService.sweepStaleOrders();
+
+      // The guarded cancellation claim ran against the stale order
+      expect(prisma.order.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ id: 'order-stale' }) }),
+      );
+      expect(prisma.commissionLedger.deleteMany).toHaveBeenCalled();
+    });
+
+    it('is a no-op when no stale orders exist', async () => {
+      orderFlowService = {
+        getOrderFlowConfig: jest
+          .fn()
+          .mockResolvedValue({ mode: 'RIDER_FIRST', riderSearchTimeoutSeconds: 90, staleOrderTtlMinutes: 60 }),
+      };
+      orderService = new OrderService(
+        prisma as never,
+        {} as never,
+        {} as never,
+        trackingGateway as never,
+        orderFlowService as never,
+        redis as never,
+        notificationsService as never,
+        paymentsService as never,
+      );
+      prisma.order.findMany.mockResolvedValue([]);
+
+      await orderService.sweepStaleOrders();
+
+      expect(prisma.order.updateMany).not.toHaveBeenCalled();
     });
   });
 });

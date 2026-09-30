@@ -85,3 +85,12 @@ To ensure clean merchant and courier ledger payouts:
 ### Negative / Trade-Offs
 - Customers who take time to complete payment on external gateway apps experience a brief pause before hearing order acceptance confirmation.
 - Requires reliable clock synchronization and secure gateway credential management across production environments.
+
+---
+
+## Amendments
+
+### 2026-09-30 — Refund honesty, failed-IPN handling & refund mutex
+- **`REFUNDED` is recorded only after the gateway confirms**: cancellation no longer flips payment rows to `REFUNDED` inside the DB transaction. The gateway refund runs after the claim commits; only on its success do the payment row and order payment status become `REFUNDED`. A failed refund leaves the order honestly `PAID` and logs a reconciliation-flagged error instead of silently claiming the money was returned.
+- **Gateway-verified failed payments are accepted**: SSLCommerz `verifyWebhook` now trusts any status returned by a successful server-to-server validation query (marking the payment `FAILED`), while transport/config errors (`VALIDATION_ERROR`, `UNCONFIGURED`) and missing statuses remain fail-closed as tamper-suspected. Genuine FAIL/CANCEL IPNs previously bounced as `401` and left rows `PENDING` until the 15-minute sweep.
+- **Per-order refund mutex**: `refundForOrder` serializes concurrent refund attempts (cancellation + webhook reconciliation) behind `lock:refund:order:{orderId}` so the gateway can never be asked to refund the same charge twice; a concurrent attempt reports not-done rather than riding another caller's in-flight result.

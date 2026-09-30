@@ -373,7 +373,7 @@ export const kdsApi = {
   /**
    * Get daily sales ledger and commission breakdown
    */
-  async getSalesLedger(vendorId?: string): Promise<{
+  async getSalesLedger(vendorId?: string, dateFrom?: string, dateTo?: string): Promise<{
     summary: {
       totalOrders: number;
       grossSales: number;
@@ -410,7 +410,10 @@ export const kdsApi = {
       createdAt: string;
     }>;
   }> {
-    const params = vendorId && vendorId !== 'ALL' ? { vendorId } : undefined;
+    const params: Record<string, string> = {};
+    if (vendorId && vendorId !== 'ALL') params.vendorId = vendorId;
+    if (dateFrom) params.dateFrom = dateFrom;
+    if (dateTo) params.dateTo = dateTo;
     const response = await apiClient.get('/api/v1/vendor/sales', { params });
     return response.data?.data || response.data;
   },

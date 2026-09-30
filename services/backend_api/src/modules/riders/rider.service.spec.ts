@@ -10,6 +10,10 @@ type MockPrisma = {
     findUnique: jest.Mock;
     findFirst: jest.Mock;
     update: jest.Mock;
+    count: jest.Mock;
+  };
+  riderTripLedger: {
+    aggregate: jest.Mock;
   };
 };
 
@@ -56,6 +60,10 @@ describe('RiderService - Phase 2 Operations & Dispatch Integrity', () => {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      riderTripLedger: {
+        aggregate: jest.fn().mockResolvedValue({ _sum: { deliveryEarnings: 0 } }),
       },
     };
 
@@ -125,7 +133,9 @@ describe('RiderService - Phase 2 Operations & Dispatch Integrity', () => {
 
       expect(result.order.status).toBe(OrderStatus.READY_FOR_PICKUP);
       expect(prisma.order.update).toHaveBeenCalledWith({
-        where: { id: 'order-1' },
+        // Conditional on the observed status: a concurrent cancellation wins
+        // (P2025) instead of being resurrected by a stale issue report.
+        where: { id: 'order-1', status: OrderStatus.DISPATCHED },
         data: {
           riderId: null,
           status: OrderStatus.READY_FOR_PICKUP,
@@ -277,6 +287,94 @@ describe('RiderService - Phase 2 Operations & Dispatch Integrity', () => {
         23.7925,
         'rider-1',
       );
+    });
+  });
+
+  describe('Step 2.5: pickupOrder (assignment guard + conditional update)', () => {
+    it('rejects pickup when the order has no assigned rider (scoop guard)', async () => {
+      prisma.rider.findUnique.mockResolvedValue({
+        id: 'rider-1',
+        userId: 'user-rider-1',
+        user: { fullName: 'Rahim Courier', status: 'ACTIVE' },
+      });
+      prisma.order.findUnique.mockResolvedValue({
+        id: 'order-1',
+        status: OrderStatus.READY_FOR_PICKUP,
+        riderId: null,
+      });
+
+      await expect(service.pickupOrder('user-rider-1', 'order-1')).rejects.toThrow(
+        'You are not the assigned rider for this order',
+      );
+      expect(prisma.order.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects pickup when the order belongs to another rider', async () => {
+      prisma.rider.findUnique.mockResolvedValue({
+        id: 'rider-1',
+        userId: 'user-rider-1',
+        user: { fullName: 'Rahim Courier', status: 'ACTIVE' },
+      });
+      prisma.order.findUnique.mockResolvedValue({
+        id: 'order-1',
+        status: OrderStatus.READY_FOR_PICKUP,
+        riderId: 'rider-2',
+      });
+
+      await expect(service.pickupOrder('user-rider-1', 'order-1')).rejects.toThrow(
+        'You are not the assigned rider for this order',
+      );
+      expect(prisma.order.update).not.toHaveBeenCalled();
+    });
+
+    it('confirms pickup for the assigned rider with a status-conditional update', async () => {
+      prisma.rider.findUnique.mockResolvedValue({
+        id: 'rider-1',
+        userId: 'user-rider-1',
+        user: { fullName: 'Rahim Courier', status: 'ACTIVE' },
+      });
+      prisma.order.findUnique.mockResolvedValue({
+        id: 'order-1',
+        orderNumber: 'ORD-101',
+        status: OrderStatus.READY_FOR_PICKUP,
+        riderId: 'rider-1',
+        customerId: 'customer-1',
+        vendorId: 'vendor-1',
+      });
+      prisma.order.update.mockResolvedValue({
+        id: 'order-1',
+        status: OrderStatus.DISPATCHED,
+      });
+
+      const updated = await service.pickupOrder('user-rider-1', 'order-1');
+      expect(updated.status).toBe(OrderStatus.DISPATCHED);
+      expect(prisma.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'order-1', status: OrderStatus.READY_FOR_PICKUP },
+        }),
+      );
+    });
+  });
+
+  describe('Step 2.6: toggleDuty offline lock (full in-flight set)', () => {
+    it('blocks going offline while an assigned order is still PREPARING', async () => {
+      prisma.rider.findUnique.mockResolvedValue({
+        id: 'rider-1',
+        userId: 'user-rider-1',
+        isApproved: true,
+        isOnline: true,
+        user: { status: 'ACTIVE' },
+      });
+      prisma.order.findFirst.mockResolvedValue({
+        id: 'order-9',
+        orderNumber: 'ORD-909',
+        status: OrderStatus.PREPARING,
+      });
+
+      await expect(
+        service.toggleDuty('user-rider-1', { isOnline: false }),
+      ).rejects.toThrow('Cannot go offline while you have an active in-flight delivery');
+      expect(prisma.rider.update).not.toHaveBeenCalled();
     });
   });
 });

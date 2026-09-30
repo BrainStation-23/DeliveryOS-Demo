@@ -336,12 +336,12 @@ This document provides a line-level, granular breakdown of every operational fea
 
 ### 6.1. Modular NestJS Architecture (14 Feature Modules)
 - **Auth (`/auth`)**: Phone OTP request/verify (mock SMS in dev, SSL Wireless in prod), JWT access + rotating refresh tokens with Redis jti revocation, logout, `GET /auth/me`, FCM device-token registration (`POST /auth/device-token`).
-- **Vendors (`/vendors`, `/cart`)**: PostGIS nearby discovery (`nearby`, `search`, `:id/catalog`) and address-coverage geofence validation (`validate-address-coverage`).
 - **Promotions (`/banners`, `/coupons`)**: Active hero banners, coupon validation, and the pricing engine (`delivery-fee.service.ts`).
-- **Orders (`/orders`)**: ACID checkout boundary, reorder validation, history pagination, live tracking payload, customer cancel, switch-to-COD, FSM guard (`order-state.machine.ts`).
-- **Vendor Staff (`/vendor`)**: KDS live board, accept/reject/ready/handover transitions, catalog + variant stock toggles, settings & operating hours, sales ledger.
-- **Riders (`/rider`)**: Profile, duty toggle with in-flight lock, claim/pickup/deliver flow, trip history, COD cash deposit submission & tracking, issue reporting.
-- **Order Flow (`/admin/settings/order-flow`)**: Config-driven dispatch (`order_flow_config`: `RIDER_FIRST`/`VENDOR_FIRST`, rider search timeout), broadcast engine, escalation scanner (30s leader-locked sweep).
+- **Orders (`/orders`)**: ACID checkout boundary, reorder validation, history pagination, live tracking payload, customer cancel, switch-to-COD, FSM guard (`order-state.machine.ts`), leader-locked stale-order reaper (`sweepStaleOrders`, TTL `order_flow_config.stale_order_ttl_minutes`, default 60m).
+- **Vendor Staff (`/vendor`)**: KDS live board, accept/reject/ready/handover transitions (RIDER_FIRST accept guard, handover courier requirement, status-conditional writes), catalog + variant stock toggles, settings & operating hours, date-scoped sales ledger (`dateFrom`/`dateTo`).
+- **Riders (`/rider`)**: Profile with computed lifetime `earningsBalance`/`completedTripsCount`, duty toggle with in-flight lock (all 5 statuses), claim (Redis mutex + DB in-flight backstop) / assignment-guarded pickup / deliver flow, trip history, COD cash deposit submission & tracking, issue reporting.
+- **Order Flow (`/admin/settings/order-flow`)**: Config-driven dispatch (`order_flow_config`: `RIDER_FIRST`/`VENDOR_FIRST`, rider search timeout, stale-order TTL), broadcast engine with geo-targeted FCM push rings (5/6/10 km tiers, pool-wide socket broadcast), escalation scanner (30s leader-locked sweep, TTL-capped window), takeaway bypass on the canonical snapshot `deliveryMethod` field.
+- **Vendors (`/vendors`, `/cart`)**: PostGIS nearby discovery (`nearby`, `search`, `:id/catalog`) and authenticated address-coverage geofence validation (`validate-address-coverage`, owner-only `addressId` probes).
 - **Realtime**: Socket.IO gateway (`/events`) — room topology, JWT handshake auth, GPS telemetry ingestion (§ 6.3).
 - **Admin (`/admin`)**: 33 governance routes — overview KPIs, fleet, orders (force-assign/cancel), rider approval & cash limits, vendor/category/banner/coupon CRUD, media uploads, order-flow + delivery-fee settings, settlement cycles, statements, cash-deposit verification.
 - **Payments (`/payments`)**: Gateway session initiation, HMAC-verified idempotent webhooks, transaction status, browser callback redirects.

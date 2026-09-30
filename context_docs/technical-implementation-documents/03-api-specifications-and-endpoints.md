@@ -62,11 +62,11 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Guard*: Public.
   - *Response*: Outlet categories and active products with `isInStock = true`.
 - **`POST /vendors/validate-address-coverage`**
-  - *Guard*: Public (Throttled: 30 req / min).
+  - *Guard*: `JwtAuthGuard` (any authenticated role; Throttled: 30 req / min). When `addressId` is supplied, ownership is enforced exactly like checkout — a caller may only probe their own saved addresses (403 otherwise).
   - *Body*: `{ "vendorId": "uuid", "latitude": 23.7808, "longitude": 90.4190 }` or `{ "vendorId": "uuid", "addressId": "uuid" }`.
   - *Response*: `{ "isWithinCoverage": true, "distanceKm": 2.4, "deliveryRadiusKm": 5.0, "estimatedDeliveryFee": 50.0, "isActive": true, "isBusy": false }`.
 - **`POST /cart/validate-address-coverage`**
-  - *Guard*: Public (Throttled: 30 req / min). Cart-controller alias of the vendor coverage check.
+  - *Guard*: `JwtAuthGuard` (any authenticated role). Cart-controller alias of the vendor coverage check; identical address-ownership rule.
   - *Body / Response*: Identical to `POST /vendors/validate-address-coverage`.
 - **`POST /coupons/validate`**
   - *Guard*: Public (Throttled: 30 req / min).
@@ -115,37 +115,38 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`PATCH /vendor/orders/:id/accept`**
   - *Body*: `{ "prepTimeMinutes": 25 }`.
   - *Action*: Transitions order directly to `PREPARING` per ADR-002, setting `accepted_at = NOW()`.
+  - *Invariant*: In `RIDER_FIRST` mode a `PLACED` order returns `409` — the kitchen cannot begin preparation before a courier secures the order. The update is conditional on the observed status, so a concurrent cancellation wins instead of being overwritten.
 - **`POST /vendor/orders/:id/reject`**
   - *Body*: `{ "reasonCode": "OUT_OF_STOCK" | "KITCHEN_OVERLOAD" | "STORE_CLOSING_SOON" | "OTHER", "reasonNotes": "..." }`.
   - *Action*: Transitions order to `CANCELLED`.
-- **`PATCH /vendor/orders/:id/ready`**: Transitions order to `READY_FOR_PICKUP`.
-- **`PATCH /vendor/orders/:id/handover`**: Transitions order to `DISPATCHED` upon physical courier pickup.
+- **`PATCH /vendor/orders/:id/ready`**: Transitions order to `READY_FOR_PICKUP` (status-conditional update; concurrent cancellations win).
+- **`PATCH /vendor/orders/:id/handover`**: Transitions order to `DISPATCHED` upon physical courier pickup. Delivery orders require an **assigned courier** first (`400` if `riderId` is null — dispatching a riderless delivery order would strand it); takeaway orders hand over to the customer without a courier.
 - **`GET /vendor/catalog?vendorId=...`**: Returns full catalog retaining sold-out items with total/in-stock counts.
 - **`PATCH /vendor/products/:id/stock`**: Body `{ "isInStock": boolean }`.
 - **`PATCH /vendor/products/variants/:id/stock`**: Body `{ "isInStock": boolean }`.
 - **`GET /vendor/settings?vendorId=...`**: Returns operating hours, default prep duration, and rush pause state.
 - **`PATCH /vendor/settings`**: Body `{ "vendorId": "uuid", "isBusy": boolean, "defaultPrepTimeMinutes": 20 }`.
 - **`PUT /vendor/operating-hours`**: Body `{ "operatingHours": [{ "dayOfWeek": 0, "openTime": "09:00", "closeTime": "22:00", "isClosed": false }] }`.
-- **`GET /vendor/sales?vendorId=...&dateFilter=TODAY`**: Returns sales volume, completed orders, commission, and net payable.
+- **`GET /vendor/sales?vendorId=...&dateFrom=ISO&dateTo=ISO`**: Returns sales volume, completed orders, commission, and net payable over the optional date range (omit both for all-time). The TODAY view passes `dateFrom` = region-local midnight so a single business day is fetched instead of the full history.
 
 ### 2.4 Rider Fleet Operations Module (`/rider`)
-- **`GET /rider/profile`**: Returns courier status, vehicle, cash in hand, and max safety limit.
+- **`GET /rider/profile`**: Returns courier status, vehicle, cash in hand, and max safety limit, plus computed lifetime metrics `earningsBalance` (sum of trip-ledger earnings) and `completedTripsCount` (delivered orders) so rider-app dashboards never boot from fabricated defaults.
 - **`GET /rider/active-trip`**: Returns active in-flight delivery trip envelope (`RIDER_ASSIGNED`, `ACCEPTED`, `PREPARING`, `READY_FOR_PICKUP`, or `DISPATCHED`) for courier mobile app rehydration on startup or reconnection, or `null` if idle.
 - **`PATCH /rider/duty`**
   - *Body*: `{ "isOnline": boolean }`.
-  - *Invariant*: Returns `400 Bad Request` if attempting to go offline with an active delivery.
+  - *Invariant*: Returns `400 Bad Request` if attempting to go offline with an active delivery (all five in-flight statuses).
 - **`POST /rider/orders/:id/claim`**
   - *Action*: Acquires atomic Redis mutex `SET lock:order_claim:${id} ${riderId} NX EX 10`.
-  - *Invariants*: Rejects offline/unapproved/suspended couriers, orders already claimed, unverified `ONLINE_GATEWAY` payments, and COD claims that would breach `maxCashLimit`. The `rider:active_order` busy key is set only after the DB transaction commits.
+  - *Invariants*: Rejects offline/unapproved/suspended couriers, orders already claimed, unverified `ONLINE_GATEWAY` payments, and COD claims that would breach `maxCashLimit`. A **DB in-flight backstop** inside the transaction refuses the claim if the courier already holds any open trip (the Redis `rider:active_order` marker can be lost to eviction/crash); the busy key itself is set only after the DB transaction commits.
   - *Success*: Assigns courier, updates status (`RIDER_ASSIGNED`), alerts kitchen, and returns the order with server-computed `riderEarnings` (delivery fee × rider share).
-- **`PATCH /rider/orders/:id/pickup`**: Confirms parcel pickup at store counter; transitions order to `DISPATCHED`.
+- **`PATCH /rider/orders/:id/pickup`**: Confirms parcel pickup at store counter; transitions order to `DISPATCHED`. **Only the assigned courier** may confirm pickup (a null `riderId` is rejected, not adopted) and the update is conditional on the observed status — a concurrent cancellation wins instead of being resurrected.
 - **`PATCH /rider/orders/:id/deliver`**
   - *Body*: `{ "codCashCollected": boolean, "amountCollected": 500.0 }`.
   - *Action*: Guarded `DISPATCHED → DELIVERED` claim (concurrent double-submit loses), caps `amountCollected` at the order total, credits `cashInHand` only on confirmed COD collection, and upserts the trip ledger.
   - *Response*: `{ "order": {...}, "tripLedger": { "deliveryEarnings", "codCollected", ... } }` — clients reconcile wallets from `tripLedger`, never locally computed payout.
 - **`POST /rider/orders/:id/report-issue`**
   - *Body*: `{ "reason": "Customer unreachable at delivery address" }`.
-  - *Action*: Unlocks courier, reports doorstep failure, and alerts Dispatch HQ.
+  - *Action*: Status-conditional `DISPATCHED → READY_FOR_PICKUP` reset (a concurrent cancellation cannot be overwritten), unlocks courier, reports doorstep failure, and alerts Dispatch HQ.
 - **`GET /rider/trips`**: Returns completed delivery trips, payout earnings, and collected cash.
 - **`POST /rider/cash/deposit`**: Body `{ "amount": 2500.0, "notes": "Banani Hub" }`.
 - **`GET /rider/cash/deposits`**: Returns history of submitted cash deposits.

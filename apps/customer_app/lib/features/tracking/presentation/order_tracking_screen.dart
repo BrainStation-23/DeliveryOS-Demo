@@ -129,16 +129,20 @@ class OrderTrackingScreen extends ConsumerWidget {
                         child: const Icon(Icons.person_rounded, color: AppColors.primary, size: 26),
                       ),
                       title: trackingState.rider!.name,
-                      titleTrailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.star_rounded, color: AppColors.star, size: 14),
-                          Text(
-                            trackingState.rider!.rating.toString(),
-                            style: AppTypography.caption.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                        ],
-                      ),
+                      // Courier ratings are not a live data model yet — render
+                      // the star row only when a real score exists.
+                      titleTrailing: trackingState.rider!.rating != null
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.star_rounded, color: AppColors.star, size: 14),
+                                Text(
+                                  trackingState.rider!.rating!.toString(),
+                                  style: AppTypography.caption.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            )
+                          : null,
                       subtitle: '${trackingState.rider!.vehicleType} • ${trackingState.rider!.phone}',
                       actionLabel: 'Call Rider',
                       isPrimaryAction: true,

@@ -1,4 +1,4 @@
-import { getCurrentRegionTimeParts, isWithinOperatingHours } from './region-time';
+import { getCurrentRegionTimeParts, getRegionTimezone, isWithinOperatingHours, startOfRegionToday } from './region-time';
 
 describe('Region time (vendor-local operating hours)', () => {
   describe('isWithinOperatingHours', () => {
@@ -46,6 +46,50 @@ describe('Region time (vendor-local operating hours)', () => {
       expect(timeHHmmss).toBe('02:00:00');
 
       jest.useRealTimers();
+    });
+  });
+
+  describe('startOfRegionToday', () => {
+    afterEach(() => {
+      process.env.REGION_MODE = 'BD';
+      jest.useRealTimers();
+    });
+
+    it('returns the UTC instant of Asia/Dhaka local midnight (day starts at 18:00 UTC)', () => {
+      jest.useFakeTimers();
+      // 15:00 UTC on Jan 10 is 21:00 Dhaka the same calendar day; Dhaka's
+      // Jan 10 began at Jan 9 18:00 UTC (+6 offset).
+      jest.setSystemTime(new Date('2026-01-10T15:00:00Z'));
+
+      const midnight = startOfRegionToday();
+      expect(midnight.toISOString()).toBe('2026-01-09T18:00:00.000Z');
+    });
+
+    it('rolls to the next UTC-day boundary after Dhaka midnight', () => {
+      jest.useFakeTimers();
+      // 19:30 UTC on Jan 10 is 01:30 Dhaka on Jan 11; local midnight is Jan 10 18:00 UTC.
+      jest.setSystemTime(new Date('2026-01-10T19:30:00Z'));
+
+      const midnight = startOfRegionToday();
+      expect(midnight.toISOString()).toBe('2026-01-10T18:00:00.000Z');
+    });
+
+    it('honors the KSA region preset (Riyadh, UTC+3)', () => {
+      process.env.REGION_MODE = 'KSA';
+      jest.useFakeTimers();
+      // 10:00 UTC is 13:00 Riyadh; Riyadh midnight was 21:00 UTC the prior day.
+      jest.setSystemTime(new Date('2026-01-10T10:00:00Z'));
+
+      const midnight = startOfRegionToday();
+      expect(midnight.toISOString()).toBe('2026-01-09T21:00:00.000Z');
+    });
+
+    it('resolves the configured timezone identifier', () => {
+      expect(getRegionTimezone()).toBe('Asia/Dhaka');
+      process.env.REGION_MODE = 'KSA';
+      expect(getRegionTimezone()).toBe('Asia/Riyadh');
+      process.env.REGION_MODE = 'UNKNOWN';
+      expect(getRegionTimezone()).toBe('Asia/Dhaka');
     });
   });
 });

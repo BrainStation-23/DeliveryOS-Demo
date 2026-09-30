@@ -95,6 +95,11 @@ async function runOrderDispatchFsmTest() {
       where: { userId: customer.userId, isDefault: true },
     });
     const product = gulshanOutlet!.products[0];
+    // Fixture hygiene: prior suites toggle stock flags; order from an in-stock product.
+    if (product && !product.isInStock) {
+      await prisma.product.update({ where: { id: product.id }, data: { isInStock: true } });
+      product.isInStock = true;
+    }
 
     // -------------------------------------------------------------------------
     // Test 1: Redis Geospatial Indexing (GEOADD & GEOSEARCH)
@@ -193,8 +198,14 @@ async function runOrderDispatchFsmTest() {
     }
     console.log('   ✅ Redis distributed mutex strictly prevented race conditions (1 winner, 5 rejected)!\n');
 
-    // Clean up active order from winner
+    // Clean up active order from winner: release the Redis busy marker AND
+    // cancel the in-flight DB assignment (the claim-time DB backstop refuses
+    // new claims while the winner's contested order is still open).
     await orderFlowService.releaseRiderActiveTrip(assignedDbOrder.riderId);
+    await prisma.order.update({
+      where: { id: contestedOrderId },
+      data: { status: 'CANCELLED', cancelledAt: new Date(), riderId: null },
+    });
 
     // -------------------------------------------------------------------------
     // Test 3: RIDER_FIRST (Zero Food Waste) Sequence Verification

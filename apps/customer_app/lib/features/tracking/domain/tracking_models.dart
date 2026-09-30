@@ -123,7 +123,9 @@ class RiderMeta {
   final String name;
   final String phone;
   final String vehicleType;
-  final double rating;
+  // Nullable by design: the platform has no courier-rating model yet, so the
+  // UI must never render a fabricated score. Null hides the rating row.
+  final double? rating;
   final double latitude;
   final double longitude;
   final double bearing;
@@ -134,7 +136,7 @@ class RiderMeta {
     required this.name,
     required this.phone,
     this.vehicleType = 'Motorcycle',
-    this.rating = 4.9,
+    this.rating,
     required this.latitude,
     required this.longitude,
     this.bearing = 45.0,

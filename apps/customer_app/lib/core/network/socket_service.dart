@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../constants/api_constants.dart';
+import '../localization/language_provider.dart';
+import '../storage/local_storage.dart';
 import '../../features/auth/providers/auth_provider.dart';
 
 class SocketService {
@@ -10,6 +12,9 @@ class SocketService {
   final _connectionStateController = StreamController<bool>.broadcast();
   final Map<String, List<Function(dynamic)>> _listeners = {};
   final Set<String> _joinedOrders = {};
+  final LocalStorage? _storage;
+
+  SocketService({LocalStorage? storage}) : _storage = storage;
 
   Stream<bool> get connectionStream => _connectionStateController.stream;
   bool get isConnected => _socket?.connected ?? false;
@@ -34,6 +39,15 @@ class SocketService {
           .setAuth({'token': token ?? ''})
           .build(),
     );
+
+    // Access tokens rotate (15m): every reconnect must re-read the stored
+    // token or the handshake would replay a stale, already-expired credential.
+    _socket!.io.on('reconnect_attempt', (_) {
+      final fresh = _storage?.getAccessToken();
+      if (fresh != null && fresh.isNotEmpty) {
+        _socket?.auth = {'token': fresh};
+      }
+    });
 
     _socket!.onConnect((_) {
       debugPrint('✅ WebSocket Connected: ${_socket?.id}');
@@ -107,7 +121,8 @@ class SocketService {
 }
 
 final socketServiceProvider = Provider<SocketService>((ref) {
-  final service = SocketService();
+  final storage = ref.watch(localStorageProvider);
+  final service = SocketService(storage: storage);
   final authState = ref.watch(authProvider);
 
   if (authState.accessToken != null) {

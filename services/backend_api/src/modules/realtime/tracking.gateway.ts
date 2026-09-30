@@ -277,6 +277,23 @@ export class TrackingGateway
     const user = client.data?.user;
     if (!user || user.role !== UserRole.RIDER) return;
 
+    // Payload hardening: untrusted socket input must never reach GEOADD or the
+    // ETA math — non-finite or out-of-range fixes are dropped silently.
+    const { latitude, longitude } = payload;
+    const isFiniteCoord =
+      typeof latitude === 'number' &&
+      typeof longitude === 'number' &&
+      Number.isFinite(latitude) &&
+      Number.isFinite(longitude) &&
+      latitude >= -90 &&
+      latitude <= 90 &&
+      longitude >= -180 &&
+      longitude <= 180;
+    if (!isFiniteCoord) {
+      this.logger.warn(`Dropping malformed rider location payload from ${user.phone}`);
+      return;
+    }
+
     const riderId = user.rider?.id || user.id;
 
     // 1. Update Redis Geospatial index

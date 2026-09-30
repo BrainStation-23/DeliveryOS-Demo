@@ -6,6 +6,7 @@ import { OrderFlowMode } from './dto/update-order-flow.dto';
 type MockTx = {
   order: {
     findUnique: jest.Mock;
+    findFirst: jest.Mock;
     update: jest.Mock;
   };
 };
@@ -105,6 +106,8 @@ describe('OrderFlowService - claimOrder', () => {
         const tx: MockTx = {
           order: {
             findUnique: jest.fn().mockResolvedValue({ ...defaultOrder }),
+            // DB backstop for the rider busy-check: no in-flight order by default
+            findFirst: jest.fn().mockResolvedValue(null),
             update: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
               ...defaultOrder,
               ...data,
@@ -163,6 +166,25 @@ describe('OrderFlowService - claimOrder', () => {
     );
   });
 
+  it('rejects claim via the DB backstop when the rider has an in-flight order but the Redis marker was lost', async () => {
+    // The Redis busy key can be evicted or lost across a crash between commit
+    // and SET — the database check inside the transaction must still refuse.
+    mockPrisma.$transaction.mockImplementation(async (cb: (tx: MockTx) => Promise<unknown>) => {
+      const tx: MockTx = {
+        order: {
+          findUnique: jest.fn().mockResolvedValue({ ...defaultOrder }),
+          findFirst: jest.fn().mockResolvedValue({ orderNumber: 'ORD-OLD-1' }),
+          update: jest.fn(),
+        },
+      };
+      return cb(tx);
+    });
+
+    await expect(service.claimOrder('user-uuid-1', 'order-uuid-1')).rejects.toThrow(
+      'You already have an active delivery trip (Order #ORD-OLD-1)',
+    );
+  });
+
   it('rejects claim if another rider holds the claim mutex lock', async () => {
     mockRedis.acquireLock.mockResolvedValue(false);
 
@@ -176,6 +198,7 @@ describe('OrderFlowService - claimOrder', () => {
       const tx: MockTx = {
         order: {
           findUnique: jest.fn().mockResolvedValue(null),
+          findFirst: jest.fn().mockResolvedValue(null),
           update: jest.fn(),
         },
       };
@@ -193,6 +216,7 @@ describe('OrderFlowService - claimOrder', () => {
       const tx: MockTx = {
         order: {
           findUnique: jest.fn().mockResolvedValue({ ...defaultOrder, riderId: 'other-rider' }),
+          findFirst: jest.fn().mockResolvedValue(null),
           update: jest.fn(),
         },
       };
@@ -233,6 +257,7 @@ describe('OrderFlowService - claimOrder', () => {
             paymentStatus: PaymentStatus.PAID,
             totalAmount: 1500.0,
           }),
+          findFirst: jest.fn().mockResolvedValue(null),
           update: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
             ...defaultOrder,
             paymentMethod: PaymentMethod.ONLINE_GATEWAY,
@@ -303,7 +328,7 @@ function buildDispatchService(options: {
       ),
       findMany: jest.fn().mockResolvedValue([]),
     },
-    rider: { findUnique: jest.fn() },
+    rider: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
     systemSetting: {
       findUnique: jest.fn().mockResolvedValue({
         value: {
@@ -333,7 +358,8 @@ function buildDispatchService(options: {
   };
   const notificationsService = {
     sendToUser: jest.fn().mockResolvedValue(true),
-    sendToRole: jest.fn().mockResolvedValue(true),
+    sendToUsers: jest.fn().mockResolvedValue(1),
+    sendToRole: jest.fn().mockResolvedValue(1),
   };
 
   const service = new OrderFlowService(
@@ -400,6 +426,70 @@ describe('OrderFlowService - handleOrderPlaced dispatch routing', () => {
     expect(built.trackingGateway.notifyNewOrder).toHaveBeenCalledTimes(1);
     expect(built.trackingGateway.notifyNewOrder).toHaveBeenCalledWith('vendor-uuid-1', expect.anything());
     expect(built.trackingGateway.broadcastDispatch).not.toHaveBeenCalled();
+  });
+
+  it('recognizes legacy takeaway snapshots that only carry the `type` field', async () => {
+    // Regression: snapshots written before `deliveryMethod` existed only set
+    // `type: 'TAKEAWAY'` — the dispatch engine must still honor them.
+    const built = buildDispatchService({
+      order: {
+        deliveryAddressSnapshot: { type: 'TAKEAWAY', vendorAddress: 'Road 12' },
+      },
+    });
+    track(built.service);
+
+    await built.service.handleOrderPlaced('order-uuid-1');
+
+    expect(built.trackingGateway.notifyNewOrder).toHaveBeenCalledTimes(1);
+    expect(built.trackingGateway.broadcastDispatch).not.toHaveBeenCalled();
+  });
+
+  it('recognizes the exact snapshot shape checkout writes (type + deliveryMethod)', async () => {
+    const built = buildDispatchService({
+      order: {
+        deliveryAddressSnapshot: {
+          type: 'TAKEAWAY',
+          deliveryMethod: 'TAKEAWAY',
+          vendorAddress: 'House 5, Road 12',
+        },
+      },
+    });
+    track(built.service);
+
+    await built.service.handleOrderPlaced('order-uuid-1');
+
+    expect(built.trackingGateway.notifyNewOrder).toHaveBeenCalledTimes(1);
+    expect(built.trackingGateway.broadcastDispatch).not.toHaveBeenCalled();
+  });
+
+  it('sends courier push to nearby riders only when the geo index has candidates', async () => {
+    const built = buildDispatchService({});
+    track(built.service);
+    built.redis.geosearch.mockResolvedValue([['rider-near', '1.4']]);
+    built.prisma.rider.findUnique.mockResolvedValue({ isOnline: true });
+    built.prisma.rider.findMany.mockResolvedValue([{ userId: 'user-near' }]);
+
+    await built.service.handleOrderPlaced('order-uuid-1');
+
+    expect(built.notificationsService.sendToUsers).toHaveBeenCalledWith(
+      ['user-near'],
+      expect.objectContaining({ data: expect.objectContaining({ orderId: 'order-uuid-1' }) }),
+    );
+    expect(built.notificationsService.sendToRole).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a role-wide courier push when the geo index is empty', async () => {
+    const built = buildDispatchService({});
+    track(built.service);
+    built.redis.geosearch.mockResolvedValue([]);
+
+    await built.service.handleOrderPlaced('order-uuid-1');
+
+    expect(built.notificationsService.sendToRole).toHaveBeenCalledWith(
+      UserRole.RIDER,
+      expect.objectContaining({ data: expect.objectContaining({ orderId: 'order-uuid-1' }) }),
+    );
+    expect(built.notificationsService.sendToUsers).not.toHaveBeenCalled();
   });
 
   it('RIDER_FIRST: broadcasts to the rider pool with server-computed earnings and holds the vendor chime', async () => {
@@ -525,7 +615,11 @@ describe('OrderFlowService - getOrderFlowConfig and rider proximity', () => {
     const config = await built.service.getOrderFlowConfig();
     built.service.onModuleDestroy();
 
-    expect(config).toEqual({ mode: OrderFlowMode.RIDER_FIRST, riderSearchTimeoutSeconds: 90 });
+    expect(config).toEqual({
+      mode: OrderFlowMode.RIDER_FIRST,
+      riderSearchTimeoutSeconds: 90,
+      staleOrderTtlMinutes: 60,
+    });
   });
 
   it('filters nearby riders by busy state and database online flag', async () => {

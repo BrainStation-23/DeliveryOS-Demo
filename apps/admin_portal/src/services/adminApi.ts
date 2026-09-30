@@ -46,8 +46,8 @@ export interface FleetRider {
   cashInHand: number;
   maxCashLimit: number;
   cashSafetyWarning: boolean;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   activeOrder: {
     id: string;
     orderNumber: string;

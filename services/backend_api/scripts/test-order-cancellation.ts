@@ -69,6 +69,11 @@ async function runCancellationTests() {
       throw new Error('No active vendor with in-stock products found');
     }
     const product = vendor.products[0];
+    // Fixture hygiene: prior suites toggle stock flags; order from an in-stock product.
+    if (product && !product.isInStock) {
+      await prisma.product.update({ where: { id: product.id }, data: { isInStock: true } });
+      product.isInStock = true;
+    }
 
     // Ensure vendor is open for test execution
     const currentDay = new Date().getDay();
@@ -102,13 +107,26 @@ async function runCancellationTests() {
       vendorToken = adminToken;
     }
 
-    // Active Rider
+    // Deterministic courier: pin the seeded rider, clear stale in-flight trips
+    // (the claim-time DB backstop refuses claims while one is open) and reset
+    // accumulated COD cash so the cash-limit guard stays clear.
     const rider = await prisma.rider.findFirst({
-      where: { isOnline: true },
+      where: { user: { phone: '+8801700000004' } },
       include: { user: true },
     });
     let riderToken = '';
     if (rider) {
+      await prisma.order.updateMany({
+        where: {
+          riderId: rider.id,
+          status: { in: ['RIDER_ASSIGNED', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'DISPATCHED'] },
+        },
+        data: { status: 'CANCELLED', cancelledAt: new Date(), riderId: null },
+      });
+      await prisma.rider.update({
+        where: { id: rider.id },
+        data: { cashInHand: 0, isOnline: true },
+      });
       await postJson(`${API_BASE}/auth/otp/request`, { phone: rider.user.phone });
       const rAuth = await postJson(`${API_BASE}/auth/otp/verify`, {
         phone: rider.user.phone,
@@ -232,6 +250,21 @@ async function runCancellationTests() {
     );
     const order2Id = checkout2.data.data.orderId;
 
+    // RIDER_FIRST contract: a courier must secure the order before the kitchen
+    // can accept (accepting a PLACED order would strand it in PREPARING).
+    if (rider && riderToken) {
+      const claim2 = await postJson(
+        `${API_BASE}/rider/orders/${order2Id}/claim`,
+        {},
+        { Authorization: `Bearer ${riderToken}` },
+      );
+      if (!claim2.ok) {
+        throw new Error(`Rider claim failed: ${JSON.stringify(claim2.data)}`);
+      }
+    } else {
+      throw new Error('Seeded courier unavailable: cannot run the claim-to-accept flow');
+    }
+
     // Vendor accepts order -> PREPARING
     const acceptRes = await patchJson(
       `${API_BASE}/vendor/orders/${order2Id}/accept`,
@@ -256,6 +289,18 @@ async function runCancellationTests() {
       throw new Error(`Expected 400 Bad Request, got status ${cancel2.status}: ${JSON.stringify(cancel2.data)}`);
     }
     console.log('   ✅ TEST 2 PASSED: Pre-prep boundary successfully protected.\n');
+
+    // Fixture cleanup: release the courier from the completed assertion order
+    // so TEST 4's claim is not blocked by the DB in-flight backstop.
+    if (rider) {
+      await prisma.order.update({
+        where: { id: order2Id },
+        data: { status: 'CANCELLED', cancelledAt: new Date(), riderId: null },
+      });
+      await prisma.commissionLedger.deleteMany({
+        where: { orderId: order2Id, settlementStatus: 'PENDING' },
+      });
+    }
 
     // -------------------------------------------------------------------------
     // TEST 3: Vendor Rejects PLACED Order with Structured Reason

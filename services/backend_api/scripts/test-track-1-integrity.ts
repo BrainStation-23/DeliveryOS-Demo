@@ -239,10 +239,19 @@ async function runTrack1IntegrityTests() {
     console.log('   ✅ Mid-delivery offline toggle successfully blocked with 400 Bad Request!');
 
     // Clean up test order and ensure rider has no other in-flight orders
+    // (full in-flight set — the duty lock blocks on all five statuses)
     await prisma.order.updateMany({
       where: {
         riderId: riderRecord.id,
-        status: { in: [OrderStatus.RIDER_ASSIGNED, OrderStatus.DISPATCHED] },
+        status: {
+          in: [
+            OrderStatus.RIDER_ASSIGNED,
+            OrderStatus.ACCEPTED,
+            OrderStatus.PREPARING,
+            OrderStatus.READY_FOR_PICKUP,
+            OrderStatus.DISPATCHED,
+          ],
+        },
       },
       data: {
         status: OrderStatus.DELIVERED,

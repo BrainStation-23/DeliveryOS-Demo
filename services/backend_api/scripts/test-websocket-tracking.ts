@@ -115,6 +115,11 @@ async function runWebSocketTrackingTest() {
       where: { userId: customer.userId, isDefault: true },
     });
     const product = gulshanOutlet!.products[0];
+    // Fixture hygiene: prior suites toggle stock flags; order from an in-stock product.
+    if (product && !product.isInStock) {
+      await prisma.product.update({ where: { id: product.id }, data: { isInStock: true } });
+      product.isInStock = true;
+    }
 
     // Setup listener before placing order
     let receivedOrderNewPayload: any = null;
@@ -231,13 +236,30 @@ async function runWebSocketTrackingTest() {
     const readyEvent = await readyPromise;
     console.log(`     ✅ Customer received [order:status:changed]: newStatus=${readyEvent.newStatus}`);
 
-    // 3C. Rider Picks Up Order -> Expect status DISPATCHED
-    console.log('   🛵 Rider picks up order...');
+    // 3C. Rider Claims the ready order, then picks it up -> Expect DISPATCHED
+    console.log('   🛵 Rider claims the ready order and picks it up...');
     const pickupPromise = waitForStatus('DISPATCHED');
-    await fetch(`${baseUrl}/rider/orders/${createdOrderId}/pickup`, {
+    // Duty online + atomic claim: pickup is restricted to the ASSIGNED courier,
+    // so the rider must secure the order first (VENDOR_FIRST keeps it READY_FOR_PICKUP).
+    await fetch(`${baseUrl}/rider/duty`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rider.token}` },
+      body: JSON.stringify({ isOnline: true }),
+    });
+    const claimRes = await fetch(`${baseUrl}/rider/orders/${createdOrderId}/claim`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${rider.token}` },
+    });
+    if (claimRes.status !== 200) {
+      throw new Error(`Rider failed to claim the ready order: ${JSON.stringify(await claimRes.json())}`);
+    }
+    const pickupRes = await fetch(`${baseUrl}/rider/orders/${createdOrderId}/pickup`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${rider.token}` },
     });
+    if (pickupRes.status !== 200) {
+      throw new Error(`Rider pickup failed: ${JSON.stringify(await pickupRes.json())}`);
+    }
     const pickupEvent = await pickupPromise;
     console.log(`     ✅ Customer received [order:status:changed]: newStatus=${pickupEvent.newStatus}`);
 

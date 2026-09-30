@@ -10,6 +10,7 @@ import { AcceptOrderDto } from './dto/accept-order.dto';
 import { RejectOrderDto } from './dto/reject-order.dto';
 import { OrderStatus, PermissionScope, Prisma, User, UserRole } from '@prisma/client';
 import { TrackingGateway } from '../realtime/tracking.gateway';
+import { OrderFlowMode } from '../order-flow/dto/update-order-flow.dto';
 import { OrderFlowService } from '../order-flow/order-flow.service';
 import { assertTransition } from '../orders/order-state.machine';
 import { OrderService } from '../orders/order.service';
@@ -177,6 +178,19 @@ export class VendorStaffService {
 
     await this.validateStaffOutletAccess(user, order.vendorId);
 
+    // RIDER_FIRST invariant (ADR-002 / TID-05): the kitchen must not begin
+    // preparation before a courier has secured the order. Accepting a PLACED
+    // order here would move it to PREPARING, which assertClaimable() rejects
+    // in RIDER_FIRST mode — stranding the order without a rider forever.
+    if (order.status === OrderStatus.PLACED) {
+      const { mode } = await this.orderFlowService.getOrderFlowConfig();
+      if (mode === OrderFlowMode.RIDER_FIRST) {
+        throw new ConflictException(
+          'Zero Food Waste mode is active: this order is still awaiting a courier. Accept unlocks as soon as a rider secures it.',
+        );
+      }
+    }
+
     assertTransition(order.status, OrderStatus.PREPARING);
 
     const prepTimeMinutes = dto.prepTimeMinutes ?? order.vendor.defaultPrepTimeMinutes;
@@ -278,12 +292,22 @@ export class VendorStaffService {
 
     assertTransition(order.status, OrderStatus.READY_FOR_PICKUP);
 
-    const updatedOrder = await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: OrderStatus.READY_FOR_PICKUP,
-      },
-    });
+    // Conditional on the observed status so a concurrent cancellation cannot
+    // be silently resurrected by a stale ready-mark.
+    let updatedOrder;
+    try {
+      updatedOrder = await this.prisma.order.update({
+        where: { id: orderId, status: order.status },
+        data: {
+          status: OrderStatus.READY_FOR_PICKUP,
+        },
+      });
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        throw new ConflictException('Order state changed before it could be marked ready; refresh and retry');
+      }
+      throw err;
+    }
 
     // Realtime Broadcast
     this.trackingGateway.notifyOrderStatusChanged(
@@ -314,15 +338,38 @@ export class VendorStaffService {
 
     await this.validateStaffOutletAccess(user, order.vendorId);
 
+    // Delivery orders require an assigned courier before handover: dispatching
+    // a delivery order with no rider leaves it in DISPATCHED — a status no
+    // rider can claim — stranding the order. Takeaway orders hand over to the
+    // customer and legitimately carry no rider.
+    const snapshot = order.deliveryAddressSnapshot as { deliveryMethod?: string; type?: string } | null;
+    const deliveryMethod = snapshot?.deliveryMethod ?? snapshot?.type;
+    const isTakeaway = deliveryMethod === 'TAKEAWAY';
+    if (!isTakeaway && !order.riderId) {
+      throw new BadRequestException(
+        'Cannot hand over a delivery order before a courier has claimed it. Wait for a rider to secure the order first.',
+      );
+    }
+
     assertTransition(order.status, OrderStatus.DISPATCHED);
 
-    const updatedOrder = await this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: OrderStatus.DISPATCHED,
-        pickedUpAt: new Date(),
-      },
-    });
+    // Conditional on the observed status so a concurrent cancellation cannot
+    // be silently overwritten by a stale handover.
+    let updatedOrder;
+    try {
+      updatedOrder = await this.prisma.order.update({
+        where: { id: orderId, status: order.status },
+        data: {
+          status: OrderStatus.DISPATCHED,
+          pickedUpAt: new Date(),
+        },
+      });
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        throw new ConflictException('Order state changed before handover could be confirmed; refresh and retry');
+      }
+      throw err;
+    }
 
     // Realtime Broadcast
     this.trackingGateway.notifyOrderStatusChanged(
@@ -611,7 +658,7 @@ export class VendorStaffService {
     }
 
     return this.prisma.vendorOperatingHour.findMany({
-      where: { vendorId },
+      where: { vendorId: targetVendorId },
       orderBy: { dayOfWeek: 'asc' },
     });
   }
@@ -705,8 +752,15 @@ export class VendorStaffService {
 
   /**
    * 12. Get Sales Ledger & Commission Breakdown
+   * Optional date bounds let the portal pull a single business day instead of
+   * the full history; the summary is computed over exactly the returned scope.
    */
-  async getSalesLedger(user: User, vendorId?: string) {
+  async getSalesLedger(
+    user: User,
+    vendorId?: string,
+    dateFrom?: Date,
+    dateTo?: Date,
+  ) {
     let targetVendorIds: string[];
 
     if (vendorId && vendorId !== 'ALL') {
@@ -720,6 +774,14 @@ export class VendorStaffService {
     const ledgers = await this.prisma.commissionLedger.findMany({
       where: {
         vendorId: { in: targetVendorIds },
+        ...(dateFrom || dateTo
+          ? {
+              createdAt: {
+                ...(dateFrom ? { gte: dateFrom } : {}),
+                ...(dateTo ? { lte: dateTo } : {}),
+              },
+            }
+          : {}),
       },
       include: {
         order: {

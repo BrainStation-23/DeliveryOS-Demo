@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -136,13 +137,20 @@ export class VendorStaffController {
   }
 
   @Get('sales')
-  @ApiOperation({ summary: 'Get daily sales ledger and platform commission breakdown' })
+  @ApiOperation({ summary: 'Get sales ledger and commission breakdown (optional dateFrom/dateTo)' })
   @ApiResponse({ status: 200, description: 'Sales metrics and commission ledger records' })
   async getSales(
     @CurrentUser() user: User,
     @Query('vendorId') vendorId?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
   ) {
-    const sales = await this.vendorStaffService.getSalesLedger(user, vendorId);
+    const from = dateFrom ? new Date(dateFrom) : undefined;
+    const to = dateTo ? new Date(dateTo) : undefined;
+    if ((dateFrom && Number.isNaN(from!.getTime())) || (dateTo && Number.isNaN(to!.getTime()))) {
+      throw new BadRequestException('dateFrom/dateTo must be valid ISO-8601 timestamps');
+    }
+    const sales = await this.vendorStaffService.getSalesLedger(user, vendorId, from, to);
     return {
       message: 'Sales ledger retrieved successfully',
       data: sales,

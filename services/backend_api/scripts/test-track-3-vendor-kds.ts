@@ -321,6 +321,48 @@ async function runTrack3VendorKDSTests() {
     const testOrderId = testOrder.orderId || testOrder.id;
     console.log(`   📦 Created Order #${testOrder.orderNumber} (ID: ${testOrderId})`);
 
+    // RIDER_FIRST contract: the courier must secure the order before the
+    // kitchen can accept. Pin the seeded courier, clear stale in-flight trips,
+    // and claim the just-placed order.
+    const courier = await prisma.rider.findFirst({
+      where: { user: { phone: '+8801700000004' } },
+      include: { user: true },
+    });
+    if (!courier) throw new Error('Seeded courier not found');
+    await prisma.order.updateMany({
+      where: {
+        riderId: courier.id,
+        status: { in: ['RIDER_ASSIGNED', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'DISPATCHED'] },
+      },
+      data: { status: 'CANCELLED', cancelledAt: new Date(), riderId: null },
+    });
+    await prisma.rider.update({
+      where: { id: courier.id },
+      data: { cashInHand: 0, isOnline: true },
+    });
+    // Also clear the Redis busy marker prior suites may have leaked
+    const { Redis } = await import('ioredis');
+    const redisUrl = String(process.env.REDIS_URL || 'redis://localhost:6380');
+    const redis = new Redis(redisUrl, { maxRetriesPerRequest: 1 });
+    await redis.del(`rider:active_order:${courier.id}`).catch(() => undefined);
+    redis.quit().catch(() => undefined);
+    const courierAuth = await requestJson(`${API_BASE}/auth/otp/verify`, 'POST', {
+      phone: courier.user.phone,
+      otp: '123456',
+    });
+    const courierToken = courierAuth.data?.data?.accessToken;
+    await requestJson(`${API_BASE}/rider/duty`, 'PATCH', { isOnline: true }, courierToken);
+    const claimRes = await requestJson(
+      `${API_BASE}/rider/orders/${testOrderId}/claim`,
+      'POST',
+      {},
+      courierToken,
+    );
+    if (claimRes.status !== 200) {
+      throw new Error(`Courier failed to claim the test order: ${JSON.stringify(claimRes.data)}`);
+    }
+    console.log(`   🛵 Courier secured order #${testOrder.orderNumber} (RIDER_ASSIGNED).`);
+
     // Accept the order as vendor staff
     console.log(`   🍳 Accepting test order #${testOrder.orderNumber} via /vendor/orders/:id/accept...`);
     const acceptRes = await requestJson(

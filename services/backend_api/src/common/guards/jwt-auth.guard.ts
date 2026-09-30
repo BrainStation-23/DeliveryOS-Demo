@@ -29,12 +29,20 @@ export class JwtAuthGuard implements CanActivate {
     const token = authHeader.split(' ')[1];
     const secret = requiredEnv('JWT_SECRET');
 
+    let decoded: { sub: string; role: string; type?: string };
     try {
-      const decoded = jwt.verify(token, secret) as { sub: string; role: string; type?: string };
-      if (decoded.type === 'refresh') {
-        throw new UnauthorizedException('Refresh tokens cannot be used for API access');
-      }
+      decoded = jwt.verify(token, secret) as typeof decoded;
+    } catch {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
 
+    // Token-shape failures get a precise message (no account info leaked);
+    // everything below collapses to the generic message for the same reason.
+    if (decoded.type === 'refresh') {
+      throw new UnauthorizedException('Refresh tokens cannot be used for API access');
+    }
+
+    try {
       const cacheKey = `auth:user:${decoded.sub}`;
       let user = await this.getCachedUser(cacheKey);
 

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -229,8 +230,10 @@ export class VendorService {
 
   /**
    * 4. Cart Address Geofence Guard (Strict Coverage Enforcement)
+   * When an `addressId` is supplied, ownership is enforced exactly like
+   * checkout — an authenticated caller may only probe their own addresses.
    */
-  async validateAddressCoverage(dto: ValidateAddressCoverageDto) {
+  async validateAddressCoverage(dto: ValidateAddressCoverageDto, userId?: string) {
     const { vendorId, addressId } = dto;
 
     const vendor = await this.prisma.vendor.findUnique({
@@ -250,6 +253,9 @@ export class VendorService {
       });
       if (!address) {
         throw new NotFoundException('Customer address record not found');
+      }
+      if (!userId || address.userId !== userId) {
+        throw new ForbiddenException('You do not have permission to use this delivery address');
       }
       lat = address.latitude;
       lng = address.longitude;

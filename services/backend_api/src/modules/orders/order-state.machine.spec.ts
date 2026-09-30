@@ -34,6 +34,17 @@ describe('Order State Machine (ADR-002)', () => {
     expect(() => assertTransition(OrderStatus.DELIVERED, OrderStatus.DISPATCHED)).toThrow();
   });
 
+  it('rejects DISPATCHED → CANCELLED: once on the road the trip never auto-unwinds', () => {
+    // Policy (TID-05/ADR-002): a courier on the road either completes delivery
+    // or reports a delivery issue (DISPATCHED → READY_FOR_PICKUP). Admin cancel
+    // blocks DISPATCHED with the same rule.
+    expect(() => assertTransition(OrderStatus.DISPATCHED, OrderStatus.CANCELLED)).toThrow();
+    expect(ORDER_TRANSITIONS[OrderStatus.DISPATCHED]).toEqual([
+      OrderStatus.DELIVERED,
+      OrderStatus.READY_FOR_PICKUP,
+    ]);
+  });
+
   it('treats terminal states as absorbing', () => {
     expect(ORDER_TRANSITIONS[OrderStatus.DELIVERED]).toEqual([]);
     expect(ORDER_TRANSITIONS[OrderStatus.CANCELLED]).toEqual([]);

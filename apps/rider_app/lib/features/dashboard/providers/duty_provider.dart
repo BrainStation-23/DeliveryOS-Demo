@@ -243,7 +243,7 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
     }
   }
 
-  void simulateTripCompleted({
+  void recordTripCompleted({
     required double payout,
     double? codCollected,
     RiderCompletedTrip? tripRecord,

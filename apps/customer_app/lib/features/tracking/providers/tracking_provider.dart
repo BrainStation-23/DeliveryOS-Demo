@@ -46,16 +46,19 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
         final newStatusStr = data['newStatus'] as String? ?? '';
         final newStage = OrderStageExtension.fromString(newStatusStr);
         final reason = data['reason'] as String?;
-        final refundStatus = data['refundStatus'] as String?;
+        // Backend cancellation payloads carry `paymentStatus`; `refundStatus`
+        // is accepted as a legacy alias only.
+        final paymentStatusUpdate =
+            (data['paymentStatus'] ?? data['refundStatus']) as String?;
 
         RiderMeta? updatedRider = state.rider;
         if (data['riderName'] != null) {
           updatedRider = RiderMeta(
             id: data['riderId'] as String? ?? 'rider-01',
             name: data['riderName'] as String,
-            phone: data['riderPhone'] as String? ?? '+8801700000002',
-            vehicleType: 'Dhaka Metro HA-11-2233',
-            rating: 4.9,
+            phone: data['riderPhone'] as String? ?? '',
+            vehicleType: state.rider?.vehicleType ?? 'Motorcycle',
+            rating: state.rider?.rating,
             latitude: state.store.latitude,
             longitude: state.store.longitude,
             speed: 0.0,
@@ -66,7 +69,7 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
           stage: newStage,
           rider: updatedRider,
           cancellationReason: reason ?? state.cancellationReason,
-          paymentStatus: refundStatus ?? state.paymentStatus,
+          paymentStatus: paymentStatusUpdate ?? state.paymentStatus,
         );
       }
     }
@@ -77,11 +80,12 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
             ? payload['data'] as Map<String, dynamic>
             : payload;
         final reason = data['reason'] as String?;
-        final refundStatus = data['refundStatus'] as String?;
+        final paymentStatusUpdate =
+            (data['paymentStatus'] ?? data['refundStatus']) as String?;
         state = state.copyWith(
           stage: OrderStage.cancelled,
           cancellationReason: reason ?? state.cancellationReason,
-          paymentStatus: refundStatus ?? state.paymentStatus,
+          paymentStatus: paymentStatusUpdate ?? state.paymentStatus,
         );
       }
     }
@@ -226,12 +230,16 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
         RiderMeta? riderMeta;
         if (riderData != null) {
           final user = riderData['user'] as Map<String, dynamic>? ?? {};
+          final rawVehicle = riderData['vehicleType'] as String?;
+          final vehicle = rawVehicle == null || rawVehicle.isEmpty
+              ? 'Motorcycle'
+              : rawVehicle[0].toUpperCase() + rawVehicle.substring(1);
           riderMeta = RiderMeta(
             id: riderData['id'] as String? ?? 'rider-01',
             name: user['fullName'] as String? ?? 'Delivery Courier',
-            phone: user['phone'] as String? ?? '+8801700000002',
-            vehicleType: 'Dhaka Metro HA-11-2233',
-            rating: 4.9,
+            phone: user['phone'] as String? ?? '',
+            vehicleType: vehicle,
+            rating: null,
             latitude: storeMeta.latitude,
             longitude: storeMeta.longitude,
             speed: 0.0,

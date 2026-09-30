@@ -31,17 +31,22 @@ export function normalizeDeliveryFeeConfig(
   };
 }
 
+/** Canonical fallback pricing used whenever no delivery_fee_config row exists.
+ *  Exported so the admin settings page and the pricing engine can never drift
+ *  into showing different "defaults". */
+export const DEFAULT_DELIVERY_FEE_CONFIG: DeliveryFeeConfig = {
+  mode: 'FIXED_FLAT',
+  flatFee: 50.0,
+  baseFee: 30.0,
+  baseKm: 2.0,
+  perKmRate: 10.0,
+};
+
 @Injectable()
 export class DeliveryFeeService {
   private readonly logger = new Logger(DeliveryFeeService.name);
 
-  private readonly defaultConfig: DeliveryFeeConfig = {
-    mode: 'FIXED_FLAT',
-    flatFee: 50.0,
-    baseFee: 30.0,
-    baseKm: 2.0,
-    perKmRate: 10.0,
-  };
+  private readonly defaultConfig: DeliveryFeeConfig = DEFAULT_DELIVERY_FEE_CONFIG;
 
   private readonly defaultEconomics: DeliveryEconomicsConfig = {
     rider_share_percent: 80,

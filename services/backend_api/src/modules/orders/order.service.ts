@@ -7,7 +7,10 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleDestroy,
+  OnModuleInit,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CouponService } from '../promotions/coupons/coupon.service';
 import { DeliveryFeeService } from '../promotions/pricing/delivery-fee.service';
@@ -27,6 +30,7 @@ import { PaginatedResult, PaginationQueryDto, toPaginatedResult } from '../../co
 
 export interface OrderAddressSnapshot {
   type: string;
+  deliveryMethod?: DeliveryMethod;
   vendorAddress?: string;
   addressId?: string;
   addressLine?: string;
@@ -75,8 +79,10 @@ export interface RiderTelemetryLocation {
 }
 
 @Injectable()
-export class OrderService {
+export class OrderService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OrderService.name);
+  private staleSweepTimer: NodeJS.Timeout | null = null;
+  private readonly sweepInstanceId = randomUUID();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -88,6 +94,78 @@ export class OrderService {
     private readonly notificationsService: NotificationsService,
     private readonly paymentsService: PaymentsService,
   ) {}
+
+  onModuleInit() {
+    // 60s leader-elected sweep: auto-cancel orders the kitchen never accepted
+    // within the configured stale TTL. Without it, PLACED/RIDER_ASSIGNED
+    // orders could sit unassigned forever (and re-trigger escalations hourly).
+    this.staleSweepTimer = setInterval(() => {
+      this.runStaleSweepIfLeader().catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        this.logger.error(`Stale order sweep failed: ${msg}`);
+      });
+    }, 60_000);
+    this.staleSweepTimer.unref();
+  }
+
+  onModuleDestroy() {
+    if (this.staleSweepTimer) {
+      clearInterval(this.staleSweepTimer);
+      this.staleSweepTimer = null;
+    }
+  }
+
+  private async runStaleSweepIfLeader(): Promise<void> {
+    const acquired = await this.redis.acquireLock('lock:sweep:stale-orders', this.sweepInstanceId, 55);
+    if (!acquired) return;
+    await this.sweepStaleOrders();
+  }
+
+  /**
+   * Auto-cancel orders that never reached kitchen acceptance within the stale
+   * TTL (order_flow_config.stale_order_ttl_minutes, default 60). Unpaid online
+   * orders are excluded — the payments sweep owns those. Uses the central
+   * cancellation engine so refunds, coupon restoration, ledger cleanup, courier
+   * release, and realtime events all behave exactly like a manual cancel.
+   */
+  async sweepStaleOrders() {
+    const { staleOrderTtlMinutes } = await this.orderFlowService.getOrderFlowConfig();
+    const cutoff = new Date(Date.now() - staleOrderTtlMinutes * 60_000);
+
+    const staleOrders = await this.prisma.order.findMany({
+      where: {
+        status: { in: [OrderStatus.PLACED, OrderStatus.RIDER_ASSIGNED] },
+        placedAt: { lt: cutoff },
+        OR: [
+          { paymentMethod: PaymentMethod.CASH_ON_DELIVERY },
+          { paymentMethod: PaymentMethod.ONLINE_GATEWAY, paymentStatus: PaymentStatus.PAID },
+        ],
+      },
+      include: {
+        vendor: true,
+        rider: { include: { user: true } },
+        payments: true,
+      },
+      take: 50,
+    });
+
+    if (staleOrders.length === 0) return;
+
+    const reason = `Order expired: not accepted by the kitchen within ${staleOrderTtlMinutes} minutes (system auto-cancel)`;
+    for (const order of staleOrders) {
+      try {
+        await this.executeOrderCancellation(order, reason, UserRole.SUPER_ADMIN);
+        this.logger.warn(
+          `[Stale Sweep] Order ${order.orderNumber} auto-cancelled after ${staleOrderTtlMinutes}m without kitchen acceptance.`,
+        );
+      } catch (err: unknown) {
+        // Concurrent state change (claimed, accepted, cancelled) — the guarded
+        // claim inside is the source of truth, so losing the race is correct.
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        this.logger.warn(`[Stale Sweep] Skipped Order ${order.orderNumber}: ${msg}`);
+      }
+    }
+  }
 
   /**
    * 1. Atomic Order Checkout with Geofence & Single-Vendor Guard
@@ -138,8 +216,11 @@ export class OrderService {
 
     // 3. Validate Delivery Address & Spatial Geofence Guard
     let distanceKm = 0;
+    // `deliveryMethod` is the canonical dispatch-routing field consumed by the
+    // order-flow engine (takeaway bypass); `type` is kept for older readers.
     let addressSnapshot: OrderAddressSnapshot = {
       type: 'TAKEAWAY',
+      deliveryMethod: DeliveryMethod.TAKEAWAY,
       vendorAddress: vendor.addressText,
     };
 
@@ -189,6 +270,7 @@ export class OrderService {
 
       addressSnapshot = {
         type: 'HOME_DELIVERY',
+        deliveryMethod: DeliveryMethod.HOME_DELIVERY,
         addressId: address.id,
         label: address.label,
         addressLine: address.addressLine,
@@ -910,18 +992,13 @@ export class OrderService {
         return null;
       }
 
-      // Reconcile Payment state
+      // Reconcile Payment state.
+      // PAID orders are deliberately LEFT PAID here: the gateway refund runs
+      // after this transaction commits, and REFUNDED is only recorded once the
+      // gateway confirms. Prematurely marking REFUNDED painted refunds as
+      // complete when the money had never moved.
       let nextPaymentStatus = order.paymentStatus;
-      if (order.paymentStatus === PaymentStatus.PAID) {
-        nextPaymentStatus = PaymentStatus.REFUNDED;
-        await tx.payment.updateMany({
-          where: { orderId: order.id, status: PaymentStatus.PAID },
-          data: {
-            status: PaymentStatus.REFUNDED,
-            updatedAt: new Date(),
-          },
-        });
-      } else if (order.paymentStatus === PaymentStatus.PENDING) {
+      if (order.paymentStatus === PaymentStatus.PENDING) {
         nextPaymentStatus = PaymentStatus.FAILED;
         await tx.payment.updateMany({
           where: { orderId: order.id, status: PaymentStatus.PENDING },
@@ -971,13 +1048,23 @@ export class OrderService {
       throw new ConflictException(`Order ${order.orderNumber} cannot be cancelled (already delivered, dispatched, or cancelled)`);
     }
 
-    // 2. Gateway Refund: Fires strictly AFTER DB state claim has succeeded!
+    // 2. Gateway Refund: Fires strictly AFTER DB state claim has succeeded.
+    //    REFUNDED is only recorded (payment row + order) on gateway success —
+    //    a failed refund leaves the order honestly PAID and flagged for
+    //    reconciliation instead of silently claiming the money was returned.
+    let finalPaymentStatus = updatedOrder.paymentStatus;
     if (order.paymentStatus === PaymentStatus.PAID) {
       try {
         const refund = await this.paymentsService.refundForOrder(order.id, reason);
-        if (refund && !refund.success) {
+        if (refund?.success) {
+          await this.prisma.order.update({
+            where: { id: order.id },
+            data: { paymentStatus: PaymentStatus.REFUNDED },
+          });
+          finalPaymentStatus = PaymentStatus.REFUNDED;
+        } else {
           this.logger.error(
-            `Gateway refund failed for Order ${order.orderNumber}; flagged for reconciliation: ${JSON.stringify(refund.raw)}`,
+            `Gateway refund failed for Order ${order.orderNumber}; order remains PAID and flagged for reconciliation: ${JSON.stringify(refund?.raw)}`,
           );
         }
       } catch (refundErr: unknown) {
@@ -1007,7 +1094,7 @@ export class OrderService {
         {
           reason,
           cancelledBy: cancelledByRole,
-          paymentStatus: updatedOrder.paymentStatus,
+          paymentStatus: finalPaymentStatus,
           vendorId: order.vendorId,
         },
       );
@@ -1020,7 +1107,7 @@ export class OrderService {
           status: OrderStatus.CANCELLED,
           reason,
           cancelledBy: cancelledByRole,
-          paymentStatus: updatedOrder.paymentStatus,
+          paymentStatus: finalPaymentStatus,
           cancelledAt: updatedOrder.cancelledAt,
         };
         this.trackingGateway.server.to(`order_${order.id}`).emit('order:cancelled', payload);
@@ -1064,7 +1151,7 @@ export class OrderService {
         });
     }
 
-    return updatedOrder;
+    return { ...updatedOrder, paymentStatus: finalPaymentStatus };
   }
 
   /**

@@ -76,6 +76,17 @@ async function runE2ELifecycleTest() {
 
     // Reset rider active order mutex in Redis & ensure Rider is online near outlet
     await redisService.del(`rider:active_order:${riderProfile.id}`);
+    // Fixture hygiene: cancel any stale in-flight orders previous suites left
+    // on this courier (the claim-time DB backstop would correctly refuse the
+    // claim) and reset accumulated COD cash so the cash-limit guard stays clear.
+    await prisma.order.updateMany({
+      where: {
+        riderId: riderProfile.id,
+        status: { in: ['RIDER_ASSIGNED', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'DISPATCHED'] },
+      },
+      data: { status: 'CANCELLED', cancelledAt: new Date(), riderId: null },
+    });
+    await prisma.rider.update({ where: { id: riderProfile.id }, data: { cashInHand: 0 } });
     await fetch(`${baseUrl}/rider/duty`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rider1.token}` },
