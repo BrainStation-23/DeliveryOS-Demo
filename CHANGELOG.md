@@ -29,6 +29,7 @@ Capability detail: [`FEATURES.md`](FEATURES.md) • Architectural rationale: [AD
 ### [Unreleased]
 
 #### Fixed
+- **Vendor Portal cross-outlet realtime isolation & audio alarm scoping**: Guarded `order:new`, `order:status:changed`, and `order:cancelled` socket event handlers in `useKDSOrders.ts` by active `vendorId`. Incoming orders and state updates belonging to another physical branch no longer sound rogue audio chimes or pollute the active outlet board on multi-branch accounts. Handled Web Audio API `AudioContext.resume()` promise rejections and provided explicit `unlockAudio` helper in `sound.ts`.
 - **Full-system production audit remediation (backend, portals, mobile, docs)**:
   - **SSLCommerz session initiation endpoint & callback compatibility**: Updated SSLCommerz gateway session initiation endpoint from the incorrect validation path (`/validator/api.php`) to the standard form post URL (`/gwprocess/v4/api.php`) and appended `value_a: params.orderId` for IPN transaction correlation. Enhanced `PaymentsController.handleCallback` to support both `GET` and `POST` methods, correctly extracting payment status and transaction IDs from query parameters or form POST payloads.
   - **Order state machine pickup edge enforcement**: Removed direct jump `RIDER_ASSIGNED -> DISPATCHED` from `ORDER_TRANSITIONS` in `order-state.machine.ts`. In `RIDER_FIRST` workflows, orders claimed by couriers must be prepared and marked `READY_FOR_PICKUP` by the kitchen before pickup confirmation. Updated Rider mobile app (`trip_provider.dart`, `pickup_step_card.dart`, and unit/widget tests) to enforce kitchen readiness before allowing pickup confirmation.
@@ -58,6 +59,13 @@ Capability detail: [`FEATURES.md`](FEATURES.md) • Architectural rationale: [AD
 - **Region-local dashboard day boundary**: admin overview "today" metrics roll over at `Asia/Dhaka` midnight (`startOfRegionToday()`), consistent with operating-hours semantics.
 
 #### Changed
+- **Vendor Portal Component Decomposition & Ergonomics Normalization**:
+  - Decomposed monolithic `VendorCatalogPage.tsx` into dedicated sub-components (`CatalogFilterToolbar.tsx`, `CategoryFilterBar.tsx`, `CatalogProductCard.tsx`), reducing file length from 467 to 279 lines.
+  - De-duplicated `VendorLayout.tsx` by extracting shared `SidebarNavList.tsx` and `SidebarUserProfile.tsx`, eliminating duplicate desktop/mobile drawer rendering code (423 to 326 lines).
+  - Decomposed `VendorOrdersPage.tsx` by extracting `OrderDateFilterToolbar.tsx` with date preset pills and custom date range pickers (391 to 320 lines).
+  - Decomposed `VendorDashboardPage.tsx` and `KDSOrderCard.tsx` by extracting `KDSLaneColumn.tsx` and `KDSPrepTimePicker.tsx`.
+  - Modularized `VendorSettingsPage.tsx` into 4 dedicated widgets (`RushHourPauseWidget`, `DefaultPrepTimeWidget`, `OperatingHoursWidget`, `OutletProfileWidget`) with bi-directional rush pause synchronization.
+  - Synchronized universal icon mapping (`ChefHat`, `UtensilsCrossed`, `Receipt`, `Store`) across all navigation items, headers, and tabs.
 - **Portal UI/UX Design System Normalization & Language Switcher Modernization**:
   - **Cohesive Language Selector**: Replaced disconnected native `<select>` and standalone icon with a unified custom dropdown component in both Admin Portal and Vendor Portal (`LanguageSelector.tsx`). Added auto-detecting and explicit `variant="dark" | "default"` support, fluid popover menu with native language labels, checkmark indicators, and click-outside/escape dismissal. Fully synchronized background colors on dark auth screens and light/dark top navbars.
   - **Vendor Portal Button & Typography Consistency**: Standardized `Button.tsx` (`sm`: `h-8 px-3 text-xs`, `md`: `h-9 px-3.5 text-xs`, `lg`: `h-10 px-4 text-xs sm:text-sm rounded-xl`) to eliminate desktop font inflation (`sm:text-sm`). Upgraded KDS action controls, table pagination, filter pills, error banners, emergency pause banners, and store settings save actions to consistent heights and semantic tokens.

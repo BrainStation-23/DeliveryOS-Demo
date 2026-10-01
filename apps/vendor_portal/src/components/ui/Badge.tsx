@@ -1,8 +1,18 @@
 import React from 'react';
 import { cn } from '../../utils/cn';
 
+export type BadgeVariant =
+  | 'default'
+  | 'primary'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'info'
+  | 'purple'
+  | 'indigo';
+
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'purple' | 'indigo';
+  variant?: BadgeVariant;
   size?: 'sm' | 'md' | 'lg';
 }
 

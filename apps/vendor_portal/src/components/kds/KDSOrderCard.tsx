@@ -15,6 +15,7 @@ import {
 import { KDSOrder, KDSOrderItem } from '../../types/kds';
 import { CountdownTimer } from './CountdownTimer';
 import { OrderRejectModal } from './OrderRejectModal';
+import { KDSPrepTimePicker } from './KDSPrepTimePicker';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { cn } from '../../utils/cn';
@@ -238,33 +239,14 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
               </Button>
             </div>
 
-            {showTimePicker && (
-              <div className="flex flex-wrap items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs gap-1.5 dark:border-slate-700 dark:bg-slate-800">
-                <span className="text-slate-600 dark:text-slate-300 font-semibold text-xs px-1">
-                  {t('kds.prep')}
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {[15, 20, 25, 35, 45].map((mins) => (
-                    <button
-                      key={mins}
-                      type="button"
-                      onClick={() => {
-                        setSelectedCustomTime(mins);
-                        setShowTimePicker(false);
-                      }}
-                      className={cn(
-                        'h-6.5 px-2.5 rounded-md font-semibold text-xs transition-colors cursor-pointer',
-                        selectedCustomTime === mins
-                          ? 'bg-amber-500 text-white shadow-xs'
-                          : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600'
-                      )}
-                    >
-                      {mins}m
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <KDSPrepTimePicker
+              isOpen={showTimePicker}
+              selectedMinutes={selectedCustomTime}
+              onSelectMinutes={(mins) => {
+                setSelectedCustomTime(mins);
+                setShowTimePicker(false);
+              }}
+            />
 
             <OrderRejectModal
               isOpen={showRejectModal}

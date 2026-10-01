@@ -69,11 +69,17 @@ export const useKDSOrders = (vendorId?: string) => {
     const socket = getSocket();
 
     const handleNewOrder = (incoming: SocketOrderPayload | RawBackendOrder) => {
-      soundEngine.startOrderAlarm();
-
       const raw = 'data' in incoming && incoming.data ? incoming.data : (incoming as RawBackendOrder);
       const newOrder = normalizeKDSOrder(raw);
       if (!newOrder || !newOrder.id) return;
+
+      // Cross-outlet guard: If active view is scoped to a specific outlet,
+      // ignore orders designated for other physical branches.
+      if (vendorId && vendorId !== 'ALL' && newOrder.vendorId && newOrder.vendorId !== vendorId) {
+        return;
+      }
+
+      soundEngine.startOrderAlarm();
 
       queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => {
         const safeOld = Array.isArray(old) ? old : [];
@@ -92,6 +98,12 @@ export const useKDSOrders = (vendorId?: string) => {
       const prepTime = data?.prepTime ?? data?.prepTimeMinutes;
 
       if (!orderId) return;
+
+      const currentOrders = queryClient.getQueryData<KDSOrder[]>(queryKey) || [];
+      const orderInScope = Array.isArray(currentOrders) && currentOrders.some((o) => o.id === orderId);
+      if (!orderInScope && vendorId && vendorId !== 'ALL') {
+        return;
+      }
 
       if (newStatus === 'CANCELLED') {
         queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => {
@@ -116,8 +128,8 @@ export const useKDSOrders = (vendorId?: string) => {
       }
 
       // Check if any unaccepted new orders remain; if none, silence alarm
-      const currentOrders = queryClient.getQueryData<KDSOrder[]>(queryKey) || [];
-      const hasUnaccepted = Array.isArray(currentOrders) && currentOrders.some(
+      const updatedOrders = queryClient.getQueryData<KDSOrder[]>(queryKey) || [];
+      const hasUnaccepted = Array.isArray(updatedOrders) && updatedOrders.some(
         (o) => (o.status === 'PLACED' || o.status === 'RIDER_ASSIGNED') && o.id !== orderId
       );
       if (!hasUnaccepted) {
@@ -130,13 +142,19 @@ export const useKDSOrders = (vendorId?: string) => {
       const orderId = data?.orderId || data?.id;
       if (!orderId) return;
 
+      const currentOrders = queryClient.getQueryData<KDSOrder[]>(queryKey) || [];
+      const orderInScope = Array.isArray(currentOrders) && currentOrders.some((o) => o.id === orderId);
+      if (!orderInScope && vendorId && vendorId !== 'ALL') {
+        return;
+      }
+
       queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => {
         const safeOld = Array.isArray(old) ? old : [];
         return safeOld.filter((o) => o.id !== orderId);
       });
 
-      const currentOrders = queryClient.getQueryData<KDSOrder[]>(queryKey) || [];
-      const hasUnaccepted = Array.isArray(currentOrders) && currentOrders.some(
+      const updatedOrders = queryClient.getQueryData<KDSOrder[]>(queryKey) || [];
+      const hasUnaccepted = Array.isArray(updatedOrders) && updatedOrders.some(
         (o) => (o.status === 'PLACED' || o.status === 'RIDER_ASSIGNED') && o.id !== orderId
       );
       if (!hasUnaccepted) {
@@ -153,7 +171,7 @@ export const useKDSOrders = (vendorId?: string) => {
       socket.off('order:status:changed', handleStatusChanged);
       socket.off('order:cancelled', handleOrderCancelled);
     };
-  }, [queryClient, queryKey]);
+  }, [queryClient, queryKey, vendorId]);
 
   // Kitchen staff must see (and hear) when an action fails — silent failures
   // on the KDS board leave orders stuck in the wrong lane.

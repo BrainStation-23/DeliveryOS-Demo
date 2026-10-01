@@ -33,9 +33,24 @@ class SoundEngine {
       }
     }
     if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
+      this.audioCtx.resume().catch(() => {
+        // Ignored until user gesture unlocks the audio context
+      });
     }
     return this.audioCtx;
+  }
+
+  public async unlockAudio(): Promise<boolean> {
+    const ctx = this.getAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    return Boolean(ctx && ctx.state === 'running');
   }
 
   public setMuted(muted: boolean) {

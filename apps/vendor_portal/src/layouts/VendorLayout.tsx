@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   ChefHat,
   UtensilsCrossed,
   Receipt,
   Store,
-  LogOut,
   Volume2,
   VolumeX,
   Menu,
@@ -22,6 +21,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { VendorOutletProvider, useVendorOutlet } from '../contexts/VendorOutletContext';
 import { OutletSwitcher } from '../components/vendor/OutletSwitcher';
 import { LanguageSelector } from '../components/LanguageSelector';
+import { SidebarNavList } from '../components/vendor/SidebarNavList';
+import { SidebarUserProfile } from '../components/vendor/SidebarUserProfile';
 import { soundEngine } from '../utils/sound';
 import { useRushPause } from '../hooks/useRushPause';
 
@@ -29,7 +30,6 @@ const VendorLayoutInner: React.FC = () => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const { activeOutlet } = useVendorOutlet();
-  const location = useLocation();
   const [isMuted, setIsMuted] = useState(soundEngine.getIsMuted());
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { isTogglingRush, toggleRushPause } = useRushPause();
@@ -82,11 +82,6 @@ const VendorLayoutInner: React.FC = () => {
   };
 
   const { displayName, roleTitle } = parseUserIdentity();
-
-  const isActive = (href: string) => {
-    if (href === '/') return location.pathname === '/' || location.pathname === '/kds';
-    return location.pathname === href || location.pathname.startsWith(`${href}/`);
-  };
 
   const toggleSound = () => {
     const nextMuted = !isMuted;
@@ -146,194 +141,141 @@ const VendorLayoutInner: React.FC = () => {
           )}
         </div>
 
-        <nav className="flex-1 min-h-0 space-y-1 p-3 overflow-y-auto overscroll-contain">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                title={isCollapsed ? item.label : undefined}
-                className={`flex items-center rounded-xl transition-all ${
-                  isCollapsed ? 'h-10 w-10 mx-auto justify-center' : 'gap-3 px-3 py-2 text-sm font-medium'
-                } ${
-                  active
-                    ? 'bg-amber-50 text-amber-800 shadow-xs dark:bg-amber-950/50 dark:text-amber-400 font-bold'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100'
-                }`}
-              >
-                <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`} />
-                {!isCollapsed && <span className="truncate">{item.label}</span>}
-                {isCollapsed && <span className="sr-only">{item.label}</span>}
-              </Link>
-            );
-          })}
-        </nav>
+        <SidebarNavList navItems={navItems} isCollapsed={isCollapsed} />
 
-        {!isCollapsed ? (
-          <div className="shrink-0 mt-auto border-t border-slate-100 p-3 dark:border-slate-800 bg-white dark:bg-slate-900">
-            <div className="flex items-center gap-2.5 mb-2.5">
-              <div className="h-8 w-8 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 flex items-center justify-center font-bold text-xs shrink-0">
-                {displayName.charAt(0) || 'V'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate" title={displayName}>
-                  {displayName}
-                </p>
-                <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 truncate leading-tight">
-                  {roleTitle}
-                </p>
-                {user?.phone && (
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate font-mono mt-0.5">
-                    {user.phone}
-                  </p>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={logout}
-              className="flex h-8 w-full items-center justify-center gap-2 rounded-lg border border-rose-200/80 bg-rose-50/50 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-100/70 hover:border-rose-300 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors shadow-xs"
-            >
-              <LogOut className="h-3.5 w-3.5 shrink-0" />
-              <span>{t('common.logout')}</span>
-            </button>
-          </div>
-        ) : (
-          <div className="shrink-0 mt-auto border-t border-slate-100 p-2.5 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col items-center gap-2">
-            <div
-              className="h-8 w-8 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 flex items-center justify-center font-bold text-xs shrink-0 cursor-default"
-              title={`${displayName}\n${roleTitle}${user?.phone ? ` • ${user.phone}` : ''}`}
-            >
-              {displayName.charAt(0) || 'V'}
-            </div>
-            <button
-              onClick={logout}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200/80 bg-rose-50/50 text-rose-600 hover:bg-rose-100/70 hover:border-rose-300 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors"
-              title={t('common.logout')}
-              aria-label={t('common.logout')}
-            >
-              <LogOut className="h-3.5 w-3.5 shrink-0" />
-            </button>
-          </div>
-        )}
+        <SidebarUserProfile
+          displayName={displayName}
+          roleTitle={roleTitle}
+          phone={user?.phone}
+          onLogout={logout}
+          isCollapsed={isCollapsed}
+        />
       </aside>
 
-      <div className="flex flex-1 flex-col h-full min-w-0 overflow-hidden">
-        {/* Top Navbar */}
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-3 sm:px-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 gap-2">
+      {/* Main Container */}
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+        {/* Top Header Bar */}
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white/90 px-3 sm:px-5 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/90 gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="rounded-xl p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 lg:hidden shrink-0"
-              aria-label="Toggle Navigation Menu"
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="lg:hidden rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
+              aria-label="Open menu"
             >
-              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              <Menu className="h-5 w-5" />
             </button>
-            <OutletSwitcher />
+
+            {/* Scoped Outlet Switcher */}
+            <div className="min-w-0 max-w-[200px] sm:max-w-[260px] md:max-w-xs">
+              <OutletSwitcher />
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-            {activeOutlet && activeOutlet.id !== 'ALL' && (
-              <button
-                onClick={() => toggleRushPause()}
-                disabled={isTogglingRush}
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 h-9 text-xs font-semibold transition-all border shadow-xs ${
-                  activeOutlet.isBusy
-                    ? 'border-amber-500 bg-amber-500 text-slate-950 hover:bg-amber-400'
-                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
-                } ${isTogglingRush ? 'opacity-60 cursor-not-allowed' : ''}`}
-                title={
-                  activeOutlet.isBusy
-                    ? t('outlet.rushPauseTitlePaused')
-                    : t('outlet.rushPauseTitleOpen')
-                }
-              >
-                {activeOutlet.isBusy ? (
-                  <>
-                    <Flame className="h-3.5 w-3.5 text-slate-950 animate-pulse" />
-                    <span>{isTogglingRush ? t('outlet.resuming') : t('outlet.rushPaused')}</span>
-                  </>
-                ) : (
-                  <>
-                    <PauseCircle className="h-3.5 w-3.5 text-amber-500" />
-                    <span className="hidden sm:inline">{isTogglingRush ? t('outlet.pausing') : t('outlet.rushPause')}</span>
-                  </>
-                )}
-              </button>
-            )}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Rush Hour Emergency Toggle */}
+            <button
+              type="button"
+              disabled={isTogglingRush}
+              onClick={() => void toggleRushPause()}
+              className={`inline-flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-lg text-xs font-bold transition-all border shadow-xs cursor-pointer ${
+                activeOutlet?.isBusy
+                  ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-300'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
+              } ${isTogglingRush ? 'opacity-60 cursor-not-allowed' : ''}`}
+              title={
+                activeOutlet?.isBusy
+                  ? t('kds.rushHourActiveTitle')
+                  : t('kds.pauseOrdersTitle')
+              }
+            >
+              {activeOutlet?.isBusy ? (
+                <>
+                  <PauseCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 animate-pulse" />
+                  <span className="hidden sm:inline">{t('kds.pausedOrders')}</span>
+                  <span className="sm:hidden">{t('kds.paused')}</span>
+                </>
+              ) : (
+                <>
+                  <Flame className="h-4 w-4 text-amber-500 shrink-0" />
+                  <span className="hidden sm:inline">{t('kds.rushPause')}</span>
+                  <span className="sm:hidden">{t('kds.pause')}</span>
+                </>
+              )}
+            </button>
 
+            {/* Sound Alarm Toggle Button */}
             <button
               onClick={toggleSound}
-              className={`flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 h-9 text-xs font-semibold transition-colors border shadow-xs ${
+              className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors shadow-xs cursor-pointer ${
                 isMuted
-                  ? 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                  : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                  ? 'border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-400'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
               }`}
-              title={isMuted ? 'Click to enable order sound chimes' : 'Sound active. Click to mute'}
+              title={isMuted ? t('common.unmuteSound') : t('common.muteSound')}
+              aria-label={isMuted ? t('common.unmuteSound') : t('common.muteSound')}
             >
-              {isMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-              <span className="hidden md:inline">
-                {isMuted ? t('kds.audioAlertMuted') : t('kds.audioAlertActive')}
-              </span>
+              {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>
 
-            <button
-              onClick={() => soundEngine.playChime()}
-              className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Test chime tone"
-              aria-label="Test chime tone"
-            >
-              <BellRing className="h-4 w-4" />
-            </button>
-
+            {/* Global Language Selector */}
             <LanguageSelector />
           </div>
         </header>
 
-        {/* Emergency Pause Warning Banner */}
+        {/* Global Rush Hour Active Emergency Banner */}
         {activeOutlet?.isBusy && (
-          <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between bg-amber-500 px-4 py-2.5 text-xs font-bold text-slate-950 shadow-inner gap-2">
+          <div className="bg-rose-500 text-white px-4 py-2 text-xs font-semibold flex items-center justify-between shadow-xs z-20">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <AlertTriangle className="h-4 w-4 shrink-0 animate-bounce" />
               <span>
-                {t('outlet.rushHourBanner', { name: activeOutlet.name })}
+                {t('kds.rushHourActiveBanner', { name: activeOutlet.name })}
               </span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => toggleRushPause()}
-                disabled={isTogglingRush}
-                className="h-8 px-3 inline-flex items-center justify-center rounded-lg bg-slate-950 text-white text-xs font-bold hover:bg-slate-800 transition-colors shadow-xs"
-              >
-                {isTogglingRush ? t('outlet.resuming') : t('outlet.resumeNow')}
-              </button>
-              <Link
-                to="/settings"
-                className="h-8 px-3 inline-flex items-center justify-center rounded-lg bg-slate-950/15 text-xs font-semibold text-slate-950 hover:bg-slate-950/25 transition-colors shadow-xs"
-              >
-                {t('outlet.manage')}
-              </Link>
+            <button
+              onClick={() => void toggleRushPause()}
+              disabled={isTogglingRush}
+              className="text-xs bg-white text-rose-700 px-2.5 py-0.5 rounded-md font-bold hover:bg-rose-50 transition-colors shrink-0 shadow-2xs cursor-pointer"
+            >
+              {t('kds.resumeOrders')}
+            </button>
+          </div>
+        )}
+
+        {/* Audio Muted Indicator Banner */}
+        {isMuted && (
+          <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between z-20">
+            <div className="flex items-center gap-1.5">
+              <BellRing className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>{t('kds.soundMutedNotice')}</span>
             </div>
+            <button
+              onClick={toggleSound}
+              className="text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+            >
+              {t('common.enableSound')}
+            </button>
           </div>
         )}
 
         {/* Mobile Navigation Drawer */}
         {isMobileMenuOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
+          <div
+            className="fixed inset-0 z-50 flex lg:hidden bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
             <div
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
-              onClick={() => setIsMobileMenuOpen(false)}
-              aria-hidden="true"
-            />
-            <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] h-full max-h-screen max-h-[100dvh] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col z-10">
+              className="flex w-72 max-w-[85vw] flex-col bg-white shadow-xl dark:bg-slate-900 h-full"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-5 dark:border-slate-800">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm shrink-0">
                     <UtensilsCrossed className="h-4 w-4" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">DeliveryOS</h2>
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                      DeliveryOS
+                    </h2>
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
                       {t('common.merchantConsole')}
                     </span>
@@ -341,65 +283,27 @@ const VendorLayoutInner: React.FC = () => {
                 </div>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300 cursor-pointer"
                   aria-label="Close menu"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <nav className="flex-1 min-h-0 space-y-1 p-3 overflow-y-auto overscroll-contain">
-                {navItems.map((item) => {
-                  const Icon = item.icon;
-                  const active = isActive(item.href);
-                  return (
-                    <Link
-                      key={item.href}
-                      to={item.href}
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                        active
-                          ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-400 font-bold'
-                          : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span>{item.label}</span>
-                    </Link>
-                  );
-                })}
-              </nav>
+              <SidebarNavList
+                navItems={navItems}
+                onItemClick={() => setIsMobileMenuOpen(false)}
+              />
 
-              <div className="shrink-0 mt-auto border-t border-slate-100 p-3 dark:border-slate-800 bg-white dark:bg-slate-900">
-                <div className="flex items-center gap-2.5 mb-2.5">
-                  <div className="h-8 w-8 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 flex items-center justify-center font-bold text-xs shrink-0">
-                    {displayName.charAt(0) || 'V'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate" title={displayName}>
-                      {displayName}
-                    </p>
-                    <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 truncate leading-tight">
-                      {roleTitle}
-                    </p>
-                    {user?.phone && (
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate font-mono mt-0.5">
-                        {user.phone}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    logout();
-                  }}
-                  className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-rose-200/80 bg-rose-50/50 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-100/70 hover:border-rose-300 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors shadow-xs"
-                >
-                  <LogOut className="h-3.5 w-3.5 shrink-0" />
-                  <span>{t('common.logout')}</span>
-                </button>
-              </div>
+              <SidebarUserProfile
+                displayName={displayName}
+                roleTitle={roleTitle}
+                phone={user?.phone}
+                onLogout={() => {
+                  setIsMobileMenuOpen(false);
+                  logout();
+                }}
+              />
             </div>
           </div>
         )}

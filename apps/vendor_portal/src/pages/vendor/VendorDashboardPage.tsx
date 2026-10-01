@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useVendorOutlet } from '../../contexts/VendorOutletContext';
 import { useKDSOrders } from '../../hooks/useKDSOrders';
 import { KDSOrderCard } from '../../components/kds/KDSOrderCard';
+import { KDSLaneColumn } from '../../components/kds/KDSLaneColumn';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -158,146 +159,72 @@ export const VendorDashboardPage: React.FC = () => {
       ) : (
         <div className="flex md:grid md:grid-cols-3 gap-3.5 sm:gap-4 overflow-x-auto snap-x snap-mandatory pb-3">
           {/* LANE 1: NEW ORDERS */}
-          <div
-            className={cn(
-              'flex flex-col rounded-xl border border-rose-200/80 bg-rose-50/25 p-3.5 sm:p-4 dark:border-rose-950/60 dark:bg-rose-950/10 shadow-xs shrink-0 md:shrink w-[88vw] sm:w-[360px] md:w-auto snap-center',
-              activeTab !== 'ALL' && activeTab !== 'NEW' && 'hidden md:flex'
-            )}
+          <KDSLaneColumn
+            title={t('kds.newOrders')}
+            count={newOrders.length}
+            colorVariant="rose"
+            badgeVariant="danger"
+            hasPing
+            emptyIcon={<Sparkles className="h-5 w-5" />}
+            emptyTitle={t('kds.noIncomingOrders')}
+            emptySubtitle={t('kds.noIncomingOrdersSub')}
+            isVisibleOnMobile={activeTab === 'ALL' || activeTab === 'NEW'}
           >
-            <div className="flex items-center justify-between border-b border-rose-200/60 pb-2.5 dark:border-rose-900/40">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2.5 w-2.5">
-                  {newOrders.length > 0 && (
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                  )}
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
-                </span>
-                <h3 className="font-bold text-xs sm:text-sm text-rose-950 dark:text-rose-200">
-                  {t('kds.newOrders')}
-                </h3>
-              </div>
-              <Badge variant="danger" size="sm" className="font-bold">
-                {newOrders.length}
-              </Badge>
-            </div>
-
-            <div className="mt-3 flex-1 space-y-3 overflow-y-auto max-h-[calc(100dvh-230px)] pr-1">
-              {newOrders.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center text-slate-400">
-                  <div className="h-10 w-10 rounded-xl bg-rose-100 dark:bg-rose-950/50 flex items-center justify-center mb-2 text-rose-500">
-                    <Sparkles className="h-5 w-5" />
-                  </div>
-                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    {t('kds.noIncomingOrders')}
-                  </p>
-                  <span className="text-[11px] text-slate-400 mt-0.5">
-                    {t('kds.noIncomingOrdersSub')}
-                  </span>
-                </div>
-              ) : (
-                newOrders.map((order) => (
-                  <KDSOrderCard
-                    key={order.id}
-                    order={order}
-                    onAccept={acceptOrder}
-                    onReject={rejectOrder}
-                    isActionLoading={isAccepting}
-                    isRejecting={isRejecting}
-                  />
-                ))
-              )}
-            </div>
-          </div>
+            {newOrders.map((order) => (
+              <KDSOrderCard
+                key={order.id}
+                order={order}
+                onAccept={acceptOrder}
+                onReject={rejectOrder}
+                isActionLoading={isAccepting}
+                isRejecting={isRejecting}
+              />
+            ))}
+          </KDSLaneColumn>
 
           {/* LANE 2: IN PREPARATION */}
-          <div
-            className={cn(
-              'flex flex-col rounded-xl border border-amber-200/80 bg-amber-50/25 p-3.5 sm:p-4 dark:border-amber-950/60 dark:bg-amber-950/10 shadow-xs shrink-0 md:shrink w-[88vw] sm:w-[360px] md:w-auto snap-center',
-              activeTab !== 'ALL' && activeTab !== 'PREPARING' && 'hidden md:flex'
-            )}
+          <KDSLaneColumn
+            title={t('kds.preparing')}
+            count={inPreparationOrders.length}
+            colorVariant="amber"
+            badgeVariant="warning"
+            headerIcon={<UtensilsCrossed className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+            emptyIcon={<Clock className="h-5 w-5" />}
+            emptyTitle={t('kds.kitchenQueueClear')}
+            emptySubtitle={t('kds.kitchenQueueClearSub')}
+            isVisibleOnMobile={activeTab === 'ALL' || activeTab === 'PREPARING'}
           >
-            <div className="flex items-center justify-between border-b border-amber-200/60 pb-2.5 dark:border-amber-900/40">
-              <div className="flex items-center gap-2">
-                <UtensilsCrossed className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                <h3 className="font-bold text-xs sm:text-sm text-amber-950 dark:text-amber-200">
-                  {t('kds.preparing')}
-                </h3>
-              </div>
-              <Badge variant="warning" size="sm" className="font-bold">
-                {inPreparationOrders.length}
-              </Badge>
-            </div>
-
-            <div className="mt-3 flex-1 space-y-3 overflow-y-auto max-h-[calc(100dvh-230px)] pr-1">
-              {inPreparationOrders.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center text-slate-400">
-                  <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center mb-2 text-amber-600">
-                    <Clock className="h-5 w-5" />
-                  </div>
-                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    {t('kds.kitchenQueueClear')}
-                  </p>
-                  <span className="text-[11px] text-slate-400 mt-0.5">
-                    {t('kds.kitchenQueueClearSub')}
-                  </span>
-                </div>
-              ) : (
-                inPreparationOrders.map((order) => (
-                  <KDSOrderCard
-                    key={order.id}
-                    order={order}
-                    onMarkReady={markOrderReady}
-                    isActionLoading={isMarkingReady}
-                  />
-                ))
-              )}
-            </div>
-          </div>
+            {inPreparationOrders.map((order) => (
+              <KDSOrderCard
+                key={order.id}
+                order={order}
+                onMarkReady={markOrderReady}
+                isActionLoading={isMarkingReady}
+              />
+            ))}
+          </KDSLaneColumn>
 
           {/* LANE 3: READY FOR PICKUP */}
-          <div
-            className={cn(
-              'flex flex-col rounded-xl border border-emerald-200/80 bg-emerald-50/25 p-3.5 sm:p-4 dark:border-emerald-950/60 dark:bg-emerald-950/10 shadow-xs shrink-0 md:shrink w-[88vw] sm:w-[360px] md:w-auto snap-center',
-              activeTab !== 'ALL' && activeTab !== 'READY' && 'hidden md:flex'
-            )}
+          <KDSLaneColumn
+            title={t('kds.ready')}
+            count={readyOrders.length}
+            colorVariant="emerald"
+            badgeVariant="success"
+            headerIcon={<CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
+            emptyIcon={<CheckCircle2 className="h-5 w-5" />}
+            emptyTitle={t('kds.counterClear')}
+            emptySubtitle={t('kds.counterClearSub')}
+            isVisibleOnMobile={activeTab === 'ALL' || activeTab === 'READY'}
           >
-            <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2.5 dark:border-emerald-900/40">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                <h3 className="font-bold text-xs sm:text-sm text-emerald-950 dark:text-emerald-200">
-                  {t('kds.ready')}
-                </h3>
-              </div>
-              <Badge variant="success" size="sm" className="font-bold">
-                {readyOrders.length}
-              </Badge>
-            </div>
-
-            <div className="mt-3.5 flex-1 space-y-3.5 overflow-y-auto max-h-[calc(100dvh-230px)] pr-1">
-              {readyOrders.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center text-slate-400">
-                  <div className="h-10 w-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 flex items-center justify-center mb-2 text-emerald-600">
-                    <CheckCircle2 className="h-5 w-5" />
-                  </div>
-                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    {t('kds.counterClear')}
-                  </p>
-                  <span className="text-[11px] text-slate-400 mt-0.5">
-                    {t('kds.counterClearSub')}
-                  </span>
-                </div>
-              ) : (
-                readyOrders.map((order) => (
-                  <KDSOrderCard
-                    key={order.id}
-                    order={order}
-                    onHandover={handoverOrder}
-                    isActionLoading={isHandingOver}
-                  />
-                ))
-              )}
-            </div>
-          </div>
+            {readyOrders.map((order) => (
+              <KDSOrderCard
+                key={order.id}
+                order={order}
+                onHandover={handoverOrder}
+                isActionLoading={isHandingOver}
+              />
+            ))}
+          </KDSLaneColumn>
         </div>
       )}
     </div>

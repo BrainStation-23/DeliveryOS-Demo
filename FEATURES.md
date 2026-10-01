@@ -73,7 +73,7 @@ This document provides a line-level, granular breakdown of every operational fea
   - *Backend*: Standardized deterministic rounding (`roundMoney`), canonical single-schema delivery fee engine (`DeliveryFeeConfig`).
   - *Customer App*: `QuantityStepper`, `SoldOutBadge`, `OrderStatusBadge`, `ApiErrorHandler`, Riverpod 2 `ProfileNotifier`, and decomposed `CartScreen` cards (`CartItemCard`, `BillSummaryCard`, `DeliveryAddressSelectorCard`, `OrderPlacedDialog`).
   - *Rider App*: `AppPrimaryButton`, unified `TripDestinationCard` (replaces duplicated pickup/delivery cards), and decomposed `PhoneLoginScreen` (`AuthBrandHeader`, `AuthTabToggle`, `PilotAccountsDebugCard`).
-  - *Vendor Portal*: Standalone `OrderRejectModal`, `useRushPause` hook, `SalesLedgerKPIs`, `SalesLedgerDetailModal`, and shared `formatters.ts`.
+  - *Vendor Portal*: Standalone `OrderRejectModal`, `KDSPrepTimePicker`, `KDSLaneColumn`, `useRushPause` hook, `SalesLedgerKPIs`, `SalesLedgerDetailModal`, `OrderDateFilterToolbar`, `CatalogFilterToolbar`, `CategoryFilterBar`, `CatalogProductCard`, `SidebarNavList`, `SidebarUserProfile`, modular settings widgets (`RushHourPauseWidget`, `DefaultPrepTimeWidget`, `OperatingHoursWidget`, `OutletProfileWidget`), and shared `formatters.ts`.
   - *Admin Portal*: `OrderDetailsModal`, `ForceAssignModal`, `CancelOrderModal`, `useSocketQueryInvalidation` hook, and shared `formatters.ts`.
 
 ---
@@ -224,13 +224,14 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Guaranteed Silence Invariant**: Audio loop automatically stops **only when all unaccepted orders in Lane 1 are accepted or rejected**.
 - **User Gesture Unlock**: Unlocks browser audio context on the first user interaction anywhere on the board.
 
-### 4.4. 1-Click Rush Hour Pause & Operational Controls
-- **Header Rush Hour Pause Toggle**: Immediate 1-click toggle in the top navigation bar (`VendorLayout`).
+### 4.4. 1-Click Rush Hour Pause & Modular Operational Settings
+- **Header Rush Hour Pause Toggle**: Immediate 1-click toggle in the top navigation bar (`VendorLayout`) with live bi-directional sync across all active views via `useRushPause`.
 - **Global Amber Pause Banner**: Full-width alert notifying staff that incoming customer orders are paused, featuring a 1-click `"Resume Orders Now"` button.
-- **Timings & Operations Screen (`VendorSettingsPage`)**:
-  - Standard preparation duration selector (`15`, `20`, `25`, `30`, `45` min).
-  - 7-day weekly opening and closing hours schedule with closed-day toggles and overnight shift support.
-  - Timed emergency pause (`30 minutes`, `1 hour`, `Rest of Day`).
+- **Modular Timings & Operations Screen (`VendorSettingsPage`)**:
+  - `RushHourPauseWidget`: Fast toggle with live sync to the top navigation bar and active outlet status indicators.
+  - `DefaultPrepTimeWidget`: Standard preparation duration selector pills (`15`, `20`, `25`, `30`, `45`, `60` min).
+  - `OperatingHoursWidget`: 7-day weekly schedule with open/close time inputs, closed switches, and "Copy To All" action.
+  - `OutletProfileWidget`: Read-only branch identification, phone, commission tier, and multi-outlet brand owner quick switcher.
 
 ### 4.5. Merchant Catalog & Stockout Management
 - **Dedicated Merchant Endpoint (`GET /vendor/catalog`)**:
@@ -242,13 +243,14 @@ This document provides a line-level, granular breakdown of every operational fea
   - Changes invalidate customer search and storefront menus immediately.
 
 ### 4.6. Itemized Sales Ledger & Financial Statements
-- **Date Range Filters**: Segmented switch between `Today` and `All Time` (`VendorOrdersPage`).
-- **Dynamic KPI Cards**: Completed Orders, Gross Sales Volume, Platform Commission Deducted (15%), Net Vendor Payable.
-- **Order Details Modal**:
-  - Customer contact snapshot and delivery address.
-  - Special cooking instructions note.
+- **Date Range Filters (`OrderDateFilterToolbar`)**: Fast preset pills (`Today`, `Yesterday`, `Last 7 Days`, `This Month`, `All Time`) plus custom start/end date range pickers (`VendorOrdersPage`).
+- **Dynamic KPI Cards (`SalesLedgerKPIs`)**: Completed Orders, Gross Sales Volume, Platform Commission Deducted, Net Vendor Payable.
+- **Order Details Modal (`SalesLedgerDetailModal`)**:
+  - Customer contact snapshot with direct phone dialer shortcut.
+  - Courier handover status, assigned rider name, phone dialer shortcut, and vehicle type.
+  - Special cooking instructions note highlighted in amber.
   - Full dish breakdown with variants, toppings, quantities, and line item subtotals.
-  - Financial breakdown: Gross, commission cut, net payable, and settlement status (`SETTLED` vs `PENDING`).
+  - Financial settlement breakdown: Gross total, platform commission cut (with rate percentage), highlighted net payable, and settlement status (`SETTLED` vs `PENDING`).
 
 ### 4.7. Responsive Touch Ergonomics & UI Components
 - **Tablet & Mobile Ergonomics**: Horizontally scrollable snap-track for tablet displays (768px-1024px) plus mobile lane selector tabs.
