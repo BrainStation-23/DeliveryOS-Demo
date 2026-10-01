@@ -32,10 +32,10 @@ export const StockToggleSwitch: React.FC<StockToggleSwitchProps> = ({
       disabled={disabled || isLoading}
       onClick={() => onToggle(!isInStock)}
       className={cn(
-        'group relative inline-flex items-center justify-between rounded-full transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary-500/30 select-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer',
+        'group relative inline-flex items-center justify-between rounded-full transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-500/40 select-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0',
         isSm
-          ? 'h-6 min-w-[76px] px-1 text-[10px] font-semibold'
-          : 'h-7.5 min-w-[88px] px-1 text-xs font-semibold shadow-xs',
+          ? 'h-6.5 w-[86px] p-0.5 text-[10px] font-semibold'
+          : 'h-8 w-[102px] p-1 text-xs font-semibold shadow-xs',
         isInStock
           ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
           : 'bg-rose-600 hover:bg-rose-700 text-white',
@@ -44,12 +44,12 @@ export const StockToggleSwitch: React.FC<StockToggleSwitchProps> = ({
     >
       <span
         className={cn(
-          'inline-flex items-center justify-center rounded-full bg-white shadow-xs transition-transform duration-200 ease-in-out shrink-0',
-          isSm ? 'h-4 w-4' : 'h-5.5 w-5.5',
+          'inline-flex items-center justify-center rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out shrink-0',
+          isSm ? 'h-5 w-5' : 'h-6 w-6',
           isInStock
             ? isSm
-              ? 'translate-x-[52px] text-emerald-600'
-              : 'translate-x-[60px] text-emerald-600'
+              ? 'translate-x-[62px] text-emerald-600'
+              : 'translate-x-[70px] text-emerald-600'
             : 'translate-x-0 text-rose-600'
         )}
       >
@@ -57,26 +57,26 @@ export const StockToggleSwitch: React.FC<StockToggleSwitchProps> = ({
           <span
             className={cn(
               'animate-spin rounded-full border-2 border-slate-300 border-t-slate-700',
-              isSm ? 'h-2.5 w-2.5' : 'h-3 w-3'
+              isSm ? 'h-3 w-3' : 'h-3.5 w-3.5'
             )}
           />
         ) : isInStock ? (
-          <Check className={cn(isSm ? 'h-2.5 w-2.5' : 'h-3 w-3')} />
+          <Check className={cn(isSm ? 'h-3 w-3' : 'h-3.5 w-3.5', 'stroke-[2.5]')} />
         ) : (
-          <X className={cn(isSm ? 'h-2.5 w-2.5' : 'h-3 w-3')} />
+          <X className={cn(isSm ? 'h-3 w-3' : 'h-3.5 w-3.5', 'stroke-[2.5]')} />
         )}
       </span>
 
       <span
         className={cn(
-          'absolute transition-opacity duration-150 leading-none select-none font-medium',
+          'absolute transition-opacity duration-150 leading-none select-none font-bold tracking-tight',
           isInStock
             ? isSm
-              ? 'left-2 text-white'
-              : 'left-2.5 text-white'
+              ? 'left-2.5 text-[10px] text-white'
+              : 'left-3 text-[11px] text-white'
             : isSm
-            ? 'right-2 text-white'
-            : 'right-2.5 text-white'
+            ? 'right-2.5 text-[10px] text-white'
+            : 'right-3 text-[11px] text-white'
         )}
       >
         {isInStock ? 'In Stock' : 'Sold Out'}
