@@ -29,6 +29,8 @@ export const CashDepositsSection: React.FC = () => {
     queryFn: () => adminApi.getCashDeposits(filterStatus === 'ALL' ? undefined : filterStatus),
   });
 
+  const safeDeposits = Array.isArray(deposits) ? deposits : [];
+
   const verifyMutation = useMutation({
     mutationFn: ({ id, action, notes }: { id: string; action: 'APPROVE' | 'REJECT'; notes?: string }) =>
       adminApi.verifyCashDeposit(id, action, notes),
@@ -45,7 +47,7 @@ export const CashDepositsSection: React.FC = () => {
     onError: (err) => setActionError(extractApiError(err, 'Failed to process deposit verification.')),
   });
 
-  const pendingCount = deposits.filter((d) => d.status === 'PENDING_APPROVAL').length;
+  const pendingCount = safeDeposits.filter((d) => d?.status === 'PENDING_APPROVAL').length;
 
   const handleOpenVerify = (deposit: CashDepositItem, action: 'APPROVE' | 'REJECT') => {
     setSelectedDeposit(deposit);
@@ -156,7 +158,7 @@ export const CashDepositsSection: React.FC = () => {
                   Loading courier deposits...
                 </td>
               </tr>
-            ) : deposits.length === 0 ? (
+            ) : safeDeposits.length === 0 ? (
               <tr>
                 <td colSpan={8} className="py-8 text-center text-slate-400">
                   {filterStatus === 'PENDING_APPROVAL'
@@ -165,7 +167,7 @@ export const CashDepositsSection: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              deposits.map((deposit) => {
+              safeDeposits.map((deposit) => {
                 const isPending = deposit.status === 'PENDING_APPROVAL';
                 const isVerified = deposit.status === 'VERIFIED';
                 const isRejected = deposit.status === 'REJECTED';
@@ -176,8 +178,8 @@ export const CashDepositsSection: React.FC = () => {
                     className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
                   >
                     <td className="py-3 px-4 font-medium text-slate-900 dark:text-slate-100">
-                      <div>{deposit.rider.user.fullName}</div>
-                      <div className="text-[11px] text-slate-400 font-normal">{deposit.rider.user.phone}</div>
+                      <div>{deposit.rider?.user?.fullName || 'Courier'}</div>
+                      <div className="text-[11px] text-slate-400 font-normal">{deposit.rider?.user?.phone || '—'}</div>
                     </td>
                     <td className="py-3 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
                       ৳{Number(deposit.amount).toFixed(2)}
@@ -192,9 +194,9 @@ export const CashDepositsSection: React.FC = () => {
                     </td>
                     <td className="py-3 px-3 text-right whitespace-nowrap">
                       <span className="font-medium text-amber-600 dark:text-amber-400">
-                        ৳{Number(deposit.rider.cashInHand).toFixed(0)}
+                        ৳{Number(deposit.rider?.cashInHand || 0).toFixed(0)}
                       </span>
-                      <span className="text-slate-400 text-[11px]"> / ৳{deposit.rider.maxCashLimit}</span>
+                      <span className="text-slate-400 text-[11px]"> / ৳{deposit.rider?.maxCashLimit || 0}</span>
                     </td>
                     <td className="py-3 px-3 text-center whitespace-nowrap">
                       {isPending && <Badge variant="warning">Pending Approval</Badge>}
@@ -276,7 +278,7 @@ export const CashDepositsSection: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-slate-500">Courier:</span>
                 <span className="font-semibold text-slate-900 dark:text-slate-100">
-                  {selectedDeposit.rider.user.fullName} ({selectedDeposit.rider.user.phone})
+                  {selectedDeposit.rider?.user?.fullName || 'Courier'} ({selectedDeposit.rider?.user?.phone || '—'})
                 </span>
               </div>
               <div className="flex justify-between">
@@ -300,7 +302,7 @@ export const CashDepositsSection: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-slate-500">Current Cash in Hand:</span>
                 <span className="font-medium text-amber-600 dark:text-amber-400">
-                  ৳{Number(selectedDeposit.rider.cashInHand).toFixed(0)} (Limit: ৳{selectedDeposit.rider.maxCashLimit})
+                  ৳{Number(selectedDeposit.rider?.cashInHand || 0).toFixed(0)} (Limit: ৳{selectedDeposit.rider?.maxCashLimit || 0})
                 </span>
               </div>
             </div>

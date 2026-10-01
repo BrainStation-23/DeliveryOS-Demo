@@ -201,19 +201,41 @@ export const adminApi = {
   // 1. Overview
   async getOverview(): Promise<AdminOverview> {
     const res = await apiClient.get('/api/v1/admin/overview');
-    return res.data?.data || res.data;
+    const payload = res.data?.data || res.data;
+    return {
+      metrics: payload?.metrics || {
+        totalOrders: 0,
+        todayOrders: 0,
+        activeRiders: 0,
+        ridersOnTrip: 0,
+        totalRiders: 0,
+        onlineVendors: 0,
+        totalVendors: 0,
+        todayVolume: 0,
+        todayCommission: 0,
+        todayNetPayable: 0,
+      },
+      recentOrders: Array.isArray(payload?.recentOrders) ? payload.recentOrders : [],
+    };
   },
 
   // 2. Fleet Radar
   async getFleet(): Promise<FleetRider[]> {
     const res = await apiClient.get('/api/v1/admin/fleet');
-    return res.data?.data || res.data;
+    const payload = res.data?.data || res.data;
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
   },
 
   async getRiders(params?: { approvalStatus?: 'ALL' | 'PENDING' | 'APPROVED'; isOnline?: boolean }): Promise<AdminRiderDetail[]> {
     const res = await apiClient.get('/api/v1/admin/riders', { params });
     const payload = res.data?.data || res.data;
-    return Array.isArray(payload) ? payload : (payload.data || []);
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
   },
 
   async setRiderApproval(riderId: string, isApproved: boolean): Promise<{ message: string; data: { id: string; isApproved: boolean } }> {
@@ -235,12 +257,43 @@ export const adminApi = {
     };
     const res = await apiClient.get('/api/v1/admin/orders', { params });
     const payload = res.data?.data || res.data;
+
+    let items: AdminOrder[] = [];
+    let total = 0;
+    let resolvedPage = page;
+    let resolvedLimit = limit;
+    let totalPages = 1;
+
+    if (Array.isArray(payload)) {
+      items = payload;
+      total = payload.length;
+    } else if (payload && typeof payload === 'object') {
+      if (Array.isArray(payload.items)) {
+        items = payload.items;
+        total = typeof payload.total === 'number' ? payload.total : items.length;
+        resolvedPage = typeof payload.page === 'number' ? payload.page : page;
+        resolvedLimit = typeof payload.limit === 'number' ? payload.limit : limit;
+        totalPages = typeof payload.totalPages === 'number' ? payload.totalPages : Math.ceil(total / resolvedLimit);
+      } else if (payload.data && typeof payload.data === 'object') {
+        if (Array.isArray(payload.data)) {
+          items = payload.data;
+          total = items.length;
+        } else if (Array.isArray(payload.data.items)) {
+          items = payload.data.items;
+          total = typeof payload.data.total === 'number' ? payload.data.total : items.length;
+          resolvedPage = typeof payload.data.page === 'number' ? payload.data.page : page;
+          resolvedLimit = typeof payload.data.limit === 'number' ? payload.data.limit : limit;
+          totalPages = typeof payload.data.totalPages === 'number' ? payload.data.totalPages : Math.ceil(total / resolvedLimit);
+        }
+      }
+    }
+
     return {
-      items: payload?.items ?? [],
-      total: payload?.total ?? 0,
-      page: payload?.page ?? page,
-      limit: payload?.limit ?? limit,
-      totalPages: payload?.totalPages ?? 1,
+      items: Array.isArray(items) ? items : [],
+      total: Math.max(0, total),
+      page: resolvedPage,
+      limit: resolvedLimit,
+      totalPages: Math.max(1, totalPages),
     };
   },
 
@@ -257,7 +310,11 @@ export const adminApi = {
   // 4. Banners
   async getBanners(): Promise<AdminBanner[]> {
     const res = await apiClient.get('/api/v1/admin/banners');
-    return res.data?.data || res.data;
+    const payload = res.data?.data || res.data;
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
   },
 
   async uploadImage(file: File): Promise<string> {
@@ -293,7 +350,11 @@ export const adminApi = {
   // 5. Coupons
   async getCoupons(): Promise<AdminCoupon[]> {
     const res = await apiClient.get('/api/v1/admin/coupons');
-    return res.data?.data || res.data;
+    const payload = res.data?.data || res.data;
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
   },
 
   async createCoupon(data: Partial<AdminCoupon>): Promise<AdminCoupon> {
@@ -313,7 +374,11 @@ export const adminApi = {
   // 6. Vendors & Staff
   async getVendors(): Promise<AdminVendor[]> {
     const res = await apiClient.get('/api/v1/admin/vendors');
-    return res.data?.data || res.data;
+    const payload = res.data?.data || res.data;
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
   },
 
   async createVendor(data: {
@@ -394,7 +459,11 @@ export const adminApi = {
     const res = await apiClient.get('/api/v1/admin/finance/settlement-export', {
       params: { format: 'json' },
     });
-    return res.data?.data || res.data;
+    const payload = res.data?.data || res.data;
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
   },
 
   async exportSettlementCsv(): Promise<Blob> {
@@ -414,7 +483,10 @@ export const adminApi = {
   async getSettlementBatches(): Promise<SettlementBatchItem[]> {
     const res = await apiClient.get('/api/v1/admin/finance/settlement-batches');
     const payload = res.data?.data || res.data;
-    return Array.isArray(payload) ? payload : (payload.data || []);
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
   },
 
   // 9. Rider Cash Deposits Governance
@@ -423,7 +495,10 @@ export const adminApi = {
       params: status ? { status } : undefined,
     });
     const payload = res.data?.data || res.data;
-    return Array.isArray(payload) ? payload : (payload.data || []);
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
   },
 
   async verifyCashDeposit(

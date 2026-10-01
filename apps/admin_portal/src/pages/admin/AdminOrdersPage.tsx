@@ -56,9 +56,11 @@ export const AdminOrdersPage: React.FC = () => {
     refetchInterval: 30000,
     placeholderData: (previous) => previous,
   });
-  const orders = ordersData?.items ?? [];
-  const totalPages = ordersData?.totalPages ?? 1;
-  const totalOrders = ordersData?.total ?? 0;
+  const orders: AdminOrder[] = Array.isArray(ordersData)
+    ? ordersData
+    : (Array.isArray(ordersData?.items) ? ordersData.items : []);
+  const totalPages = typeof ordersData?.totalPages === 'number' ? ordersData.totalPages : 1;
+  const totalOrders = typeof ordersData?.total === 'number' ? ordersData.total : orders.length;
 
   useSocketQueryInvalidation(ORDER_SOCKET_EVENTS, ORDER_QUERY_KEYS);
 
@@ -67,7 +69,10 @@ export const AdminOrdersPage: React.FC = () => {
     queryFn: adminApi.getFleet,
   });
 
-  const availableRiders = fleet.filter((r) => r.isOnline);
+  const safeFleet = Array.isArray(fleet) ? fleet : [];
+  const availableRiders = safeFleet.filter((r) => Boolean(r && r.isOnline));
+
+  const safeOrders = Array.isArray(orders) ? orders : [];
 
   useEffect(() => {
     if (orderNumberParam) {
@@ -76,9 +81,9 @@ export const AdminOrdersPage: React.FC = () => {
   }, [orderNumberParam]);
 
   useEffect(() => {
-    if (orderNumberParam && orders.length > 0 && autoHandledOrderNumber !== orderNumberParam) {
-      const matched = orders.find(
-        (o) => o.orderNumber.toLowerCase() === orderNumberParam.toLowerCase()
+    if (orderNumberParam && safeOrders.length > 0 && autoHandledOrderNumber !== orderNumberParam) {
+      const matched = safeOrders.find(
+        (o) => o && (o.orderNumber || '').toLowerCase() === orderNumberParam.toLowerCase()
       );
       if (matched) {
         setAutoHandledOrderNumber(orderNumberParam);
@@ -92,7 +97,7 @@ export const AdminOrdersPage: React.FC = () => {
         }
       }
     }
-  }, [orderNumberParam, orders, autoHandledOrderNumber, availableRiders]);
+  }, [orderNumberParam, safeOrders, autoHandledOrderNumber, availableRiders]);
 
   const forceAssignMutation = useMutation({
     mutationFn: ({ orderId, riderId }: { orderId: string; riderId: string }) =>
@@ -120,12 +125,13 @@ export const AdminOrdersPage: React.FC = () => {
     onError: (err) => setActionError(extractApiError(err, 'Order cancellation failed. Please retry.')),
   });
 
-  const filteredOrders = orders.filter((o) => {
-    const q = searchQuery.toLowerCase();
+  const filteredOrders = safeOrders.filter((o) => {
+    if (!o) return false;
+    const q = (searchQuery || '').toLowerCase();
     const matchesSearch =
-      o.orderNumber.toLowerCase().includes(q) ||
-      o.customerName.toLowerCase().includes(q) ||
-      o.vendorName.toLowerCase().includes(q) ||
+      (o.orderNumber || '').toLowerCase().includes(q) ||
+      (o.customerName || '').toLowerCase().includes(q) ||
+      (o.vendorName || '').toLowerCase().includes(q) ||
       (o.riderName && o.riderName.toLowerCase().includes(q)) ||
       (o.customerPhone && o.customerPhone.includes(q));
     return matchesSearch;

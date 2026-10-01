@@ -54,7 +54,9 @@ export const AdminDispatchPage: React.FC = () => {
     queryFn: () => adminApi.getOrders('PLACED', 1, 50),
     refetchInterval: 30000,
   });
-  const unassignedOrders: AdminOrder[] = unassignedData?.items ?? [];
+  const unassignedOrders: AdminOrder[] = Array.isArray(unassignedData)
+    ? unassignedData
+    : (Array.isArray(unassignedData?.items) ? unassignedData.items : []);
 
   const lastLocationPatchMapRef = React.useRef<Map<string, number>>(new Map());
 
@@ -148,29 +150,33 @@ export const AdminDispatchPage: React.FC = () => {
     onError: (err) => setMutationError(extractApiError(err, 'Courier approval update failed.')),
   });
 
-  const filteredFleet = fleet.filter((r) => {
+  const safeFleet = Array.isArray(fleet) ? fleet : [];
+  const filteredFleet = safeFleet.filter((r) => {
+    if (!r) return false;
     const matchesStatus = statusFilter === 'ALL' || r.status === statusFilter;
     const matchesApproval =
       approvalFilter === 'ALL' ||
       (approvalFilter === 'APPROVED' && r.isApproved !== false) ||
       (approvalFilter === 'PENDING' && r.isApproved === false);
+    const q = (searchQuery || '').toLowerCase();
     const matchesSearch =
-      r.riderName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.phone.includes(searchQuery) ||
-      r.vehicleType.toLowerCase().includes(searchQuery.toLowerCase());
+      (r.riderName || '').toLowerCase().includes(q) ||
+      (r.phone || '').includes(q) ||
+      (r.vehicleType || '').toLowerCase().includes(q);
     return matchesStatus && matchesApproval && matchesSearch;
   });
 
-  const onlineCount = fleet.filter((r) => r.isOnline).length;
-  const onTripCount = fleet.filter((r) => r.status === 'ON_TRIP').length;
-  const idleCount = fleet.filter((r) => r.status === 'ONLINE').length;
-  const safetyWarningsCount = fleet.filter((r) => r.cashSafetyWarning).length;
-  const pendingApplicantsCount = fleet.filter((r) => r.isApproved === false).length;
+  const onlineCount = safeFleet.filter((r) => Boolean(r && r.isOnline)).length;
+  const onTripCount = safeFleet.filter((r) => Boolean(r && r.status === 'ON_TRIP')).length;
+  const idleCount = safeFleet.filter((r) => Boolean(r && r.status === 'ONLINE')).length;
+  const safetyWarningsCount = safeFleet.filter((r) => Boolean(r && r.cashSafetyWarning)).length;
+  const pendingApplicantsCount = safeFleet.filter((r) => Boolean(r && r.isApproved === false)).length;
 
-  const maxAgingMinutes = unassignedOrders.length > 0
-    ? Math.max(...unassignedOrders.map((o) => Math.max(0, Math.floor((Date.now() - new Date(o.placedAt).getTime()) / 60000))))
+  const safeUnassignedOrders = Array.isArray(unassignedOrders) ? unassignedOrders : [];
+  const maxAgingMinutes = safeUnassignedOrders.length > 0
+    ? Math.max(...safeUnassignedOrders.map((o) => Math.max(0, Math.floor((Date.now() - new Date(o.placedAt).getTime()) / 60000))))
     : 0;
-  const totalPoolVolume = unassignedOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  const totalPoolVolume = safeUnassignedOrders.reduce((sum, o) => sum + (o?.totalAmount || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -249,7 +255,7 @@ export const AdminDispatchPage: React.FC = () => {
               Live Geographic Radar (Dhaka Zone)
             </h2>
             <p className="text-xs text-slate-500">
-              Real-time telemetry showing {onlineCount} active couriers and {unassignedOrders.length} unassigned order pickup targets.
+              Real-time telemetry showing {onlineCount} active couriers and {safeUnassignedOrders.length} unassigned order pickup targets.
             </p>
           </div>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800 self-start sm:self-auto">
@@ -270,11 +276,11 @@ export const AdminDispatchPage: React.FC = () => {
         )}
 
         <LiveFleetMap
-          fleet={fleet}
-          unassignedOrders={unassignedOrders}
+          fleet={safeFleet}
+          unassignedOrders={safeUnassignedOrders}
           selectedRiderId={selectedRider?.id}
           onSelectRider={(riderId) => {
-            const found = fleet.find((r) => r.id === riderId);
+            const found = safeFleet.find((r) => r.id === riderId);
             if (found) setSelectedRider(found);
           }}
         />
@@ -467,20 +473,20 @@ export const AdminDispatchPage: React.FC = () => {
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between mb-3">
               <span>Unassigned Order Pool</span>
-              <Badge variant="warning">{unassignedOrders.length} Waiting</Badge>
+              <Badge variant="warning">{safeUnassignedOrders.length} Waiting</Badge>
             </h2>
             <p className="text-xs text-slate-500 mb-4">
               Orders requiring courier pickup. Click to jump to the Order Lifecycle Monitor to force-assign.
             </p>
 
-            {unassignedOrders.length === 0 ? (
+            {safeUnassignedOrders.length === 0 ? (
               <EmptyState
                 icon={CheckCircle2}
                 message="All placed orders are currently secured by delivery riders!"
               />
             ) : (
               <div className="space-y-3">
-                {unassignedOrders.map((order) => (
+                {safeUnassignedOrders.map((order) => (
                   <div
                     key={order.id}
                     className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 text-xs dark:border-amber-900/50 dark:bg-amber-950/20"
@@ -511,7 +517,7 @@ export const AdminDispatchPage: React.FC = () => {
             <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-400">
               <div className="flex justify-between">
                 <span>Waiting Orders:</span>
-                <span className="font-semibold text-slate-900 dark:text-slate-100">{unassignedOrders.length} orders</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">{safeUnassignedOrders.length} orders</span>
               </div>
               <div className="flex justify-between">
                 <span>Pool Volume:</span>
@@ -520,7 +526,7 @@ export const AdminDispatchPage: React.FC = () => {
               <div className="flex justify-between">
                 <span>Max Order Wait:</span>
                 <span className={`font-semibold ${maxAgingMinutes >= 15 ? 'text-rose-600 font-bold animate-pulse' : 'text-slate-900 dark:text-slate-100'}`}>
-                  {unassignedOrders.length > 0 ? `${maxAgingMinutes} mins` : '0 mins'}
+                  {safeUnassignedOrders.length > 0 ? `${maxAgingMinutes} mins` : '0 mins'}
                 </span>
               </div>
               <div className="flex justify-between">

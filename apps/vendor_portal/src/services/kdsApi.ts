@@ -304,7 +304,8 @@ export const kdsApi = {
     }>
   > {
     const response = await apiClient.get('/api/v1/vendor/outlets');
-    return response.data?.data || response.data;
+    const payload = response.data?.data || response.data;
+    return Array.isArray(payload) ? payload : [];
   },
 
   /**
@@ -415,7 +416,23 @@ export const kdsApi = {
     if (dateFrom) params.dateFrom = dateFrom;
     if (dateTo) params.dateTo = dateTo;
     const response = await apiClient.get('/api/v1/vendor/sales', { params });
-    return response.data?.data || response.data;
+    const payload = response.data?.data || response.data;
+    if (!payload || typeof payload !== 'object') {
+      return {
+        summary: { totalOrders: 0, grossSales: 0, commissionDeducted: 0, netVendorPayable: 0 },
+        ledgers: [],
+      };
+    }
+    const ledgers = Array.isArray(payload.ledgers)
+      ? payload.ledgers
+      : (Array.isArray(payload) ? payload : []);
+    const summary = payload.summary || {
+      totalOrders: ledgers.length,
+      grossSales: 0,
+      commissionDeducted: 0,
+      netVendorPayable: 0,
+    };
+    return { summary, ledgers };
   },
 };
 

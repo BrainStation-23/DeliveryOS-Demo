@@ -66,6 +66,9 @@ export const AdminPromotionsPage: React.FC = () => {
     queryFn: adminApi.getCoupons,
   });
 
+  const safeBanners = Array.isArray(banners) ? banners : [];
+  const safeCoupons = Array.isArray(coupons) ? coupons : [];
+
   const createBannerMutation = useMutation({
     mutationFn: adminApi.createBanner,
     onSuccess: () => {
@@ -160,7 +163,7 @@ export const AdminPromotionsPage: React.FC = () => {
           }`}
         >
           <ImageIcon className="h-4 w-4 shrink-0" />
-          <span>Promotional Banners ({banners.length})</span>
+          <span>Promotional Banners ({safeBanners.length})</span>
         </button>
         <button
           onClick={() => setActiveTab('COUPONS')}
@@ -171,7 +174,7 @@ export const AdminPromotionsPage: React.FC = () => {
           }`}
         >
           <Percent className="h-4 w-4 shrink-0" />
-          <span>Discount Coupons ({coupons.length})</span>
+          <span>Discount Coupons ({safeCoupons.length})</span>
         </button>
       </div>
 
@@ -183,7 +186,7 @@ export const AdminPromotionsPage: React.FC = () => {
             </div>
           ) : isBannersError ? (
             <QueryErrorBanner error={bannersError} onRetry={() => refetchBanners()} />
-          ) : banners.length === 0 ? (
+          ) : safeBanners.length === 0 ? (
             <EmptyState
               icon={ImageIcon}
               title="No promotional banners"
@@ -200,7 +203,7 @@ export const AdminPromotionsPage: React.FC = () => {
             />
           ) : (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {banners.map((banner) => (
+              {safeBanners.map((banner) => (
                 <div
                   key={banner.id}
                   className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 flex flex-col justify-between"
@@ -281,7 +284,7 @@ export const AdminPromotionsPage: React.FC = () => {
             </div>
           ) : isCouponsError ? (
             <QueryErrorBanner error={couponsError} onRetry={() => refetchCoupons()} />
-          ) : coupons.length === 0 ? (
+          ) : safeCoupons.length === 0 ? (
             <EmptyState
               icon={Tag}
               title="No coupon codes"
@@ -312,7 +315,7 @@ export const AdminPromotionsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {coupons.map((coupon) => (
+                  {safeCoupons.map((coupon) => (
                     <tr key={coupon.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="py-3.5 px-4 font-bold tracking-wider text-slate-900 dark:text-slate-100 whitespace-nowrap">
                         {coupon.code}

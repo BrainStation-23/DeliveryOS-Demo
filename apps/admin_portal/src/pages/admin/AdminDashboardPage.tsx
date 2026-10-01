@@ -53,7 +53,7 @@ export const AdminDashboardPage: React.FC = () => {
   }, [queryClient]);
 
   const metrics = overview?.metrics;
-  const recentOrders = overview?.recentOrders || [];
+  const recentOrders = Array.isArray(overview?.recentOrders) ? overview.recentOrders : [];
 
   const stats = [
     {

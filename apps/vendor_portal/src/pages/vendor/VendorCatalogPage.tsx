@@ -44,12 +44,12 @@ export const VendorCatalogPage: React.FC = () => {
       await queryClient.cancelQueries({ queryKey: ['vendor-catalog', vendorId] });
       const previous = queryClient.getQueryData<OutletCatalog>(['vendor-catalog', vendorId]);
 
-      if (previous) {
+      if (previous && Array.isArray(previous.categories)) {
         queryClient.setQueryData<OutletCatalog>(['vendor-catalog', vendorId], {
           ...previous,
           categories: previous.categories.map((cat) => ({
             ...cat,
-            products: cat.products.map((p) =>
+            products: (Array.isArray(cat.products) ? cat.products : []).map((p) =>
               p.id === productId ? { ...p, isInStock } : p
             ),
           })),
@@ -71,14 +71,14 @@ export const VendorCatalogPage: React.FC = () => {
       await queryClient.cancelQueries({ queryKey: ['vendor-catalog', vendorId] });
       const previous = queryClient.getQueryData<OutletCatalog>(['vendor-catalog', vendorId]);
 
-      if (previous) {
+      if (previous && Array.isArray(previous.categories)) {
         queryClient.setQueryData<OutletCatalog>(['vendor-catalog', vendorId], {
           ...previous,
           categories: previous.categories.map((cat) => ({
             ...cat,
-            products: cat.products.map((p) => ({
+            products: (Array.isArray(cat.products) ? cat.products : []).map((p) => ({
               ...p,
-              variants: p.variants.map((v) =>
+              variants: (Array.isArray(p.variants) ? p.variants : []).map((v) =>
                 v.id === variantId ? { ...v, isInStock } : v
               ),
             })),
@@ -94,20 +94,23 @@ export const VendorCatalogPage: React.FC = () => {
     },
   });
 
-  const categories = catalog?.categories || [];
-  const allProducts = categories.flatMap((c) => c.products);
-  const totalInStock = allProducts.filter((p) => p.isInStock).length;
-  const totalOutOfStock = allProducts.filter((p) => !p.isInStock).length;
+  const categories = Array.isArray(catalog?.categories) ? catalog.categories : [];
+  const allProducts = categories.flatMap((c) => (Array.isArray(c?.products) ? c.products : []));
+  const totalInStock = allProducts.filter((p) => Boolean(p && p.isInStock)).length;
+  const totalOutOfStock = allProducts.filter((p) => Boolean(p && !p.isInStock)).length;
 
   const filteredCategories = categories
     .map((cat) => {
+      if (!cat) return null;
       if (selectedCategory !== 'ALL' && cat.id !== selectedCategory) {
         return null;
       }
-      const matchingProducts = cat.products.filter(
+      const catProducts = Array.isArray(cat.products) ? cat.products : [];
+      const q = (searchQuery || '').toLowerCase();
+      const matchingProducts = catProducts.filter(
         (p) =>
-          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.description?.toLowerCase().includes(searchQuery.toLowerCase())
+          Boolean(p && (p.name || '').toLowerCase().includes(q)) ||
+          Boolean(p && p.description && p.description.toLowerCase().includes(q))
       );
       return { ...cat, products: matchingProducts };
     })

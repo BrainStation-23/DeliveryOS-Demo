@@ -174,16 +174,18 @@ export const useKDSOrders = (vendorId?: string) => {
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<KDSOrder[]>(queryKey);
       queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => {
-        const next = old.map((o) => (o.id === orderId ? { ...o, status: 'PREPARING' as const } : o));
+        const safeOld = Array.isArray(old) ? old : [];
+        const next = safeOld.map((o) => (o.id === orderId ? { ...o, status: 'PREPARING' as const } : o));
         silenceAlarmIfAllAccepted(next);
         return next;
       });
       return { previous };
     },
     onSuccess: (updatedOrder) => {
-      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) =>
-        old.map((o) => (o.id === updatedOrder.id ? { ...o, ...updatedOrder, status: 'PREPARING' as const } : o)),
-      );
+      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => {
+        const safeOld = Array.isArray(old) ? old : [];
+        return safeOld.map((o) => (o.id === updatedOrder.id ? { ...o, ...updatedOrder, status: 'PREPARING' as const } : o));
+      });
     },
     onError: (error, _vars, context) => {
       if (context?.previous) {
@@ -212,16 +214,18 @@ export const useKDSOrders = (vendorId?: string) => {
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<KDSOrder[]>(queryKey);
       queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => {
-        const next = old.filter((o) => o.id !== orderId);
+        const safeOld = Array.isArray(old) ? old : [];
+        const next = safeOld.filter((o) => o.id !== orderId);
         silenceAlarmIfAllAccepted(next);
         return next;
       });
       return { previous };
     },
     onSuccess: (updatedOrder) => {
-      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) =>
-        old.filter((o) => o.id !== updatedOrder.id),
-      );
+      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => {
+        const safeOld = Array.isArray(old) ? old : [];
+        return safeOld.filter((o) => o.id !== updatedOrder.id);
+      });
     },
     onError: (error, _vars, context) => {
       if (context?.previous) {
@@ -241,15 +245,17 @@ export const useKDSOrders = (vendorId?: string) => {
       setActionError(null);
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<KDSOrder[]>(queryKey);
-      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) =>
-        old.map((o) => (o.id === orderId ? { ...o, status: 'READY_FOR_PICKUP' as const } : o)),
-      );
+      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => {
+        const safeOld = Array.isArray(old) ? old : [];
+        return safeOld.map((o) => (o.id === orderId ? { ...o, status: 'READY_FOR_PICKUP' as const } : o));
+      });
       return { previous };
     },
     onSuccess: (updatedOrder) => {
-      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) =>
-        old.map((o) => (o.id === updatedOrder.id ? { ...o, ...updatedOrder, status: 'READY_FOR_PICKUP' } : o)),
-      );
+      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => {
+        const safeOld = Array.isArray(old) ? old : [];
+        return safeOld.map((o) => (o.id === updatedOrder.id ? { ...o, ...updatedOrder, status: 'READY_FOR_PICKUP' } : o));
+      });
     },
     onError: (error, _orderId, context) => {
       if (context?.previous) {
@@ -269,13 +275,17 @@ export const useKDSOrders = (vendorId?: string) => {
       setActionError(null);
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<KDSOrder[]>(queryKey);
-      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => old.filter((o) => o.id !== orderId));
+      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => {
+        const safeOld = Array.isArray(old) ? old : [];
+        return safeOld.filter((o) => o.id !== orderId);
+      });
       return { previous };
     },
     onSuccess: (updatedOrder) => {
-      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) =>
-        old.filter((o) => o.id !== updatedOrder.id),
-      );
+      queryClient.setQueryData<KDSOrder[]>(queryKey, (old = []) => {
+        const safeOld = Array.isArray(old) ? old : [];
+        return safeOld.filter((o) => o.id !== updatedOrder.id);
+      });
     },
     onError: (error, _orderId, context) => {
       if (context?.previous) {

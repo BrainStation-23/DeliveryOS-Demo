@@ -59,10 +59,12 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
 
     layer.clearLayers();
     const bounds: L.LatLngExpression[] = [];
+    const safeFleet = Array.isArray(fleet) ? fleet : [];
+    const safeOrders = Array.isArray(unassignedOrders) ? unassignedOrders : [];
 
-    fleet.forEach((rider) => {
+    safeFleet.forEach((rider) => {
       // Riders without a GPS fix are not plotted.
-      if (rider.latitude == null || rider.longitude == null) return;
+      if (!rider || rider.latitude == null || rider.longitude == null) return;
       const lat = rider.latitude;
       const lng = rider.longitude;
       bounds.push([lat, lng]);
@@ -126,8 +128,8 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
 
     // Pins sit at the real vendor pickup coordinates; orders without a known
     // vendor location are skipped rather than drawn at fabricated positions.
-    unassignedOrders
-      .filter((order) => typeof order.vendorLatitude === 'number' && typeof order.vendorLongitude === 'number')
+    safeOrders
+      .filter((order) => order && typeof order.vendorLatitude === 'number' && typeof order.vendorLongitude === 'number')
       .forEach((order) => {
       const lat = order.vendorLatitude as number;
       const lng = order.vendorLongitude as number;

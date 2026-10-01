@@ -36,6 +36,8 @@ export function Table<T>({
   totalItems,
   onPageChange,
 }: TableProps<T>) {
+  const safeData = Array.isArray(data) ? data : [];
+
   return (
     <div className={cn('overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900', className)}>
       <div className="overflow-x-auto">
@@ -66,14 +68,14 @@ export function Table<T>({
                   </div>
                 </td>
               </tr>
-            ) : data.length === 0 ? (
+            ) : safeData.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-6 py-12 text-center text-slate-400 dark:text-slate-500">
                   {emptyMessage}
                 </td>
               </tr>
             ) : (
-              data.map((item, index) => (
+              safeData.map((item, index) => (
                 <tr
                   key={keyExtractor(item, index)}
                   onClick={() => onRowClick && onRowClick(item)}

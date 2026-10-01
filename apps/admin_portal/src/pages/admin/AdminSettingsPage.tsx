@@ -131,10 +131,13 @@ export const AdminSettingsPage: React.FC = () => {
   };
 
   const currentFlowMode = settings?.orderFlow?.mode || 'RIDER_FIRST';
-  const totalGross = settlements.reduce((acc, s) => acc + s.grossSales, 0);
-  const totalCommission = settlements.reduce((acc, s) => acc + s.platformCommission, 0);
-  const totalPayable = settlements.reduce((acc, s) => acc + s.netVendorPayable, 0);
-  const totalOrders = settlements.reduce((acc, s) => acc + s.totalOrders, 0);
+  const safeSettlements = Array.isArray(settlements) ? settlements : [];
+  const safeBatches = Array.isArray(batches) ? batches : [];
+
+  const totalGross = safeSettlements.reduce((acc, s) => acc + (s?.grossSales || 0), 0);
+  const totalCommission = safeSettlements.reduce((acc, s) => acc + (s?.platformCommission || 0), 0);
+  const totalPayable = safeSettlements.reduce((acc, s) => acc + (s?.netVendorPayable || 0), 0);
+  const totalOrders = safeSettlements.reduce((acc, s) => acc + (s?.totalOrders || 0), 0);
 
   return (
     <div className="space-y-8">
@@ -420,14 +423,14 @@ export const AdminSettingsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {settlements.length === 0 ? (
+              {safeSettlements.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400 italic">
                     No ledger transactions recorded yet.
                   </td>
                 </tr>
               ) : (
-                settlements.map((statement) => (
+                safeSettlements.map((statement) => (
                   <tr key={statement.vendorId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="py-3.5 px-3 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                       {statement.vendorName}
@@ -486,14 +489,14 @@ export const AdminSettingsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {batches.length === 0 ? (
+                {safeBatches.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-6 text-center text-slate-400 italic">
                       No settlement batches executed yet.
                     </td>
                   </tr>
                 ) : (
-                  batches.map((batch) => (
+                  safeBatches.map((batch) => (
                     <tr key={batch.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="py-3 px-3 font-mono font-semibold text-primary-600 dark:text-primary-400 whitespace-nowrap">
                         {batch.batchNumber}

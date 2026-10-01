@@ -43,18 +43,18 @@ export const VendorOrdersPage: React.FC = () => {
     queryFn: () => kdsApi.getSalesLedger(activeOutletId, dateFromIso),
   });
 
-  const rawLedgers: LedgerItem[] = salesData?.ledgers || [];
+  const rawLedgers: LedgerItem[] = Array.isArray(salesData?.ledgers) ? salesData.ledgers : [];
 
   const summary = useMemo(() => {
     if (salesData?.summary) {
       return salesData.summary;
     }
     const totalOrders = rawLedgers.length;
-    const grossSales = rawLedgers.reduce((acc, l) => acc + Number(l.grossAmount || 0), 0);
+    const grossSales = rawLedgers.reduce((acc, l) => acc + Number(l?.grossAmount || 0), 0);
     const commissionDeducted =
-      Math.round(rawLedgers.reduce((acc, l) => acc + Number(l.commissionAmount || 0), 0) * 100) / 100;
+      Math.round(rawLedgers.reduce((acc, l) => acc + Number(l?.commissionAmount || 0), 0) * 100) / 100;
     const netVendorPayable =
-      Math.round(rawLedgers.reduce((acc, l) => acc + Number(l.netVendorPayable || 0), 0) * 100) / 100;
+      Math.round(rawLedgers.reduce((acc, l) => acc + Number(l?.netVendorPayable || 0), 0) * 100) / 100;
 
     return {
       totalOrders,
@@ -65,10 +65,12 @@ export const VendorOrdersPage: React.FC = () => {
   }, [salesData, rawLedgers]);
 
   const filteredLedgers = rawLedgers.filter((l) => {
+    if (!l) return false;
+    const q = (searchQuery || '').toLowerCase();
     const matchesSearch =
-      l.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      l.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      l.vendorName.toLowerCase().includes(searchQuery.toLowerCase());
+      (l.orderNumber || '').toLowerCase().includes(q) ||
+      (l.customerName || '').toLowerCase().includes(q) ||
+      (l.vendorName || '').toLowerCase().includes(q);
     const matchesStatus =
       statusFilter === 'ALL' || l.settlementStatus === statusFilter;
     return matchesSearch && matchesStatus;

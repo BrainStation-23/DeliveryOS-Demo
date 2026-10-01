@@ -57,7 +57,9 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
   const customerName = order.customer?.fullName || order.customerPhoneSnapshot || 'Customer';
   const riderName = order.rider?.fullName || order.rider?.user?.fullName;
   const riderPhone = order.rider?.phone || order.rider?.user?.phone;
-  const items: KDSOrderItem[] = order.items || order.orderItems || [];
+  const items: KDSOrderItem[] = Array.isArray(order.items)
+    ? order.items
+    : (Array.isArray(order.orderItems) ? order.orderItems : []);
 
   return (
     <div
@@ -124,7 +126,9 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
           const productName = item.productName || item.productNameSnapshot || 'Item';
           const subtotal = item.subtotal ?? item.totalPrice ?? 0;
           const variantName = item.variant?.name || item.variantSnapshot?.name;
-          const toppings = item.toppings || item.addonsSnapshot || [];
+          const toppings = Array.isArray(item.toppings)
+            ? item.toppings
+            : (Array.isArray(item.addonsSnapshot) ? item.addonsSnapshot : []);
 
           return (
             <div key={item.id} className="text-xs">

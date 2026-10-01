@@ -49,6 +49,8 @@ export const AdminVendorsPage: React.FC = () => {
     queryFn: adminApi.getVendors,
   });
 
+  const safeVendors = Array.isArray(vendors) ? vendors : [];
+
   const createVendorMutation = useMutation({
     mutationFn: adminApi.createVendor,
     onSuccess: () => {
@@ -135,7 +137,7 @@ export const AdminVendorsPage: React.FC = () => {
         </div>
       ) : isError ? (
         <QueryErrorBanner error={error} onRetry={() => refetch()} />
-      ) : vendors.length === 0 ? (
+      ) : safeVendors.length === 0 ? (
         <EmptyState
           icon={Store}
           title="No merchant outlets"
@@ -152,7 +154,9 @@ export const AdminVendorsPage: React.FC = () => {
         />
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {vendors.map((vendor) => (
+          {safeVendors.map((vendor) => {
+            const safeStaff = Array.isArray(vendor.staff) ? vendor.staff : [];
+            return (
             <div
               key={vendor.id}
               className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 flex flex-col justify-between"
@@ -199,7 +203,7 @@ export const AdminVendorsPage: React.FC = () => {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                       <Users className="h-3.5 w-3.5 text-slate-400" />
-                      Assigned Management Staff ({vendor.staff.length})
+                      Assigned Management Staff ({safeStaff.length})
                     </span>
                     <Button
                       variant="ghost"
@@ -214,11 +218,11 @@ export const AdminVendorsPage: React.FC = () => {
                     </Button>
                   </div>
 
-                  {vendor.staff.length === 0 ? (
+                  {safeStaff.length === 0 ? (
                     <div className="text-[11px] text-slate-400 italic py-1">No staff members assigned yet.</div>
                   ) : (
                     <div className="space-y-1.5">
-                      {vendor.staff.map((s) => (
+                      {safeStaff.map((s) => (
                         <div
                           key={s.id}
                           className="flex items-center justify-between rounded-lg border border-slate-100 bg-white p-2 text-xs dark:border-slate-800 dark:bg-slate-900/50"
@@ -286,7 +290,8 @@ export const AdminVendorsPage: React.FC = () => {
                 </div>
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
 

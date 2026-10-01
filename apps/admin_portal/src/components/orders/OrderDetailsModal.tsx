@@ -23,6 +23,8 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
 }) => {
   if (!order) return null;
 
+  const safeItems = Array.isArray(order.items) ? order.items : [];
+
   return (
     <Modal
       isOpen={isOpen}
@@ -149,13 +151,13 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
           <div className="flex items-center justify-between text-xs font-semibold text-slate-900 dark:text-slate-100 mb-2">
             <span className="flex items-center gap-1.5">
               <ShoppingBag className="h-3.5 w-3.5 text-primary-600" />
-              Line Items ({order.items?.length || 0})
+              Line Items ({safeItems.length})
             </span>
             <span className="text-slate-500 font-normal">Subtotal</span>
           </div>
           <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 dark:border-slate-800 dark:divide-slate-800 overflow-hidden text-xs">
-            {order.items && order.items.length > 0 ? (
-              order.items.map((item) => (
+            {safeItems.length > 0 ? (
+              safeItems.map((item) => (
                 <div key={item.id} className="p-2.5 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/40">
                   <div>
                     <span className="font-semibold text-slate-800 dark:text-slate-200">{item.name}</span>
@@ -179,7 +181,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
             <span>Items Subtotal:</span>
             <span>
               {formatCurrency(
-                order.items?.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0) ||
+                safeItems.reduce((sum, i) => sum + (i?.quantity || 0) * (i?.unitPrice || 0), 0) ||
                   order.totalAmount - (order.deliveryFee || 0)
               )}
             </span>
