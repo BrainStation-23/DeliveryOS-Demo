@@ -1,18 +1,44 @@
 import '../../../../core/utils/numeric_parser.dart';
 
+class AddonSnapshotItem {
+  final String id;
+  final String name;
+  final double price;
+
+  const AddonSnapshotItem({
+    required this.id,
+    required this.name,
+    required this.price,
+  });
+
+  factory AddonSnapshotItem.fromJson(Map<String, dynamic> json) {
+    return AddonSnapshotItem(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      price: parseDouble(json['price']),
+    );
+  }
+}
+
 class OrderItemSummary {
   final String productId;
   final String name;
   final int quantity;
   final double unitPrice;
+  final String? variantId;
   final String? variantName;
+  final double? variantPriceModifier;
+  final List<AddonSnapshotItem> addons;
 
   OrderItemSummary({
     required this.productId,
     required this.name,
     required this.quantity,
     required this.unitPrice,
+    this.variantId,
     this.variantName,
+    this.variantPriceModifier,
+    this.addons = const [],
   });
 
   double get totalPrice => unitPrice * quantity;
@@ -21,9 +47,19 @@ class OrderItemSummary {
     final variantSnap = json['variantSnapshot'] is Map<String, dynamic>
         ? json['variantSnapshot'] as Map<String, dynamic>
         : null;
+    final variantId = variantSnap?['id']?.toString() ?? json['variantId']?.toString();
     final variantName = variantSnap?['name']?.toString() ??
         json['variantName']?.toString() ??
         json['variant_name']?.toString();
+    final variantPriceModifier = variantSnap != null ? parseDouble(variantSnap['priceModifier']) : null;
+
+    final addonsRaw = json['addonsSnapshot'] as List<dynamic>? ??
+        json['addons'] as List<dynamic>? ??
+        [];
+    final addons = addonsRaw
+        .whereType<Map<String, dynamic>>()
+        .map((a) => AddonSnapshotItem.fromJson(a))
+        .toList();
 
     return OrderItemSummary(
       productId: json['productId'] as String? ?? json['product_id'] as String? ?? '',
@@ -33,7 +69,10 @@ class OrderItemSummary {
           'Menu Item',
       quantity: parseInt(json['quantity'], 1),
       unitPrice: parseDouble(json['unitPrice'] ?? json['unit_price']),
+      variantId: variantId,
       variantName: variantName,
+      variantPriceModifier: variantPriceModifier,
+      addons: addons,
     );
   }
 }

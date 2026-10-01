@@ -30,6 +30,7 @@ describe('Order State Machine (ADR-002)', () => {
     expect(() => assertTransition(OrderStatus.DELIVERED, OrderStatus.CANCELLED)).toThrow();
     expect(() => assertTransition(OrderStatus.CANCELLED, OrderStatus.PLACED)).toThrow();
     expect(() => assertTransition(OrderStatus.PLACED, OrderStatus.DISPATCHED)).toThrow();
+    expect(() => assertTransition(OrderStatus.RIDER_ASSIGNED, OrderStatus.DISPATCHED)).toThrow();
     expect(() => assertTransition(OrderStatus.DISPATCHED, OrderStatus.PREPARING)).toThrow();
     expect(() => assertTransition(OrderStatus.DELIVERED, OrderStatus.DISPATCHED)).toThrow();
   });

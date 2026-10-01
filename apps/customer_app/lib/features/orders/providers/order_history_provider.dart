@@ -93,8 +93,8 @@ class OrderHistoryNotifier extends Notifier<OrderHistoryState> {
         final data = response.data['data'] as Map<String, dynamic>? ?? {};
         final result = ReorderValidationResult.fromJson(data);
 
-        if (result.isStoreOperational && result.unavailableItems.isEmpty) {
-          _populateCartWithPastOrder(pastOrder);
+        if (result.isStoreOperational) {
+          _populateCartWithAvailableItems(pastOrder, result);
         }
         return result;
       }
@@ -110,11 +110,21 @@ class OrderHistoryNotifier extends Notifier<OrderHistoryState> {
     );
   }
 
-  void _populateCartWithPastOrder(PastOrder pastOrder) {
+  void _populateCartWithAvailableItems(PastOrder pastOrder, ReorderValidationResult result) {
     final cartNotifier = ref.read(cartProvider.notifier);
     cartNotifier.clearCart();
 
+    final unavailableSet = result.unavailableItems
+        .map((u) => u.toLowerCase().trim())
+        .toSet();
+
     for (final item in pastOrder.items) {
+      final isUnavailable = unavailableSet.contains(item.name.toLowerCase().trim()) ||
+          unavailableSet.contains(item.productId.toLowerCase().trim());
+      if (isUnavailable) {
+        continue;
+      }
+
       final product = ProductModel(
         id: item.productId,
         name: item.name,
@@ -122,10 +132,32 @@ class OrderHistoryNotifier extends Notifier<OrderHistoryState> {
         unitType: 'portion',
         isInStock: true,
       );
+
+      VariantModel? selectedVariant;
+      if (item.variantId != null && item.variantName != null) {
+        selectedVariant = VariantModel(
+          id: item.variantId!,
+          name: item.variantName!,
+          price: item.variantPriceModifier ?? 0.0,
+          isInStock: true,
+        );
+      }
+
+      final selectedAddons = item.addons
+          .map((a) => AddonModel(
+                id: a.id,
+                name: a.name,
+                price: a.price,
+                isInStock: true,
+              ))
+          .toList();
+
       cartNotifier.addItem(
         vendorId: pastOrder.vendorId,
         vendorName: pastOrder.vendorName,
         product: product,
+        selectedVariant: selectedVariant,
+        selectedAddons: selectedAddons,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         forceReplace: true,

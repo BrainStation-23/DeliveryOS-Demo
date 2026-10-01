@@ -44,7 +44,8 @@ async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = localStorage.getItem(ADMIN_REFRESH_KEY);
   if (!refreshToken) return null;
   try {
-    const res = await axios.post('/api/v1/auth/refresh', { refreshToken });
+    const baseUrl = apiClient.defaults.baseURL || '';
+    const res = await axios.post(`${baseUrl}/api/v1/auth/refresh`, { refreshToken });
     const payload = res.data?.data || res.data;
     if (!payload?.accessToken || !payload?.refreshToken) return null;
     localStorage.setItem(ADMIN_TOKEN_KEY, payload.accessToken);

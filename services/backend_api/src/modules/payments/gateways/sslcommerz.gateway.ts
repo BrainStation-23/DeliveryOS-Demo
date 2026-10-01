@@ -68,9 +68,10 @@ export class SslCommerzGatewayAdapter implements IPaymentGateway {
       cus_city: 'N/A',
       cus_country: 'Bangladesh',
       emi_option: '0',
+      value_a: params.orderId,
     });
 
-    const response = await fetch(`${this.baseUrl}/validator/api.php`, {
+    const response = await fetch(`${this.baseUrl}/gwprocess/v4/api.php`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: form,

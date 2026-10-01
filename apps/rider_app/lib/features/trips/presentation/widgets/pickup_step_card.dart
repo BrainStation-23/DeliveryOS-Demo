@@ -18,8 +18,7 @@ class PickupStepCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isPreparing = trip.status == 'PREPARING';
-    final bool isReadyForPickup = !isPreparing;
+    final bool isReadyForPickup = trip.status == 'READY_FOR_PICKUP';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

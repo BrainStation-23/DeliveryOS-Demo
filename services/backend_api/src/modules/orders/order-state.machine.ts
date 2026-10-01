@@ -11,7 +11,6 @@ export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   RIDER_ASSIGNED: [
     OrderStatus.PREPARING,
     OrderStatus.READY_FOR_PICKUP,
-    OrderStatus.DISPATCHED,
     OrderStatus.CANCELLED,
   ],
   ACCEPTED: [OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED], // Deprecated, preserved for safety

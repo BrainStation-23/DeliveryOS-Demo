@@ -1128,18 +1128,33 @@ export class AdminService {
         totalPlatformMargin += Number(c.commissionAmount);
       }
 
+      // Group pending trips by riderId to calculate per-courier net payouts
+      const riderNetMap = new Map<string, { gross: number; cod: number }>();
       for (const t of pendingTrips) {
-        totalRiderGrossEarnings += Number(t.deliveryEarnings);
-        totalRiderCodCollected += Number(t.codCollected || 0);
+        const gross = Number(t.deliveryEarnings);
+        const cod = Number(t.codCollected || 0);
+        totalRiderGrossEarnings += gross;
+        totalRiderCodCollected += cod;
+
+        const current = riderNetMap.get(t.riderId) || { gross: 0, cod: 0 };
+        current.gross += gross;
+        current.cod += cod;
+        riderNetMap.set(t.riderId, current);
+      }
+
+      let totalRiderPayout = 0;
+      for (const [, balance] of riderNetMap) {
+        const net = balance.gross - balance.cod;
+        if (net > 0) {
+          totalRiderPayout += net;
+        }
       }
 
       totalVendorPayout = Math.round(totalVendorPayout * 100) / 100;
       totalPlatformMargin = Math.round(totalPlatformMargin * 100) / 100;
       totalRiderGrossEarnings = Math.round(totalRiderGrossEarnings * 100) / 100;
       totalRiderCodCollected = Math.round(totalRiderCodCollected * 100) / 100;
-
-      // Net Rider Payout: Delivery gross earnings offset by collected COD cash held by couriers
-      const totalRiderPayout = Math.max(0, Math.round((totalRiderGrossEarnings - totalRiderCodCollected) * 100) / 100);
+      totalRiderPayout = Math.round(totalRiderPayout * 100) / 100;
 
       const orderIds = Array.from(
         new Set([...pendingCommissions.map((c) => c.orderId), ...pendingTrips.map((t) => t.orderId)]),

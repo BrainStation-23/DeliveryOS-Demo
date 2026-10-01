@@ -61,6 +61,10 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
     final socket = ref.watch(riderSocketServiceProvider);
 
     void handleBroadcast(dynamic payload) {
+      final isOnline = ref.read(riderDutyProvider).isOnline;
+      if (!isOnline || state.hasActiveTrip) {
+        return;
+      }
       if (payload is Map<String, dynamic>) {
         final data = payload['data'] is Map<String, dynamic>
             ? payload['data'] as Map<String, dynamic>
@@ -175,6 +179,14 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
     _countdownTimer = null;
   }
 
+  void updateTripStatus(String newStatus) {
+    if (state.activeTrip != null) {
+      state = state.copyWith(
+        activeTrip: state.activeTrip!.copyWith(status: newStatus),
+      );
+    }
+  }
+
   void triggerBroadcastAlert(TripOrder trip) {
     _countdownTimer?.cancel();
     state = state.copyWith(
@@ -276,7 +288,7 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
 
     final claimedTrip = trip.copyWith(
       currentStep: TripStep.pickup,
-      status: 'RIDER_ASSIGNED',
+      status: claimedPayload['status']?.toString() ?? 'RIDER_ASSIGNED',
       isCod: isCodClaimed,
       totalAmount: totalAmount,
       payout: payout,
@@ -300,10 +312,10 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
     final trip = state.activeTrip;
     if (trip == null) return false;
 
-    // FSM Guard (B8): Order cannot be picked up while kitchen is actively preparing
-    if (trip.status == 'PREPARING') {
+    // FSM Guard (B8): Order can only be picked up once marked READY_FOR_PICKUP by kitchen
+    if (trip.status != 'READY_FOR_PICKUP') {
       state = state.copyWith(
-        error: 'Order is still being prepared by kitchen. Please wait until ready for pickup.',
+        error: 'Order is not ready for pickup yet. Please wait until the kitchen marks it ready.',
       );
       return false;
     }

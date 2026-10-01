@@ -22,6 +22,7 @@ function buildService(options: {
         role: UserRole.CUSTOMER,
         status: AccountStatus.ACTIVE,
       }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     rider: { create: jest.fn().mockResolvedValue({}) },
   };
@@ -338,12 +339,17 @@ describe('AuthService - logout', () => {
     delete process.env.JWT_REFRESH_SECRET;
   });
 
-  it('revokes the presented refresh jti', async () => {
-    const { service, redis } = buildService({});
+  it('revokes the presented refresh jti, purges user cache, and clears FCM token', async () => {
+    const { service, redis, prisma } = buildService({});
     const token = jwt.sign({ sub: 'user-1', type: 'refresh', jti: 'logout-jti' }, TEST_REFRESH_SECRET);
 
     await expect(service.logout(token)).resolves.toBeUndefined();
     expect(redis.del).toHaveBeenCalledWith('auth:refresh:logout-jti');
+    expect(redis.del).toHaveBeenCalledWith('auth:user:user-1');
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { fcmToken: null },
+    });
   });
 
   it('is idempotent for invalid or expired tokens', async () => {

@@ -21,6 +21,7 @@ import { PageHeader } from '../../components/common/PageHeader';
 import { StatCard } from '../../components/common/StatCard';
 import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { extractApiError } from '../../utils/apiError';
+import { CashDepositsSection } from '../../components/finance/CashDepositsSection';
 
 export const AdminSettingsPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -523,6 +524,8 @@ export const AdminSettingsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <CashDepositsSection />
 
       <Modal
         isOpen={isSettleModalOpen}

@@ -115,13 +115,30 @@ void main() {
       notifier.stopTimer();
     });
 
-    test('Confirming pickup transitions order to DISPATCHED (Step 2: Delivering)', () async {
+    test('Confirming pickup is rejected if kitchen has not marked order READY_FOR_PICKUP', () async {
       final container = createContainer();
 
       final notifier = container.read(riderTripProvider.notifier);
       final testTrip = TripOrder.pilotKacchiOrder();
 
       await notifier.claimTrip(testTrip);
+      // Order is in RIDER_ASSIGNED by default
+      final pickupSuccess = await notifier.confirmPickup();
+
+      expect(pickupSuccess, isFalse);
+      expect(container.read(riderTripProvider).error, contains('not ready for pickup'));
+
+      notifier.stopTimer();
+    });
+
+    test('Confirming pickup transitions order to DISPATCHED once kitchen marks READY_FOR_PICKUP', () async {
+      final container = createContainer();
+
+      final notifier = container.read(riderTripProvider.notifier);
+      final testTrip = TripOrder.pilotKacchiOrder();
+
+      await notifier.claimTrip(testTrip);
+      notifier.updateTripStatus('READY_FOR_PICKUP');
       final pickupSuccess = await notifier.confirmPickup();
 
       expect(pickupSuccess, isTrue);
@@ -139,6 +156,7 @@ void main() {
       final testTrip = TripOrder.pilotKacchiOrder(isCod: true, totalAmount: 480.0, payout: 60.0);
 
       await notifier.claimTrip(testTrip);
+      notifier.updateTripStatus('READY_FOR_PICKUP');
       await notifier.confirmPickup();
       notifier.proceedToHandover();
 
@@ -220,6 +238,7 @@ void main() {
       final testTrip = TripOrder.pilotKacchiOrder();
       await tester.runAsync(() async {
         await container.read(riderTripProvider.notifier).claimTrip(testTrip);
+        container.read(riderTripProvider.notifier).updateTripStatus('READY_FOR_PICKUP');
         await container.read(riderTripProvider.notifier).confirmPickup();
       });
 
@@ -245,6 +264,7 @@ void main() {
       final testTrip = TripOrder.pilotKacchiOrder(isCod: true, totalAmount: 480.0);
       await tester.runAsync(() async {
         await container.read(riderTripProvider.notifier).claimTrip(testTrip);
+        container.read(riderTripProvider.notifier).updateTripStatus('READY_FOR_PICKUP');
         await container.read(riderTripProvider.notifier).confirmPickup();
       });
       container.read(riderTripProvider.notifier).proceedToHandover();

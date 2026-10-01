@@ -545,6 +545,7 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
       currentBasePrice: number;
       quantity: number;
       variantId: string | null;
+      addons: Array<{ id: string; name: string; price: number }>;
       isAvailable: boolean;
     }> = [];
     const unavailableItems: Array<{ productId: string; name: string; reason: string }> = [];
@@ -583,12 +584,38 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
+      // Check addons if applicable
+      let addonsOk = true;
+      let unavailableAddonName = '';
+      const addonsSnap = (item.addonsSnapshot as unknown as OrderAddonSnapshot[] | null) || [];
+      if (Array.isArray(addonsSnap) && addonsSnap.length > 0) {
+        const allAddons = product.addonGroups.flatMap((g) => g.addons);
+        for (const addonSnap of addonsSnap) {
+          const addon = allAddons.find((a) => a.id === addonSnap.id);
+          if (!addon || !addon.isInStock) {
+            addonsOk = false;
+            unavailableAddonName = addonSnap.name || 'Selected add-on';
+            break;
+          }
+        }
+      }
+
+      if (!addonsOk) {
+        unavailableItems.push({
+          productId: item.productId,
+          name: item.productNameSnapshot,
+          reason: `Add-on "${unavailableAddonName}" is currently sold out`,
+        });
+        continue;
+      }
+
       validItems.push({
         productId: product.id,
         name: product.name,
         currentBasePrice: Number(product.basePrice),
         quantity: item.quantity,
         variantId: variantSnap?.id || null,
+        addons: addonsSnap.map((a) => ({ id: a.id, name: a.name, price: Number(a.price) })),
         isAvailable: true,
       });
     }

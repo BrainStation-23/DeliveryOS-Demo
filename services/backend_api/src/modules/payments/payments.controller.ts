@@ -51,17 +51,31 @@ export class PaymentsController {
   }
 
   @Get('callback/:gateway')
+  @Post('callback/:gateway')
   @ApiOperation({ summary: 'Browser redirect return URL after payment attempt' })
   async handleCallback(
     @Param('gateway') gateway: string,
-    @Query('status') status?: string,
-    @Query('transactionId') transactionId?: string,
+    @Query('status') queryStatus?: string,
+    @Query('transactionId') queryTransactionId?: string,
+    @Query('tran_id') queryTranId?: string,
+    @Body() body?: Record<string, unknown>,
   ) {
+    const transactionId =
+      (body?.['tran_id'] as string) ||
+      (body?.['transactionId'] as string) ||
+      queryTranId ||
+      queryTransactionId ||
+      null;
+    const status =
+      (body?.['status'] as string) ||
+      queryStatus ||
+      'UNKNOWN';
+
     return {
       message: 'Payment return processed',
       gateway,
-      status: status || 'UNKNOWN',
-      transactionId: transactionId || null,
+      status,
+      transactionId,
     };
   }
 }

@@ -10,6 +10,7 @@ type MockPrisma = {
   coupon: { updateMany: jest.Mock };
   user: { findUnique: jest.Mock };
   vendorStaff: { findMany: jest.Mock };
+  product: { findUnique: jest.Mock };
   $transaction: jest.Mock;
 };
 
@@ -65,6 +66,9 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
       },
       vendorStaff: {
         findMany: jest.fn(),
+      },
+      product: {
+        findUnique: jest.fn(),
       },
       $transaction: jest.fn(async (fn: (tx: MockPrisma) => Promise<unknown>) => fn(prisma)),
     };
@@ -130,6 +134,41 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
       const result = await orderService.validateReorder('customer-a', { previousOrderId: 'order-1' });
       expect(result.isStoreOperational).toBe(true);
       expect(result.vendorId).toBe('vendor-1');
+    });
+
+    it('flags unavailable items when an add-on is out of stock', async () => {
+      prisma.order.findUnique.mockResolvedValue({
+        id: 'order-1',
+        customerId: 'customer-a',
+        vendor: { id: 'vendor-1', name: 'Vendor 1', isActive: true, isBusy: false, operatingHours: [] },
+        orderItems: [
+          {
+            productId: 'p-1',
+            productNameSnapshot: 'Burger',
+            quantity: 1,
+            variantSnapshot: null,
+            addonsSnapshot: [{ id: 'addon-cheese', name: 'Extra Cheese', price: 30 }],
+          },
+        ],
+      });
+      prisma.product.findUnique.mockResolvedValue({
+        id: 'p-1',
+        name: 'Burger',
+        basePrice: '150.00',
+        isInStock: true,
+        variants: [],
+        addonGroups: [
+          {
+            addons: [{ id: 'addon-cheese', name: 'Extra Cheese', isInStock: false }],
+          },
+        ],
+      });
+
+      const result = await orderService.validateReorder('customer-a', { previousOrderId: 'order-1' });
+      expect(result.hasStockChanges).toBe(true);
+      expect(result.unavailableItems).toHaveLength(1);
+      expect(result.unavailableItems[0].reason).toContain('Extra Cheese');
+      expect(result.validItems).toHaveLength(0);
     });
 
     it('throws NotFoundException if previous order does not exist', async () => {

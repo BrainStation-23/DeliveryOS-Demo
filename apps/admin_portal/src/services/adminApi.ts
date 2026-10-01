@@ -416,6 +416,51 @@ export const adminApi = {
     const payload = res.data?.data || res.data;
     return Array.isArray(payload) ? payload : (payload.data || []);
   },
+
+  // 9. Rider Cash Deposits Governance
+  async getCashDeposits(status?: string): Promise<CashDepositItem[]> {
+    const res = await apiClient.get('/api/v1/admin/finance/cash-deposits', {
+      params: status ? { status } : undefined,
+    });
+    const payload = res.data?.data || res.data;
+    return Array.isArray(payload) ? payload : (payload.data || []);
+  },
+
+  async verifyCashDeposit(
+    depositId: string,
+    action: 'APPROVE' | 'REJECT',
+    notes?: string,
+  ): Promise<{ message: string; data?: unknown }> {
+    const res = await apiClient.patch(`/api/v1/admin/finance/cash-deposits/${depositId}/verify`, {
+      action,
+      notes,
+    });
+    return res.data?.data || res.data;
+  },
 };
+
+export interface CashDepositItem {
+  id: string;
+  riderId: string;
+  amount: number;
+  paymentMethod: string;
+  status: 'PENDING_APPROVAL' | 'VERIFIED' | 'REJECTED';
+  transactionReference: string;
+  slipUrl?: string | null;
+  depositedAt: string;
+  verifiedAt?: string | null;
+  notes?: string | null;
+  rider: {
+    id: string;
+    cashInHand: number;
+    maxCashLimit: number;
+    isApproved: boolean;
+    user: {
+      id: string;
+      fullName: string;
+      phone: string;
+    };
+  };
+}
 
 export default adminApi;

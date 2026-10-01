@@ -28,6 +28,9 @@ import { ForceAssignModal } from '../../components/orders/ForceAssignModal';
 import { CancelOrderModal } from '../../components/orders/CancelOrderModal';
 import { formatCurrency, formatDateTime } from '../../utils/formatters';
 
+const ORDER_SOCKET_EVENTS = ['order:new', 'order:status:changed'];
+const ORDER_QUERY_KEYS = [['admin-orders']];
+
 export const AdminOrdersPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -57,7 +60,7 @@ export const AdminOrdersPage: React.FC = () => {
   const totalPages = ordersData?.totalPages ?? 1;
   const totalOrders = ordersData?.total ?? 0;
 
-  useSocketQueryInvalidation(['order:new', 'order:status:changed'], [['admin-orders']]);
+  useSocketQueryInvalidation(ORDER_SOCKET_EVENTS, ORDER_QUERY_KEYS);
 
   const { data: fleet = [] } = useQuery({
     queryKey: ['admin-fleet-assignable'],

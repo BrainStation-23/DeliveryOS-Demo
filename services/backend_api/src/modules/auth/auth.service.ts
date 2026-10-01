@@ -236,15 +236,23 @@ export class AuthService {
     return { accessToken, refreshToken: nextRefreshToken };
   }
 
-  /** Revoke a refresh token (logout). Idempotent. */
+  /** Revoke a refresh token (logout). Idempotent. Also purges cached user and clears FCM device token. */
   async logout(refreshToken: string): Promise<void> {
     try {
       const decoded = jwt.verify(refreshToken, requiredEnv('JWT_REFRESH_SECRET')) as {
         type?: string;
         jti?: string;
+        sub?: string;
       };
       if (decoded.type === 'refresh' && decoded.jti) {
         await this.redis.del(`auth:refresh:${decoded.jti}`);
+      }
+      if (decoded.sub) {
+        await this.redis.del(`auth:user:${decoded.sub}`);
+        await this.prisma.user.updateMany({
+          where: { id: decoded.sub },
+          data: { fcmToken: null },
+        });
       }
     } catch {
       // Invalid or already-expired tokens are inherently logged out

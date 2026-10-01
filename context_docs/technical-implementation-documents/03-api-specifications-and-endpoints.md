@@ -190,7 +190,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Response*: `{ "redirectUrl": "https://sandbox.sslcommerz.com/...", "transactionId": "..." }`.
 - **`POST /payments/webhook/:gateway`**: Public HMAC verified webhook endpoint. Idempotently marks payment `PAID` via atomic update.
 - **`GET /payments/status/:transactionId`**: Owner-only (`403` otherwise); returns a redacted view (status `PENDING|PAID|FAILED|REFUNDED`, amount, order snapshot) — `sessionKey` and raw `gatewayResponse` never leave the server.
-- **`GET /payments/callback/:gateway`**: Browser redirect return URL after payment attempt with query parameters `status` and `transactionId`.
+- **`GET /payments/callback/:gateway`** & **`POST /payments/callback/:gateway`**: Browser redirect return URL and gateway POST-back handler after payment attempt. Accepts status and transaction identifier from either GET query parameters or POST form body.
 
 ### 2.7 Saved Addresses & Utilities (`/customers`, `/health`, `/geo`)
 - **`GET /customers/addresses`** / **`POST /customers/addresses`** / **`PUT /customers/addresses/:id`** / **`DELETE /customers/addresses/:id`**: Customer delivery address book CRUD.
