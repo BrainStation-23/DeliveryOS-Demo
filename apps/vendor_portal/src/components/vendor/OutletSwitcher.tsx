@@ -1,21 +1,23 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Store, Lock } from 'lucide-react';
 import { useVendorOutlet } from '../../contexts/VendorOutletContext';
 
 export const OutletSwitcher: React.FC<{ className?: string }> = ({ className }) => {
+  const { t } = useTranslation();
   const { outlets, activeOutletId, setActiveOutletId, isMultiBranch, activeOutlet } =
     useVendorOutlet();
 
   if (outlets.length === 0) return null;
 
   if (!isMultiBranch) {
-    const outletName = activeOutlet?.name || outlets[0]?.name || 'Primary Store';
+    const outletName = activeOutlet?.name || outlets[0]?.name || t('outlet.primaryStore');
     return (
       <div
         className={`inline-flex items-center gap-1.5 sm:gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 h-9 text-xs font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-800/80 dark:text-slate-200 shrink-0 shadow-xs ${
           className || ''
         }`}
-        title={`Physical branch: ${outletName}`}
+        title={t('outlet.physicalBranch', { name: outletName })}
       >
         <Store className="h-3.5 w-3.5 text-amber-500 shrink-0" />
         <span className="truncate max-w-[130px] sm:max-w-[220px] md:max-w-[300px]">{outletName}</span>
@@ -26,14 +28,14 @@ export const OutletSwitcher: React.FC<{ className?: string }> = ({ className }) 
 
   const currentSelectionLabel =
     activeOutletId === 'ALL'
-      ? 'All Outlets (Consolidated)'
-      : activeOutlet?.name || 'Selected Branch';
+      ? t('outlet.allOutletsConsolidated')
+      : activeOutlet?.name || t('outlet.selectedBranch');
 
   return (
     <div className={`relative inline-flex items-center gap-1.5 shrink-0 ${className || ''}`}>
       <div className="flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">
         <Store className="h-4 w-4 text-amber-500 shrink-0" />
-        <span className="hidden sm:inline">Outlet:</span>
+        <span className="hidden sm:inline">{t('outlet.label')}</span>
       </div>
 
       <select
@@ -47,7 +49,7 @@ export const OutletSwitcher: React.FC<{ className?: string }> = ({ className }) 
           value="ALL"
           className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 py-1"
         >
-          All Outlets (Consolidated)
+          {t('outlet.allOutletsConsolidated')}
         </option>
         {outlets.map((outlet) => (
           <option
@@ -55,7 +57,7 @@ export const OutletSwitcher: React.FC<{ className?: string }> = ({ className }) 
             value={outlet.id}
             className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 py-1"
           >
-            {outlet.name} {outlet.isBusy ? '(Paused)' : '(Open)'}
+            {outlet.name} {outlet.isBusy ? `(${t('outlet.paused')})` : `(${t('outlet.open')})`}
           </option>
         ))}
       </select>

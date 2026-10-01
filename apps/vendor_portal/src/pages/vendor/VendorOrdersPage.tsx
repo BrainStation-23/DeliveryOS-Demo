@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import {
   Search,
   RefreshCw,
-  Eye,
   Calendar,
   CalendarDays,
   Receipt,
+  X,
 } from 'lucide-react';
 import { useVendorOutlet } from '../../contexts/VendorOutletContext';
 import kdsApi from '../../services/kdsApi';
@@ -22,23 +23,70 @@ import { SalesLedgerKPIs } from './components/SalesLedgerKPIs';
 import { SalesLedgerDetailModal } from './components/SalesLedgerDetailModal';
 import { formatCurrency, formatDateTime } from '../../utils/formatters';
 
+type DatePreset = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS' | 'THIS_MONTH' | 'ALL_TIME' | 'CUSTOM';
+
 export const VendorOrdersPage: React.FC = () => {
+  const { t } = useTranslation();
   const { activeOutletId, activeOutlet, outlets } = useVendorOutlet();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [dateFilter, setDateFilter] = useState<'TODAY' | 'ALL_TIME'>('TODAY');
+  const [datePreset, setDatePreset] = useState<DatePreset>('TODAY');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [selectedOrderForModal, setSelectedOrderForModal] = useState<LedgerItem | null>(null);
 
-  const dateFromIso = useMemo(() => {
-    if (dateFilter !== 'TODAY') return undefined;
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    return start.toISOString();
-  }, [dateFilter]);
+  const { dateFromIso, dateToIso } = useMemo(() => {
+    const now = new Date();
+
+    if (datePreset === 'TODAY') {
+      const from = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return { dateFromIso: from.toISOString(), dateToIso: to.toISOString() };
+    }
+
+    if (datePreset === 'YESTERDAY') {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const from = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0, 0);
+      const to = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999);
+      return { dateFromIso: from.toISOString(), dateToIso: to.toISOString() };
+    }
+
+    if (datePreset === 'LAST_7_DAYS') {
+      const past7 = new Date(now);
+      past7.setDate(past7.getDate() - 6);
+      const from = new Date(past7.getFullYear(), past7.getMonth(), past7.getDate(), 0, 0, 0, 0);
+      const to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return { dateFromIso: from.toISOString(), dateToIso: to.toISOString() };
+    }
+
+    if (datePreset === 'THIS_MONTH') {
+      const from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return { dateFromIso: from.toISOString(), dateToIso: to.toISOString() };
+    }
+
+    if (datePreset === 'CUSTOM') {
+      let fromIso: string | undefined;
+      let toIso: string | undefined;
+
+      if (customStartDate) {
+        const [y, m, d] = customStartDate.split('-').map(Number);
+        fromIso = new Date(y, m - 1, d, 0, 0, 0, 0).toISOString();
+      }
+      if (customEndDate) {
+        const [y, m, d] = customEndDate.split('-').map(Number);
+        toIso = new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
+      }
+      return { dateFromIso: fromIso, dateToIso: toIso };
+    }
+
+    return { dateFromIso: undefined, dateToIso: undefined };
+  }, [datePreset, customStartDate, customEndDate]);
 
   const { data: salesData, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['vendor-sales-ledger', activeOutletId, dateFilter],
-    queryFn: () => kdsApi.getSalesLedger(activeOutletId, dateFromIso),
+    queryKey: ['vendor-sales-ledger', activeOutletId, datePreset, dateFromIso, dateToIso],
+    queryFn: () => kdsApi.getSalesLedger(activeOutletId, dateFromIso, dateToIso),
   });
 
   const rawLedgers: LedgerItem[] = Array.isArray(salesData?.ledgers) ? salesData.ledgers : [];
@@ -67,26 +115,45 @@ export const VendorOrdersPage: React.FC = () => {
     const q = (searchQuery || '').toLowerCase();
     const matchesSearch =
       (l.orderNumber || '').toLowerCase().includes(q) ||
-      (l.customerName || '').toLowerCase().includes(q) ||
-      (l.vendorName || '').toLowerCase().includes(q);
+      (l.vendorName || '').toLowerCase().includes(q) ||
+      (l.items || []).some((it) => (it.productName || '').toLowerCase().includes(q));
     const matchesStatus =
       statusFilter === 'ALL' || l.settlementStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
+  const getOrderStatusBadge = (status: string) => {
+    switch (status) {
+      case 'DELIVERED':
+        return <Badge variant="success" size="sm">{t('orders.orderStatuses.DELIVERED')}</Badge>;
+      case 'CANCELLED':
+        return <Badge variant="danger" size="sm">{t('orders.orderStatuses.CANCELLED')}</Badge>;
+      case 'DISPATCHED':
+        return <Badge variant="primary" size="sm">{t('orders.orderStatuses.DISPATCHED')}</Badge>;
+      case 'READY_FOR_PICKUP':
+        return <Badge variant="warning" size="sm">{t('orders.orderStatuses.READY_FOR_PICKUP')}</Badge>;
+      case 'PREPARING':
+        return <Badge variant="warning" size="sm">{t('orders.orderStatuses.PREPARING')}</Badge>;
+      case 'ACCEPTED':
+        return <Badge variant="primary" size="sm">{t('orders.orderStatuses.ACCEPTED')}</Badge>;
+      default:
+        return <Badge variant="default" size="sm">{status}</Badge>;
+    }
+  };
+
   const columns: Column<LedgerItem>[] = [
     {
       key: 'orderNumber',
-      header: 'Order #',
+      header: t('orders.table.orderNum'),
       render: (item) => (
-        <span className="font-bold text-slate-900 dark:text-slate-100">
+        <span className="font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300">
           #{item.orderNumber}
         </span>
       ),
     },
     {
       key: 'createdAt',
-      header: 'Date & Time',
+      header: t('orders.table.dateTime'),
       render: (item) => (
         <span className="text-xs text-slate-500 font-medium">
           {formatDateTime(item.createdAt)}
@@ -95,17 +162,17 @@ export const VendorOrdersPage: React.FC = () => {
     },
     {
       key: 'vendorName',
-      header: 'Outlet Branch',
+      header: t('orders.table.outletBranch'),
       render: (item) => <span className="text-xs font-semibold">{item.vendorName}</span>,
     },
     {
-      key: 'customerName',
-      header: 'Customer',
-      render: (item) => <span className="text-xs font-medium">{item.customerName}</span>,
+      key: 'orderStatus',
+      header: t('orders.table.orderStatus'),
+      render: (item) => getOrderStatusBadge(item.orderStatus),
     },
     {
       key: 'grossAmount',
-      header: 'Gross Total',
+      header: t('orders.table.grossTotal'),
       render: (item) => (
         <span className="font-bold text-slate-900 dark:text-slate-100">
           {formatCurrency(item.grossAmount)}
@@ -114,7 +181,7 @@ export const VendorOrdersPage: React.FC = () => {
     },
     {
       key: 'commissionAmount',
-      header: 'Platform Fee',
+      header: t('orders.table.platformFee'),
       render: (item) => {
         const rate =
           item.grossAmount > 0
@@ -136,7 +203,7 @@ export const VendorOrdersPage: React.FC = () => {
     },
     {
       key: 'netVendorPayable',
-      header: 'Net Payable',
+      header: t('orders.table.netPayable'),
       render: (item) => (
         <span className="font-bold text-emerald-600 dark:text-emerald-400">
           {formatCurrency(item.netVendorPayable)}
@@ -145,93 +212,129 @@ export const VendorOrdersPage: React.FC = () => {
     },
     {
       key: 'settlementStatus',
-      header: 'Settlement',
+      header: t('orders.table.settlement'),
       render: (item) =>
         item.settlementStatus === 'SETTLED' ? (
           <Badge variant="success" size="sm">
-            Settled
+            {t('orders.settled')}
           </Badge>
         ) : (
           <Badge variant="warning" size="sm">
-            Pending
+            {t('orders.pending')}
           </Badge>
         ),
-    },
-    {
-      key: 'actions',
-      header: 'Actions',
-      render: (item) => (
-        <Button
-          variant="outline"
-          size="sm"
-          className="font-semibold"
-          onClick={() => setSelectedOrderForModal(item)}
-          leftIcon={<Eye className="h-3 w-3 text-amber-600" />}
-        >
-          Items ({item.items?.length || 0})
-        </Button>
-      ),
     },
   ];
 
   const currentScopeTitle =
     activeOutletId === 'ALL'
-      ? `All Outlets (${outlets.length} Branches)`
-      : activeOutlet?.name || 'Store Branch';
+      ? t('orders.allOutletsScope', { count: outlets.length })
+      : activeOutlet?.name || t('outlet.primaryStore');
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-5">
       <PageHeader
-        title="Sales Ledgers & Settlement"
-        description={`Financial auditing and commission statements for ${currentScopeTitle}`}
-        icon={<Receipt className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />}
+        title={t('orders.title')}
+        description={t('orders.description', { scope: currentScopeTitle })}
+        icon={<Receipt className="h-5 w-5 text-amber-500" />}
         actions={
-          <>
-            <div className="flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-800 dark:bg-slate-800">
-              <button
-                type="button"
-                onClick={() => setDateFilter('TODAY')}
-                className={`flex items-center gap-1.5 rounded-md px-3 text-xs font-semibold transition-all h-8 ${
-                  dateFilter === 'TODAY'
-                    ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-slate-100'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
-                }`}
-              >
-                <Calendar className="h-3 w-3" />
-                <span>Today</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setDateFilter('ALL_TIME')}
-                className={`flex items-center gap-1.5 rounded-md px-3 text-xs font-semibold transition-all h-8 ${
-                  dateFilter === 'ALL_TIME'
-                    ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-slate-100'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
-                }`}
-              >
-                <CalendarDays className="h-3 w-3" />
-                <span>All Time</span>
-              </button>
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refetch()}
-              leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
-            >
-              Refresh
-            </Button>
-          </>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
+          >
+            {t('common.refresh')}
+          </Button>
         }
       />
 
+      {/* Date Filtering Toolbar (On top of Cards) */}
+      <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <Calendar className="h-4 w-4 text-amber-500 shrink-0" />
+            <span>{t('orders.dateFilters.label')}</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(
+              [
+                { id: 'TODAY', label: t('orders.dateFilters.today'), icon: Calendar },
+                { id: 'YESTERDAY', label: t('orders.dateFilters.yesterday'), icon: Calendar },
+                { id: 'LAST_7_DAYS', label: t('orders.dateFilters.last7Days'), icon: CalendarDays },
+                { id: 'THIS_MONTH', label: t('orders.dateFilters.thisMonth'), icon: CalendarDays },
+                { id: 'ALL_TIME', label: t('orders.dateFilters.allTime'), icon: CalendarDays },
+                { id: 'CUSTOM', label: t('orders.dateFilters.custom'), icon: Calendar },
+              ] as const
+            ).map((preset) => {
+              const Icon = preset.icon;
+              const isSelected = datePreset === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => setDatePreset(preset.id)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 text-xs font-semibold transition-all h-8 select-none cursor-pointer ${
+                    isSelected
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span>{preset.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {datePreset === 'CUSTOM' && (
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 font-medium">{t('orders.dateFilters.startDate')}:</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="h-8 rounded-lg border border-slate-300 bg-white px-2.5 text-xs text-slate-800 shadow-2xs focus:border-amber-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 font-medium">{t('orders.dateFilters.endDate')}:</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="h-8 rounded-lg border border-slate-300 bg-white px-2.5 text-xs text-slate-800 shadow-2xs focus:border-amber-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              />
+            </div>
+
+            {(customStartDate || customEndDate) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setCustomStartDate('');
+                  setCustomEndDate('');
+                }}
+                leftIcon={<X className="h-3.5 w-3.5" />}
+              >
+                {t('orders.dateFilters.clearRange')}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
       <SalesLedgerKPIs summary={summary} />
 
+      {/* Search & Settlement Status Toolbar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="w-full sm:w-72">
+        <div className="w-full sm:w-80">
           <Input
-            placeholder="Search order #, branch, or customer..."
+            placeholder={t('orders.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             leftIcon={<Search className="h-3.5 w-3.5" />}
@@ -239,18 +342,22 @@ export const VendorOrdersPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          {['ALL', 'PENDING', 'SETTLED'].map((st) => (
+          {(['ALL', 'PENDING', 'SETTLED'] as const).map((st) => (
             <button
               key={st}
               type="button"
               onClick={() => setStatusFilter(st)}
-              className={`inline-flex items-center justify-center rounded-lg px-3 text-xs font-semibold transition-all h-8 select-none ${
+              className={`inline-flex items-center justify-center rounded-lg px-3 text-xs font-semibold transition-all h-8 select-none cursor-pointer ${
                 statusFilter === st
                   ? 'bg-amber-500 text-white shadow-xs'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
               }`}
             >
-              {st === 'ALL' ? 'All Statements' : st}
+              {st === 'ALL'
+                ? t('orders.allStatements')
+                : st === 'PENDING'
+                ? t('orders.pending')
+                : t('orders.settled')}
             </button>
           ))}
         </div>
@@ -262,14 +369,15 @@ export const VendorOrdersPage: React.FC = () => {
 
       {isLoading ? (
         <div className="py-20">
-          <LoadingSpinner size="lg" label="Loading sales ledgers..." />
+          <LoadingSpinner size="lg" label={t('orders.loading')} />
         </div>
       ) : (
         <Table
           columns={columns}
           data={filteredLedgers}
           keyExtractor={(item) => item.id}
-          emptyMessage="No sales ledger records found for this selection"
+          onRowClick={(item) => setSelectedOrderForModal(item)}
+          emptyMessage={t('orders.empty')}
         />
       )}
 

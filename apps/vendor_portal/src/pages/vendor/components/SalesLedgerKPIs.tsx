@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { TrendingUp, DollarSign, Receipt, FileCheck2 } from 'lucide-react';
 import { StatCard } from '../../../components/common/StatCard';
 import { formatCurrency } from '../../../utils/formatters';
@@ -15,10 +16,12 @@ interface SalesLedgerKPIsProps {
 }
 
 export const SalesLedgerKPIs: React.FC<SalesLedgerKPIsProps> = ({ summary }) => {
+  const { t } = useTranslation();
+
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard
-        title="Completed Orders"
+        title={t('orders.completedOrders')}
         value={summary.totalOrders}
         icon={<TrendingUp className="h-4 w-4" />}
         iconBgColor="bg-amber-50 dark:bg-amber-950/50"
@@ -26,7 +29,7 @@ export const SalesLedgerKPIs: React.FC<SalesLedgerKPIsProps> = ({ summary }) => 
       />
 
       <StatCard
-        title="Gross Sales Volume"
+        title={t('orders.grossSalesVolume')}
         value={formatCurrency(summary.grossSales)}
         icon={<DollarSign className="h-4 w-4" />}
         iconBgColor="bg-slate-100 dark:bg-slate-800"
@@ -34,7 +37,7 @@ export const SalesLedgerKPIs: React.FC<SalesLedgerKPIsProps> = ({ summary }) => 
       />
 
       <StatCard
-        title="Platform Commission"
+        title={t('orders.platformCommission')}
         value={`-${formatCurrency(summary.commissionDeducted)}`}
         icon={<Receipt className="h-4 w-4" />}
         iconBgColor="bg-rose-50 dark:bg-rose-950/50"
@@ -43,7 +46,7 @@ export const SalesLedgerKPIs: React.FC<SalesLedgerKPIsProps> = ({ summary }) => 
       />
 
       <StatCard
-        title="Net Vendor Payable"
+        title={t('orders.netVendorPayable')}
         value={formatCurrency(summary.netVendorPayable)}
         icon={<FileCheck2 className="h-4 w-4" />}
         iconBgColor="bg-emerald-50 dark:bg-emerald-950/50"

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  ChefHat,
   UtensilsCrossed,
   Clock,
   CheckCircle2,
@@ -49,25 +50,25 @@ export const VendorDashboardPage: React.FC = () => {
   } = useKDSOrders(targetVendorId);
 
   const totalActive = newOrders.length + inPreparationOrders.length + readyOrders.length;
-  const outletDisplayName = activeOutlet?.name || user?.vendorName || 'Consolidated Kitchen Operations';
+  const outletDisplayName = activeOutlet?.name || user?.vendorName || t('kds.title');
 
   return (
     <div className="space-y-4 sm:space-y-5">
       {actionError && (
         <div
           role="alert"
-          className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-red-800 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300 shadow-xs"
+          className="flex items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 shadow-xs"
         >
           <div className="flex items-center gap-2 min-w-0">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+            <span className="h-2 w-2 shrink-0 rounded-full bg-rose-500" />
             <span className="truncate">{actionError}</span>
           </div>
           <button
             type="button"
             onClick={dismissActionError}
-            className="h-7 px-2.5 inline-flex items-center justify-center rounded-md border border-red-300/80 bg-white/90 text-xs font-bold text-red-700 hover:bg-white hover:text-red-900 dark:border-red-800/80 dark:bg-red-950/60 dark:text-red-300 dark:hover:bg-red-900/60 transition-colors shadow-xs shrink-0"
+            className="h-7 px-2.5 inline-flex items-center justify-center rounded-md border border-rose-300/80 bg-white/90 text-xs font-bold text-rose-700 hover:bg-white hover:text-rose-900 dark:border-rose-800/80 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900/60 transition-colors shadow-xs shrink-0 cursor-pointer"
           >
-            Dismiss
+            {t('kds.dismiss')}
           </button>
         </div>
       )}
@@ -81,26 +82,27 @@ export const VendorDashboardPage: React.FC = () => {
             <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500 animate-pulse" />
             <span className="truncate">
               {isError
-                ? 'Order board connection interrupted — displaying last synced state.'
-                : 'Reconnecting live updates...'}
+                ? t('kds.connectionInterrupted')
+                : t('kds.reconnecting')}
             </span>
           </div>
           <button
             type="button"
             onClick={() => refetch()}
-            className="h-7 px-2.5 inline-flex items-center justify-center rounded-md border border-amber-300/80 bg-white/90 text-xs font-bold text-amber-700 hover:bg-white hover:text-amber-900 dark:border-amber-800/80 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors shadow-xs shrink-0"
+            className="h-7 px-2.5 inline-flex items-center justify-center rounded-md border border-amber-300/80 bg-white/90 text-xs font-bold text-amber-700 hover:bg-white hover:text-amber-900 dark:border-amber-800/80 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors shadow-xs shrink-0 cursor-pointer"
           >
-            Retry now
+            {t('kds.retryNow')}
           </button>
         </div>
       )}
 
       <PageHeader
         title={t('kds.title')}
-        description={`${outletDisplayName} • Real-time kitchen dispatch board`}
+        description={`${outletDisplayName} • ${t('kds.subtitle')}`}
+        icon={<ChefHat className="h-5 w-5 text-amber-500" />}
         badge={
           <Badge variant="primary" size="md">
-            {totalActive} Active Orders
+            {t('kds.activeOrders', { count: totalActive })}
           </Badge>
         }
         actions={
@@ -118,7 +120,7 @@ export const VendorDashboardPage: React.FC = () => {
       {/* Mobile Lane Selector Tabs */}
       <div className="flex md:hidden items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
         {[
-          { key: 'ALL', label: 'All Lanes', count: totalActive },
+          { key: 'ALL', label: t('kds.allLanes'), count: totalActive },
           { key: 'NEW', label: t('kds.newOrders'), count: newOrders.length },
           { key: 'PREPARING', label: t('kds.preparing'), count: inPreparationOrders.length },
           { key: 'READY', label: t('kds.ready'), count: readyOrders.length },
@@ -128,7 +130,7 @@ export const VendorDashboardPage: React.FC = () => {
             type="button"
             onClick={() => setActiveTab(tab.key as typeof activeTab)}
             className={cn(
-              'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all h-8 whitespace-nowrap select-none shrink-0',
+              'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all h-8 whitespace-nowrap select-none shrink-0 cursor-pointer',
               activeTab === tab.key
                 ? 'bg-amber-500 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
@@ -151,14 +153,14 @@ export const VendorDashboardPage: React.FC = () => {
 
       {isLoading ? (
         <div className="py-20">
-          <LoadingSpinner size="lg" label="Synchronizing kitchen board..." />
+          <LoadingSpinner size="lg" label={t('common.loading')} />
         </div>
       ) : (
-        <div className="flex md:grid md:grid-cols-3 gap-4 overflow-x-auto snap-x snap-mandatory pb-4">
+        <div className="flex md:grid md:grid-cols-3 gap-3.5 sm:gap-4 overflow-x-auto snap-x snap-mandatory pb-3">
           {/* LANE 1: NEW ORDERS */}
           <div
             className={cn(
-              'flex flex-col rounded-xl border border-rose-200/80 bg-rose-50/25 p-3.5 dark:border-rose-950/60 dark:bg-rose-950/10 shadow-xs shrink-0 md:shrink w-[88vw] sm:w-[350px] md:w-auto snap-center',
+              'flex flex-col rounded-xl border border-rose-200/80 bg-rose-50/25 p-3.5 sm:p-4 dark:border-rose-950/60 dark:bg-rose-950/10 shadow-xs shrink-0 md:shrink w-[88vw] sm:w-[360px] md:w-auto snap-center',
               activeTab !== 'ALL' && activeTab !== 'NEW' && 'hidden md:flex'
             )}
           >
@@ -185,8 +187,12 @@ export const VendorDashboardPage: React.FC = () => {
                   <div className="h-10 w-10 rounded-xl bg-rose-100 dark:bg-rose-950/50 flex items-center justify-center mb-2 text-rose-500">
                     <Sparkles className="h-5 w-5" />
                   </div>
-                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">No incoming orders</p>
-                  <span className="text-[11px] text-slate-400 mt-0.5">Chime alerts will sound upon customer order</span>
+                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    {t('kds.noIncomingOrders')}
+                  </p>
+                  <span className="text-[11px] text-slate-400 mt-0.5">
+                    {t('kds.noIncomingOrdersSub')}
+                  </span>
                 </div>
               ) : (
                 newOrders.map((order) => (
@@ -206,7 +212,7 @@ export const VendorDashboardPage: React.FC = () => {
           {/* LANE 2: IN PREPARATION */}
           <div
             className={cn(
-              'flex flex-col rounded-xl border border-amber-200/80 bg-amber-50/25 p-3.5 dark:border-amber-950/60 dark:bg-amber-950/10 shadow-xs shrink-0 md:shrink w-[88vw] sm:w-[350px] md:w-auto snap-center',
+              'flex flex-col rounded-xl border border-amber-200/80 bg-amber-50/25 p-3.5 sm:p-4 dark:border-amber-950/60 dark:bg-amber-950/10 shadow-xs shrink-0 md:shrink w-[88vw] sm:w-[360px] md:w-auto snap-center',
               activeTab !== 'ALL' && activeTab !== 'PREPARING' && 'hidden md:flex'
             )}
           >
@@ -228,8 +234,12 @@ export const VendorDashboardPage: React.FC = () => {
                   <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center mb-2 text-amber-600">
                     <Clock className="h-5 w-5" />
                   </div>
-                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">Kitchen queue is clear</p>
-                  <span className="text-[11px] text-slate-400 mt-0.5">Accepted orders move here</span>
+                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    {t('kds.kitchenQueueClear')}
+                  </p>
+                  <span className="text-[11px] text-slate-400 mt-0.5">
+                    {t('kds.kitchenQueueClearSub')}
+                  </span>
                 </div>
               ) : (
                 inPreparationOrders.map((order) => (
@@ -247,7 +257,7 @@ export const VendorDashboardPage: React.FC = () => {
           {/* LANE 3: READY FOR PICKUP */}
           <div
             className={cn(
-              'flex flex-col rounded-xl border border-emerald-200/80 bg-emerald-50/25 p-3.5 dark:border-emerald-950/60 dark:bg-emerald-950/10 shadow-xs shrink-0 md:shrink w-[88vw] sm:w-[350px] md:w-auto snap-center',
+              'flex flex-col rounded-xl border border-emerald-200/80 bg-emerald-50/25 p-3.5 sm:p-4 dark:border-emerald-950/60 dark:bg-emerald-950/10 shadow-xs shrink-0 md:shrink w-[88vw] sm:w-[360px] md:w-auto snap-center',
               activeTab !== 'ALL' && activeTab !== 'READY' && 'hidden md:flex'
             )}
           >
@@ -263,14 +273,18 @@ export const VendorDashboardPage: React.FC = () => {
               </Badge>
             </div>
 
-            <div className="mt-3 flex-1 space-y-3 overflow-y-auto max-h-[calc(100dvh-230px)] pr-1">
+            <div className="mt-3.5 flex-1 space-y-3.5 overflow-y-auto max-h-[calc(100dvh-230px)] pr-1">
               {readyOrders.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center text-slate-400">
                   <div className="h-10 w-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 flex items-center justify-center mb-2 text-emerald-600">
                     <CheckCircle2 className="h-5 w-5" />
                   </div>
-                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">Counter is clear</p>
-                  <span className="text-[11px] text-slate-400 mt-0.5">Parcels awaiting couriers appear here</span>
+                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    {t('kds.counterClear')}
+                  </p>
+                  <span className="text-[11px] text-slate-400 mt-0.5">
+                    {t('kds.counterClearSub')}
+                  </span>
                 </div>
               ) : (
                 readyOrders.map((order) => (

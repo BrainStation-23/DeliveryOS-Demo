@@ -40,11 +40,7 @@ export const LoginPage: React.FC = () => {
         }
       } else {
         logout();
-        if (result.role === UserRole.SUPER_ADMIN) {
-          setErrorMsg('Access denied: Platform Super Admins must use the Admin Portal (http://localhost:8080/). This portal is strictly for merchant and kitchen staff.');
-        } else {
-          setErrorMsg('Access denied: This portal is exclusively for Merchant & Kitchen Staff.');
-        }
+        setErrorMsg(t('auth.unauthorizedSubtitle'));
       }
     } catch (err: unknown) {
       console.error('Login error:', err);
@@ -56,7 +52,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+    <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
       <div className="mb-6 text-center">
         <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 mb-3 border border-amber-500/30">
           <KeyRound className="h-6 w-6" />

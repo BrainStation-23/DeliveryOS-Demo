@@ -1,5 +1,6 @@
 import apiClient from './apiClient';
 import { KDSOrder, OutletCatalog, KDSOrderItem, Category, Product, ProductVariant } from '../types/kds';
+import { LedgerItem } from '../types/ledger';
 
 export interface RawBackendOrderItem {
   id?: string;
@@ -381,35 +382,7 @@ export const kdsApi = {
       commissionDeducted: number;
       netVendorPayable: number;
     };
-    ledgers: Array<{
-      id: string;
-      orderId: string;
-      orderNumber: string;
-      vendorId: string;
-      vendorName: string;
-      customerName: string;
-      customerPhone?: string;
-      customerNotes?: string | null;
-      deliveryAddress?: { addressLine: string; label?: string } | null;
-      items?: Array<{
-        productName: string;
-        quantity: number;
-        unitPrice: number;
-        totalPrice: number;
-        instructions?: string | null;
-        variant?: { name: string; priceDelta: number } | null;
-        addons?: Array<{ name: string; price: number }>;
-      }>;
-      paymentMethod: string;
-      orderStatus: string;
-      grossAmount: number;
-      commissionRate: number;
-      commissionAmount: number;
-      netVendorPayable: number;
-      settlementStatus: string;
-      settledAt?: string | null;
-      createdAt: string;
-    }>;
+    ledgers: LedgerItem[];
   }> {
     const params: Record<string, string> = {};
     if (vendorId && vendorId !== 'ALL') params.vendorId = vendorId;
@@ -423,7 +396,7 @@ export const kdsApi = {
         ledgers: [],
       };
     }
-    const ledgers = Array.isArray(payload.ledgers)
+    const ledgers: LedgerItem[] = Array.isArray(payload.ledgers)
       ? payload.ledgers
       : (Array.isArray(payload) ? payload : []);
     const summary = payload.summary || {

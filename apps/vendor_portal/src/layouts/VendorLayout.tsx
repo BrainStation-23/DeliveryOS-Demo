@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
+  ChefHat,
   UtensilsCrossed,
-  Layers,
-  History,
+  Receipt,
   Store,
   LogOut,
   Volume2,
@@ -19,68 +19,16 @@ import {
   PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { VendorOutletProvider, useVendorOutlet, AccessibleOutlet } from '../contexts/VendorOutletContext';
+import { VendorOutletProvider, useVendorOutlet } from '../contexts/VendorOutletContext';
 import { OutletSwitcher } from '../components/vendor/OutletSwitcher';
 import { LanguageSelector } from '../components/LanguageSelector';
 import { soundEngine } from '../utils/sound';
 import { useRushPause } from '../hooks/useRushPause';
 
-interface ActiveOutletStripProps {
-  activeOutlet: AccessibleOutlet | null;
-  outlets: AccessibleOutlet[];
-  activeOutletId: string;
-  isMultiBranch: boolean;
-  vendorName?: string | null;
-  isCollapsed?: boolean;
-}
-
-const ActiveOutletStrip: React.FC<ActiveOutletStripProps> = ({
-  activeOutlet,
-  outlets,
-  activeOutletId,
-  isMultiBranch,
-  vendorName,
-  isCollapsed,
-}) => {
-  const isConsolidated = isMultiBranch && (!activeOutlet || activeOutletId === 'ALL');
-  const targetOutlet = activeOutlet || (outlets.length > 0 ? outlets[0] : null);
-
-  const outletName = isConsolidated
-    ? 'All Outlets (Consolidated)'
-    : targetOutlet?.name || vendorName || 'Primary Store';
-
-  if (isCollapsed) {
-    return (
-      <div className="shrink-0 py-2 border-b border-slate-100 dark:border-slate-800 flex justify-center">
-        <div
-          className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400 flex items-center justify-center cursor-default shadow-xs"
-          title={`Active Branch: ${outletName}`}
-        >
-          <Store className="h-4 w-4 shrink-0" />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="shrink-0 px-4 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
-      <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-        Active Branch
-      </span>
-      <p
-        className="text-xs font-semibold text-slate-900 dark:text-slate-100 leading-snug break-words"
-        title={outletName}
-      >
-        {outletName}
-      </p>
-    </div>
-  );
-};
-
 const VendorLayoutInner: React.FC = () => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
-  const { activeOutlet, outlets, activeOutletId, isMultiBranch } = useVendorOutlet();
+  const { activeOutlet } = useVendorOutlet();
   const location = useLocation();
   const [isMuted, setIsMuted] = useState(soundEngine.getIsMuted());
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -106,11 +54,34 @@ const VendorLayoutInner: React.FC = () => {
   };
 
   const navItems = [
-    { label: t('nav.vendor.kds'), href: '/', icon: UtensilsCrossed },
-    { label: t('nav.vendor.catalog'), href: '/catalog', icon: Layers },
-    { label: t('nav.vendor.orders'), href: '/orders', icon: History },
+    { label: t('nav.vendor.kds'), href: '/', icon: ChefHat },
+    { label: t('nav.vendor.catalog'), href: '/catalog', icon: UtensilsCrossed },
+    { label: t('nav.vendor.orders'), href: '/orders', icon: Receipt },
     { label: t('nav.vendor.settings'), href: '/settings', icon: Store },
   ];
+
+  const parseUserIdentity = () => {
+    const rawName = user?.fullName || 'Vendor Staff';
+    const bracketMatch = rawName.match(/^(.*?)\s*\(([^)]+)\)$/);
+    if (bracketMatch) {
+      return {
+        displayName: bracketMatch[1].trim(),
+        roleTitle: bracketMatch[2].trim(),
+      };
+    }
+    const fallbackRole =
+      user?.outletScope === 'ALL_OUTLETS_MASTER'
+        ? t('auth.brandOwner') || 'Brand Owner'
+        : user?.role === 'VENDOR_ADMIN'
+        ? t('roles.VENDOR_ADMIN') || 'Store Manager'
+        : user?.role || 'Staff';
+    return {
+      displayName: rawName,
+      roleTitle: fallbackRole,
+    };
+  };
+
+  const { displayName, roleTitle } = parseUserIdentity();
 
   const isActive = (href: string) => {
     if (href === '/') return location.pathname === '/' || location.pathname === '/kds';
@@ -143,22 +114,22 @@ const VendorLayoutInner: React.FC = () => {
             <>
               <div className="flex items-center gap-3 min-w-0">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm shrink-0">
-                  <UtensilsCrossed className="h-5 w-5" />
+                  <ChefHat className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
                   <h1 className="text-base font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
                     DeliveryOS
                   </h1>
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 block truncate">
-                    Merchant Console
+                    {t('common.merchantConsole')}
                   </span>
                 </div>
               </div>
               <button
                 onClick={toggleCollapse}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors"
-                title="Collapse sidebar"
-                aria-label="Collapse sidebar"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors cursor-pointer"
+                title={t('common.collapseSidebar')}
+                aria-label={t('common.collapseSidebar')}
               >
                 <PanelLeftClose className="h-4 w-4" />
               </button>
@@ -166,24 +137,14 @@ const VendorLayoutInner: React.FC = () => {
           ) : (
             <button
               onClick={toggleCollapse}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/70 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors shadow-xs"
-              title="Expand sidebar"
-              aria-label="Expand sidebar"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/70 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors shadow-xs cursor-pointer"
+              title={t('common.expandSidebar')}
+              aria-label={t('common.expandSidebar')}
             >
               <PanelLeftOpen className="h-5 w-5" />
             </button>
           )}
         </div>
-
-        {/* Minimal, Practical Active Outlet Strip */}
-        <ActiveOutletStrip
-          activeOutlet={activeOutlet}
-          outlets={outlets}
-          activeOutletId={activeOutletId}
-          isMultiBranch={isMultiBranch}
-          vendorName={user?.vendorName}
-          isCollapsed={isCollapsed}
-        />
 
         <nav className="flex-1 min-h-0 space-y-1 p-3 overflow-y-auto overscroll-contain">
           {navItems.map((item) => {
@@ -214,15 +175,20 @@ const VendorLayoutInner: React.FC = () => {
           <div className="shrink-0 mt-auto border-t border-slate-100 p-3 dark:border-slate-800 bg-white dark:bg-slate-900">
             <div className="flex items-center gap-2.5 mb-2.5">
               <div className="h-8 w-8 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 flex items-center justify-center font-bold text-xs shrink-0">
-                {user?.fullName?.charAt(0) || 'V'}
+                {displayName.charAt(0) || 'V'}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate" title={user?.fullName || undefined}>
-                  {user?.fullName || 'Vendor Staff'}
+                <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate" title={displayName}>
+                  {displayName}
                 </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate" title={user?.phone || undefined}>
-                  {user?.phone || user?.role}
+                <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 truncate leading-tight">
+                  {roleTitle}
                 </p>
+                {user?.phone && (
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate font-mono mt-0.5">
+                    {user.phone}
+                  </p>
+                )}
               </div>
             </div>
             <button
@@ -237,9 +203,9 @@ const VendorLayoutInner: React.FC = () => {
           <div className="shrink-0 mt-auto border-t border-slate-100 p-2.5 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col items-center gap-2">
             <div
               className="h-8 w-8 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 flex items-center justify-center font-bold text-xs shrink-0 cursor-default"
-              title={`${user?.fullName || 'Vendor Staff'} (${user?.role})`}
+              title={`${displayName}\n${roleTitle}${user?.phone ? ` • ${user.phone}` : ''}`}
             >
-              {user?.fullName?.charAt(0) || 'V'}
+              {displayName.charAt(0) || 'V'}
             </div>
             <button
               onClick={logout}
@@ -279,19 +245,19 @@ const VendorLayoutInner: React.FC = () => {
                 } ${isTogglingRush ? 'opacity-60 cursor-not-allowed' : ''}`}
                 title={
                   activeOutlet.isBusy
-                    ? 'Store is paused. Click to resume incoming customer orders'
-                    : 'Rush hour? Click to temporarily pause new incoming orders'
+                    ? t('outlet.rushPauseTitlePaused')
+                    : t('outlet.rushPauseTitleOpen')
                 }
               >
                 {activeOutlet.isBusy ? (
                   <>
                     <Flame className="h-3.5 w-3.5 text-slate-950 animate-pulse" />
-                    <span>{isTogglingRush ? 'Resuming...' : 'Rush Paused'}</span>
+                    <span>{isTogglingRush ? t('outlet.resuming') : t('outlet.rushPaused')}</span>
                   </>
                 ) : (
                   <>
                     <PauseCircle className="h-3.5 w-3.5 text-amber-500" />
-                    <span className="hidden sm:inline">{isTogglingRush ? 'Pausing...' : 'Rush Pause'}</span>
+                    <span className="hidden sm:inline">{isTogglingRush ? t('outlet.pausing') : t('outlet.rushPause')}</span>
                   </>
                 )}
               </button>
@@ -331,7 +297,7 @@ const VendorLayoutInner: React.FC = () => {
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
-                Emergency Rush Hour Pause Active for {activeOutlet.name} — Incoming customer orders are temporarily blocked.
+                {t('outlet.rushHourBanner', { name: activeOutlet.name })}
               </span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -340,13 +306,13 @@ const VendorLayoutInner: React.FC = () => {
                 disabled={isTogglingRush}
                 className="h-8 px-3 inline-flex items-center justify-center rounded-lg bg-slate-950 text-white text-xs font-bold hover:bg-slate-800 transition-colors shadow-xs"
               >
-                {isTogglingRush ? 'Resuming...' : 'Resume Orders Now'}
+                {isTogglingRush ? t('outlet.resuming') : t('outlet.resumeNow')}
               </button>
               <Link
                 to="/settings"
                 className="h-8 px-3 inline-flex items-center justify-center rounded-lg bg-slate-950/15 text-xs font-semibold text-slate-950 hover:bg-slate-950/25 transition-colors shadow-xs"
               >
-                Manage
+                {t('outlet.manage')}
               </Link>
             </div>
           </div>
@@ -369,7 +335,7 @@ const VendorLayoutInner: React.FC = () => {
                   <div>
                     <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">DeliveryOS</h2>
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                      Merchant Console
+                      {t('common.merchantConsole')}
                     </span>
                   </div>
                 </div>
@@ -381,14 +347,6 @@ const VendorLayoutInner: React.FC = () => {
                   <X className="h-5 w-5" />
                 </button>
               </div>
-
-              <ActiveOutletStrip
-                activeOutlet={activeOutlet}
-                outlets={outlets}
-                activeOutletId={activeOutletId}
-                isMultiBranch={isMultiBranch}
-                vendorName={user?.vendorName}
-              />
 
               <nav className="flex-1 min-h-0 space-y-1 p-3 overflow-y-auto overscroll-contain">
                 {navItems.map((item) => {
@@ -415,15 +373,20 @@ const VendorLayoutInner: React.FC = () => {
               <div className="shrink-0 mt-auto border-t border-slate-100 p-3 dark:border-slate-800 bg-white dark:bg-slate-900">
                 <div className="flex items-center gap-2.5 mb-2.5">
                   <div className="h-8 w-8 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 flex items-center justify-center font-bold text-xs shrink-0">
-                    {user?.fullName?.charAt(0) || 'V'}
+                    {displayName.charAt(0) || 'V'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate" title={user?.fullName || undefined}>
-                      {user?.fullName || 'Vendor Staff'}
+                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate" title={displayName}>
+                      {displayName}
                     </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate" title={user?.phone || undefined}>
-                      {user?.phone || user?.role}
+                    <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 truncate leading-tight">
+                      {roleTitle}
                     </p>
+                    {user?.phone && (
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate font-mono mt-0.5">
+                        {user.phone}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <button

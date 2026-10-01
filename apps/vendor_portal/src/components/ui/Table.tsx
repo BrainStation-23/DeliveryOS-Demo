@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/cn';
 
 export interface Column<T> {
@@ -28,7 +29,7 @@ export function Table<T>({
   data,
   keyExtractor,
   isLoading = false,
-  emptyMessage = 'No data available',
+  emptyMessage,
   className,
   onRowClick,
   page,
@@ -36,7 +37,9 @@ export function Table<T>({
   totalItems,
   onPageChange,
 }: TableProps<T>) {
+  const { t } = useTranslation();
   const safeData = Array.isArray(data) ? data : [];
+  const displayEmptyMessage = emptyMessage || t('common.empty');
 
   return (
     <div className={cn('overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900', className)}>
@@ -64,14 +67,14 @@ export function Table<T>({
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    <span>Loading data...</span>
+                    <span>{t('common.loading')}</span>
                   </div>
                 </td>
               </tr>
             ) : safeData.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-6 py-12 text-center text-slate-400 dark:text-slate-500">
-                  {emptyMessage}
+                  {displayEmptyMessage}
                 </td>
               </tr>
             ) : (
@@ -101,15 +104,15 @@ export function Table<T>({
       {totalPages !== undefined && totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between border-t border-slate-100 bg-slate-50/50 px-4 sm:px-6 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-800/40 gap-2">
           <div>
-            {totalItems !== undefined && <span>Total {totalItems} entries</span>}
+            {totalItems !== undefined && <span>{t('common.showing')} {totalItems} {t('common.results')}</span>}
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => onPageChange && onPageChange((page || 1) - 1)}
               disabled={(page || 1) <= 1}
-              className="h-8 px-3 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-xs"
+              className="h-8 px-3 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-xs cursor-pointer"
             >
-              Previous
+              {t('common.previous')}
             </button>
             <span className="font-semibold text-slate-700 dark:text-slate-200 px-1">
               {page} / {totalPages}
@@ -117,9 +120,9 @@ export function Table<T>({
             <button
               onClick={() => onPageChange && onPageChange((page || 1) + 1)}
               disabled={(page || 1) >= totalPages}
-              className="h-8 px-3 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-xs"
+              className="h-8 px-3 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-xs cursor-pointer"
             >
-              Next
+              {t('common.next')}
             </button>
           </div>
         </div>
