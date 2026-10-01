@@ -59,9 +59,9 @@ export const Modal: React.FC<ModalProps> = ({
         {(title || description) && (
           <div className="flex items-center justify-between border-b border-slate-100 px-5 sm:px-6 py-4 dark:border-slate-800 shrink-0">
             <div>
-              {title && <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">{title}</h3>}
+              {title && <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">{title}</h3>}
               {description && (
-                <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">{description}</p>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{description}</p>
               )}
             </div>
             <button

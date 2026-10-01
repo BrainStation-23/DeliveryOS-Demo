@@ -16,30 +16,27 @@ interface SalesLedgerKPIsProps {
 
 export const SalesLedgerKPIs: React.FC<SalesLedgerKPIsProps> = ({ summary }) => {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard
         title="Completed Orders"
         value={summary.totalOrders}
-        subtitle="Audited completed orders"
-        icon={<TrendingUp className="h-5 w-5" />}
-        iconBgColor="bg-primary-50 dark:bg-primary-950/50"
-        iconTextColor="text-primary-600 dark:text-primary-400"
-      />
-
-      <StatCard
-        title="Gross Volume"
-        value={formatCurrency(summary.grossSales)}
-        subtitle="Before platform commissions"
-        icon={<DollarSign className="h-5 w-5" />}
+        icon={<TrendingUp className="h-4 w-4" />}
         iconBgColor="bg-amber-50 dark:bg-amber-950/50"
         iconTextColor="text-amber-600 dark:text-amber-400"
       />
 
       <StatCard
-        title="Platform Fee"
+        title="Gross Sales Volume"
+        value={formatCurrency(summary.grossSales)}
+        icon={<DollarSign className="h-4 w-4" />}
+        iconBgColor="bg-slate-100 dark:bg-slate-800"
+        iconTextColor="text-slate-700 dark:text-slate-300"
+      />
+
+      <StatCard
+        title="Platform Commission"
         value={`-${formatCurrency(summary.commissionDeducted)}`}
-        subtitle="Platform revenue share"
-        icon={<Receipt className="h-5 w-5" />}
+        icon={<Receipt className="h-4 w-4" />}
         iconBgColor="bg-rose-50 dark:bg-rose-950/50"
         iconTextColor="text-rose-600 dark:text-rose-400"
         valueColor="text-rose-600 dark:text-rose-400"
@@ -48,8 +45,7 @@ export const SalesLedgerKPIs: React.FC<SalesLedgerKPIsProps> = ({ summary }) => 
       <StatCard
         title="Net Vendor Payable"
         value={formatCurrency(summary.netVendorPayable)}
-        subtitle="Net merchant earnings"
-        icon={<FileCheck2 className="h-5 w-5" />}
+        icon={<FileCheck2 className="h-4 w-4" />}
         iconBgColor="bg-emerald-50 dark:bg-emerald-950/50"
         iconTextColor="text-emerald-600 dark:text-emerald-400"
         valueColor="text-emerald-600 dark:text-emerald-400"

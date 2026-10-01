@@ -58,10 +58,10 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
       <div className="mb-6 text-center">
-        <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary-600/20 text-primary-400 mb-3 border border-primary-500/30">
+        <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 mb-3 border border-amber-500/30">
           <KeyRound className="h-6 w-6" />
         </div>
-        <h2 className="text-2xl font-bold tracking-tight text-white">{t('auth.title')}</h2>
+        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">{t('auth.title')}</h2>
         <p className="mt-1 text-xs text-slate-400">{t('auth.subtitle')}</p>
       </div>
 
@@ -104,7 +104,8 @@ export const LoginPage: React.FC = () => {
         <Button
           type="submit"
           variant="primary"
-          className="w-full mt-2"
+          size="lg"
+          className="w-full mt-2 shadow-xs"
           isLoading={isLoading}
           rightIcon={<LogIn className="h-4 w-4" />}
         >

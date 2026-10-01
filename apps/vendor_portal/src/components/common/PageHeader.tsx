@@ -32,21 +32,21 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       return <div className="shrink-0">{icon}</div>;
     }
     const IconComp = icon as LucideIcon;
-    return <IconComp className="h-6 w-6 text-primary-600 dark:text-primary-400 shrink-0" />;
+    return <IconComp className="h-5 w-5 text-amber-500 dark:text-amber-400 shrink-0" />;
   };
 
   return (
     <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between', className)}>
       <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           {renderIcon()}
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
             {title}
           </h1>
           {badge && <div className="shrink-0">{badge}</div>}
         </div>
         {subText && (
-          <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
             {subText}
           </p>
         )}

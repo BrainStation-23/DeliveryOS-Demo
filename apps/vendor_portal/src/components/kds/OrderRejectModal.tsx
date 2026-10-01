@@ -56,7 +56,7 @@ export const OrderRejectModal: React.FC<OrderRejectModalProps> = ({
                 type="button"
                 onClick={() => setReasonCode(item.code)}
                 className={cn(
-                  'min-h-[44px] rounded-xl border px-3 py-2 text-xs font-semibold text-left transition-colors flex items-center',
+                  'h-10 rounded-xl border px-3 py-2 text-xs font-semibold text-left transition-colors flex items-center',
                   reasonCode === item.code
                     ? 'border-rose-500 bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
                     : 'border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300'
@@ -84,15 +84,15 @@ export const OrderRejectModal: React.FC<OrderRejectModalProps> = ({
         <div className="mt-5 flex gap-2.5">
           <Button
             variant="outline"
-            className="flex-1 min-h-[44px] rounded-xl"
+            className="flex-1"
             onClick={onClose}
             disabled={isRejecting}
           >
             Keep Order
           </Button>
           <Button
-            variant="primary"
-            className="flex-1 min-h-[44px] bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl"
+            variant="danger"
+            className="flex-1 font-bold"
             isLoading={isRejecting}
             onClick={handleConfirm}
           >

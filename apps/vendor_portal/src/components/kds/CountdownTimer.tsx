@@ -46,7 +46,7 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   return (
     <div
       className={cn(
-        'inline-flex items-center gap-2 rounded-xl px-3 py-2 min-h-[44px] text-xs sm:text-sm font-bold tracking-wide transition-colors shadow-xs select-none',
+        'h-9 inline-flex items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold tracking-wide transition-colors shadow-xs select-none shrink-0',
         isOverdue
           ? 'bg-rose-100 text-rose-800 border-2 border-rose-400 dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-700 animate-pulse'
           : isUrgent
@@ -56,9 +56,9 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
       )}
     >
       {isOverdue ? (
-        <AlertTriangle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+        <AlertTriangle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
       ) : (
-        <Clock className="h-4 w-4 shrink-0" />
+        <Clock className="h-3.5 w-3.5 shrink-0" />
       )}
       <span className="font-mono">
         {isOverdue

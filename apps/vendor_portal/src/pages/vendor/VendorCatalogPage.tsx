@@ -117,31 +117,30 @@ export const VendorCatalogPage: React.FC = () => {
     .filter((cat): cat is typeof categories[0] => cat !== null && cat.products.length > 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       <PageHeader
         title="Menu & Stock Control"
-        description="Toggle real-time item availability to instantly prevent orders for sold-out dishes"
+        description="Toggle live dish availability to prevent orders for 86'd items"
         badge={
-          <Badge variant="purple" size="md">
+          <Badge variant="primary" size="md">
             {allProducts.length} Items
           </Badge>
         }
         actions={
           <>
             <Badge variant="success" size="md">
-              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> {totalInStock} In Stock
+              <CheckCircle2 className="h-3 w-3 mr-1" /> {totalInStock} In Stock
             </Badge>
             {totalOutOfStock > 0 && (
               <Badge variant="danger" size="md">
-                <XCircle className="h-3.5 w-3.5 mr-1" /> {totalOutOfStock} Out of Stock
+                <XCircle className="h-3 w-3 mr-1" /> {totalOutOfStock} Sold Out
               </Badge>
             )}
             <Button
               variant="outline"
               size="sm"
               onClick={() => refetch()}
-              className="min-h-[40px] text-xs font-semibold"
-              leftIcon={<RefreshCw className="h-4 w-4" />}
+              leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
             >
               Refresh
             </Button>
@@ -149,23 +148,24 @@ export const VendorCatalogPage: React.FC = () => {
         }
       />
 
+      {/* Filter and Category Pills */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="w-full sm:w-80">
+        <div className="w-full sm:w-72">
           <Input
             placeholder="Search items or variants..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            leftIcon={<Search className="h-4 w-4" />}
+            leftIcon={<Search className="h-3.5 w-3.5" />}
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1">
+        <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           <button
             type="button"
             onClick={() => setSelectedCategory('ALL')}
-            className={`rounded-xl px-3.5 py-2 text-xs font-bold transition-all min-h-[38px] ${
+            className={`inline-flex items-center justify-center h-8 rounded-lg px-3 text-xs font-semibold transition-all select-none ${
               selectedCategory === 'ALL'
-                ? 'bg-primary-600 text-white shadow-sm'
+                ? 'bg-amber-500 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
             }`}
           >
@@ -176,9 +176,9 @@ export const VendorCatalogPage: React.FC = () => {
               key={cat.id}
               type="button"
               onClick={() => setSelectedCategory(cat.id)}
-              className={`rounded-xl px-3.5 py-2 text-xs font-bold transition-all min-h-[38px] ${
+              className={`inline-flex items-center justify-center h-8 rounded-lg px-3 text-xs font-semibold transition-all select-none ${
                 selectedCategory === cat.id
-                  ? 'bg-primary-600 text-white shadow-sm'
+                  ? 'bg-amber-500 text-white shadow-xs'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
               }`}
             >
@@ -189,53 +189,54 @@ export const VendorCatalogPage: React.FC = () => {
       </div>
 
       {isLoading ? (
-        <div className="py-24">
+        <div className="py-20">
           <LoadingSpinner size="lg" label="Loading menu items..." />
         </div>
       ) : filteredCategories.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center dark:border-slate-800 dark:bg-slate-900">
-          <Layers className="mx-auto h-12 w-12 text-slate-400 mb-3" />
-          <h4 className="font-bold text-base text-slate-800 dark:text-slate-200">No items match your filter</h4>
-          <p className="text-xs text-slate-500 mt-1">Try searching for a different dish name or reset the category filter</p>
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center dark:border-slate-800 dark:bg-slate-900">
+          <Layers className="mx-auto h-10 w-10 text-slate-400 mb-2.5" />
+          <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">No items match your filter</h4>
+          <p className="text-xs text-slate-500 mt-1">Try searching for a different dish name or reset category selection</p>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {filteredCategories.map((category) => (
-            <div key={category.id} className="space-y-3.5">
-              <div className="flex items-center gap-2.5 border-b border-slate-200 pb-2.5 dark:border-slate-800">
-                <Tag className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                <h3 className="font-extrabold text-lg text-slate-900 dark:text-slate-100">
+            <div key={category.id} className="space-y-3">
+              <div className="flex items-center gap-2 border-b border-slate-200 pb-2 dark:border-slate-800">
+                <Tag className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
                   {category.name}
                 </h3>
-                <span className="text-xs text-slate-400 font-medium">({category.products.length} dishes)</span>
+                <span className="text-xs text-slate-400 font-medium">({category.products.length} items)</span>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {category.products.map((product) => (
                   <div
                     key={product.id}
-                    className={`rounded-2xl border p-4 sm:p-5 transition-all flex flex-col justify-between ${
+                    className={`rounded-xl border p-3.5 transition-all flex flex-col justify-between ${
                       product.isInStock
-                        ? 'border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900'
+                        ? 'border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900'
                         : 'border-rose-200 bg-rose-50/20 opacity-80 dark:border-rose-950 dark:bg-rose-950/10'
                     }`}
                   >
                     <div>
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <h4 className="font-bold text-base text-slate-900 dark:text-slate-100 leading-snug">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 leading-snug truncate">
                             {product.name}
                           </h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">
                             {product.description || 'Standard outlet recipe'}
                           </p>
-                          <span className="mt-2 inline-block text-sm font-extrabold text-primary-600 dark:text-primary-400">
+                          <span className="mt-1.5 inline-block text-xs font-bold text-amber-600 dark:text-amber-400">
                             ৳ {product.basePrice}
                           </span>
                         </div>
 
                         <div className="shrink-0">
                           <StockToggleSwitch
+                            size="md"
                             isInStock={product.isInStock}
                             onToggle={(nextState) =>
                               productStockMutation.mutate({
@@ -253,16 +254,16 @@ export const VendorCatalogPage: React.FC = () => {
                       </div>
 
                       {product.variants && product.variants.length > 0 && (
-                        <div className="mt-4 border-t border-slate-100 pt-3 space-y-2 dark:border-slate-800">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                            Portions / Variants:
+                        <div className="mt-3 border-t border-slate-100 pt-2.5 space-y-1.5 dark:border-slate-800">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                            Variants:
                           </span>
                           {product.variants.map((variant) => (
                             <div
                               key={variant.id}
-                              className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-1.5 text-xs dark:bg-slate-800/60"
+                              className="flex items-center justify-between rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs dark:bg-slate-800/60"
                             >
-                              <span className="text-slate-700 dark:text-slate-300 font-medium">
+                              <span className="text-slate-700 dark:text-slate-300 font-medium truncate max-w-[140px]">
                                 {variant.name}{' '}
                                 {variant.priceDelta !== 0 && (
                                   <span className="text-slate-400 font-normal">

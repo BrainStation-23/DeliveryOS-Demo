@@ -16,7 +16,7 @@ export const AuthLayout: React.FC = () => {
             <span className="ml-2 text-xs font-semibold uppercase tracking-wider text-amber-400">Merchant Portal</span>
           </div>
         </div>
-        <LanguageSelector className="bg-slate-800/80 border-slate-700 text-white" />
+        <LanguageSelector variant="dark" />
       </header>
 
       {/* Main card */}

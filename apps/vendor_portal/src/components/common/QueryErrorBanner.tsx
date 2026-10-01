@@ -19,7 +19,7 @@ export const QueryErrorBanner: React.FC<QueryErrorBannerProps> = ({ error, onRet
       <button
         type="button"
         onClick={onRetry}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-1.5 font-semibold text-rose-700 hover:bg-rose-100 transition-colors"
+        className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:bg-slate-900 dark:text-rose-300 dark:hover:bg-rose-950/50 transition-colors shadow-xs shrink-0"
       >
         <RefreshCw className="h-3.5 w-3.5" />
         Retry

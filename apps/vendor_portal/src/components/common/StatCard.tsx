@@ -50,33 +50,33 @@ export const StatCard: React.FC<StatCardProps> = ({
     <div
       onClick={onClick}
       className={cn(
-        'rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm transition-all dark:border-slate-800 dark:bg-slate-900',
+        'rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-xs transition-all dark:border-slate-800 dark:bg-slate-900',
         onClick && 'cursor-pointer hover:border-slate-300 dark:hover:border-slate-700',
-        active && 'border-primary-500 bg-primary-50/20 ring-1 ring-primary-500',
+        active && 'border-amber-500 bg-amber-50/20 ring-1 ring-amber-500',
         className
       )}
     >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
           {title}
         </span>
         {icon && (
-          <div className={cn('rounded-lg p-2 shrink-0', computedIconContainer)}>
+          <div className={cn('rounded-lg p-1.5 shrink-0', computedIconContainer)}>
             {renderIcon()}
           </div>
         )}
       </div>
-      <div className="mt-2.5">
+      <div className="mt-2">
         <div
           className={cn(
-            'text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100',
+            'text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate',
             valueColor
           )}
         >
           {isLoading ? '...' : value}
         </div>
         {subtitle && (
-          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400 truncate">
             {subtitle}
           </div>
         )}

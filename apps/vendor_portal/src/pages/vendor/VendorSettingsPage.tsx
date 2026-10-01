@@ -125,7 +125,7 @@ export const VendorSettingsPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="py-24">
+      <div className="py-20">
         <LoadingSpinner size="lg" label="Loading store operations & schedule..." />
       </div>
     );
@@ -135,11 +135,11 @@ export const VendorSettingsPage: React.FC = () => {
   const isBusy = settings?.isBusy ?? false;
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-4xl space-y-5 sm:space-y-6">
       <PageHeader
         title="Outlet Operations & Schedule"
-        description={`Configuring operating status, rush hour pauses, and preparation duration for ${currentOutletName}`}
-        icon={<Store className="h-6 w-6 text-amber-500" />}
+        description={`Operational status, rush hour controls, and operating schedule for ${currentOutletName}`}
+        icon={<Store className="h-5 w-5 text-amber-500" />}
       />
 
       {feedbackMsg && (
@@ -150,106 +150,93 @@ export const VendorSettingsPage: React.FC = () => {
         />
       )}
 
-      {/* Emergency Rush Pause Controls */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      {/* Rush Hour Pause Controls */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Emergency Rush Hour Pause
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Rush Hour Pause
               </h3>
               {isBusy ? (
-                <Badge variant="danger" size="md">
-                  PAUSED (Rush Mode)
+                <Badge variant="danger" size="sm">
+                  Paused
                 </Badge>
               ) : (
-                <Badge variant="success" size="md">
-                  OPERATIONAL (Open)
+                <Badge variant="success" size="sm">
+                  Operational
                 </Badge>
               )}
             </div>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Instantly block incoming customer checkout requests during extreme kitchen rush or prayer breaks.
+              Temporarily block incoming checkout orders during extreme kitchen volume or breaks.
             </p>
           </div>
 
           <div>
             {isBusy ? (
               <Button
-                variant="primary"
-                className="min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl px-5"
+                variant="success"
+                size="md"
+                className="shadow-xs"
                 onClick={() => handleToggleRushPause(false)}
                 isLoading={updateSettingsMutation.isPending}
                 leftIcon={<PlayCircle className="h-4 w-4" />}
               >
-                Resume Store Operations
+                Resume Store Orders
               </Button>
             ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="danger"
-                  className="min-h-[44px] rounded-xl text-xs font-bold px-3.5"
-                  onClick={() => handleToggleRushPause(true)}
-                  isLoading={updateSettingsMutation.isPending}
-                  leftIcon={<PauseCircle className="h-4 w-4" />}
-                >
-                  Pause 30 Mins
-                </Button>
-                <Button
-                  variant="outline"
-                  className="min-h-[44px] rounded-xl text-xs font-semibold px-3.5"
-                  onClick={() => handleToggleRushPause(true)}
-                  isLoading={updateSettingsMutation.isPending}
-                >
-                  Pause 1 Hour
-                </Button>
-                <Button
-                  variant="outline"
-                  className="min-h-[44px] rounded-xl text-xs font-semibold px-3.5"
-                  onClick={() => handleToggleRushPause(true)}
-                  isLoading={updateSettingsMutation.isPending}
-                >
-                  Rest of Day
-                </Button>
-              </div>
+              <Button
+                variant="danger"
+                size="md"
+                className="shadow-xs"
+                onClick={() => handleToggleRushPause(true)}
+                isLoading={updateSettingsMutation.isPending}
+                leftIcon={<PauseCircle className="h-4 w-4" />}
+              >
+                Pause Incoming Orders
+              </Button>
             )}
           </div>
         </div>
 
         {isBusy && (
-          <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-amber-50 p-3.5 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50">
-            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
+          <div className="mt-3.5 flex items-center gap-2.5 rounded-lg bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
             <span>
-              Orders are currently halted for this branch. Customer cart checkout displays
-              &ldquo;Store currently busy&rdquo;. Tap <strong>Resume Store Operations</strong> to start receiving orders again.
+              Orders are currently paused for this outlet. Customers are informed that the kitchen is busy. Tap <strong>Resume Store Orders</strong> to re-open.
             </span>
           </div>
         )}
       </div>
 
       {/* Default Preparation Time Duration */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary-600" />
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+              <Clock className="h-4 w-4 text-amber-500" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                 Default Preparation Duration
               </h3>
             </div>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Standard prep time allocated when staff taps the one-touch accept button on the KDS console.
+              Standard prep time allocated upon single-click accept on the kitchen board.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <select
               value={defaultPrepTime}
               onChange={(e) => setDefaultPrepTime(Number(e.target.value))}
-              className="h-11 min-h-[44px] rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm focus:border-primary-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 cursor-pointer"
+              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 shadow-xs focus:border-amber-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 cursor-pointer"
             >
               {[15, 20, 25, 30, 45].map((m) => (
-                <option key={m} value={m}>
+                <option
+                  key={m}
+                  value={m}
+                  className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                >
                   {m} minutes
                 </option>
               ))}
@@ -257,57 +244,58 @@ export const VendorSettingsPage: React.FC = () => {
 
             <Button
               variant="primary"
-              className="min-h-[44px] rounded-xl text-sm font-bold px-4"
+              size="md"
+              className="shadow-xs"
               onClick={handleSavePrepTime}
               isLoading={updateSettingsMutation.isPending}
-              leftIcon={<Save className="h-4 w-4" />}
+              leftIcon={<Save className="h-3.5 w-3.5" />}
             >
-              Save Prep Time
+              Save Duration
             </Button>
           </div>
         </div>
       </div>
 
       {/* Weekly Operating Schedule */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 dark:border-slate-800">
           <div>
             <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary-600" />
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+              <Calendar className="h-4 w-4 text-amber-500" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                 Weekly Operating Schedule
               </h3>
             </div>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Store doors open and closing hours for each day of the week.
+              Operating hours configuration across each day of the week.
             </p>
           </div>
 
           <Button
             variant="primary"
-            size="sm"
-            className="min-h-[38px] rounded-xl text-xs font-bold"
+            size="md"
+            className="shadow-xs"
             onClick={handleSaveHours}
             isLoading={updateHoursMutation.isPending}
-            leftIcon={<Save className="h-4 w-4" />}
+            leftIcon={<Save className="h-3.5 w-3.5" />}
           >
             Save Schedule
           </Button>
         </div>
 
-        <div className="mt-4 divide-y divide-slate-100 dark:divide-slate-800/80">
+        <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800/80">
           {operatingHours.map((h, index) => (
             <div
               key={h.dayOfWeek}
-              className="flex flex-col sm:flex-row sm:items-center justify-between py-3 text-xs gap-3"
+              className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 text-xs gap-2.5 sm:gap-3"
             >
-              <span className="w-28 font-bold text-sm text-slate-900 dark:text-slate-100">
+              <span className="w-24 font-bold text-xs text-slate-900 dark:text-slate-100">
                 {DAY_NAMES[h.dayOfWeek]}
               </span>
 
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 font-medium">Opens:</span>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500 text-[11px] font-medium">Opens:</span>
                   <input
                     type="time"
                     value={h.openTime.slice(0, 5)}
@@ -317,12 +305,12 @@ export const VendorSettingsPage: React.FC = () => {
                       newHours[index].openTime = `${e.target.value}:00`;
                       setOperatingHours(newHours);
                     }}
-                    className="h-9 rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 disabled:opacity-40"
+                    className="h-8 rounded-lg border border-slate-200 px-2 text-xs font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 disabled:opacity-40"
                   />
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 font-medium">Closes:</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500 text-[11px] font-medium">Closes:</span>
                   <input
                     type="time"
                     value={h.closeTime.slice(0, 5)}
@@ -332,11 +320,11 @@ export const VendorSettingsPage: React.FC = () => {
                       newHours[index].closeTime = `${e.target.value}:00`;
                       setOperatingHours(newHours);
                     }}
-                    className="h-9 rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 disabled:opacity-40"
+                    className="h-8 rounded-lg border border-slate-200 px-2 text-xs font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 disabled:opacity-40"
                   />
                 </div>
 
-                <label className="flex items-center gap-2 cursor-pointer select-none min-h-[36px]">
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={h.isClosed}
@@ -345,13 +333,13 @@ export const VendorSettingsPage: React.FC = () => {
                       newHours[index].isClosed = e.target.checked;
                       setOperatingHours(newHours);
                     }}
-                    className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                    className="h-3.5 w-3.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
                   />
                   <span
                     className={
                       h.isClosed
-                        ? 'font-bold text-rose-600'
-                        : 'text-slate-600 dark:text-slate-400 font-medium'
+                        ? 'font-bold text-rose-600 text-xs'
+                        : 'text-slate-600 dark:text-slate-400 font-medium text-xs'
                     }
                   >
                     Closed

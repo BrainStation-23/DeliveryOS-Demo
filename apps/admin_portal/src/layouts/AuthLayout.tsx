@@ -13,7 +13,7 @@ export const AuthLayout: React.FC = () => {
           </div>
           <span className="font-extrabold text-lg tracking-tight">DeliveryOS</span>
         </div>
-        <LanguageSelector className="bg-slate-800/80 border-slate-700 text-white" />
+        <LanguageSelector variant="dark" />
       </header>
 
       {/* Main card */}

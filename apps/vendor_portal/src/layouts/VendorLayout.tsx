@@ -227,7 +227,7 @@ const VendorLayoutInner: React.FC = () => {
             </div>
             <button
               onClick={logout}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-rose-200/80 bg-rose-50/50 px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-100/70 hover:border-rose-300 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors"
+              className="flex h-8 w-full items-center justify-center gap-2 rounded-lg border border-rose-200/80 bg-rose-50/50 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-100/70 hover:border-rose-300 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors shadow-xs"
             >
               <LogOut className="h-3.5 w-3.5 shrink-0" />
               <span>{t('common.logout')}</span>
@@ -272,7 +272,7 @@ const VendorLayoutInner: React.FC = () => {
               <button
                 onClick={() => toggleRushPause()}
                 disabled={isTogglingRush}
-                className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1.5 min-h-[38px] text-xs font-bold transition-all border shadow-xs ${
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 h-9 text-xs font-semibold transition-all border shadow-xs ${
                   activeOutlet.isBusy
                     ? 'border-amber-500 bg-amber-500 text-slate-950 hover:bg-amber-400'
                     : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
@@ -299,7 +299,7 @@ const VendorLayoutInner: React.FC = () => {
 
             <button
               onClick={toggleSound}
-              className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1.5 min-h-[38px] text-xs font-semibold transition-colors border ${
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 h-9 text-xs font-semibold transition-colors border shadow-xs ${
                 isMuted
                   ? 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
                   : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
@@ -314,7 +314,7 @@ const VendorLayoutInner: React.FC = () => {
 
             <button
               onClick={() => soundEngine.playChime()}
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               title="Test chime tone"
               aria-label="Test chime tone"
             >
@@ -338,13 +338,13 @@ const VendorLayoutInner: React.FC = () => {
               <button
                 onClick={() => toggleRushPause()}
                 disabled={isTogglingRush}
-                className="rounded-lg bg-slate-950 text-white px-3 py-1.5 text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm"
+                className="h-8 px-3 inline-flex items-center justify-center rounded-lg bg-slate-950 text-white text-xs font-bold hover:bg-slate-800 transition-colors shadow-xs"
               >
                 {isTogglingRush ? 'Resuming...' : 'Resume Orders Now'}
               </button>
               <Link
                 to="/settings"
-                className="rounded-lg bg-slate-950/15 px-2.5 py-1.5 text-slate-950 hover:bg-slate-950/25 transition-colors font-semibold"
+                className="h-8 px-3 inline-flex items-center justify-center rounded-lg bg-slate-950/15 text-xs font-semibold text-slate-950 hover:bg-slate-950/25 transition-colors shadow-xs"
               >
                 Manage
               </Link>
@@ -431,7 +431,7 @@ const VendorLayoutInner: React.FC = () => {
                     setIsMobileMenuOpen(false);
                     logout();
                   }}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-rose-200/80 bg-rose-50/50 px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-100/70 hover:border-rose-300 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors"
+                  className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-rose-200/80 bg-rose-50/50 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-100/70 hover:border-rose-300 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors shadow-xs"
                 >
                   <LogOut className="h-3.5 w-3.5 shrink-0" />
                   <span>{t('common.logout')}</span>
@@ -442,7 +442,7 @@ const VendorLayoutInner: React.FC = () => {
         )}
 
         {/* Main Content Area */}
-        <main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-5 lg:p-6">
           <Outlet />
         </main>
       </div>

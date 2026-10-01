@@ -58,6 +58,9 @@ Capability detail: [`FEATURES.md`](FEATURES.md) • Architectural rationale: [AD
 - **Region-local dashboard day boundary**: admin overview "today" metrics roll over at `Asia/Dhaka` midnight (`startOfRegionToday()`), consistent with operating-hours semantics.
 
 #### Changed
+- **Portal UI/UX Design System Normalization & Language Switcher Modernization**:
+  - **Cohesive Language Selector**: Replaced disconnected native `<select>` and standalone icon with a unified custom dropdown component in both Admin Portal and Vendor Portal (`LanguageSelector.tsx`). Added auto-detecting and explicit `variant="dark" | "default"` support, fluid popover menu with native language labels, checkmark indicators, and click-outside/escape dismissal. Fully synchronized background colors on dark auth screens and light/dark top navbars.
+  - **Vendor Portal Button & Typography Consistency**: Standardized `Button.tsx` (`sm`: `h-8 px-3 text-xs`, `md`: `h-9 px-3.5 text-xs`, `lg`: `h-10 px-4 text-xs sm:text-sm rounded-xl`) to eliminate desktop font inflation (`sm:text-sm`). Upgraded KDS action controls, table pagination, filter pills, error banners, emergency pause banners, and store settings save actions to consistent heights and semantic tokens.
 - **Single-flight token refresh on mobile**: both Flutter apps share one in-flight rotation across concurrent 401s (previously the second caller failed fast), and all four frontends re-read the stored access token on every socket `reconnect_attempt` so handshakes never replay rotated credentials.
 - **Fleet radar**: batched single-query active-trip lookup (removes N+1 per courier); riders without a GPS fix return `null` coordinates and are no longer plotted at a fabricated Dhaka default on the map.
 - **Duty lock widened**: couriers cannot go offline while holding any of the five in-flight order statuses (was two).

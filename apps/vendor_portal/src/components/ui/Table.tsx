@@ -41,14 +41,14 @@ export function Table<T>({
   return (
     <div className={cn('overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900', className)}>
       <div className="overflow-x-auto">
-        <table className="min-w-full w-full text-left text-sm text-slate-600 dark:text-slate-300">
-          <thead className="border-b border-slate-200 bg-slate-50/75 text-xs uppercase font-semibold text-slate-500 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-400">
+        <table className="min-w-full w-full text-left text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+          <thead className="border-b border-slate-200 bg-slate-50/75 text-[11px] uppercase font-semibold text-slate-500 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-400">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.key}
                   scope="col"
-                  className={cn('px-4 sm:px-6 py-3.5 whitespace-nowrap', col.headerClassName)}
+                  className={cn('px-4 sm:px-5 py-3 whitespace-nowrap', col.headerClassName)}
                 >
                   {col.header}
                 </th>
@@ -85,7 +85,7 @@ export function Table<T>({
                   )}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className={cn('px-4 sm:px-6 py-3.5 sm:py-4 whitespace-nowrap', col.className)}>
+                    <td key={col.key} className={cn('px-4 sm:px-5 py-3 whitespace-nowrap', col.className)}>
                       {col.render
                         ? col.render(item, index)
                         : (item as Record<string, unknown>)[col.key]?.toString() ?? '-'}
@@ -107,17 +107,17 @@ export function Table<T>({
             <button
               onClick={() => onPageChange && onPageChange((page || 1) - 1)}
               disabled={(page || 1) <= 1}
-              className="rounded-lg px-2.5 py-1 font-medium hover:bg-slate-200 disabled:opacity-40 dark:hover:bg-slate-700 transition-colors"
+              className="h-8 px-3 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-xs"
             >
               Previous
             </button>
-            <span className="font-semibold text-slate-700 dark:text-slate-200">
+            <span className="font-semibold text-slate-700 dark:text-slate-200 px-1">
               {page} / {totalPages}
             </span>
             <button
               onClick={() => onPageChange && onPageChange((page || 1) + 1)}
               disabled={(page || 1) >= totalPages}
-              className="rounded-lg px-2.5 py-1 font-medium hover:bg-slate-200 disabled:opacity-40 dark:hover:bg-slate-700 transition-colors"
+              className="h-8 px-3 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-xs"
             >
               Next
             </button>

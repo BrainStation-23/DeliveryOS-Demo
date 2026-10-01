@@ -29,8 +29,6 @@ export const VendorOrdersPage: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<'TODAY' | 'ALL_TIME'>('TODAY');
   const [selectedOrderForModal, setSelectedOrderForModal] = useState<LedgerItem | null>(null);
 
-  // Server-side date scoping: Today fetches one business day instead of
-  // filtering the full history on the client.
   const dateFromIso = useMemo(() => {
     if (dateFilter !== 'TODAY') return undefined;
     const start = new Date();
@@ -81,7 +79,7 @@ export const VendorOrdersPage: React.FC = () => {
       key: 'orderNumber',
       header: 'Order #',
       render: (item) => (
-        <span className="font-extrabold text-slate-900 dark:text-slate-100">
+        <span className="font-bold text-slate-900 dark:text-slate-100">
           #{item.orderNumber}
         </span>
       ),
@@ -140,7 +138,7 @@ export const VendorOrdersPage: React.FC = () => {
       key: 'netVendorPayable',
       header: 'Net Payable',
       render: (item) => (
-        <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+        <span className="font-bold text-emerald-600 dark:text-emerald-400">
           {formatCurrency(item.netVendorPayable)}
         </span>
       ),
@@ -155,22 +153,22 @@ export const VendorOrdersPage: React.FC = () => {
           </Badge>
         ) : (
           <Badge variant="warning" size="sm">
-            Pending Payout
+            Pending
           </Badge>
         ),
     },
     {
       key: 'actions',
-      header: 'Details',
+      header: 'Actions',
       render: (item) => (
         <Button
           variant="outline"
           size="sm"
-          className="min-h-[36px] rounded-lg text-xs"
+          className="font-semibold"
           onClick={() => setSelectedOrderForModal(item)}
-          leftIcon={<Eye className="h-3.5 w-3.5 text-primary-600" />}
+          leftIcon={<Eye className="h-3 w-3 text-amber-600" />}
         >
-          View Items ({item.items?.length || 0})
+          Items ({item.items?.length || 0})
         </Button>
       ),
     },
@@ -178,40 +176,40 @@ export const VendorOrdersPage: React.FC = () => {
 
   const currentScopeTitle =
     activeOutletId === 'ALL'
-      ? `All Outlets (Brand Consolidated — ${outlets.length} Branches)`
+      ? `All Outlets (${outlets.length} Branches)`
       : activeOutlet?.name || 'Store Branch';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       <PageHeader
         title="Sales Ledgers & Settlement"
-        description={`Financial auditing and commission records for ${currentScopeTitle}`}
-        icon={<Receipt className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />}
+        description={`Financial auditing and commission statements for ${currentScopeTitle}`}
+        icon={<Receipt className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />}
         actions={
           <>
-            <div className="flex rounded-xl border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-800 dark:bg-slate-800">
+            <div className="flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-800 dark:bg-slate-800">
               <button
                 type="button"
                 onClick={() => setDateFilter('TODAY')}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all min-h-[36px] ${
+                className={`flex items-center gap-1.5 rounded-md px-3 text-xs font-semibold transition-all h-8 ${
                   dateFilter === 'TODAY'
-                    ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100'
+                    ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-slate-100'
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
                 }`}
               >
-                <Calendar className="h-3.5 w-3.5" />
+                <Calendar className="h-3 w-3" />
                 <span>Today</span>
               </button>
               <button
                 type="button"
                 onClick={() => setDateFilter('ALL_TIME')}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all min-h-[36px] ${
+                className={`flex items-center gap-1.5 rounded-md px-3 text-xs font-semibold transition-all h-8 ${
                   dateFilter === 'ALL_TIME'
-                    ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100'
+                    ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-slate-100'
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
                 }`}
               >
-                <CalendarDays className="h-3.5 w-3.5" />
+                <CalendarDays className="h-3 w-3" />
                 <span>All Time</span>
               </button>
             </div>
@@ -220,8 +218,7 @@ export const VendorOrdersPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => refetch()}
-              className="min-h-[38px] text-xs font-semibold"
-              leftIcon={<RefreshCw className="h-4 w-4" />}
+              leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
             >
               Refresh
             </Button>
@@ -232,28 +229,28 @@ export const VendorOrdersPage: React.FC = () => {
       <SalesLedgerKPIs summary={summary} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="w-full sm:w-80">
+        <div className="w-full sm:w-72">
           <Input
-            placeholder="Search by order #, branch, or customer..."
+            placeholder="Search order #, branch, or customer..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            leftIcon={<Search className="h-4 w-4" />}
+            leftIcon={<Search className="h-3.5 w-3.5" />}
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           {['ALL', 'PENDING', 'SETTLED'].map((st) => (
             <button
               key={st}
               type="button"
               onClick={() => setStatusFilter(st)}
-              className={`rounded-xl px-3.5 py-2 text-xs font-bold transition-all min-h-[38px] ${
+              className={`inline-flex items-center justify-center rounded-lg px-3 text-xs font-semibold transition-all h-8 select-none ${
                 statusFilter === st
-                  ? 'bg-primary-600 text-white shadow-sm'
+                  ? 'bg-amber-500 text-white shadow-xs'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
               }`}
             >
-              {st === 'ALL' ? 'All Settlements' : st}
+              {st === 'ALL' ? 'All Statements' : st}
             </button>
           ))}
         </div>
@@ -264,7 +261,7 @@ export const VendorOrdersPage: React.FC = () => {
       )}
 
       {isLoading ? (
-        <div className="py-24">
+        <div className="py-20">
           <LoadingSpinner size="lg" label="Loading sales ledgers..." />
         </div>
       ) : (

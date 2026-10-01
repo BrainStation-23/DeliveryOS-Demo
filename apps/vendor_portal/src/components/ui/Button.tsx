@@ -20,21 +20,28 @@ export const Button: React.FC<ButtonProps> = ({
   rightIcon,
   ...props
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-150 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none';
+  const baseStyles =
+    'inline-flex items-center justify-center font-semibold transition-colors duration-150 rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none';
 
   const variants = {
-    primary: 'bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800 focus:ring-primary-500 shadow-sm',
-    secondary: 'bg-slate-100 text-slate-800 hover:bg-slate-200 active:bg-slate-300 focus:ring-slate-400 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700',
-    outline: 'border border-slate-300 bg-transparent text-slate-700 hover:bg-slate-50 active:bg-slate-100 focus:ring-primary-500 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800',
-    danger: 'bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800 focus:ring-rose-500 shadow-sm',
-    success: 'bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 focus:ring-emerald-500 shadow-sm',
-    ghost: 'bg-transparent text-slate-600 hover:bg-slate-100 active:bg-slate-200 focus:ring-slate-400 dark:text-slate-300 dark:hover:bg-slate-800',
+    primary:
+      'bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700 shadow-xs dark:bg-amber-500 dark:hover:bg-amber-600',
+    secondary:
+      'bg-slate-100 text-slate-800 hover:bg-slate-200 active:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700',
+    outline:
+      'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 active:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-slate-100 shadow-xs',
+    danger:
+      'bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800 shadow-xs dark:bg-rose-600 dark:hover:bg-rose-700',
+    success:
+      'bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 shadow-xs dark:bg-emerald-600 dark:hover:bg-emerald-700',
+    ghost:
+      'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100',
   };
 
   const sizes = {
-    sm: 'text-xs px-2.5 py-1.5 gap-1.5',
-    md: 'text-sm px-4 py-2 gap-2',
-    lg: 'text-base px-5 py-2.5 gap-2.5',
+    sm: 'h-8 px-3 text-xs gap-1.5',
+    md: 'h-9 px-3.5 text-xs gap-2',
+    lg: 'h-10 px-4 text-xs sm:text-sm gap-2 rounded-xl',
   };
 
   return (
@@ -45,7 +52,7 @@ export const Button: React.FC<ButtonProps> = ({
     >
       {isLoading ? (
         <svg
-          className="animate-spin h-4 w-4 text-current"
+          className="animate-spin h-3.5 w-3.5 shrink-0 text-current"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -67,7 +74,7 @@ export const Button: React.FC<ButtonProps> = ({
       ) : (
         leftIcon
       )}
-      {children && <span>{children}</span>}
+      {children}
       {!isLoading && rightIcon}
     </button>
   );

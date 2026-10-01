@@ -28,7 +28,7 @@ export const SalesLedgerDetailModal: React.FC<SalesLedgerDetailModalProps> = ({
         <div className="flex justify-end w-full">
           <Button
             variant="outline"
-            className="min-h-[44px] px-5 rounded-xl font-semibold"
+            size="md"
             onClick={onClose}
           >
             Close
@@ -48,7 +48,7 @@ export const SalesLedgerDetailModal: React.FC<SalesLedgerDetailModalProps> = ({
               </p>
               {order.customerPhone && (
                 <p className="text-slate-600 dark:text-slate-400 flex items-center gap-1.5 mt-1 font-mono">
-                  <Phone className="h-3.5 w-3.5 text-primary-500" />
+                  <Phone className="h-3.5 w-3.5 text-amber-500" />
                   {order.customerPhone}
                 </p>
               )}
@@ -97,7 +97,7 @@ export const SalesLedgerDetailModal: React.FC<SalesLedgerDetailModalProps> = ({
                         {item.productName}
                       </span>
                       {item.variant && (
-                        <Badge variant="purple" size="sm">
+                        <Badge variant="primary" size="sm">
                           {item.variant.name} (+{formatCurrency(item.variant.priceDelta)})
                         </Badge>
                       )}
@@ -124,7 +124,7 @@ export const SalesLedgerDetailModal: React.FC<SalesLedgerDetailModalProps> = ({
                   </div>
 
                   <div className="text-right shrink-0 ml-3">
-                    <span className="font-extrabold text-slate-900 dark:text-slate-100 text-sm">
+                    <span className="font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm">
                       {formatCurrency(item.totalPrice)}
                     </span>
                     <span className="block text-[10px] text-slate-400 font-medium">
@@ -152,7 +152,7 @@ export const SalesLedgerDetailModal: React.FC<SalesLedgerDetailModalProps> = ({
             <span>Platform Commission ({order.commissionRate}%)</span>
             <span className="font-semibold">-{formatCurrency(order.commissionAmount)}</span>
           </div>
-          <div className="pt-2.5 border-t border-slate-200 dark:border-slate-700 flex justify-between text-base font-extrabold text-emerald-600 dark:text-emerald-400">
+          <div className="pt-2.5 border-t border-slate-200 dark:border-slate-700 flex justify-between text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400">
             <span>Net Vendor Payable</span>
             <span>{formatCurrency(order.netVendorPayable)}</span>
           </div>
