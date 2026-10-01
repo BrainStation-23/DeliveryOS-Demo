@@ -435,7 +435,10 @@ export const adminApi = {
     return res.data?.data || res.data;
   },
 
-  async updateOrderFlow(mode: 'RIDER_FIRST' | 'VENDOR_FIRST', timeout?: number): Promise<{ message: string; data?: unknown }> {
+  async updateOrderFlow(
+    mode: 'RIDER_FIRST' | 'VENDOR_FIRST',
+    timeout?: number,
+  ): Promise<{ mode: string; riderSearchTimeoutSeconds?: number; message?: string }> {
     const res = await apiClient.patch('/api/v1/admin/settings/order-flow', {
       mode,
       riderSearchTimeoutSeconds: timeout,

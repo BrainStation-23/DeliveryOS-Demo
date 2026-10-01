@@ -53,6 +53,7 @@
       "dispatch": "Live Dispatch & Fleet",
       "orders": "Order Ledger",
       "promotions": "Coupons & Banners",
+      "finance": "Financial Governance",
       "settings": "System Settings"
     },
     "vendor": {

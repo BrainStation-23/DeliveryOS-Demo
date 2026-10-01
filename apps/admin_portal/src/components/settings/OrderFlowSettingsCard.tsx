@@ -1,0 +1,123 @@
+import React from 'react';
+import { Shuffle, Truck, Store, Check } from 'lucide-react';
+import { Badge } from '../ui/Badge';
+
+export interface OrderFlowSettingsCardProps {
+  currentMode: 'RIDER_FIRST' | 'VENDOR_FIRST';
+  isUpdating: boolean;
+  onUpdateMode: (mode: 'RIDER_FIRST' | 'VENDOR_FIRST') => void;
+}
+
+export const OrderFlowSettingsCard: React.FC<OrderFlowSettingsCardProps> = ({
+  currentMode,
+  isUpdating,
+  onUpdateMode,
+}) => {
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-4">
+      <div>
+        <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <Shuffle className="h-5 w-5 text-primary-600" />
+          Order Fulfillment Pipeline Mode
+        </h2>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          DeliveryOS dynamic finite-state machine (FSM) dictates the coordination sequence between kitchen preparation and courier broadcast.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2" role="radiogroup" aria-label="Order Fulfillment Pipeline Mode">
+        {/* RIDER_FIRST Mode Card */}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={currentMode === 'RIDER_FIRST'}
+          disabled={isUpdating}
+          onClick={() => {
+            if (currentMode !== 'RIDER_FIRST') {
+              onUpdateMode('RIDER_FIRST');
+            }
+          }}
+          className={`text-left rounded-xl border p-4 sm:p-5 transition-all focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${
+            currentMode === 'RIDER_FIRST'
+              ? 'border-primary-600 bg-primary-50/50 dark:border-primary-500 dark:bg-primary-950/20 ring-2 ring-primary-500/20 shadow-xs'
+              : 'border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
+          } ${isUpdating ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className={`p-2 rounded-lg ${
+                currentMode === 'RIDER_FIRST'
+                  ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/60 dark:text-primary-300'
+                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+              }`}>
+                <Truck className="h-5 w-5 shrink-0" />
+              </div>
+              <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                RIDER_FIRST (Zero Food Waste Mode)
+              </span>
+            </div>
+            {currentMode === 'RIDER_FIRST' && (
+              <Badge variant="success" className="gap-1 shrink-0">
+                <Check className="h-3 w-3" />
+                Active
+              </Badge>
+            )}
+          </div>
+          <p className="mt-2.5 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+            When an order is confirmed, broadcast goes directly to nearby couriers first. The kitchen bell remains withheld until a rider accepts the run, ensuring warm food is never prepped for missing transport.
+          </p>
+          <div className="mt-3 text-[11px] font-semibold text-primary-700 dark:text-primary-400 flex items-center gap-1.5">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary-600 dark:bg-primary-400" />
+            Recommended for Cloud Kitchens & High-Value Restaurants
+          </div>
+        </button>
+
+        {/* VENDOR_FIRST Mode Card */}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={currentMode === 'VENDOR_FIRST'}
+          disabled={isUpdating}
+          onClick={() => {
+            if (currentMode !== 'VENDOR_FIRST') {
+              onUpdateMode('VENDOR_FIRST');
+            }
+          }}
+          className={`text-left rounded-xl border p-4 sm:p-5 transition-all focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${
+            currentMode === 'VENDOR_FIRST'
+              ? 'border-primary-600 bg-primary-50/50 dark:border-primary-500 dark:bg-primary-950/20 ring-2 ring-primary-500/20 shadow-xs'
+              : 'border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
+          } ${isUpdating ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className={`p-2 rounded-lg ${
+                currentMode === 'VENDOR_FIRST'
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300'
+                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+              }`}>
+                <Store className="h-5 w-5 shrink-0" />
+              </div>
+              <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                VENDOR_FIRST (Traditional Retail Mode)
+              </span>
+            </div>
+            {currentMode === 'VENDOR_FIRST' && (
+              <Badge variant="success" className="gap-1 shrink-0">
+                <Check className="h-3 w-3" />
+                Active
+              </Badge>
+            )}
+          </div>
+          <p className="mt-2.5 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+            The merchant receives the ticket and commences food preparation immediately. Courier broadcast is initiated when the merchant marks items &quot;Ready for Pickup&quot;, reducing driver curbside wait time.
+          </p>
+          <div className="mt-3 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400" />
+            Recommended for Fast-Food Chains & Quick-Serve Bakeries
+          </div>
+        </button>
+      </div>
+    </section>
+  );
+};
