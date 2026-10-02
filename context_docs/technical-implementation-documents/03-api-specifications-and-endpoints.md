@@ -164,6 +164,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`GET /admin/orders`**
   - *Query*: `status` (optional), `search` (optional, matches order number/customer name/phone), `dateFrom`/`dateTo` (optional ISO-8601 inclusive bounds on `placedAt`), `page` (int, default 1), `limit` (int, default 10).
   - *Response*: Paginated orders `{ "items": [...], "total": 120, "page": 1, "limit": 10, "totalPages": 12 }`.
+- **`GET /admin/orders/:id`**: Full detail view for one order — parties (outlet/customer/courier with phones), status + payment, money breakdown (`subtotal`, `couponDiscount`, `deliveryFee`, `taxAmount`, `totalAmount`), lifecycle timestamps (`placedAt`, `acceptedAt`, `pickedUpAt`, `deliveredAt`, `cancelledAt`, `rejectionReason`), line items, and delivery address. 404 for unknown ids.
 - **`POST /admin/orders/:id/force-assign`**: Body `{ "riderId": "uuid" }` (bypasses automated dispatch).
 - **`POST /admin/orders/:id/cancel`**: Body `{ "reason": "Min 5 char audit reason" }` (reverses ledger and voids holds).
 - **`GET /admin/riders`**: Fleet list (`approvalStatus=ALL | PENDING | APPROVED`, `isOnline=true|false`).

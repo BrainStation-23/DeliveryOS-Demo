@@ -125,6 +125,17 @@ export class AdminController {
     };
   }
 
+  @Get('orders/:id')
+  @ApiOperation({ summary: 'Get the full detail view (info, money breakdown, lifecycle timestamps) for one order' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async getOrderById(@Param('id') orderId: string) {
+    const data = await this.adminService.getOrderById(orderId);
+    return {
+      message: `Order ${data.orderNumber} retrieved`,
+      data,
+    };
+  }
+
   @Post('orders/:id/force-assign')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Admin manual dispatch force-assignment override' })

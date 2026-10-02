@@ -97,9 +97,16 @@ export interface AdminOrder {
   paymentStatus: string;
   totalAmount: number;
   deliveryFee: number;
+  subtotal?: number;
+  couponDiscount?: number;
+  taxAmount?: number;
   placedAt: string;
   acceptedAt?: string | null;
   prepTimeMinutes?: number | null;
+  pickedUpAt?: string | null;
+  deliveredAt?: string | null;
+  cancelledAt?: string | null;
+  rejectionReason?: string | null;
   customerNotes?: string | null;
   items: Array<{
     id: string;
@@ -349,6 +356,11 @@ export const adminApi = {
       limit: resolvedLimit,
       totalPages: Math.max(1, totalPages),
     };
+  },
+
+  async getOrderById(orderId: string): Promise<AdminOrder> {
+    const res = await apiClient.get(`/api/v1/admin/orders/${orderId}`);
+    return res.data?.data || res.data;
   },
 
   async forceAssignRider(orderId: string, riderId: string): Promise<{ message: string; data?: AdminOrder }> {

@@ -250,7 +250,7 @@ describe('AdminService - forceAssignRider fleet governance guards', () => {
 describe('AdminService - getLiveOrders date-wise filtering', () => {
   let service: AdminService;
   let prisma: {
-    order: { findMany: jest.Mock; count: jest.Mock };
+    order: { findMany: jest.Mock; findUnique: jest.Mock; count: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -263,6 +263,7 @@ describe('AdminService - getLiveOrders date-wise filtering', () => {
     prisma = {
       order: {
         findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue(null),
         count: jest.fn().mockResolvedValue(0),
       },
       $transaction: jest.fn().mockResolvedValue([[], 0]),
@@ -330,5 +331,54 @@ describe('AdminService - getLiveOrders date-wise filtering', () => {
         { customer: { fullName: { contains: 'ORD-42', mode: 'insensitive' } } },
       ],
     });
+  });
+
+  it('getOrderById returns the enriched detail view with money breakdown and lifecycle timestamps', async () => {
+    prisma.order.findUnique.mockResolvedValue({
+      id: 'order-1',
+      orderNumber: 'ORD-20261002-0001',
+      vendorId: 'vendor-1',
+      customerId: 'customer-1',
+      riderId: null,
+      status: OrderStatus.DELIVERED,
+      paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+      paymentStatus: PaymentStatus.PAID,
+      totalAmount: { valueOf: () => 550 },
+      deliveryFee: { valueOf: () => 50 },
+      subtotal: { valueOf: () => 560 },
+      couponDiscount: { valueOf: () => 60 },
+      taxAmount: { valueOf: () => 0 },
+      placedAt: new Date('2026-10-02T10:00:00.000Z'),
+      acceptedAt: new Date('2026-10-02T10:02:00.000Z'),
+      prepTimeMinutes: 20,
+      pickedUpAt: new Date('2026-10-02T10:25:00.000Z'),
+      deliveredAt: new Date('2026-10-02T10:50:00.000Z'),
+      cancelledAt: null,
+      rejectionReason: null,
+      customerNotes: null,
+      customer: { fullName: 'Nusrat Jahan', phone: '+8801700000005' },
+      vendor: { id: 'vendor-1', name: 'Burger Point', addressText: 'Gulshan', latitude: 23.8, longitude: 90.4 },
+      rider: null,
+      orderItems: [{ id: 'i1', productNameSnapshot: 'Classic Burger', quantity: 2, unitPrice: { valueOf: () => 250 } }],
+      deliveryAddressSnapshot: { addressLine: 'Road 11, Banani' },
+    });
+
+    const view = await service.getOrderById('order-1');
+
+    expect(view).toMatchObject({
+      orderNumber: 'ORD-20261002-0001',
+      subtotal: 560,
+      couponDiscount: 60,
+      totalAmount: 550,
+      status: OrderStatus.DELIVERED,
+      items: [{ id: 'i1', name: 'Classic Burger', quantity: 2, unitPrice: 250 }],
+      deliveryAddress: 'Road 11, Banani',
+    });
+    expect(view.pickedUpAt).toEqual(new Date('2026-10-02T10:25:00.000Z'));
+    expect(view.deliveredAt).toEqual(new Date('2026-10-02T10:50:00.000Z'));
+  });
+
+  it('getOrderById rejects unknown ids with 404', async () => {
+    await expect(service.getOrderById('missing')).rejects.toThrow('Order not found');
   });
 });

@@ -1,41 +1,68 @@
 import React from 'react';
-import { UserCheck, Eye, XCircle, Bike } from 'lucide-react';
-import { AdminOrder } from '../../../../services/adminApi';
+import { UserCheck, XCircle, Bike } from 'lucide-react';
 import { Table, Column } from '../../../../components/ui/Table';
 import { OrderStatusBadge } from '../../../../components/ui/Badge';
 import { Button } from '../../../../components/ui/Button';
+import { formatCurrency } from '../../../../utils/formatters';
+
+/**
+ * The minimal row every order list surface (dashboard + order history)
+ * renders. Details live behind a click — never extra columns.
+ */
+export interface OrderListRow {
+  id: string;
+  orderNumber: string;
+  placedAt: string;
+  vendorName: string;
+  customerName: string;
+  riderName: string | null;
+  status: string;
+  totalAmount: number;
+  paymentMethod: string;
+  riderId?: string | null;
+}
 
 interface OrdersTableProps {
-  orders: AdminOrder[];
-  page: number;
-  totalPages: number;
-  totalItems: number;
-  onPageChange: (page: number) => void;
-  onViewDetails: (order: AdminOrder) => void;
-  onAssign: (order: AdminOrder) => void;
-  onCancel: (order: AdminOrder) => void;
+  orders: OrderListRow[];
+  onViewDetails: (row: OrderListRow) => void;
+  /** Operational actions render only where provided (order history, not dashboard). */
+  onAssign?: (row: OrderListRow) => void;
+  onCancel?: (row: OrderListRow) => void;
+  emptyMessage?: string;
+  page?: number;
+  totalPages?: number;
+  totalItems?: number;
+  onPageChange?: (page: number) => void;
 }
+
+const isTerminal = (status: string) => status === 'DELIVERED' || status === 'CANCELLED';
 
 export const OrdersTable: React.FC<OrdersTableProps> = ({
   orders,
+  onViewDetails,
+  onAssign,
+  onCancel,
+  emptyMessage = 'No orders to show.',
   page,
   totalPages,
   totalItems,
   onPageChange,
-  onViewDetails,
-  onAssign,
-  onCancel,
 }) => {
-  const columns: Column<AdminOrder>[] = [
+  const hasActions = Boolean(onAssign || onCancel);
+
+  const columns: Column<OrderListRow>[] = [
     {
       key: 'orderNumber',
       header: 'Order #',
       render: (order) => (
         <div>
           <button
-            onClick={() => onViewDetails(order)}
-            className="font-semibold text-primary-600 hover:text-primary-700 hover:underline dark:text-primary-400 text-left"
-            title="Click to view line items & details"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewDetails(order);
+            }}
+            className="font-semibold text-primary-600 hover:text-primary-700 hover:underline dark:text-primary-400 text-left cursor-pointer"
+            title="Click to view order details"
           >
             {order.orderNumber}
           </button>
@@ -47,31 +74,30 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     },
     {
       key: 'vendorName',
-      header: 'Store Outlet',
+      header: 'Outlet',
       render: (order) => (
-        <div>
-          <div className="font-medium text-slate-900 dark:text-slate-100">{order.vendorName}</div>
-          <div className="text-[11px] text-slate-500 truncate max-w-[160px]">{order.vendorAddress}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-            <span>{order.items?.length || 0} item{order.items?.length === 1 ? '' : 's'}</span>
-            {order.customerNotes && (
-              <span className="inline-flex items-center text-amber-600 dark:text-amber-400 font-semibold" title={order.customerNotes}>
-                • Note
-              </span>
-            )}
-          </div>
-        </div>
+        <div className="font-medium text-slate-900 dark:text-slate-100">{order.vendorName}</div>
       ),
     },
     {
       key: 'customerName',
       header: 'Customer',
       render: (order) => (
-        <div>
-          <div className="font-medium text-slate-900 dark:text-slate-100">{order.customerName}</div>
-          <div className="text-[11px] text-slate-500">{order.customerPhone}</div>
-        </div>
+        <div className="font-medium text-slate-900 dark:text-slate-100">{order.customerName}</div>
       ),
+    },
+    {
+      key: 'riderName',
+      header: 'Courier',
+      render: (order) =>
+        order.riderName ? (
+          <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+            <Bike className="h-3.5 w-3.5 text-primary-600 shrink-0" />
+            <span className="font-medium">{order.riderName}</span>
+          </div>
+        ) : (
+          <span className="text-amber-600 dark:text-amber-400 font-medium text-[11px] italic">Unassigned</span>
+        ),
     },
     {
       key: 'status',
@@ -79,65 +105,48 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       render: (order) => <OrderStatusBadge status={order.status} />,
     },
     {
-      key: 'riderName',
-      header: 'Assigned Courier',
-      render: (order) =>
-        order.riderName ? (
-          <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
-            <Bike className="h-3.5 w-3.5 text-primary-600 shrink-0" />
-            <div>
-              <span className="font-medium">{order.riderName}</span>
-              <div className="text-[10px] text-slate-400">{order.riderPhone}</div>
-            </div>
-          </div>
-        ) : (
-          <span className="text-amber-600 dark:text-amber-400 font-medium text-[11px] italic">
-            Unassigned
-          </span>
-        ),
-    },
-    {
       key: 'totalAmount',
       header: 'Total',
       render: (order) => (
         <div className="text-right">
-          <span className="font-semibold text-slate-900 dark:text-slate-100">৳{order.totalAmount}</span>
-          <div className="text-[10px] text-slate-400">{order.paymentMethod}</div>
+          <span className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(order.totalAmount)}</span>
+          <div className="text-[10px] text-slate-400">{order.paymentMethod === 'CASH_ON_DELIVERY' ? 'COD' : 'Online'}</div>
         </div>
       ),
     },
-    {
+  ];
+
+  if (hasActions) {
+    columns.push({
       key: 'id',
       header: 'Action',
       render: (order) => (
         <div className="inline-flex items-center justify-end gap-1.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs h-7 px-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-            onClick={() => onViewDetails(order)}
-            leftIcon={<Eye className="h-3.5 w-3.5" />}
-          >
-            Details
-          </Button>
-
-          {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' ? (
+          {!isTerminal(order.status) ? (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs h-7 px-2.5"
-                onClick={() => onAssign(order)}
-                leftIcon={<UserCheck className="h-3.5 w-3.5 text-primary-600" />}
-              >
-                {order.riderId ? 'Reassign' : 'Force Assign'}
-              </Button>
-              {order.status !== 'DISPATCHED' && (
+              {onAssign && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7 px-2.5"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAssign(order);
+                  }}
+                  leftIcon={<UserCheck className="h-3.5 w-3.5 text-primary-600" />}
+                >
+                  {order.riderId ? 'Reassign' : 'Assign'}
+                </Button>
+              )}
+              {onCancel && order.status !== 'DISPATCHED' && (
                 <Button
                   variant="outline"
                   size="sm"
                   className="text-xs h-7 px-2 border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40"
-                  onClick={() => onCancel(order)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCancel(order);
+                  }}
                   leftIcon={<XCircle className="h-3.5 w-3.5 text-rose-500" />}
                 >
                   Cancel
@@ -149,14 +158,16 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           )}
         </div>
       ),
-    },
-  ];
+    });
+  }
 
   return (
     <Table
       data={orders}
       columns={columns}
       keyExtractor={(o) => o.id}
+      emptyMessage={emptyMessage}
+      onRowClick={onViewDetails}
       page={page}
       totalPages={totalPages}
       totalItems={totalItems}

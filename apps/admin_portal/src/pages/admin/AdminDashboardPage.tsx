@@ -7,28 +7,24 @@ import {
   Store,
   DollarSign,
   Shuffle,
-  Eye,
   RefreshCw,
 } from 'lucide-react';
 import adminApi, { AdminOverview } from '../../services/adminApi';
 import { getSocket } from '../../services/socket';
-import { Badge, OrderStatusBadge } from '../../components/ui/Badge';
+import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
-import { Modal } from '../../components/ui/Modal';
-import { Table, Column } from '../../components/ui/Table';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatCard } from '../../components/common/StatCard';
 import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
-
-type DashboardOrder = AdminOverview['recentOrders'][number];
+import { OrderDetailsModal } from '../../components/orders/OrderDetailsModal';
+import { OrderListRow, OrdersTable } from './components/orders/OrdersTable';
 
 export const AdminDashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
+  const [detailsOrderId, setDetailsOrderId] = useState<string | null>(null);
 
   const { data: overview, isLoading, isError, error, refetch } = useQuery<AdminOverview>({
     queryKey: ['admin-overview'],
@@ -36,11 +32,23 @@ export const AdminDashboardPage: React.FC = () => {
     refetchInterval: 30000,
   });
 
+  // Dashboard rows are the thin overview payload; the full detail view is
+  // fetched by id the moment an admin opens one.
+  const {
+    data: detailsOrder,
+    isLoading: isDetailsLoading,
+  } = useQuery({
+    queryKey: ['admin-order-detail', detailsOrderId],
+    queryFn: () => adminApi.getOrderById(detailsOrderId as string),
+    enabled: !!detailsOrderId,
+  });
+
   useEffect(() => {
     const socket = getSocket();
 
     const handleOrderEvent = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-order-detail'] });
     };
 
     socket.on('order:new', handleOrderEvent);
@@ -53,7 +61,19 @@ export const AdminDashboardPage: React.FC = () => {
   }, [queryClient]);
 
   const metrics = overview?.metrics;
-  const recentOrders = Array.isArray(overview?.recentOrders) ? overview.recentOrders : [];
+  const recentOrders: OrderListRow[] = (Array.isArray(overview?.recentOrders) ? overview.recentOrders : []).map(
+    (order) => ({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      placedAt: order.placedAt,
+      vendorName: order.outletName,
+      customerName: order.customerName,
+      riderName: order.riderName ?? null,
+      status: order.status,
+      totalAmount: order.totalAmount,
+      paymentMethod: order.paymentMethod,
+    }),
+  );
 
   const stats = [
     {
@@ -85,56 +105,6 @@ export const AdminDashboardPage: React.FC = () => {
       icon: DollarSign,
       change: metrics ? `৳ ${metrics.todayCommission.toLocaleString()} commission` : '৳ 0 commission',
       color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/50',
-    },
-  ];
-
-  const columns: Column<DashboardOrder>[] = [
-    {
-      key: 'orderNumber',
-      header: 'Order #',
-      render: (order) => (
-        <div>
-          <span className="font-semibold text-slate-900 dark:text-slate-100">{order.orderNumber}</span>
-          <div className="text-[11px] text-slate-500">
-            {order.placedAt ? new Date(order.placedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'customerName',
-      header: 'Customer',
-    },
-    {
-      key: 'outletName',
-      header: 'Store Outlet',
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (order) => <OrderStatusBadge status={order.status} />,
-    },
-    {
-      key: 'totalAmount',
-      header: 'Amount',
-      render: (order) => <span className="font-medium">৳ {order.totalAmount}</span>,
-    },
-    {
-      key: 'actions',
-      header: 'Actions',
-      render: (order) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setSelectedOrder(order);
-            setIsModalOpen(true);
-          }}
-          leftIcon={<Eye className="h-3.5 w-3.5" />}
-        >
-          View
-        </Button>
-      ),
     },
   ];
 
@@ -183,8 +153,8 @@ export const AdminDashboardPage: React.FC = () => {
 
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-          <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">Recent Live Orders</h3>
-          <span className="text-xs text-slate-500">Auto-updates in real time via WebSocket</span>
+          <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">Recent Orders</h3>
+          <span className="text-xs text-slate-500">Click an order for full details · auto-updates in real time</span>
         </div>
 
         {isError ? (
@@ -194,57 +164,20 @@ export const AdminDashboardPage: React.FC = () => {
             <LoadingSpinner label="Loading live operational metrics..." />
           </div>
         ) : (
-          <Table
-            columns={columns}
-            data={recentOrders}
-            keyExtractor={(item) => item.id}
+          <OrdersTable
+            orders={recentOrders}
             emptyMessage="No orders recorded on the platform today yet."
+            onViewDetails={(row) => setDetailsOrderId(row.id)}
           />
         )}
       </div>
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={selectedOrder?.orderNumber || 'Order Details'}
-        description={`Audit record for ${selectedOrder?.customerName}`}
-        footer={
-          <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-            Close
-          </Button>
-        }
-      >
-        {selectedOrder && (
-          <div className="space-y-4 text-sm">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <span className="text-xs text-slate-500">Outlet</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">{selectedOrder.outletName}</p>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500">Status</span>
-                <div className="mt-0.5">
-                  <OrderStatusBadge status={selectedOrder.status} />
-                </div>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500">Gross Total</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">৳ {selectedOrder.totalAmount}</p>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500">Settlement</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">{selectedOrder.paymentMethod}</p>
-              </div>
-              {selectedOrder.riderName && (
-                <div className="sm:col-span-2">
-                  <span className="text-xs text-slate-500">Assigned Courier</span>
-                  <p className="font-semibold text-slate-900 dark:text-slate-100">{selectedOrder.riderName}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </Modal>
+      <OrderDetailsModal
+        isOpen={!!detailsOrderId}
+        order={detailsOrder || null}
+        isLoading={isDetailsLoading}
+        onClose={() => setDetailsOrderId(null)}
+      />
     </div>
   );
 };

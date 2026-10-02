@@ -32,9 +32,16 @@ export interface LiveOrderView {
   paymentStatus: string;
   totalAmount: number;
   deliveryFee: number;
+  subtotal: number;
+  couponDiscount: number;
+  taxAmount: number;
   placedAt: Date;
   acceptedAt: Date | null;
   prepTimeMinutes: number | null;
+  pickedUpAt: Date | null;
+  deliveredAt: Date | null;
+  cancelledAt: Date | null;
+  rejectionReason: string | null;
   items: Array<{ id: string; name: string; quantity: number; unitPrice: number }>;
   deliveryAddress: string;
 }
@@ -307,7 +314,40 @@ export class AdminService {
       this.prisma.order.count({ where }),
     ]);
 
-    const items: LiveOrderView[] = orders.map((o) => ({
+    const items: LiveOrderView[] = orders.map((o) => this.toLiveOrderView(o));
+
+    return toPaginatedResult(items, total, pagination);
+  }
+
+  async getOrderById(orderId: string): Promise<LiveOrderView> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        customer: { select: { fullName: true, phone: true } },
+        vendor: { select: { id: true, name: true, addressText: true, latitude: true, longitude: true } },
+        rider: {
+          include: {
+            user: { select: { fullName: true, phone: true } },
+          },
+        },
+        orderItems: true,
+      },
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    return this.toLiveOrderView(order);
+  }
+
+  private toLiveOrderView(o: Prisma.OrderGetPayload<{
+    include: {
+      customer: { select: { fullName: true; phone: true } };
+      vendor: { select: { id: true; name: true; addressText: true; latitude: true; longitude: true } };
+      rider: { include: { user: { select: { fullName: true; phone: true } } } };
+      orderItems: true;
+    };
+  }>): LiveOrderView {
+    return {
       id: o.id,
       orderNumber: o.orderNumber,
       vendorId: o.vendorId,
@@ -327,9 +367,16 @@ export class AdminService {
       paymentStatus: o.paymentStatus,
       totalAmount: Number(o.totalAmount),
       deliveryFee: Number(o.deliveryFee),
+      subtotal: Number(o.subtotal ?? 0),
+      couponDiscount: Number(o.couponDiscount ?? 0),
+      taxAmount: Number(o.taxAmount ?? 0),
       placedAt: o.placedAt,
       acceptedAt: o.acceptedAt,
       prepTimeMinutes: o.prepTimeMinutes,
+      pickedUpAt: o.pickedUpAt,
+      deliveredAt: o.deliveredAt,
+      cancelledAt: o.cancelledAt,
+      rejectionReason: o.rejectionReason || null,
       items: o.orderItems.map((i) => ({
         id: i.id,
         name: i.productNameSnapshot,
@@ -337,9 +384,7 @@ export class AdminService {
         unitPrice: Number(i.unitPrice),
       })),
       deliveryAddress: (o.deliveryAddressSnapshot as { addressLine?: string } | null)?.addressLine || 'Address',
-    }));
-
-    return toPaginatedResult(items, total, pagination);
+    };
   }
 
   /**

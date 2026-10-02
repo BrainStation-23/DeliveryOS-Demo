@@ -7,7 +7,6 @@ import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/common/PageHeader';
-import { EmptyState } from '../../components/common/EmptyState';
 import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { extractApiError } from '../../utils/apiError';
 import { useSocketQueryInvalidation } from '../../hooks/useSocketSubscription';
@@ -143,8 +142,8 @@ export const AdminOrdersPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Live Order Lifecycle Monitor"
-        subtitle="Real-time multi-stage order tracking with manual dispatch force-assignment override"
+        title="Order History"
+        subtitle="Complete order records with live status updates, stage and date filters, and manual dispatch overrides"
         icon={FileText}
         actions={
           <Button
@@ -234,11 +233,6 @@ export const AdminOrdersPage: React.FC = () => {
           <div className="py-16 text-center">
             <LoadingSpinner size="lg" label="Synchronizing order lifecycle stream..." />
           </div>
-        ) : filteredOrders.length === 0 ? (
-          <EmptyState
-            message="No orders match the selected lifecycle criteria."
-            className="m-4"
-          />
         ) : (
           <OrdersTable
             orders={filteredOrders}
@@ -246,13 +240,14 @@ export const AdminOrdersPage: React.FC = () => {
             totalPages={totalPages}
             totalItems={totalOrders}
             onPageChange={setPage}
-            onViewDetails={(order) => {
-              setDetailsOrder(order);
+            emptyMessage="No orders match the selected lifecycle criteria."
+            onViewDetails={(row) => {
+              setDetailsOrder(row as AdminOrder);
               setIsDetailsModalOpen(true);
             }}
-            onAssign={openAssignModal}
-            onCancel={(order) => {
-              setCancelTargetOrder(order);
+            onAssign={(row) => openAssignModal(row as AdminOrder)}
+            onCancel={(row) => {
+              setCancelTargetOrder(row as AdminOrder);
               setIsCancelModalOpen(true);
             }}
           />
