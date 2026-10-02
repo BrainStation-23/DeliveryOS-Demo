@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { AdminBrand } from '../../../../services/adminApi';
 import { Button } from '../../../../components/ui/Button';
 import { Input } from '../../../../components/ui/Input';
 import { Modal } from '../../../../components/ui/Modal';
 
 export interface CreateVendorPayload {
   name: string;
+  brandId?: string;
   addressText: string;
   contactPhone: string;
   commissionRate: number;
@@ -16,6 +18,7 @@ export interface CreateVendorPayload {
 interface CreateVendorModalProps {
   isOpen: boolean;
   isSubmitting: boolean;
+  brands: AdminBrand[];
   onClose: () => void;
   onSubmit: (payload: CreateVendorPayload) => void;
 }
@@ -23,10 +26,12 @@ interface CreateVendorModalProps {
 export const CreateVendorModal: React.FC<CreateVendorModalProps> = ({
   isOpen,
   isSubmitting,
+  brands,
   onClose,
   onSubmit,
 }) => {
   const [vendorName, setVendorName] = useState('');
+  const [brandId, setBrandId] = useState('');
   const [addressText, setAddressText] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [commissionRate, setCommissionRate] = useState('15');
@@ -37,6 +42,7 @@ export const CreateVendorModal: React.FC<CreateVendorModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setVendorName('');
+      setBrandId('');
       setAddressText('');
       setContactPhone('');
       setCommissionRate('15');
@@ -63,6 +69,7 @@ export const CreateVendorModal: React.FC<CreateVendorModalProps> = ({
             onClick={() =>
               onSubmit({
                 name: vendorName,
+                brandId: brandId || undefined,
                 addressText,
                 contactPhone,
                 commissionRate: parseFloat(commissionRate) || 15,
@@ -87,6 +94,24 @@ export const CreateVendorModal: React.FC<CreateVendorModalProps> = ({
             onChange={(e) => setVendorName(e.target.value)}
             placeholder="e.g. Burger Point — Uttara Branch"
           />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            Brand (optional — outlet operates standalone when empty)
+          </label>
+          <select
+            value={brandId}
+            onChange={(e) => setBrandId(e.target.value)}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-primary-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="">— No brand (standalone outlet) —</option>
+            {brands.map((brand) => (
+              <option key={brand.id} value={brand.id}>
+                {brand.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>

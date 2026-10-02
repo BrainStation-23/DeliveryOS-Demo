@@ -10,6 +10,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -33,6 +34,48 @@ export class ForceAssignRiderDto {
   @IsString()
   @IsNotEmpty()
   riderId!: string;
+}
+
+export class CreateBrandDto {
+  @ApiProperty({ example: 'Burger Point', description: 'Brand display name' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  name!: string;
+
+  @ApiPropertyOptional({ description: 'Brand logo URL (upload via the central media library)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  logoUrl?: string;
+}
+
+export class UpdateBrandDto {
+  @ApiPropertyOptional({ description: 'Brand display name' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'Brand logo URL' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  logoUrl?: string;
+}
+
+export class CreateStaffUserDto {
+  @ApiProperty({ example: '+8801712345678', description: 'Phone number — the account owner later signs in with OTP' })
+  @IsString()
+  @Matches(/^\+?[0-9]{8,15}$/, { message: 'phone must be a valid phone number' })
+  phone!: string;
+
+  @ApiProperty({ example: 'Rahim Uddin' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  fullName!: string;
 }
 
 export class GetLiveOrdersQueryDto extends PaginationQueryDto {

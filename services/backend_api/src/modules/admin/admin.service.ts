@@ -46,6 +46,7 @@ export interface LiveOrderView {
   deliveryAddress: string;
 }
 import {
+  AccountStatus,
   BannerLinkType,
   DiscountType,
   OrderStatus,
@@ -738,6 +739,219 @@ export class AdminService {
     }));
   }
 
+  // ===========================================================================
+  // 6b. Brand Governance
+  // ===========================================================================
+  async getAllBrands() {
+    const brands = await this.prisma.vendorBrand.findMany({
+      include: { _count: { select: { outlets: true, staff: true } } },
+      orderBy: { name: 'asc' },
+    });
+    return brands.map((b) => ({
+      id: b.id,
+      name: b.name,
+      logoUrl: b.logoUrl,
+      totalOutlets: b._count.outlets,
+      totalStaff: b._count.staff,
+      createdAt: b.createdAt,
+    }));
+  }
+
+  async createBrand(data: { name: string; logoUrl?: string }) {
+    const name = data.name.trim();
+    const duplicate = await this.prisma.vendorBrand.findFirst({ where: { name } });
+    if (duplicate) {
+      throw new ConflictException(`A brand named "${name}" already exists`);
+    }
+    return this.prisma.vendorBrand.create({
+      data: { name, logoUrl: data.logoUrl?.trim() || null },
+    });
+  }
+
+  async updateBrand(brandId: string, data: { name?: string; logoUrl?: string }) {
+    const brand = await this.prisma.vendorBrand.findUnique({ where: { id: brandId } });
+    if (!brand) throw new NotFoundException('Brand not found');
+
+    const name = data.name?.trim();
+    if (name && name !== brand.name) {
+      const duplicate = await this.prisma.vendorBrand.findFirst({ where: { name } });
+      if (duplicate) throw new ConflictException(`A brand named "${name}" already exists`);
+    }
+
+    return this.prisma.vendorBrand.update({
+      where: { id: brandId },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(data.logoUrl !== undefined && { logoUrl: data.logoUrl?.trim() || null }),
+      },
+    });
+  }
+
+  async deleteBrand(brandId: string) {
+    const brand = await this.prisma.vendorBrand.findUnique({
+      where: { id: brandId },
+      include: { _count: { select: { outlets: true, staff: true } } },
+    });
+    if (!brand) throw new NotFoundException('Brand not found');
+
+    if (brand._count.outlets > 0) {
+      throw new ConflictException(
+        `Brand "${brand.name}" still operates ${brand._count.outlets} outlet(s) — reassign or delete them first`,
+      );
+    }
+    if (brand._count.staff > 0) {
+      throw new ConflictException(
+        `Brand "${brand.name}" still has ${brand._count.staff} staff assignment(s) — remove them first`,
+      );
+    }
+    await this.prisma.vendorBrand.delete({ where: { id: brandId } });
+  }
+
+  // ===========================================================================
+  // 6c. Outlet Catalog Governance View
+  // ===========================================================================
+  async getVendorCatalog(vendorId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      include: {
+        categories: {
+          where: { isActive: true },
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            products: {
+              orderBy: { sortOrder: 'asc' },
+              include: {
+                variants: { orderBy: { name: 'asc' } },
+                addonGroups: { include: { addons: { orderBy: { name: 'asc' } } } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!vendor) throw new NotFoundException('Vendor outlet not found');
+
+    return {
+      vendorId: vendor.id,
+      vendorName: vendor.name,
+      categories: vendor.categories.map((c) => ({
+        id: c.id,
+        name: c.name,
+        sortOrder: c.sortOrder,
+        products: c.products.map((p) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          basePrice: Number(p.basePrice),
+          imageUrl: p.imageUrl,
+          isInStock: p.isInStock,
+          variants: p.variants.map((v) => ({
+            id: v.id,
+            name: v.name,
+            priceModifier: Number(v.priceModifier),
+            isInStock: v.isInStock,
+          })),
+          addonGroups: p.addonGroups.map((ag) => ({
+            id: ag.id,
+            title: ag.title,
+            minSelection: ag.minSelection,
+            maxSelection: ag.maxSelection,
+            addons: ag.addons.map((a) => ({
+              id: a.id,
+              name: a.name,
+              price: Number(a.price),
+              isInStock: a.isInStock,
+            })),
+          })),
+        })),
+      })),
+    };
+  }
+
+  // ===========================================================================
+  // 6d. Owner / Staff Account Governance
+  // ===========================================================================
+  async searchUsersByPhone(phone: string) {
+    const term = phone.trim();
+    if (term.length < 3) return [];
+    return this.prisma.user.findMany({
+      where: { phone: { contains: term } },
+      select: { id: true, phone: true, fullName: true, role: true, status: true },
+      take: 10,
+      orderBy: { phone: 'asc' },
+    });
+  }
+
+  /** Provisions a VENDOR_ADMIN account; the owner later signs in via phone OTP. */
+  async createStaffUser(data: { phone: string; fullName: string }) {
+    const phone = data.phone.trim();
+    const existing = await this.prisma.user.findUnique({ where: { phone } });
+    if (existing) {
+      throw new ConflictException(`An account with phone ${phone} already exists (${existing.role})`);
+    }
+    return this.prisma.user.create({
+      data: {
+        phone,
+        fullName: data.fullName.trim(),
+        role: UserRole.VENDOR_ADMIN,
+        status: AccountStatus.ACTIVE,
+      },
+      select: { id: true, phone: true, fullName: true, role: true, status: true },
+    });
+  }
+
+  async getAllVendorStaff() {
+    const staff = await this.prisma.vendorStaff.findMany({
+      include: {
+        user: { select: { id: true, fullName: true, phone: true, status: true } },
+        vendor: { select: { id: true, name: true } },
+        brand: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return staff.map((s) => ({
+      id: s.id,
+      userId: s.userId,
+      fullName: s.user?.fullName || 'Staff User',
+      phone: s.user?.phone || '',
+      userStatus: s.user?.status || 'ACTIVE',
+      scope: s.scope,
+      isActive: s.isActive,
+      vendorId: s.vendorId,
+      vendorName: s.vendor?.name || null,
+      brandId: s.brandId,
+      brandName: s.brand?.name || null,
+    }));
+  }
+
+  /**
+   * Removes a staff assignment. When it was the user's last outlet/brand tie,
+   * the account demotes back to CUSTOMER so it cannot reach vendor portals;
+   * the 30s session cache is purged so the revocation lands immediately.
+   */
+  async removeVendorStaff(staffId: string) {
+    const staff = await this.prisma.vendorStaff.findUnique({
+      where: { id: staffId },
+      include: { user: true },
+    });
+    if (!staff) throw new NotFoundException('Staff assignment not found');
+
+    await this.prisma.vendorStaff.delete({ where: { id: staffId } });
+
+    const remaining = await this.prisma.vendorStaff.count({ where: { userId: staff.userId } });
+    let demoted = false;
+    if (remaining === 0 && staff.user?.role === UserRole.VENDOR_ADMIN) {
+      await this.prisma.user.update({
+        where: { id: staff.userId },
+        data: { role: UserRole.CUSTOMER },
+      });
+      demoted = true;
+    }
+
+    await this.redis.del(`auth:user:${staff.userId}`);
+    return { removed: true, demoted };
+  }
+
   async createVendor(data: {
     name: string;
     brandId?: string;
@@ -783,7 +997,9 @@ export class AdminService {
       where: { id: vendorId },
       data: {
         ...(data.name !== undefined && { name: data.name }),
-        ...(data.brandId !== undefined && { brandId: data.brandId }),
+        // Empty string clears the brand link (standalone outlet); the DTO
+        // cannot carry null through its IsString validation.
+        ...(data.brandId !== undefined && { brandId: data.brandId || null }),
         ...(data.addressText !== undefined && { addressText: data.addressText }),
         ...(data.contactPhone !== undefined && { contactPhone: data.contactPhone }),
         ...(data.commissionRate !== undefined && { commissionRate: data.commissionRate }),

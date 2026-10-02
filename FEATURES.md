@@ -303,6 +303,12 @@ This document provides a line-level, granular breakdown of every operational fea
 - **1-Click Approval & Suspension**: Instant toggle approving applicant credentials (`adminApi.setRiderApproval(id, true)`) or suspending problematic couriers.
 - **Cash Safety Limit Adjustment**: Modal allowing operations staff to adjust a courier's maximum COD limit (e.g. ৳3,000 to ৳10,000) based on trust and tenure.
 
+### 5.4a. Brands, Outlets & Staff Governance Hub
+- **Three-Tab Control Centre** (reworks the Vendors page): Outlets · Brands · Staff Accounts.
+- **Brands**: CRUD with outlet/staff counts, Media-Library logo picker, duplicate-name rejection, and deletion blocked while outlets/staff reference the brand.
+- **Outlets**: create/edit with brand selector (empty = standalone); **Catalog governance modal** — full category→product→variant/add-on view via `GET /admin/vendors/:id/catalog` with per-product price override and Mark Out/Restore availability (menu authoring stays in the vendor portal); **Staff manager modal** — assignments with scope badges, removal, phone-search user picker, and one-shot "create account & assign" provisioning (owners later sign in via phone OTP).
+- **Staff Accounts Registry**: every owner/manager assignment across outlets/brands (`GET /admin/vendor-staff`) with removal that demotes last-assignment accounts to CUSTOMER and purges the session cache for immediate revocation.
+
 ### 5.5. COD Cash Deposit Verification
 - **Deposit Audit Queue**: Review couriers' submitted hub deposits via `GET /admin/finance/cash-deposits`.
 - **Atomic Verification Action**: `PATCH /admin/finance/cash-deposits/:id/verify` (`APPROVE` or `REJECT`).

@@ -170,8 +170,14 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`GET /admin/riders`**: Fleet list (`approvalStatus=ALL | PENDING | APPROVED`, `isOnline=true|false`).
 - **`PATCH /admin/riders/:id/approval`**: Body `{ "isApproved": boolean }`.
 - **`PATCH /admin/riders/:id/cash-limit`**: Body `{ "maxCashLimit": 8000.0 }`.
-- **`GET /admin/vendors`** / **`POST /admin/vendors`** / **`PATCH /admin/vendors/:id`**: Complete vendor CRUD.
-- **`POST /admin/vendors/:id/staff`**: Body `{ "userId": "uuid", "scope": "PARTICULAR_OUTLET" | "ALL_OUTLETS_MASTER", "brandId?" }` — assigns outlet staff scope.
+- **`GET /admin/vendors`** / **`POST /admin/vendors`** / **`PATCH /admin/vendors/:id`**: Complete vendor CRUD (empty-string `brandId` on update clears the brand link → standalone outlet).
+- **`GET /admin/vendors/:id/catalog`**: Full catalog governance view for one outlet — active categories → products with variants and add-on groups (names, prices, stock states). 404 for unknown outlets.
+- **`POST /admin/vendors/:id/staff`**: Body `{ "userId": "uuid", "scope": "PARTICULAR_OUTLET" | "ALL_OUTLETS_MASTER", "brandId?" }` — assigns outlet staff scope (idempotent upsert; ALL_OUTLETS_MASTER defaults to the outlet's brand).
+- **`GET /admin/brands`** / **`POST /admin/brands`** / **`PATCH /admin/brands/:id`** / **`DELETE /admin/brands/:id`**: Brand CRUD — list carries outlet/staff counts; duplicate names 409; deletion 409-blocked while outlets or staff reference the brand.
+- **`GET /admin/users/search?phone=`**: User lookup by phone fragment (min 3 chars, contains-match, take 10) — feeds the staff assignment picker.
+- **`POST /admin/users`**: Body `{ "phone", "fullName" }` — provisions a VENDOR_ADMIN owner/staff account (no password; the owner later signs in with this phone via OTP). Duplicate phone 409.
+- **`GET /admin/vendor-staff`**: Every staff assignment with user, outlet, brand, and scope.
+- **`DELETE /admin/vendor-staff/:id`**: Removes an assignment; demotes the account to CUSTOMER when it was the last tie and purges the session cache for immediate revocation. 404 for unknown ids.
 - **`GET /admin/catalog/categories`** / **`POST /admin/catalog/categories`**: Master central category list + creation.
 - **`PUT /admin/catalog/products/:id/override`**: Centrally overrides product name/description/basePrice/category/stock across stores.
 - **`PATCH /admin/catalog/products/:id/disable`**: Body `{ "isInStock": boolean }` — central stock toggle.

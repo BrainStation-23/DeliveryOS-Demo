@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Edit2, Power } from 'lucide-react';
+import { Users, Edit2, Power, BookOpen, UserCog } from 'lucide-react';
 import { AdminVendor } from '../../../../services/adminApi';
 import { Badge } from '../../../../components/ui/Badge';
 import { Button } from '../../../../components/ui/Button';
@@ -9,7 +9,8 @@ interface VendorCardProps {
   isTogglePending: boolean;
   onEdit: (vendor: AdminVendor) => void;
   onToggleStatus: (vendor: AdminVendor) => void;
-  onAssignStaff: (vendor: AdminVendor) => void;
+  onManageStaff: (vendor: AdminVendor) => void;
+  onOpenCatalog: (vendor: AdminVendor) => void;
 }
 
 export const VendorCard: React.FC<VendorCardProps> = ({
@@ -17,7 +18,8 @@ export const VendorCard: React.FC<VendorCardProps> = ({
   isTogglePending,
   onEdit,
   onToggleStatus,
-  onAssignStaff,
+  onManageStaff,
+  onOpenCatalog,
 }) => {
   const safeStaff = Array.isArray(vendor.staff) ? vendor.staff : [];
 
@@ -69,9 +71,9 @@ export const VendorCard: React.FC<VendorCardProps> = ({
               variant="ghost"
               size="sm"
               className="text-xs h-6 px-2 text-primary-600 dark:text-primary-400"
-              onClick={() => onAssignStaff(vendor)}
+              onClick={() => onManageStaff(vendor)}
             >
-              + Assign Staff
+              + Manage Staff
             </Button>
           </div>
 
@@ -109,6 +111,24 @@ export const VendorCard: React.FC<VendorCardProps> = ({
           <span>{vendor.totalProducts} Catalog Dishes</span>
         </div>
         <div className="inline-flex items-center gap-1.5 self-end sm:self-auto">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs text-primary-600 dark:text-primary-400"
+            onClick={() => onOpenCatalog(vendor)}
+            leftIcon={<BookOpen className="h-3 w-3" />}
+          >
+            Catalog
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs text-primary-600 dark:text-primary-400"
+            onClick={() => onManageStaff(vendor)}
+            leftIcon={<UserCog className="h-3 w-3" />}
+          >
+            Staff
+          </Button>
           <Button
             variant="outline"
             size="sm"

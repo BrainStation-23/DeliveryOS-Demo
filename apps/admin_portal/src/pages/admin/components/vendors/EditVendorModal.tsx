@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { AdminVendor } from '../../../../services/adminApi';
+import { AdminBrand, AdminVendor } from '../../../../services/adminApi';
 import { Button } from '../../../../components/ui/Button';
 import { Input } from '../../../../components/ui/Input';
 import { Modal } from '../../../../components/ui/Modal';
 
 export interface EditVendorPayload {
   name: string;
+  brandId?: string;
   contactPhone: string;
   commissionRate: number;
   defaultPrepTimeMinutes: number;
@@ -14,6 +15,7 @@ export interface EditVendorPayload {
 
 interface EditVendorModalProps {
   vendor: AdminVendor;
+  brands: AdminBrand[];
   isSubmitting: boolean;
   onClose: () => void;
   onSubmit: (payload: EditVendorPayload) => void;
@@ -21,11 +23,13 @@ interface EditVendorModalProps {
 
 export const EditVendorModal: React.FC<EditVendorModalProps> = ({
   vendor,
+  brands,
   isSubmitting,
   onClose,
   onSubmit,
 }) => {
   const [editName, setEditName] = useState(vendor.name);
+  const [editBrandId, setEditBrandId] = useState(vendor.brandId || '');
   const [editContactPhone, setEditContactPhone] = useState(vendor.contactPhone);
   const [editCommissionRate, setEditCommissionRate] = useState(String(vendor.commissionRate));
   const [editDefaultPrepTime, setEditDefaultPrepTime] = useState(String(vendor.defaultPrepTimeMinutes));
@@ -47,6 +51,7 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
             onClick={() =>
               onSubmit({
                 name: editName,
+                brandId: editBrandId,
                 contactPhone: editContactPhone,
                 commissionRate: parseFloat(editCommissionRate),
                 defaultPrepTimeMinutes: parseInt(editDefaultPrepTime, 10),
@@ -69,6 +74,24 @@ export const EditVendorModal: React.FC<EditVendorModalProps> = ({
             onChange={(e) => setEditName(e.target.value)}
             placeholder="Store Name"
           />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            Brand
+          </label>
+          <select
+            value={editBrandId}
+            onChange={(e) => setEditBrandId(e.target.value)}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-primary-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="">— No brand (standalone outlet) —</option>
+            {brands.map((brand) => (
+              <option key={brand.id} value={brand.id}>
+                {brand.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>

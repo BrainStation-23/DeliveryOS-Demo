@@ -31,8 +31,10 @@ import { VerifyCashDepositDto } from './dto/verify-cash-deposit.dto';
 import {
   AssignVendorStaffDto,
   CreateBannerDto,
+  CreateBrandDto,
   CreateCategoryDto,
   CreateCouponDto,
+  CreateStaffUserDto,
   CreateVendorDto,
   ForceAssignRiderDto,
   GetLiveOrdersQueryDto,
@@ -42,6 +44,7 @@ import {
   ToggleProductStockDto,
   ToggleVendorStatusDto,
   UpdateBannerDto,
+  UpdateBrandDto,
   UpdateCouponDto,
   UpdateDeliveryFeeDto,
   UpdateRiderCashLimitDto,
@@ -235,6 +238,17 @@ export class AdminController {
     };
   }
 
+  @Get('vendors/:id/catalog')
+  @ApiOperation({ summary: 'Full catalog governance view for one outlet (categories, products, variants, add-ons)' })
+  @ApiResponse({ status: 404, description: 'Vendor outlet not found' })
+  async getVendorCatalog(@Param('id') vendorId: string) {
+    const data = await this.adminService.getVendorCatalog(vendorId);
+    return {
+      message: `Retrieved catalog for ${data.vendorName}`,
+      data,
+    };
+  }
+
   @Post('vendors')
   @ApiOperation({ summary: 'Directly create new vendor outlet' })
   async createVendor(@Body() dto: CreateVendorDto) {
@@ -272,6 +286,96 @@ export class AdminController {
     return {
       message: 'Staff user successfully assigned to vendor outlet',
       data: staff,
+    };
+  }
+
+  // 6b. Brand Governance
+  @Get('brands')
+  @ApiOperation({ summary: 'List all vendor brands with outlet and staff counts' })
+  async getBrands() {
+    const data = await this.adminService.getAllBrands();
+    return {
+      message: `Retrieved ${data.length} brands`,
+      data,
+    };
+  }
+
+  @Post('brands')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a vendor brand umbrella' })
+  async createBrand(@Body() dto: CreateBrandDto) {
+    const data = await this.adminService.createBrand(dto);
+    return {
+      message: 'Brand created successfully',
+      data,
+    };
+  }
+
+  @Patch('brands/:id')
+  @ApiOperation({ summary: 'Update brand name or logo URL' })
+  async updateBrand(@Param('id') brandId: string, @Body() dto: UpdateBrandDto) {
+    const data = await this.adminService.updateBrand(brandId, dto);
+    return {
+      message: 'Brand updated successfully',
+      data,
+    };
+  }
+
+  @Delete('brands/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a brand (blocked while outlets or staff remain assigned)' })
+  @ApiResponse({ status: 409, description: 'Brand still has outlets or staff assignments' })
+  async deleteBrand(@Param('id') brandId: string) {
+    await this.adminService.deleteBrand(brandId);
+    return {
+      message: 'Brand deleted successfully',
+      data: null,
+    };
+  }
+
+  // 6c. Owner / Staff Account Governance
+  @Get('users/search')
+  @ApiOperation({ summary: 'Find platform users by phone fragment (for staff assignment)' })
+  async searchUsers(@Query('phone') phone?: string) {
+    const data = await this.adminService.searchUsersByPhone(phone || '');
+    return {
+      message: `Found ${data.length} user(s)`,
+      data,
+    };
+  }
+
+  @Post('users')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Provision a vendor owner/staff account (sign-in happens via phone OTP)' })
+  @ApiResponse({ status: 409, description: 'An account with this phone already exists' })
+  async createStaffUser(@Body() dto: CreateStaffUserDto) {
+    const data = await this.adminService.createStaffUser(dto);
+    return {
+      message: 'Staff account created successfully — the owner signs in with their phone via OTP',
+      data,
+    };
+  }
+
+  @Get('vendor-staff')
+  @ApiOperation({ summary: 'List every vendor staff assignment with outlet/brand and scope' })
+  async getVendorStaff() {
+    const data = await this.adminService.getAllVendorStaff();
+    return {
+      message: `Retrieved ${data.length} staff assignments`,
+      data,
+    };
+  }
+
+  @Delete('vendor-staff/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove a staff assignment (last-assignment accounts demote to CUSTOMER)' })
+  async removeVendorStaff(@Param('id') staffId: string) {
+    const data = await this.adminService.removeVendorStaff(staffId);
+    return {
+      message: data.demoted
+        ? 'Staff assignment removed and the account demoted to CUSTOMER'
+        : 'Staff assignment removed',
+      data,
     };
   }
 

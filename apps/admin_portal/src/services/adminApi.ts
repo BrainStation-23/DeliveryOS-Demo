@@ -170,6 +170,65 @@ export interface AdminVendor {
   }>;
 }
 
+export interface AdminBrand {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+  totalOutlets: number;
+  totalStaff: number;
+  createdAt: string;
+}
+
+export interface AdminUserSummary {
+  id: string;
+  phone: string;
+  fullName: string;
+  role: string;
+  status: string;
+}
+
+export interface AdminVendorStaffRow {
+  id: string;
+  userId: string;
+  fullName: string;
+  phone: string;
+  userStatus: string;
+  scope: 'ALL_OUTLETS_MASTER' | 'PARTICULAR_OUTLET';
+  isActive: boolean;
+  vendorId: string | null;
+  vendorName: string | null;
+  brandId: string | null;
+  brandName: string | null;
+}
+
+export interface AdminCatalogProduct {
+  id: string;
+  name: string;
+  description: string | null;
+  basePrice: number;
+  imageUrl: string | null;
+  isInStock: boolean;
+  variants: Array<{ id: string; name: string; priceModifier: number; isInStock: boolean }>;
+  addonGroups: Array<{
+    id: string;
+    title: string;
+    minSelection: number;
+    maxSelection: number;
+    addons: Array<{ id: string; name: string; price: number; isInStock: boolean }>;
+  }>;
+}
+
+export interface AdminCatalog {
+  vendorId: string;
+  vendorName: string;
+  categories: Array<{
+    id: string;
+    name: string;
+    sortOrder: number;
+    products: AdminCatalogProduct[];
+  }>;
+}
+
 export interface SystemSettingsData {
   orderFlow: {
     mode: 'RIDER_FIRST' | 'VENDOR_FIRST';
@@ -477,6 +536,66 @@ export const adminApi = {
   ): Promise<{ message: string; data?: unknown }> {
     const res = await apiClient.post(`/api/v1/admin/vendors/${vendorId}/staff`, data);
     return res.data?.data || res.data;
+  },
+
+  // 6b. Brand Governance
+  async getBrands(): Promise<AdminBrand[]> {
+    const res = await apiClient.get('/api/v1/admin/brands');
+    const payload = res.data?.data || res.data;
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
+  },
+
+  async createBrand(data: { name: string; logoUrl?: string }): Promise<AdminBrand> {
+    const res = await apiClient.post('/api/v1/admin/brands', data);
+    return res.data?.data || res.data;
+  },
+
+  async updateBrand(brandId: string, data: { name?: string; logoUrl?: string }): Promise<AdminBrand> {
+    const res = await apiClient.patch(`/api/v1/admin/brands/${brandId}`, data);
+    return res.data?.data || res.data;
+  },
+
+  async deleteBrand(brandId: string): Promise<void> {
+    await apiClient.delete(`/api/v1/admin/brands/${brandId}`);
+  },
+
+  // 6c. Catalog & Staff Account Governance
+  async getVendorCatalog(vendorId: string): Promise<AdminCatalog> {
+    const res = await apiClient.get(`/api/v1/admin/vendors/${vendorId}/catalog`);
+    return res.data?.data || res.data;
+  },
+
+  async overrideProductPrice(productId: string, basePrice: number): Promise<void> {
+    await apiClient.put(`/api/v1/admin/catalog/products/${productId}/override`, { basePrice });
+  },
+
+  async setProductStock(productId: string, isInStock: boolean): Promise<void> {
+    await apiClient.patch(`/api/v1/admin/catalog/products/${productId}/disable`, { isInStock });
+  },
+
+  async searchUsersByPhone(phone: string): Promise<AdminUserSummary[]> {
+    const res = await apiClient.get('/api/v1/admin/users/search', { params: { phone } });
+    const payload = res.data?.data || res.data;
+    return Array.isArray(payload) ? payload : [];
+  },
+
+  async createStaffUser(data: { phone: string; fullName: string }): Promise<AdminUserSummary> {
+    const res = await apiClient.post('/api/v1/admin/users', data);
+    return res.data?.data || res.data;
+  },
+
+  async getVendorStaff(): Promise<AdminVendorStaffRow[]> {
+    const res = await apiClient.get('/api/v1/admin/vendor-staff');
+    const payload = res.data?.data || res.data;
+    return Array.isArray(payload) ? payload : [];
+  },
+
+  async removeVendorStaff(staffId: string): Promise<{ removed: boolean; demoted: boolean }> {
+    const res = await apiClient.delete(`/api/v1/admin/vendor-staff/${staffId}`);
+    return res.data?.data || { removed: true, demoted: false };
   },
 
   // 7. System Settings

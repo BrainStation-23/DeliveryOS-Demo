@@ -382,3 +382,148 @@ describe('AdminService - getLiveOrders date-wise filtering', () => {
     await expect(service.getOrderById('missing')).rejects.toThrow('Order not found');
   });
 });
+
+describe('AdminService - brand & staff account governance', () => {
+  let service: AdminService;
+  let prisma: {
+    vendorBrand: { findMany: jest.Mock; findFirst: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock; delete: jest.Mock };
+    user: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
+    vendorStaff: { findMany: jest.Mock; findUnique: jest.Mock; delete: jest.Mock; count: jest.Mock };
+    vendor: { findUnique: jest.Mock };
+    redis: { del: jest.Mock };
+  };
+
+  beforeEach(() => {
+    prisma = {
+      vendorBrand: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'brand-1', name: 'Burger Point' }),
+        update: jest.fn().mockResolvedValue({ id: 'brand-1', name: 'Burger Point Deluxe' }),
+        delete: jest.fn().mockResolvedValue({ id: 'brand-1' }),
+      },
+      user: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'user-9', phone: '+8801712345678', role: 'VENDOR_ADMIN' }),
+        update: jest.fn().mockResolvedValue({ id: 'user-1' }),
+      },
+      vendorStaff: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue(null),
+        delete: jest.fn().mockResolvedValue({ id: 'staff-1' }),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      vendor: { findUnique: jest.fn().mockResolvedValue(null) },
+      redis: { del: jest.fn().mockResolvedValue(1) },
+    };
+
+    service = new AdminService(
+      { ...({} as object), ...prisma } as never,
+      prisma.redis as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { sendToUser: jest.fn().mockResolvedValue(true) } as never,
+    );
+  });
+
+  it('creates a brand after confirming the name is unused', async () => {
+    await service.createBrand({ name: 'Burger Point' });
+    expect(prisma.vendorBrand.findFirst).toHaveBeenCalledWith({ where: { name: 'Burger Point' } });
+    expect(prisma.vendorBrand.create).toHaveBeenCalledWith({
+      data: { name: 'Burger Point', logoUrl: null },
+    });
+  });
+
+  it('rejects duplicate brand names with 409', async () => {
+    prisma.vendorBrand.findFirst.mockResolvedValue({ id: 'brand-2', name: 'Burger Point' });
+    await expect(service.createBrand({ name: 'Burger Point' })).rejects.toThrow('already exists');
+  });
+
+  it('blocks brand deletion while outlets or staff remain assigned', async () => {
+    prisma.vendorBrand.findUnique.mockResolvedValue({
+      id: 'brand-1',
+      name: 'Burger Point',
+      _count: { outlets: 2, staff: 1 },
+    });
+    await expect(service.deleteBrand('brand-1')).rejects.toThrow('still operates 2 outlet(s)');
+    expect(prisma.vendorBrand.delete).not.toHaveBeenCalled();
+  });
+
+  it('deletes an empty brand', async () => {
+    prisma.vendorBrand.findUnique.mockResolvedValue({
+      id: 'brand-1',
+      name: 'Ghost Brand',
+      _count: { outlets: 0, staff: 0 },
+    });
+    await expect(service.deleteBrand('brand-1')).resolves.toBeUndefined();
+    expect(prisma.vendorBrand.delete).toHaveBeenCalledWith({ where: { id: 'brand-1' } });
+  });
+
+  it('searches users only for phone fragments of meaningful length', async () => {
+    await service.searchUsersByPhone('17');
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
+
+    await service.searchUsersByPhone('+88017123');
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { phone: { contains: '+88017123' } }, take: 10 }),
+    );
+  });
+
+  it('provisions a VENDOR_ADMIN account and rejects duplicate phones with 409', async () => {
+    await service.createStaffUser({ phone: '+8801712345678', fullName: ' Rahim Uddin ' });
+    expect(prisma.user.create).toHaveBeenCalledWith({
+      data: {
+        phone: '+8801712345678',
+        fullName: 'Rahim Uddin',
+        role: UserRole.VENDOR_ADMIN,
+        status: 'ACTIVE',
+      },
+      select: expect.anything(),
+    });
+
+    prisma.user.findUnique.mockResolvedValue({ id: 'user-1', phone: '+8801712345678', role: UserRole.CUSTOMER });
+    await expect(
+      service.createStaffUser({ phone: '+8801712345678', fullName: 'Duplicate' }),
+    ).rejects.toThrow('already exists');
+  });
+
+  it('removes a staff assignment, demotes last-assignment accounts, and purges the session cache', async () => {
+    prisma.vendorStaff.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      userId: 'user-1',
+      user: { id: 'user-1', role: UserRole.VENDOR_ADMIN },
+    });
+    prisma.vendorStaff.count.mockResolvedValue(0);
+
+    const result = await service.removeVendorStaff('staff-1');
+
+    expect(prisma.vendorStaff.delete).toHaveBeenCalledWith({ where: { id: 'staff-1' } });
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { role: UserRole.CUSTOMER },
+    });
+    expect(prisma.redis.del).toHaveBeenCalledWith('auth:user:user-1');
+    expect(result).toEqual({ removed: true, demoted: true });
+  });
+
+  it('keeps the role when the user still holds other staff assignments', async () => {
+    prisma.vendorStaff.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      userId: 'user-1',
+      user: { id: 'user-1', role: UserRole.VENDOR_ADMIN },
+    });
+    prisma.vendorStaff.count.mockResolvedValue(2);
+
+    const result = await service.removeVendorStaff('staff-1');
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(result.demoted).toBe(false);
+  });
+
+  it('rejects removal of unknown staff assignments with 404', async () => {
+    await expect(service.removeVendorStaff('missing')).rejects.toThrow('Staff assignment not found');
+  });
+});
