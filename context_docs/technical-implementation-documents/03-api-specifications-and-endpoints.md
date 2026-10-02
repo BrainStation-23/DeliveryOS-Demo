@@ -159,7 +159,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`GET /admin/overview`**: Platform KPIs (gross revenue, active orders, online fleet, pending applicants).
 - **`GET /admin/fleet`**: Real-time fleet radar feed with GPS coordinates, online states, and cash safety margins.
 - **`GET /admin/orders`**
-  - *Query*: `status` (optional), `page` (int, default 1), `limit` (int, default 10).
+  - *Query*: `status` (optional), `search` (optional, matches order number/customer name/phone), `dateFrom`/`dateTo` (optional ISO-8601 inclusive bounds on `placedAt`), `page` (int, default 1), `limit` (int, default 10).
   - *Response*: Paginated orders `{ "items": [...], "total": 120, "page": 1, "limit": 10, "totalPages": 12 }`.
 - **`POST /admin/orders/:id/force-assign`**: Body `{ "riderId": "uuid" }` (bypasses automated dispatch).
 - **`POST /admin/orders/:id/cancel`**: Body `{ "reason": "Min 5 char audit reason" }` (reverses ledger and voids holds).

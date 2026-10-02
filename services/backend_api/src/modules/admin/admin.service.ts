@@ -267,6 +267,17 @@ export class AdminService {
       where.status = statusFilter as OrderStatus;
     }
 
+    // ISO-8601 validity is guaranteed by the DTO validator, so both bounds
+    // parse safely; either bound may arrive alone for open-ended ranges.
+    const dateFrom = pagination.dateFrom ? new Date(pagination.dateFrom) : undefined;
+    const dateTo = pagination.dateTo ? new Date(pagination.dateTo) : undefined;
+    if (dateFrom || dateTo) {
+      where.placedAt = {
+        ...(dateFrom ? { gte: dateFrom } : {}),
+        ...(dateTo ? { lte: dateTo } : {}),
+      };
+    }
+
     if (pagination.search?.trim()) {
       const term = pagination.search.trim();
       where.OR = [

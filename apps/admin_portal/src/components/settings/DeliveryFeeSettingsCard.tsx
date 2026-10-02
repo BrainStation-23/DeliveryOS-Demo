@@ -3,6 +3,7 @@ import { DollarSign, Layers, Truck, Check } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 
 export interface DeliveryFeeConfig {
   mode: 'FIXED_FLAT' | 'DISTANCE_TIERED';
@@ -44,6 +45,7 @@ export const DeliveryFeeSettingsCard: React.FC<DeliveryFeeSettingsCardProps> = (
   const [perKmRateInput, setPerKmRateInput] = useState<string>(
     String(initialConfig?.perKmRate ?? 15),
   );
+  const [pendingConfig, setPendingConfig] = useState<DeliveryFeeConfig | null>(null);
 
   useEffect(() => {
     if (initialConfig) {
@@ -62,7 +64,7 @@ export const DeliveryFeeSettingsCard: React.FC<DeliveryFeeSettingsCardProps> = (
     const parsedBaseKm = Math.max(0, parseFloat(baseKmInput) || 0);
     const parsedPerKmRate = Math.max(0, parseFloat(perKmRateInput) || 0);
 
-    onSave({
+    setPendingConfig({
       mode: feeMode,
       flatFee: parsedFlat,
       baseFee: parsedBaseFee,
@@ -255,6 +257,48 @@ export const DeliveryFeeSettingsCard: React.FC<DeliveryFeeSettingsCardProps> = (
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={pendingConfig !== null}
+        title="Apply Delivery Fee Changes?"
+        message={
+          pendingConfig && (
+            <>
+              <p>
+                Apply{' '}
+                <strong className="text-slate-900 dark:text-slate-100">
+                  {pendingConfig.mode === 'FIXED_FLAT'
+                    ? 'Fixed Flat Fee'
+                    : 'Distance-Tiered Dynamic'}
+                </strong>{' '}
+                pricing platform-wide?
+              </p>
+              <ul className="text-xs text-slate-600 dark:text-slate-400 list-disc pl-4 space-y-0.5">
+                {pendingConfig.mode === 'FIXED_FLAT' ? (
+                  <li>Uniform flat delivery fee: ৳{pendingConfig.flatFee}</li>
+                ) : (
+                  <>
+                    <li>Base fee: ৳{pendingConfig.baseFee} for the first {pendingConfig.baseKm} km</li>
+                    <li>Per-kilometer rate beyond base radius: ৳{pendingConfig.perKmRate}/km</li>
+                  </>
+                )}
+              </ul>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                New checkout fee quotes use the updated rules immediately.
+              </p>
+            </>
+          )
+        }
+        confirmLabel="Apply Changes"
+        isPending={isSaving}
+        onConfirm={() => {
+          if (pendingConfig) {
+            onSave(pendingConfig);
+          }
+          setPendingConfig(null);
+        }}
+        onCancel={() => setPendingConfig(null)}
+      />
     </form>
   );
 };

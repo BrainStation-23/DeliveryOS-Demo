@@ -1,32 +1,7 @@
 {
   "common": {
-    "appName": "DeliveryOS",
-    "dashboard": "Dashboard",
-    "loading": "Loading...",
-    "save": "Save",
-    "cancel": "Cancel",
-    "confirm": "Confirm",
-    "delete": "Delete",
-    "edit": "Edit",
-    "search": "Search...",
-    "status": "Status",
-    "actions": "Actions",
     "logout": "Sign Out",
-    "language": "Language",
-    "profile": "Profile",
-    "settings": "Settings",
-    "back": "Back",
-    "refresh": "Refresh",
-    "success": "Success",
-    "error": "Error",
-    "warning": "Warning",
-    "info": "Info",
-    "empty": "No data found",
-    "showing": "Showing",
-    "of": "of",
-    "results": "results",
-    "page": "Page",
-    "close": "Close"
+    "theme": "Theme"
   },
   "auth": {
     "title": "DeliveryOS Portal",
@@ -37,10 +12,6 @@
     "passwordPlaceholder": "123456",
     "loginButton": "Sign In",
     "signingIn": "Authenticating...",
-    "quickFillTitle": "One-Tap Demo Credentials",
-    "superAdmin": "Super Admin",
-    "branchManager": "Gulshan Branch Manager",
-    "brandOwner": "Burger Point Brand Owner",
     "loginFailed": "Invalid phone number or password",
     "unauthorizedTitle": "Access Restricted",
     "unauthorizedSubtitle": "You do not have permission to access this portal section.",
@@ -55,50 +26,7 @@
       "promotions": "Coupons & Banners",
       "finance": "Financial Governance",
       "settings": "System Settings"
-    },
-    "vendor": {
-      "kds": "Kitchen Board (KDS)",
-      "catalog": "Menu & Stock",
-      "orders": "Order History",
-      "settings": "Outlet Settings"
     }
-  },
-  "roles": {
-    "SUPER_ADMIN": "Super Admin",
-    "VENDOR_ADMIN": "Store Staff",
-    "RIDER": "Delivery Rider",
-    "CUSTOMER": "Customer"
-  },
-  "scopes": {
-    "PARTICULAR_OUTLET": "Single Outlet Scope",
-    "ALL_OUTLETS_MASTER": "Multi-Outlet Brand Scope"
-  },
-  "status": {
-    "PLACED": "Placed",
-    "RIDER_ASSIGNED": "Rider Assigned",
-    "ACCEPTED": "Accepted",
-    "PREPARING": "Preparing",
-    "READY_FOR_PICKUP": "Ready for Pickup",
-    "DISPATCHED": "Dispatched",
-    "DELIVERED": "Delivered",
-    "CANCELLED": "Cancelled",
-    "inStock": "In Stock",
-    "outOfStock": "Out of Stock"
-  },
-  "kds": {
-    "title": "Kitchen Display System",
-    "subtitle": "Real-time incoming orders & prep board",
-    "newOrders": "New Orders",
-    "preparing": "In Kitchen",
-    "ready": "Ready for Pickup",
-    "acceptOrder": "Accept Order",
-    "markReady": "Mark Ready",
-    "handover": "Hand to Rider",
-    "prepTime": "Prep Time",
-    "mins": "mins",
-    "audioAlertActive": "Sound Alerts Active",
-    "audioAlertMuted": "Sound Muted",
-    "enableSound": "Enable Sound Chime"
   },
   "admin": {
     "title": "Super Admin Console",
@@ -106,9 +34,6 @@
     "totalOrders": "Total Orders",
     "activeRiders": "Active Riders",
     "onlineVendors": "Online Outlets",
-    "todayVolume": "Today's Gross Volume",
-    "dispatchMode": "Order Flow Dispatch Mode",
-    "riderFirst": "RIDER_FIRST (Zero Food Waste)",
-    "vendorFirst": "VENDOR_FIRST (Traditional Retail)"
+    "todayVolume": "Today's Gross Volume"
   }
 }

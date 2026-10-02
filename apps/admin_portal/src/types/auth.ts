@@ -21,10 +21,3 @@ export interface User {
   outletScope?: PermissionScope | null;
   managedVendorIds?: string[];
 }
-
-export interface AuthState {
-  user: User | null;
-  token: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-}

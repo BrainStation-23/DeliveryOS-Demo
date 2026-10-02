@@ -1,32 +1,7 @@
 {
   "common": {
-    "appName": "DeliveryOS",
-    "dashboard": "ড্যাশবোর্ড",
-    "loading": "লোড হচ্ছে...",
-    "save": "সংরক্ষণ",
-    "cancel": "বাতিল",
-    "confirm": "নিশ্চিত করুন",
-    "delete": "মুছুন",
-    "edit": "সম্পাদনা",
-    "search": "অনুসন্ধান...",
-    "status": "অবস্থা",
-    "actions": "অ্যাকশন",
     "logout": "লগ আউট",
-    "language": "ভাষা",
-    "profile": "প্রোফাইল",
-    "settings": "সেটিংস",
-    "back": "ফিরে যান",
-    "refresh": "রিফ্রেশ",
-    "success": "সফল",
-    "error": "ত্রুটি",
-    "warning": "সতর্কতা",
-    "info": "তথ্য",
-    "empty": "কোন তথ্য পাওয়া যায়নি",
-    "showing": "প্রদর্শিত হচ্ছে",
-    "of": "এর",
-    "results": "ফলাফল",
-    "page": "পৃষ্ঠা",
-    "close": "বন্ধ করুন"
+    "theme": "থিম"
   },
   "auth": {
     "title": "DeliveryOS পোর্টাল",
@@ -37,10 +12,6 @@
     "passwordPlaceholder": "123456",
     "loginButton": "লগ ইন",
     "signingIn": "যাচাই করা হচ্ছে...",
-    "quickFillTitle": "এক-ক্লিক ডেমো লগইন",
-    "superAdmin": "সুপার অ্যাডমিন",
-    "branchManager": "গুলশান শাখা ব্যবস্থাপক",
-    "brandOwner": "বার্গার পয়েন্ট ব্র্যান্ড মালিক",
     "loginFailed": "ভুল ফোন নম্বর অথবা পাসওয়ার্ড",
     "unauthorizedTitle": "অনুমতি নেই",
     "unauthorizedSubtitle": "পোর্টালের এই অংশে প্রবেশের জন্য আপনার অনুমতি নেই।",
@@ -55,50 +26,7 @@
       "promotions": "কুপন ও ব্যানার",
       "finance": "আর্থিক ব্যবস্থাপনা",
       "settings": "সিস্টেম সেটিংস"
-    },
-    "vendor": {
-      "kds": "কিচেন বোর্ড (KDS)",
-      "catalog": "মেন্যু ও স্টক",
-      "orders": "অর্ডার ইতিহাস",
-      "settings": "আউটলেট সেটিংস"
     }
-  },
-  "roles": {
-    "SUPER_ADMIN": "সুপার অ্যাডমিন",
-    "VENDOR_ADMIN": "স্টোর কর্মী",
-    "RIDER": "ডেলিভারি রাইডার",
-    "CUSTOMER": "গ্রাহক"
-  },
-  "scopes": {
-    "PARTICULAR_OUTLET": "একক আউটলেট স্কোপ",
-    "ALL_OUTLETS_MASTER": "মাল্টি-আউটলেট ব্র্যান্ড স্কোপ"
-  },
-  "status": {
-    "PLACED": "অর্ডার গৃহীত",
-    "RIDER_ASSIGNED": "রাইডার নির্ধারিত",
-    "ACCEPTED": "গৃহীত",
-    "PREPARING": "রান্না হচ্ছে",
-    "READY_FOR_PICKUP": "পিকআপের জন্য প্রস্তুত",
-    "DISPATCHED": "ডেলিভারিতে বের হয়েছে",
-    "DELIVERED": "ডেলিভারি সম্পন্ন",
-    "CANCELLED": "বাতিল",
-    "inStock": "মজুদ আছে",
-    "outOfStock": "মজুদ শেষ"
-  },
-  "kds": {
-    "title": "কিচেন ডিসপ্লে সিস্টেম",
-    "subtitle": "রিয়েল-টাইম কিচেন অর্ডার ও প্রস্তুতি বোর্ড",
-    "newOrders": "নতুন অর্ডার",
-    "preparing": "রান্না হচ্ছে",
-    "ready": "পিকআপের জন্য প্রস্তুত",
-    "acceptOrder": "অর্ডার গ্রহণ",
-    "markReady": "প্রস্তুত হিসেবে চিহ্নিত করুন",
-    "handover": "রাইডারকে দিন",
-    "prepTime": "প্রস্তুতির সময়",
-    "mins": "মিনিট",
-    "audioAlertActive": "সাউন্ড এলার্ট সক্রিয়",
-    "audioAlertMuted": "সাউন্ড মিউট করা",
-    "enableSound": "সাউন্ড এলার্ট চালু করুন"
   },
   "admin": {
     "title": "সুপার অ্যাডমিন কনসোল",
@@ -106,9 +34,6 @@
     "totalOrders": "মোট অর্ডার",
     "activeRiders": "সক্রিয় রাইডার",
     "onlineVendors": "অনলাইন আউটলেট",
-    "todayVolume": "আজকের গ্রস ভলিউম",
-    "dispatchMode": "অর্ডার ডিসপ্যাচ মোড",
-    "riderFirst": "রাইডার আগে (খাদ্য অপচয় রোধ)",
-    "vendorFirst": "ভেন্ডর আগে (ঐতিহ্যবাহী খুচরা)"
+    "todayVolume": "আজকের গ্রস ভলিউম"
   }
 }

@@ -197,6 +197,30 @@ export interface AdminRiderDetail {
   createdAt: string;
 }
 
+export interface CashDepositItem {
+  id: string;
+  riderId: string;
+  amount: number;
+  paymentMethod: string;
+  status: 'PENDING_APPROVAL' | 'VERIFIED' | 'REJECTED';
+  transactionReference: string;
+  slipUrl?: string | null;
+  depositedAt: string;
+  verifiedAt?: string | null;
+  notes?: string | null;
+  rider: {
+    id: string;
+    cashInHand: number;
+    maxCashLimit: number;
+    isApproved: boolean;
+    user: {
+      id: string;
+      fullName: string;
+      phone: string;
+    };
+  };
+}
+
 export const adminApi = {
   // 1. Overview
   async getOverview(): Promise<AdminOverview> {
@@ -248,10 +272,19 @@ export const adminApi = {
   },
 
   // 3. Live Order Monitor & Force Assign
-  async getOrders(status?: string, page = 1, limit = 20, search?: string): Promise<PaginatedOrders> {
+  async getOrders(
+    status?: string,
+    page = 1,
+    limit = 20,
+    search?: string,
+    dateFrom?: string,
+    dateTo?: string,
+  ): Promise<PaginatedOrders> {
     const params = {
       ...(status && status !== 'ALL' ? { status } : {}),
       ...(search?.trim() ? { search: search.trim() } : {}),
+      ...(dateFrom ? { dateFrom } : {}),
+      ...(dateTo ? { dateTo } : {}),
       page,
       limit,
     };
@@ -516,29 +549,5 @@ export const adminApi = {
     return res.data?.data || res.data;
   },
 };
-
-export interface CashDepositItem {
-  id: string;
-  riderId: string;
-  amount: number;
-  paymentMethod: string;
-  status: 'PENDING_APPROVAL' | 'VERIFIED' | 'REJECTED';
-  transactionReference: string;
-  slipUrl?: string | null;
-  depositedAt: string;
-  verifiedAt?: string | null;
-  notes?: string | null;
-  rider: {
-    id: string;
-    cashInHand: number;
-    maxCashLimit: number;
-    isApproved: boolean;
-    user: {
-      id: string;
-      fullName: string;
-      phone: string;
-    };
-  };
-}
 
 export default adminApi;

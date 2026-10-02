@@ -1,5 +1,6 @@
 import { OrderStatus, PaymentMethod, PaymentStatus, PermissionScope, Prisma, UserRole } from '@prisma/client';
 import { AdminService } from './admin.service';
+import { GetLiveOrdersQueryDto } from './dto/admin-governance.dto';
 
 type MockPrisma = {
   vendor: { findUnique: jest.Mock };
@@ -243,5 +244,91 @@ describe('AdminService - forceAssignRider fleet governance guards', () => {
     await expect(service.forceAssignRider('order-1', 'rider-1')).rejects.toThrow(
       'Order state changed before the assignment could be applied',
     );
+  });
+});
+
+describe('AdminService - getLiveOrders date-wise filtering', () => {
+  let service: AdminService;
+  let prisma: {
+    order: { findMany: jest.Mock; count: jest.Mock };
+    $transaction: jest.Mock;
+  };
+
+  const query = (overrides: Partial<GetLiveOrdersQueryDto> = {}) =>
+    ({ page: 1, limit: 20, skip: 0, ...overrides }) as GetLiveOrdersQueryDto;
+
+  const wherePassedToFindMany = (callIndex = 0) => prisma.order.findMany.mock.calls[callIndex][0].where;
+
+  beforeEach(() => {
+    prisma = {
+      order: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      $transaction: jest.fn().mockResolvedValue([[], 0]),
+    };
+
+    service = new AdminService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { sendToUser: jest.fn().mockResolvedValue(true) } as never,
+    );
+  });
+
+  it('applies an inclusive placedAt gte/lte window when both bounds are provided', async () => {
+    const result = await service.getLiveOrders('ALL', query({
+      dateFrom: '2026-10-01T00:00:00.000Z',
+      dateTo: '2026-10-01T23:59:59.999Z',
+    }));
+
+    expect(wherePassedToFindMany()).toEqual({
+      placedAt: { gte: new Date('2026-10-01T00:00:00.000Z'), lte: new Date('2026-10-01T23:59:59.999Z') },
+    });
+    expect(result.total).toBe(0);
+    expect(result.items).toEqual([]);
+  });
+
+  it('supports open-ended ranges with a single bound', async () => {
+    await service.getLiveOrders('ALL', query({ dateFrom: '2026-10-01T00:00:00.000Z' }));
+    expect(wherePassedToFindMany()).toEqual({
+      placedAt: { gte: new Date('2026-10-01T00:00:00.000Z') },
+    });
+
+    await service.getLiveOrders('ALL', query({ dateTo: '2026-10-01T23:59:59.999Z' }));
+    expect(wherePassedToFindMany(1)).toEqual({
+      placedAt: { lte: new Date('2026-10-01T23:59:59.999Z') },
+    });
+  });
+
+  it('omits the placedAt filter entirely when no dates are provided', async () => {
+    await service.getLiveOrders('ALL', query());
+
+    expect(wherePassedToFindMany()).toEqual({});
+    expect(prisma.order.count).toHaveBeenCalledWith({ where: {} });
+  });
+
+  it('combines the date window with status and search filters', async () => {
+    await service.getLiveOrders('PLACED', query({
+      search: 'ORD-42',
+      dateFrom: '2026-09-01T00:00:00.000Z',
+      dateTo: '2026-09-30T23:59:59.999Z',
+    }));
+
+    expect(wherePassedToFindMany()).toEqual({
+      status: OrderStatus.PLACED,
+      placedAt: {
+        gte: new Date('2026-09-01T00:00:00.000Z'),
+        lte: new Date('2026-09-30T23:59:59.999Z'),
+      },
+      OR: [
+        { orderNumber: { contains: 'ORD-42', mode: 'insensitive' } },
+        { customer: { phone: { contains: 'ORD-42' } } },
+        { customer: { fullName: { contains: 'ORD-42', mode: 'insensitive' } } },
+      ],
+    });
   });
 });

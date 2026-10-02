@@ -74,7 +74,7 @@ This document provides a line-level, granular breakdown of every operational fea
   - *Customer App*: `QuantityStepper`, `SoldOutBadge`, `OrderStatusBadge`, `ApiErrorHandler`, Riverpod 2 `ProfileNotifier`, and decomposed `CartScreen` cards (`CartItemCard`, `BillSummaryCard`, `DeliveryAddressSelectorCard`, `OrderPlacedDialog`).
   - *Rider App*: `AppPrimaryButton`, unified `TripDestinationCard` (replaces duplicated pickup/delivery cards), and decomposed `PhoneLoginScreen` (`AuthBrandHeader`, `AuthTabToggle`, `PilotAccountsDebugCard`).
   - *Vendor Portal*: Standalone `OrderRejectModal`, `KDSPrepTimePicker`, `KDSLaneColumn`, `useRushPause` hook, `SalesLedgerKPIs`, `SalesLedgerDetailModal`, `OrderDateFilterToolbar`, `CatalogFilterToolbar`, `CategoryFilterBar`, `CatalogProductCard`, `SidebarNavList`, `SidebarUserProfile`, modular settings widgets (`RushHourPauseWidget`, `DefaultPrepTimeWidget`, `OperatingHoursWidget`, `OutletProfileWidget`), and shared `formatters.ts`.
-  - *Admin Portal*: `OrderDetailsModal`, `ForceAssignModal`, `CancelOrderModal`, `useSocketQueryInvalidation` hook, and shared `formatters.ts`.
+  - *Admin Portal*: `OrderDetailsModal`, `ForceAssignModal`, `CancelOrderModal`, `useSocketQueryInvalidation` hook, shared `formatters.ts`, and page-local widget kits under `pages/admin/components/` — `promotions/` (tab bar, banner grid, coupon table, form + confirm modals), `dispatch/` (stat cards, radar/roster/unassigned panels, cash-limit modal, pure `fleetFilters.ts`/`unassignedPool.ts` helpers), `vendors/` (outlet card, create/edit/staff modals), and `orders/` (lifecycle tabs, deep-link banner, orders table, pure `orderFilters.ts`).
 
 ---
 
@@ -272,6 +272,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Overlay Layering & Radial Jitter Fix**: Legend overlay elevated to `z-[500]`; radial jitter handles overlapping coordinates smoothly.
 
 ### 5.2. Live Order Lifecycle Monitor & Deep Linking
+- **Date-Wise Ledger Filtering** (vendor-portal parity): Preset toolbar (`TODAY`/`YESTERDAY`/`LAST_7_DAYS`/`THIS_MONTH`/`ALL_TIME`/`CUSTOM` with start/end pickers) resolved to inclusive `placedAt` bounds server-side via `GET /admin/orders?dateFrom=&dateTo=` (ISO-8601, DTO-validated); deep-linked order numbers bypass the default `TODAY` window with `ALL_TIME` so targets always resolve.
 - **Order Number URL Query Deep Linking**: Navigating to `/orders?orderNumber=ORD-XXXX` automatically filters the table, highlights the order, and pre-opens the assignment or details modal (`AdminOrdersPage`).
 - **Active Filter Banner**: Amber banner indicating active direct link filter with 1-click `"Clear Filter & View All"` button.
 - **Itemized Order Details Modal**:
@@ -319,6 +320,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Delivery Fee Pricing Engine**:
   - `FIXED_FLAT`: Platform-wide uniform delivery fee (e.g. 50 BDT).
   - `DISTANCE_TIERED`: Base fee for initial 1.5 km plus incremental per-kilometer fee.
+- **Apply Confirmation Gates**: Dispatch-mode switches and delivery-fee saves pop a confirmation dialog summarizing the pending change (reusable `ConfirmDialog`); canceling leaves the live configuration untouched — the pipeline mode previously applied instantly on card click.
 
 ### 5.8. Financial Settlements & Statements Export
 - **JSON Statements Query**: Query vendor earnings, commission deductions, and pending payouts (`AdminSettingsPage`).
@@ -328,6 +330,8 @@ This document provides a line-level, granular breakdown of every operational fea
 
 ### 5.9. Responsive Layout & Reusable Component Suite
 - **Responsive Mobile Navigation**: Slide-over drawer navigation for mobile and tablet screens (`AdminLayout.tsx`).
+- **Persistent Light/Dark Theme Toggle**: Header switcher (`ThemeToggle`) persisted to `deliveryos_admin_theme` and applied pre-paint, activating the full `dark:` token palette; localized en/ar/bn.
+- **Container/Widget Page Architecture**: Every console page is a thin container (queries, mutations, filter state) composing colocated props-driven widgets under `pages/admin/components/{promotions,dispatch,vendors,orders}/`; all pages sit under the ~300-line modularity ceiling.
 - **Table Column Protection**: Tables wrapped in `overflow-x-auto` to prevent data clipping.
 - **Non-Clipped Modals**: Scrolling internal modal body with fixed headers/actions preventing viewport cutoff.
 - **Reusable Component Primitives**: `PageHeader`, `StatCard`, and `EmptyState`.
@@ -443,7 +447,7 @@ The platform is guarded by a layered verification pyramid. Backend integration s
 | **Repo Quality Gate (CI)** | `npm run verify` (root) | Test-integrity guard + backend typecheck + ESLint + Jest unit + build, portal typechecks + Vitest unit + production builds, `flutter analyze` + `flutter test` ×2 — runs on every push/PR via `.github/workflows/ci.yml` |
 | **Test-Integrity Guard** | `npm run verify:tests` (root) | `scripts/check-test-integrity.mjs`: required spec files present, no skip/only/todo markers (Jest + Vitest + Dart), no tautological assertions, per-area test-count floors |
 | **Money-Path Unit Tests** | `npm run test:unit` (backend) | Jest (157 tests across 16 suites, per-file coverage floors in `jest.config.mjs`) pinning the ADR-002 FSM, dispatch order-flow routing (unpaid-online withholding, takeaway bypass, RIDER_FIRST/VENDOR_FIRST) and claim mutex invariants, two-tier dispatch escalation idempotency, region-time operating-hours math, coupon eligibility + discount caps, webhook atomic-claim idempotency + expired-payment claim-then-reconcile sweep, payment initiation guards, delivery-fee computation/caching/fallbacks, haversine distances, financial rounding, OTP auth (rate limits, lockout, role whitelisting, token rotation), JWT/RBAC guards, and forward/reverse geocoding ([ADR-014](context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md)) |
-| **Portal Unit Tests** | `npm run test:unit` (each portal) | Vitest (admin 22 / vendor 24 tests): currency & date formatters, API error extraction, Tailwind class merging, auth store login/logout persistence, vendor outlet-store resolution rules |
+| **Portal Unit Tests** | `npm run test:unit` (each portal) | Vitest (admin 55 / vendor 32 tests): currency & date formatters, API error extraction, Tailwind class merging, auth store login/logout persistence, i18n locale symmetry + codebase-wide referenced-key scan, dispatch fleet filters & unassigned-pool aging math, order lifecycle filters, theme parsing, vendor outlet-store resolution rules |
 | **DB & Spatial Integrity** | `npm run db:test` | Prisma models, PostGIS expression GIST indexes, spatial query sanity |
 | **Auth & RBAC Security** | `npm run auth:test` | Phone OTP, JWT + refresh rotation, tenant isolation, Super Admin override guards |
 | **Vendor Discovery & Geofence** | `npm run vendor:test` | PostGIS `ST_DWithin` radius search, vertical filters, distance sorting |

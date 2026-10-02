@@ -1,32 +1,7 @@
 {
   "common": {
-    "appName": "DeliveryOS",
-    "dashboard": "لوحة القيادة",
-    "loading": "جارٍ التحميل...",
-    "save": "حفظ",
-    "cancel": "إلغاء",
-    "confirm": "تأكيد",
-    "delete": "حذف",
-    "edit": "تعديل",
-    "search": "بحث...",
-    "status": "الحالة",
-    "actions": "الإجراءات",
     "logout": "تسجيل الخروج",
-    "language": "اللغة",
-    "profile": "الملف الشخصي",
-    "settings": "الإعدادات",
-    "back": "رجوع",
-    "refresh": "تحديث",
-    "success": "نجاح",
-    "error": "خطأ",
-    "warning": "تحذير",
-    "info": "معلومات",
-    "empty": "لا توجد بيانات",
-    "showing": "عرض",
-    "of": "من",
-    "results": "نتائج",
-    "page": "صفحة",
-    "close": "إغلاق"
+    "theme": "المظهر"
   },
   "auth": {
     "title": "بوابة DeliveryOS",
@@ -37,10 +12,6 @@
     "passwordPlaceholder": "123456",
     "loginButton": "تسجيل الدخول",
     "signingIn": "جارٍ المصادقة...",
-    "quickFillTitle": "بيانات اعتماد تجريبية بنقرة واحدة",
-    "superAdmin": "المسؤول العام",
-    "branchManager": "مدير فرع غولشان",
-    "brandOwner": "مالك علامة برجر بوينت",
     "loginFailed": "رقم الهاتف أو كلمة المرور غير صحيحة",
     "unauthorizedTitle": "الوصول مقيد",
     "unauthorizedSubtitle": "ليس لديك الصلاحية للوصول إلى هذا القسم من البوابة.",
@@ -55,50 +26,7 @@
       "promotions": "القسائم والإعلانات",
       "finance": "الحوكمة المالية",
       "settings": "إعدادات النظام"
-    },
-    "vendor": {
-      "kds": "لوحة المطبخ (KDS)",
-      "catalog": "القائمة والمخزون",
-      "orders": "سجل الطلبات",
-      "settings": "إعدادات الفرع"
     }
-  },
-  "roles": {
-    "SUPER_ADMIN": "مسؤول عام",
-    "VENDOR_ADMIN": "موظف المتجر",
-    "RIDER": "سائق التوصيل",
-    "CUSTOMER": "العميل"
-  },
-  "scopes": {
-    "PARTICULAR_OUTLET": "نطاق فرع واحد",
-    "ALL_OUTLETS_MASTER": "نطاق العلامة التجارية الشامل"
-  },
-  "status": {
-    "PLACED": "تم الطلب",
-    "RIDER_ASSIGNED": "تم تعيين السائق",
-    "ACCEPTED": "مقبول",
-    "PREPARING": "قيد التحضير",
-    "READY_FOR_PICKUP": "جاهز للاستلام",
-    "DISPATCHED": "في الطريق",
-    "DELIVERED": "تم التوصيل",
-    "CANCELLED": "ملغي",
-    "inStock": "متوفر",
-    "outOfStock": "نفد من المخزون"
-  },
-  "kds": {
-    "title": "نظام عرض المطبخ",
-    "subtitle": "لوحة الطلبات الواردة والتحضير الفورية",
-    "newOrders": "طلبات جديدة",
-    "preparing": "في المطبخ",
-    "ready": "جاهز للاستلام",
-    "acceptOrder": "قبول الطلب",
-    "markReady": "تحديد كجاهز",
-    "handover": "تسليم للسائق",
-    "prepTime": "وقت التحضير",
-    "mins": "دقيقة",
-    "audioAlertActive": "التنبيهات الصوتية مفعلة",
-    "audioAlertMuted": "الصوت مكتوم",
-    "enableSound": "تفعيل التنبيه الصوتي"
   },
   "admin": {
     "title": "لوحة تحكم المسؤول العام",
@@ -106,9 +34,6 @@
     "totalOrders": "إجمالي الطلبات",
     "activeRiders": "السائقون النشطون",
     "onlineVendors": "الفروع المتصلة",
-    "todayVolume": "حجم التداول اليوم",
-    "dispatchMode": "وضع إرسال الطلبات",
-    "riderFirst": "السائق أولاً (صفر هدر للطعام)",
-    "vendorFirst": "التاجر أولاً (التجزئة التقليدية)"
+    "todayVolume": "حجم التداول اليوم"
   }
 }

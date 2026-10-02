@@ -1,20 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  FileText,
-  Search,
-  RefreshCw,
-  UserCheck,
-  Bike,
-  Clock,
-  Eye,
-  XCircle,
-  X,
-} from 'lucide-react';
+import { FileText, Search, RefreshCw, X } from 'lucide-react';
 import adminApi, { AdminOrder } from '../../services/adminApi';
-import { Table, Column } from '../../components/ui/Table';
-import { Badge, OrderStatusBadge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -26,7 +14,12 @@ import { useSocketQueryInvalidation } from '../../hooks/useSocketSubscription';
 import { OrderDetailsModal } from '../../components/orders/OrderDetailsModal';
 import { ForceAssignModal } from '../../components/orders/ForceAssignModal';
 import { CancelOrderModal } from '../../components/orders/CancelOrderModal';
-import { formatCurrency, formatDateTime } from '../../utils/formatters';
+import { OrderLifecycleStageId, filterOrdersByQuery } from './components/orders/orderFilters';
+import { DatePreset, resolveDateRange } from './components/orders/orderDateRange';
+import { OrderLifecycleTabs } from './components/orders/OrderLifecycleTabs';
+import { OrderDateFilterToolbar } from './components/orders/OrderDateFilterToolbar';
+import { OrderDeepLinkBanner } from './components/orders/OrderDeepLinkBanner';
+import { OrdersTable } from './components/orders/OrdersTable';
 
 const ORDER_SOCKET_EVENTS = ['order:new', 'order:status:changed'];
 const ORDER_QUERY_KEYS = [['admin-orders']];
@@ -38,21 +31,29 @@ export const AdminOrdersPage: React.FC = () => {
 
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState(orderNumberParam || '');
+  // Deep links must resolve regardless of order age, so they bypass the default TODAY window.
+  const [datePreset, setDatePreset] = useState<DatePreset>(orderNumberParam ? 'ALL_TIME' : 'TODAY');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [selectedRiderId, setSelectedRiderId] = useState<string>('');
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelTargetOrder, setCancelTargetOrder] = useState<AdminOrder | null>(null);
-
   const [detailsOrder, setDetailsOrder] = useState<AdminOrder | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [autoHandledOrderNumber, setAutoHandledOrderNumber] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const { dateFromIso, dateToIso } = useMemo(
+    () => resolveDateRange(datePreset, customStartDate, customEndDate),
+    [datePreset, customStartDate, customEndDate],
+  );
+
   const { data: ordersData, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['admin-orders', selectedStatus, page, searchQuery],
-    queryFn: () => adminApi.getOrders(selectedStatus, page, 20, searchQuery),
+    queryKey: ['admin-orders', selectedStatus, page, searchQuery, datePreset, dateFromIso, dateToIso],
+    queryFn: () => adminApi.getOrders(selectedStatus, page, 20, searchQuery, dateFromIso, dateToIso),
     refetchInterval: 30000,
     placeholderData: (previous) => previous,
   });
@@ -73,6 +74,7 @@ export const AdminOrdersPage: React.FC = () => {
   const availableRiders = safeFleet.filter((r) => Boolean(r && r.isOnline));
 
   const safeOrders = Array.isArray(orders) ? orders : [];
+  const filteredOrders = filterOrdersByQuery(safeOrders, searchQuery);
 
   useEffect(() => {
     if (orderNumberParam) {
@@ -88,16 +90,14 @@ export const AdminOrdersPage: React.FC = () => {
       if (matched) {
         setAutoHandledOrderNumber(orderNumberParam);
         if (matched.status !== 'DELIVERED' && matched.status !== 'CANCELLED') {
-          setSelectedOrder(matched);
-          setSelectedRiderId(matched.riderId || (availableRiders[0]?.id ?? ''));
-          setIsAssignModalOpen(true);
+          openAssignModal(matched);
         } else {
           setDetailsOrder(matched);
           setIsDetailsModalOpen(true);
         }
       }
     }
-  }, [orderNumberParam, safeOrders, autoHandledOrderNumber, availableRiders]);
+  }, [orderNumberParam, safeOrders, autoHandledOrderNumber]);
 
   const forceAssignMutation = useMutation({
     mutationFn: ({ orderId, riderId }: { orderId: string; riderId: string }) =>
@@ -125,17 +125,11 @@ export const AdminOrdersPage: React.FC = () => {
     onError: (err) => setActionError(extractApiError(err, 'Order cancellation failed. Please retry.')),
   });
 
-  const filteredOrders = safeOrders.filter((o) => {
-    if (!o) return false;
-    const q = (searchQuery || '').toLowerCase();
-    const matchesSearch =
-      (o.orderNumber || '').toLowerCase().includes(q) ||
-      (o.customerName || '').toLowerCase().includes(q) ||
-      (o.vendorName || '').toLowerCase().includes(q) ||
-      (o.riderName && o.riderName.toLowerCase().includes(q)) ||
-      (o.customerPhone && o.customerPhone.includes(q));
-    return matchesSearch;
-  });
+  const openAssignModal = (order: AdminOrder) => {
+    setSelectedOrder(order);
+    setSelectedRiderId(order.riderId || (availableRiders[0]?.id ?? ''));
+    setIsAssignModalOpen(true);
+  };
 
   const clearSearch = () => {
     setSearchQuery('');
@@ -145,145 +139,6 @@ export const AdminOrdersPage: React.FC = () => {
       setSearchParams(searchParams);
     }
   };
-
-  const columns: Column<AdminOrder>[] = [
-    {
-      key: 'orderNumber',
-      header: 'Order #',
-      render: (order) => (
-        <div>
-          <button
-            onClick={() => {
-              setDetailsOrder(order);
-              setIsDetailsModalOpen(true);
-            }}
-            className="font-semibold text-primary-600 hover:text-primary-700 hover:underline dark:text-primary-400 text-left"
-            title="Click to view line items & details"
-          >
-            {order.orderNumber}
-          </button>
-          <div className="text-[11px] text-slate-500">
-            {new Date(order.placedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'vendorName',
-      header: 'Store Outlet',
-      render: (order) => (
-        <div>
-          <div className="font-medium text-slate-900 dark:text-slate-100">{order.vendorName}</div>
-          <div className="text-[11px] text-slate-500 truncate max-w-[160px]">{order.vendorAddress}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-            <span>{order.items?.length || 0} item{order.items?.length === 1 ? '' : 's'}</span>
-            {order.customerNotes && (
-              <span className="inline-flex items-center text-amber-600 dark:text-amber-400 font-semibold" title={order.customerNotes}>
-                • Note
-              </span>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'customerName',
-      header: 'Customer',
-      render: (order) => (
-        <div>
-          <div className="font-medium text-slate-900 dark:text-slate-100">{order.customerName}</div>
-          <div className="text-[11px] text-slate-500">{order.customerPhone}</div>
-        </div>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (order) => <OrderStatusBadge status={order.status} />,
-    },
-    {
-      key: 'riderName',
-      header: 'Assigned Courier',
-      render: (order) =>
-        order.riderName ? (
-          <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
-            <Bike className="h-3.5 w-3.5 text-primary-600 shrink-0" />
-            <div>
-              <span className="font-medium">{order.riderName}</span>
-              <div className="text-[10px] text-slate-400">{order.riderPhone}</div>
-            </div>
-          </div>
-        ) : (
-          <span className="text-amber-600 dark:text-amber-400 font-medium text-[11px] italic">
-            Unassigned
-          </span>
-        ),
-    },
-    {
-      key: 'totalAmount',
-      header: 'Total',
-      render: (order) => (
-        <div className="text-right">
-          <span className="font-semibold text-slate-900 dark:text-slate-100">৳{order.totalAmount}</span>
-          <div className="text-[10px] text-slate-400">{order.paymentMethod}</div>
-        </div>
-      ),
-    },
-    {
-      key: 'id',
-      header: 'Action',
-      render: (order) => (
-        <div className="inline-flex items-center justify-end gap-1.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs h-7 px-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-            onClick={() => {
-              setDetailsOrder(order);
-              setIsDetailsModalOpen(true);
-            }}
-            leftIcon={<Eye className="h-3.5 w-3.5" />}
-          >
-            Details
-          </Button>
-
-          {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs h-7 px-2.5"
-                onClick={() => {
-                  setSelectedOrder(order);
-                  setSelectedRiderId(order.riderId || (availableRiders[0]?.id ?? ''));
-                  setIsAssignModalOpen(true);
-                }}
-                leftIcon={<UserCheck className="h-3.5 w-3.5 text-primary-600" />}
-              >
-                {order.riderId ? 'Reassign' : 'Force Assign'}
-              </Button>
-              {order.status !== 'DISPATCHED' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-7 px-2 border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40"
-                  onClick={() => {
-                    setCancelTargetOrder(order);
-                    setIsCancelModalOpen(true);
-                  }}
-                  leftIcon={<XCircle className="h-3.5 w-3.5 text-rose-500" />}
-                >
-                  Cancel
-                </Button>
-              )}
-            </>
-          ) : (
-            <span className="text-slate-400 text-xs">—</span>
-          )}
-        </div>
-      ),
-    },
-  ];
 
   return (
     <div className="space-y-6">
@@ -303,51 +158,37 @@ export const AdminOrdersPage: React.FC = () => {
         }
       />
 
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-        {[
-          { id: 'ALL', label: 'All Orders' },
-          { id: 'PLACED', label: '1. Placed' },
-          { id: 'RIDER_ASSIGNED', label: '2. Courier Assigned' },
-          { id: 'ACCEPTED', label: '3. Accepted' },
-          { id: 'PREPARING', label: '4. Preparing' },
-          { id: 'READY_FOR_PICKUP', label: '5. Ready for Pickup' },
-          { id: 'DISPATCHED', label: '6. On Delivery' },
-          { id: 'DELIVERED', label: '7. Delivered' },
-        ].map((stage) => (
-          <button
-            key={stage.id}
-            onClick={() => {
-              setPage(1);
-              setSelectedStatus(stage.id);
-            }}
-            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-              selectedStatus === stage.id
-                ? 'bg-primary-600 text-white font-semibold shadow-sm'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800'
-            }`}
-          >
-            {stage.label}
-          </button>
-        ))}
-      </div>
+      <OrderLifecycleTabs
+        selected={selectedStatus}
+        onChange={(stage: OrderLifecycleStageId) => {
+          setPage(1);
+          setSelectedStatus(stage);
+        }}
+      />
 
-      {orderNumberParam && (
-        <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 dark:bg-amber-950/30 dark:border-amber-900/60 dark:text-amber-200">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-amber-600 shrink-0" />
-            <span>
-              Direct link filter active for Order: <strong className="font-semibold">{orderNumberParam}</strong>
-            </span>
-          </div>
-          <button
-            onClick={clearSearch}
-            className="flex items-center gap-1 text-[11px] font-semibold text-amber-800 hover:text-amber-950 dark:text-amber-300 dark:hover:text-white underline"
-          >
-            <X className="h-3.5 w-3.5" />
-            Clear Filter & View All
-          </button>
-        </div>
-      )}
+      <OrderDateFilterToolbar
+        datePreset={datePreset}
+        onDatePresetChange={(preset) => {
+          setPage(1);
+          setDatePreset(preset);
+        }}
+        customStartDate={customStartDate}
+        onCustomStartDateChange={(val) => {
+          setPage(1);
+          setCustomStartDate(val);
+        }}
+        customEndDate={customEndDate}
+        onCustomEndDateChange={(val) => {
+          setPage(1);
+          setCustomEndDate(val);
+        }}
+        onClearCustomDates={() => {
+          setCustomStartDate('');
+          setCustomEndDate('');
+        }}
+      />
+
+      {orderNumberParam && <OrderDeepLinkBanner orderNumber={orderNumberParam} onClear={clearSearch} />}
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -399,14 +240,21 @@ export const AdminOrdersPage: React.FC = () => {
             className="m-4"
           />
         ) : (
-          <Table
-            data={filteredOrders}
-            columns={columns}
-            keyExtractor={(o) => o.id}
+          <OrdersTable
+            orders={filteredOrders}
             page={page}
             totalPages={totalPages}
             totalItems={totalOrders}
             onPageChange={setPage}
+            onViewDetails={(order) => {
+              setDetailsOrder(order);
+              setIsDetailsModalOpen(true);
+            }}
+            onAssign={openAssignModal}
+            onCancel={(order) => {
+              setCancelTargetOrder(order);
+              setIsCancelModalOpen(true);
+            }}
           />
         )}
       </div>
@@ -419,11 +267,7 @@ export const AdminOrdersPage: React.FC = () => {
           setCancelTargetOrder(order);
           setIsCancelModalOpen(true);
         }}
-        onOpenAssign={(order) => {
-          setSelectedOrder(order);
-          setSelectedRiderId(order.riderId || (availableRiders[0]?.id ?? ''));
-          setIsAssignModalOpen(true);
-        }}
+        onOpenAssign={openAssignModal}
       />
 
       <ForceAssignModal

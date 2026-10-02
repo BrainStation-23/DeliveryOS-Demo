@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Shuffle, Truck, Store, Check } from 'lucide-react';
 import { Badge } from '../ui/Badge';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 
 export interface OrderFlowSettingsCardProps {
   currentMode: 'RIDER_FIRST' | 'VENDOR_FIRST';
@@ -8,11 +9,24 @@ export interface OrderFlowSettingsCardProps {
   onUpdateMode: (mode: 'RIDER_FIRST' | 'VENDOR_FIRST') => void;
 }
 
+const MODE_LABELS: Record<'RIDER_FIRST' | 'VENDOR_FIRST', string> = {
+  RIDER_FIRST: 'RIDER_FIRST (Zero Food Waste Mode)',
+  VENDOR_FIRST: 'VENDOR_FIRST (Traditional Retail Mode)',
+};
+
 export const OrderFlowSettingsCard: React.FC<OrderFlowSettingsCardProps> = ({
   currentMode,
   isUpdating,
   onUpdateMode,
 }) => {
+  const [pendingMode, setPendingMode] = useState<'RIDER_FIRST' | 'VENDOR_FIRST' | null>(null);
+
+  const requestModeSwitch = (mode: 'RIDER_FIRST' | 'VENDOR_FIRST') => {
+    if (mode !== currentMode && !isUpdating) {
+      setPendingMode(mode);
+    }
+  };
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-4">
       <div>
@@ -32,11 +46,7 @@ export const OrderFlowSettingsCard: React.FC<OrderFlowSettingsCardProps> = ({
           role="radio"
           aria-checked={currentMode === 'RIDER_FIRST'}
           disabled={isUpdating}
-          onClick={() => {
-            if (currentMode !== 'RIDER_FIRST') {
-              onUpdateMode('RIDER_FIRST');
-            }
-          }}
+          onClick={() => requestModeSwitch('RIDER_FIRST')}
           className={`text-left rounded-xl border p-4 sm:p-5 transition-all focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${
             currentMode === 'RIDER_FIRST'
               ? 'border-primary-600 bg-primary-50/50 dark:border-primary-500 dark:bg-primary-950/20 ring-2 ring-primary-500/20 shadow-xs'
@@ -78,11 +88,7 @@ export const OrderFlowSettingsCard: React.FC<OrderFlowSettingsCardProps> = ({
           role="radio"
           aria-checked={currentMode === 'VENDOR_FIRST'}
           disabled={isUpdating}
-          onClick={() => {
-            if (currentMode !== 'VENDOR_FIRST') {
-              onUpdateMode('VENDOR_FIRST');
-            }
-          }}
+          onClick={() => requestModeSwitch('VENDOR_FIRST')}
           className={`text-left rounded-xl border p-4 sm:p-5 transition-all focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${
             currentMode === 'VENDOR_FIRST'
               ? 'border-primary-600 bg-primary-50/50 dark:border-primary-500 dark:bg-primary-950/20 ring-2 ring-primary-500/20 shadow-xs'
@@ -118,6 +124,36 @@ export const OrderFlowSettingsCard: React.FC<OrderFlowSettingsCardProps> = ({
           </div>
         </button>
       </div>
+
+      <ConfirmDialog
+        isOpen={pendingMode !== null}
+        title="Switch Dispatch Pipeline Mode?"
+        message={
+          <>
+            <p>
+              Change the platform dispatch mode from{' '}
+              <strong className="text-slate-900 dark:text-slate-100">{MODE_LABELS[currentMode]}</strong> to{' '}
+              <strong className="text-slate-900 dark:text-slate-100">
+                {pendingMode ? MODE_LABELS[pendingMode] : ''}
+              </strong>
+              ?
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              This takes effect immediately: every new order placed after the switch will follow the new
+              coordination sequence between kitchen preparation and courier broadcast.
+            </p>
+          </>
+        }
+        confirmLabel="Apply Switch"
+        isPending={isUpdating}
+        onConfirm={() => {
+          if (pendingMode) {
+            onUpdateMode(pendingMode);
+          }
+          setPendingMode(null);
+        }}
+        onCancel={() => setPendingMode(null)}
+      />
     </section>
   );
 };

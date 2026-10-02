@@ -122,8 +122,6 @@ export const AdminFinancePage: React.FC = () => {
       id: 'settlements',
       label: 'Vendor Settlements & Ledgers',
       icon: FileSpreadsheet,
-      badge: safeSettlements.length > 0 ? safeSettlements.length : undefined,
-      badgeVariant: 'primary',
     },
     {
       id: 'deposits',

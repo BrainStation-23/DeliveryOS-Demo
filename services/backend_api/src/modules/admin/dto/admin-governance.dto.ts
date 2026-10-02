@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsIn,
   IsInt,
+  IsISO8601,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -44,6 +45,16 @@ export class GetLiveOrdersQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ description: 'ISO-8601 inclusive lower bound on placedAt (e.g. 2026-10-01T00:00:00.000Z)' })
+  @IsOptional()
+  @IsISO8601()
+  dateFrom?: string;
+
+  @ApiPropertyOptional({ description: 'ISO-8601 inclusive upper bound on placedAt (e.g. 2026-10-01T23:59:59.999Z)' })
+  @IsOptional()
+  @IsISO8601()
+  dateTo?: string;
 }
 
 class BannerFields {

@@ -8,7 +8,6 @@ import {
   FileText,
   Tag,
   Settings,
-  LogOut,
   Menu,
   X,
   ShieldCheck,
@@ -18,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { LanguageSelector } from '../components/LanguageSelector';
+import { ThemeToggle } from '../components/ThemeToggle';
+import { LogoutButton } from '../components/common/LogoutButton';
 import { Badge } from '../components/ui/Badge';
 
 export const AdminLayout: React.FC = () => {
@@ -146,13 +147,7 @@ export const AdminLayout: React.FC = () => {
                 </p>
               </div>
             </div>
-            <button
-              onClick={logout}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-rose-200/80 bg-rose-50/50 px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-100/70 hover:border-rose-300 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors"
-            >
-              <LogOut className="h-3.5 w-3.5 shrink-0" />
-              <span>{t('common.logout')}</span>
-            </button>
+            <LogoutButton onLogout={logout} />
           </div>
         ) : (
           <div className="shrink-0 mt-auto border-t border-slate-100 p-2.5 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col items-center gap-2">
@@ -162,14 +157,7 @@ export const AdminLayout: React.FC = () => {
             >
               {user?.fullName?.charAt(0) || 'A'}
             </div>
-            <button
-              onClick={logout}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200/80 bg-rose-50/50 text-rose-600 hover:bg-rose-100/70 hover:border-rose-300 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors"
-              title={t('common.logout')}
-              aria-label={t('common.logout')}
-            >
-              <LogOut className="h-3.5 w-3.5 shrink-0" />
-            </button>
+            <LogoutButton onLogout={logout} variant="icon" />
           </div>
         )}
       </aside>
@@ -190,7 +178,8 @@ export const AdminLayout: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <ThemeToggle />
             <LanguageSelector />
           </div>
         </header>
@@ -260,16 +249,12 @@ export const AdminLayout: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
+                <LogoutButton
+                  onLogout={() => {
                     setIsMobileMenuOpen(false);
                     logout();
                   }}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-rose-200/80 bg-rose-50/50 px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-100/70 hover:border-rose-300 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 transition-colors"
-                >
-                  <LogOut className="h-3.5 w-3.5 shrink-0" />
-                  <span>{t('common.logout')}</span>
-                </button>
+                />
               </div>
             </div>
           </div>

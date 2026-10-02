@@ -8,6 +8,9 @@ import App from './App';
 import './index.css';
 import 'leaflet/dist/leaflet.css';
 import './i18n/i18n';
+import { initTheme } from './utils/theme';
+
+initTheme();
 
 // Error monitoring activates only when a DSN is provided at build time
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;

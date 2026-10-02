@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import apiClient, { ADMIN_TOKEN_KEY, ADMIN_REFRESH_KEY, ADMIN_USER_KEY, ensureFreshToken, isTokenExpired } from '../services/apiClient';
-import { User, UserRole, PermissionScope } from '../types/auth';
+import { User, UserRole } from '../types/auth';
 import { connectSocket, disconnectSocket } from '../services/socket';
 
 export { ADMIN_TOKEN_KEY, ADMIN_USER_KEY };
@@ -81,38 +81,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error('Invalid authentication response structure');
       }
 
-      let vendorId = userData.vendorId;
-      let vendorName = userData.vendorName;
-      let outletScope = userData.outletScope;
-      let managedVendorIds = userData.managedVendorIds;
-
-      if (userData.role === UserRole.VENDOR_ADMIN && !outletScope) {
-        try {
-          const staffProfileRes = await apiClient.get('/api/v1/vendor/me', {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          const staffProfile = staffProfileRes.data?.data || staffProfileRes.data;
-          if (staffProfile) {
-            outletScope = staffProfile.outlet_scope || staffProfile.outletScope || PermissionScope.PARTICULAR_OUTLET;
-            vendorId = staffProfile.vendor_id || staffProfile.vendorId;
-            vendorName = staffProfile.vendor?.name || staffProfile.vendorName;
-            managedVendorIds = staffProfile.managedVendorIds || (vendorId ? [vendorId] : []);
-          }
-        } catch {
-          outletScope = PermissionScope.PARTICULAR_OUTLET;
-        }
-      }
-
       const formattedUser: User = {
         id: userData.id,
         phone: userData.phone,
         email: userData.email,
         fullName: userData.full_name || userData.fullName,
         role: userData.role,
-        vendorId,
-        vendorName,
-        outletScope,
-        managedVendorIds,
+        vendorId: userData.vendorId,
+        vendorName: userData.vendorName,
+        outletScope: userData.outletScope,
+        managedVendorIds: userData.managedVendorIds,
       };
 
       localStorage.setItem(ADMIN_TOKEN_KEY, accessToken);
