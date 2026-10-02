@@ -388,7 +388,15 @@ describe('AdminService - brand & staff account governance', () => {
   let prisma: {
     vendorBrand: { findMany: jest.Mock; findFirst: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock; delete: jest.Mock };
     user: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
-    vendorStaff: { findMany: jest.Mock; findUnique: jest.Mock; delete: jest.Mock; count: jest.Mock };
+    vendorStaff: {
+      findMany: jest.Mock;
+      findFirst: jest.Mock;
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+      delete: jest.Mock;
+      count: jest.Mock;
+    };
     vendor: { findUnique: jest.Mock };
     redis: { del: jest.Mock };
   };
@@ -411,7 +419,10 @@ describe('AdminService - brand & staff account governance', () => {
       },
       vendorStaff: {
         findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
         findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'staff-1' }),
+        update: jest.fn().mockResolvedValue({ id: 'staff-1' }),
         delete: jest.fn().mockResolvedValue({ id: 'staff-1' }),
         count: jest.fn().mockResolvedValue(0),
       },
@@ -525,5 +536,255 @@ describe('AdminService - brand & staff account governance', () => {
 
   it('rejects removal of unknown staff assignments with 404', async () => {
     await expect(service.removeVendorStaff('missing')).rejects.toThrow('Staff assignment not found');
+  });
+
+  it('blocks assigning a user who already holds an active assignment elsewhere', async () => {
+    prisma.vendor.findUnique.mockResolvedValue({ id: 'vendor-1', brandId: 'brand-1' });
+    prisma.user.findUnique.mockResolvedValue({ id: 'user-1', role: UserRole.VENDOR_ADMIN });
+    prisma.vendorStaff.findFirst.mockResolvedValue({
+      id: 'other',
+      vendorId: 'vendor-9',
+      brandId: null,
+      scope: PermissionScope.PARTICULAR_OUTLET,
+    });
+
+    await expect(
+      service.assignVendorStaff('vendor-1', { userId: 'user-1', scope: PermissionScope.PARTICULAR_OUTLET }),
+    ).rejects.toThrow('already holds an active assignment');
+    expect(prisma.vendorStaff.create).not.toHaveBeenCalled();
+  });
+
+  it('allows re-assigning within the same outlet row (scope upsert path)', async () => {
+    prisma.vendor.findUnique.mockResolvedValue({ id: 'vendor-1', brandId: 'brand-1' });
+    prisma.user.findUnique.mockResolvedValue({ id: 'user-1', role: UserRole.VENDOR_ADMIN });
+    prisma.vendorStaff.findFirst.mockResolvedValue({
+      id: 'existing',
+      vendorId: 'vendor-1',
+      brandId: null,
+      scope: PermissionScope.PARTICULAR_OUTLET,
+    });
+    prisma.vendorStaff.update.mockResolvedValue({ id: 'existing' });
+
+    await expect(
+      service.assignVendorStaff('vendor-1', { userId: 'user-1', scope: PermissionScope.PARTICULAR_OUTLET }),
+    ).resolves.toBeDefined();
+  });
+});
+
+describe('AdminService - product save with absolute variation pricing', () => {
+  let service: AdminService;
+  let prisma: {
+    product: { findUnique: jest.Mock; update: jest.Mock; create: jest.Mock };
+    productVariant: { findMany: jest.Mock; delete: jest.Mock; update: jest.Mock; create: jest.Mock };
+    $transaction: jest.Mock;
+  };
+
+  const variations = [
+    { name: 'Single', price: 320, isInStock: true },
+    { name: 'Double', price: 440, isInStock: true },
+  ];
+
+  const baseInput = {
+    vendorId: 'vendor-1',
+    categoryId: 'cat-1',
+    name: 'Beef Burger',
+    variations,
+  };
+
+  beforeEach(() => {
+    prisma = {
+      product: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue({ id: 'prod-1' }),
+        create: jest.fn().mockResolvedValue({ id: 'prod-new' }),
+      },
+      productVariant: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'v1', name: 'Old', price: { valueOf: () => 100 } },
+          { id: 'v2', name: 'Kept', price: { valueOf: () => 200 } },
+        ]),
+        delete: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue({}),
+        create: jest.fn().mockResolvedValue({}),
+      },
+      $transaction: jest.fn(),
+    };
+
+    service = new AdminService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { sendToUser: jest.fn().mockResolvedValue(true) } as never,
+    );
+  });
+
+  it('rejects products without at least one variation', async () => {
+    await expect(service.saveProduct({ ...baseInput, variations: [] })).rejects.toThrow(
+      'at least one variation',
+    );
+    await expect(
+      service.saveProduct({ ...baseInput, variations: [{ name: '  ', price: 10, isInStock: true }] }),
+    ).rejects.toThrow('at least one variation');
+  });
+
+  it('creates a product with ordered variations and the first price as base', async () => {
+    prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({
+        product: prisma.product,
+        productVariant: prisma.productVariant,
+      }),
+    );
+
+    await service.saveProduct(baseInput);
+
+    expect(prisma.product.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          basePrice: 320,
+          variants: {
+            create: [
+              expect.objectContaining({ name: 'Single', price: 320, sortOrder: 1 }),
+              expect.objectContaining({ name: 'Double', price: 440, sortOrder: 2 }),
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it('updates by replacing missing variations and re-syncing the product price to the new first variation', async () => {
+    prisma.product.findUnique.mockResolvedValue({ id: 'prod-1', name: 'Beef Burger' });
+    prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({
+        product: prisma.product,
+        productVariant: prisma.productVariant,
+      }),
+    );
+
+    await service.saveProduct(
+      {
+        ...baseInput,
+        variations: [{ id: 'v2', name: 'Kept', price: 500, isInStock: false }, ...variations.slice(1)],
+      },
+      'prod-1',
+    );
+
+    // v1 was not kept in the payload -> deleted (safe: snapshots are JSONB)
+    expect(prisma.productVariant.delete).toHaveBeenCalledWith({ where: { id: 'v1' } });
+    expect(prisma.productVariant.update).toHaveBeenCalledWith({
+      where: { id: 'v2' },
+      data: expect.objectContaining({ price: 500, sortOrder: 1 }),
+    });
+    expect(prisma.product.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ basePrice: 500 }),
+      }),
+    );
+  });
+
+  it('requires vendorId when creating', async () => {
+    const { vendorId: _vendorId, ...withoutVendor } = baseInput;
+    await expect(service.saveProduct(withoutVendor)).rejects.toThrow('vendorId is required');
+  });
+});
+
+describe('AdminService - staff assignment & account edits', () => {
+  let service: AdminService;
+  let prisma: {
+    vendorStaff: { findUnique: jest.Mock; update: jest.Mock };
+    user: { findUnique: jest.Mock; update: jest.Mock };
+  };
+  let redis: { del: jest.Mock };
+
+  beforeEach(() => {
+    prisma = {
+      vendorStaff: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue({ id: 'staff-1' }),
+      },
+      user: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue({ id: 'user-1' }),
+      },
+    };
+    redis = { del: jest.fn().mockResolvedValue(1) };
+
+    service = new AdminService(
+      prisma as never,
+      redis as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { sendToUser: jest.fn().mockResolvedValue(true) } as never,
+    );
+  });
+
+  it('switches a manager to brand-owner scope bound to the outlet brand and purges the session', async () => {
+    prisma.vendorStaff.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      userId: 'user-1',
+      scope: PermissionScope.PARTICULAR_OUTLET,
+      vendorId: 'vendor-1',
+      brandId: null,
+      vendor: { brandId: 'brand-9' },
+    });
+
+    await service.updateVendorStaffAssignment('staff-1', { scope: PermissionScope.ALL_OUTLETS_MASTER });
+
+    expect(prisma.vendorStaff.update).toHaveBeenCalledWith({
+      where: { id: 'staff-1' },
+      data: expect.objectContaining({
+        scope: PermissionScope.ALL_OUTLETS_MASTER,
+        brandId: 'brand-9',
+        vendorId: null,
+      }),
+    });
+    expect(redis.del).toHaveBeenCalledWith('auth:user:user-1');
+  });
+
+  it('toggles assignment active state without touching scope', async () => {
+    prisma.vendorStaff.findUnique.mockResolvedValue({
+      id: 'staff-1',
+      userId: 'user-1',
+      scope: PermissionScope.PARTICULAR_OUTLET,
+      vendorId: 'vendor-1',
+      brandId: null,
+      vendor: { brandId: 'brand-9' },
+    });
+
+    await service.updateVendorStaffAssignment('staff-1', { isActive: false });
+
+    expect(prisma.vendorStaff.update).toHaveBeenCalledWith({
+      where: { id: 'staff-1' },
+      data: { isActive: false },
+    });
+  });
+
+  it('rejects unknown assignments with 404', async () => {
+    await expect(service.updateVendorStaffAssignment('missing', { isActive: false })).rejects.toThrow(
+      'Staff assignment not found',
+    );
+  });
+
+  it('edits account name/phone with duplicate-phone protection and cache purge', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({ id: 'user-1', phone: '+8801711111111' });
+    prisma.user.findUnique.mockResolvedValueOnce({ id: 'user-2', phone: '+8801722222222' });
+
+    await expect(
+      service.updateStaffAccount('user-1', { phone: '+8801722222222' }),
+    ).rejects.toThrow('already exists');
+    expect(prisma.user.update).not.toHaveBeenCalled();
+
+    prisma.user.findUnique.mockResolvedValue({ id: 'user-1', phone: '+8801711111111' });
+    await service.updateStaffAccount('user-1', { fullName: ' New Name ' });
+
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { fullName: 'New Name' } }),
+    );
+    expect(redis.del).toHaveBeenCalledWith('auth:user:user-1');
   });
 });

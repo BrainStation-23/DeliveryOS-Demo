@@ -47,7 +47,7 @@ erDiagram
 1. **`users`**: Platform user accounts across all roles (`SUPER_ADMIN`, `VENDOR_ADMIN`, `RIDER`, `CUSTOMER`). Contains phone, name, email, account status, and FCM device tokens.
 2. **`customer_addresses`**: Geocoded delivery locations linked to users. Contains label (`Home`, `Work`, `Other`), address details, and `latitude`/`longitude` float coordinates (PostGIS geography computed at query time).
 3. **`vendor_brands`**: Top-level merchant brand entities for multi-branch chains.
-4. **`vendors`**: Physical merchant outlets. Stores `latitude`/`longitude` coordinates, commission rate, delivery radius (km), operational status, and default prep time.
+4. **`vendors`**: Physical merchant outlets — **always owned by a brand** (`brand_id NOT NULL`, ADR-017). Stores `latitude`/`longitude` coordinates, commission rate, delivery radius (km), operational status, and default prep time.
 5. **`vendor_staff`**: Junction table binding users to outlets or brands with permission scopes (`PARTICULAR_OUTLET` vs `ALL_OUTLETS_MASTER`).
 6. **`vendor_operating_hours`**: Weekly 7-day schedule (0=Sun to 6=Sat) with open/close times and closed checkboxes.
 7. **`categories`**: Menu categories scoped to a vendor or global (NULL vendor_id).

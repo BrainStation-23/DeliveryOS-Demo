@@ -1,5 +1,8 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsDate,
   IsEnum,
@@ -15,6 +18,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BannerLinkType, DiscountType, OrderStatus, PermissionScope } from '@prisma/client';
@@ -301,6 +305,11 @@ class VendorFields {
 }
 
 export class CreateVendorDto extends VendorFields {
+  @ApiProperty({ description: 'Owning brand — outlets cannot exist without one (ADR-017)' })
+  @IsString()
+  @IsNotEmpty()
+  declare brandId: string;
+
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
@@ -389,13 +398,44 @@ export class CreateCategoryDto {
   isActive?: boolean;
 }
 
-export class OverrideProductDto {
-  @ApiPropertyOptional()
+export class SaveProductVariationDto {
+  @ApiPropertyOptional({ description: 'Existing variation id (omit to create); absent ids are deleted' })
   @IsOptional()
+  @IsString()
+  id?: string;
+
+  @ApiProperty({ example: '12-inch Large' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  name!: string;
+
+  @ApiProperty({ example: 680, description: 'Absolute price of this variation (ADR-017)' })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  price!: number;
+
+  @ApiProperty()
+  @IsBoolean()
+  isInStock!: boolean;
+}
+
+export class SaveProductDto {
+  @ApiPropertyOptional({ description: 'Required when creating a product' })
+  @IsOptional()
+  @IsString()
+  vendorId?: string;
+
+  @ApiProperty({ description: 'Category the product belongs to' })
+  @IsString()
+  categoryId!: string;
+
+  @ApiProperty({ example: 'Peri-Peri Crispy Chicken Burger' })
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
-  name?: string;
+  name!: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -403,28 +443,133 @@ export class OverrideProductDto {
   @MaxLength(2000)
   description?: string;
 
-  @ApiPropertyOptional({ minimum: 0 })
-  @Type(() => Number)
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  basePrice?: number;
-
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Media-library image URL' })
   @IsOptional()
   @IsString()
-  categoryId?: string;
+  @MaxLength(2000)
+  imageUrl?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
   isInStock?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  sortOrder?: number;
+
+  @ApiProperty({ type: [SaveProductVariationDto], minLength: 1, description: 'Ordered — the first variation defines the product price' })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => SaveProductVariationDto)
+  variations!: SaveProductVariationDto[];
 }
 
-export class ToggleProductStockDto {
+export class UpdateVendorStaffDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @ApiPropertyOptional({ enum: PermissionScope })
+  @IsOptional()
+  @IsEnum(PermissionScope)
+  scope?: PermissionScope;
+
+  @ApiPropertyOptional({ description: 'Target brand when switching to ALL_OUTLETS_MASTER' })
+  @IsOptional()
+  @IsString()
+  brandId?: string;
+
+  @ApiPropertyOptional({ description: 'Target outlet when switching to PARTICULAR_OUTLET' })
+  @IsOptional()
+  @IsString()
+  vendorId?: string;
+}
+
+export class UpdateStaffAccountDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  fullName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+?[0-9]{8,15}$/, { message: 'phone must be a valid phone number' })
+  phone?: string;
+}
+
+export class UpdateOperatingHoursDto {
+  @ApiProperty({ type: 'array' })
+  @IsArray()
+  @ArrayMinSize(7)
+  @ArrayMaxSize(7)
+  @ValidateNested({ each: true })
+  @Type(() => OperatingHourDayDto)
+  hours!: OperatingHourDayDto[];
+}
+
+class OperatingHourDayDto {
+  @ApiProperty({ minimum: 0, maximum: 6 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(6)
+  dayOfWeek!: number;
+
+  @ApiProperty({ example: '09:00' })
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  openTime!: string;
+
+  @ApiProperty({ example: '23:00' })
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  closeTime!: string;
+
   @ApiProperty()
   @IsBoolean()
-  isInStock!: boolean;
+  isClosed!: boolean;
+}
+
+export class CreateOutletCategoryDto {
+  @ApiProperty({ example: 'Signature Burgers' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  name!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  sortOrder?: number;
+}
+
+export class UpdateCategoryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  sortOrder?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }
 
 export class UpdateDeliveryFeeDto {

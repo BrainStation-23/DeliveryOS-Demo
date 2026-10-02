@@ -27,7 +27,7 @@ class OrderItemSummary {
   final double unitPrice;
   final String? variantId;
   final String? variantName;
-  final double? variantPriceModifier;
+  final double? variantPrice;
   final List<AddonSnapshotItem> addons;
 
   OrderItemSummary({
@@ -37,7 +37,7 @@ class OrderItemSummary {
     required this.unitPrice,
     this.variantId,
     this.variantName,
-    this.variantPriceModifier,
+    this.variantPrice,
     this.addons = const [],
   });
 
@@ -51,7 +51,7 @@ class OrderItemSummary {
     final variantName = variantSnap?['name']?.toString() ??
         json['variantName']?.toString() ??
         json['variant_name']?.toString();
-    final variantPriceModifier = variantSnap != null ? parseDouble(variantSnap['priceModifier']) : null;
+    final variantPrice = variantSnap != null ? parseDouble(variantSnap['price']) : null;
 
     final addonsRaw = json['addonsSnapshot'] as List<dynamic>? ??
         json['addons'] as List<dynamic>? ??
@@ -71,7 +71,7 @@ class OrderItemSummary {
       unitPrice: parseDouble(json['unitPrice'] ?? json['unit_price']),
       variantId: variantId,
       variantName: variantName,
-      variantPriceModifier: variantPriceModifier,
+      variantPrice: variantPrice,
       addons: addons,
     );
   }

@@ -49,6 +49,9 @@ async function main() {
   // Test Store: Gulshan 2, Dhaka (Lat: 23.7925, Lng: 90.4078), Radius: 3.5 km
   const testVendor = await prisma.vendor.create({
     data: {
+      brandId: (
+        await prisma.vendorBrand.create({ data: { name: 'PostGIS Test Kitchen Brand' } })
+      ).id,
       name: 'PostGIS Test Burger Kitchen',
       contactPhone: '+8801711000000',
       latitude: 23.7925,

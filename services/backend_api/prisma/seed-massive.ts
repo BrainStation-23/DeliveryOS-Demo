@@ -436,11 +436,21 @@ async function main() {
     });
   }
 
+
+// Brands are mandatory (ADR-017): each outlet is backed by an auto-named brand.
+async function ensureBrandFor(name: string): Promise<string> {
+  const existing = await prisma.vendorBrand.findFirst({ where: { name } });
+  if (existing) return existing.id;
+  const created = await prisma.vendorBrand.create({ data: { name } });
+  return created.id;
+}
+
   // Outlet 3: Sultan's Dine (Food - Biryani)
   let sultansOutlet = await prisma.vendor.findFirst({ where: { name: "Sultan's Dine — Gulshan 2" } });
   if (!sultansOutlet) {
     sultansOutlet = await prisma.vendor.create({
       data: {
+        brandId: await ensureBrandFor("Sultan's Dine"),
         name: "Sultan's Dine — Gulshan 2",
         vertical: VendorVertical.FOOD,
         contactPhone: '+8801711000010',
@@ -462,6 +472,7 @@ async function main() {
   if (!pizzaOutlet) {
     pizzaOutlet = await prisma.vendor.create({
       data: {
+        brandId: await ensureBrandFor('Pizza Roma'),
         name: 'Pizza Roma Woodfired — Banani',
         vertical: VendorVertical.FOOD,
         contactPhone: '+8801711000011',
@@ -483,6 +494,7 @@ async function main() {
   if (!sweetBakeryOutlet) {
     sweetBakeryOutlet = await prisma.vendor.create({
       data: {
+        brandId: await ensureBrandFor('Sweet Treats Bakery'),
         name: 'Sweet Treats Bakery & Artisan Cafe',
         vertical: VendorVertical.FOOD,
         contactPhone: '+8801711000012',
@@ -536,6 +548,7 @@ async function main() {
   if (!unimartOutlet) {
     unimartOutlet = await prisma.vendor.create({
       data: {
+        brandId: await ensureBrandFor('Unimart'),
         name: 'Unimart Megastore Express — Gulshan 2',
         vertical: VendorVertical.SUPER_SHOP,
         contactPhone: '+8801711000015',
@@ -557,6 +570,7 @@ async function main() {
   if (!dailyBazaarOutlet) {
     dailyBazaarOutlet = await prisma.vendor.create({
       data: {
+        brandId: await ensureBrandFor('Daily Bazaar'),
         name: 'Daily Bazaar Express — Banani 11',
         vertical: VendorVertical.GROCERY,
         contactPhone: '+8801711000016',
@@ -578,6 +592,7 @@ async function main() {
   if (!organicOutlet) {
     organicOutlet = await prisma.vendor.create({
       data: {
+        brandId: await ensureBrandFor('Organic Valley'),
         name: 'Organic Valley Fresh Produce — Baridhara',
         vertical: VendorVertical.GROCERY,
         contactPhone: '+8801711000017',
@@ -599,6 +614,7 @@ async function main() {
   if (!medPlusOutlet) {
     medPlusOutlet = await prisma.vendor.create({
       data: {
+        brandId: await ensureBrandFor('MedPlus'),
         name: 'MedPlus 24/7 Pharmacy — Banani Road 11',
         vertical: VendorVertical.PHARMACY,
         contactPhone: '+8801711000018',
@@ -620,6 +636,7 @@ async function main() {
   if (!healthCareOutlet) {
     healthCareOutlet = await prisma.vendor.create({
       data: {
+        brandId: await ensureBrandFor('HealthCare Wellness'),
         name: 'HealthCare Wellness & OTC — Gulshan',
         vertical: VendorVertical.PHARMACY,
         contactPhone: '+8801711000019',
@@ -641,6 +658,7 @@ async function main() {
   if (!chaiOutlet) {
     chaiOutlet = await prisma.vendor.create({
       data: {
+        brandId: await ensureBrandFor('Chai & Snack Station'),
         name: 'Chai & Snack Station — Mohakhali',
         vertical: VendorVertical.FOOD,
         contactPhone: '+8801711000020',
@@ -747,7 +765,7 @@ async function main() {
       unit: string;
       image: string;
       inStock?: boolean;
-      variants?: { name: string; modifier: number }[];
+      variants?: { name: string; modifier: number; price?: number }[];
       addonGroups?: { title: string; min: number; max: number; addons: { name: string; price: number }[] }[];
     }
   ) {
@@ -775,10 +793,11 @@ async function main() {
 
     if (pData.variants && pData.variants.length > 0) {
       await prisma.productVariant.createMany({
-        data: pData.variants.map((v) => ({
+        data: pData.variants.map((v, index) => ({
           productId: prod.id,
           name: v.name,
-          priceModifier: v.modifier,
+          price: v.price ?? pData.price + v.modifier,
+          sortOrder: index + 1,
           isInStock: true,
         })),
       });

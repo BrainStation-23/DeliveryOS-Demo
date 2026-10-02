@@ -140,7 +140,7 @@ model VendorBrand {
 
 model Vendor {
   id                     String         @id @default(uuid()) @db.Uuid
-  brandId                String?        @map("brand_id") @db.Uuid
+  brandId                String         @map("brand_id") @db.Uuid
   name                   String         @db.VarChar(150)
   vertical               VendorVertical @default(FOOD)
   contactPhone           String         @map("contact_phone") @db.VarChar(20)
@@ -157,7 +157,7 @@ model Vendor {
   createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  brand          VendorBrand?          @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  brand          VendorBrand          @relation(fields: [brandId], references: [id])
   staff          VendorStaff[]
   operatingHours VendorOperatingHour[]
   categories     Category[]
@@ -246,11 +246,13 @@ model Product {
 }
 
 model ProductVariant {
-  id            String   @id @default(uuid()) @db.Uuid
-  productId     String   @map("product_id") @db.Uuid
-  name          String   @db.VarChar(100)
-  priceModifier Decimal  @default(0.00) @map("price_modifier") @db.Decimal(10, 2)
-  isInStock     Boolean  @default(true) @map("is_in_stock")
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  name      String   @db.VarChar(100)
+  /// Absolute price of this variation; the first-ordered variation defines the product's display price (ADR-017).
+  price     Decimal  @db.Decimal(10, 2)
+  sortOrder Int      @default(0) @map("sort_order")
+  isInStock Boolean  @default(true) @map("is_in_stock")
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 

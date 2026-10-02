@@ -14,7 +14,7 @@ export interface RawBackendOrderItem {
   instructions?: string | null;
   specialInstructions?: string | null;
   variant?: { id: string; name: string; priceDelta: number } | null;
-  variantSnapshot?: { id: string; name: string; priceModifier: number } | null;
+  variantSnapshot?: { id: string; name: string; price?: number; priceModifier?: number } | null;
   toppings?: Array<{ id: string; name: string; price: number }>;
   addonsSnapshot?: Array<{ id: string; name: string; price: number }>;
 }
@@ -77,7 +77,7 @@ export function normalizeKDSOrder(raw: RawBackendOrder): KDSOrder {
     variant: item.variant || (item.variantSnapshot ? {
       id: item.variantSnapshot.id,
       name: item.variantSnapshot.name,
-      priceDelta: item.variantSnapshot.priceModifier,
+      priceDelta: item.variantSnapshot.price ?? item.variantSnapshot.priceModifier ?? 0,
     } : null),
     toppings: item.toppings || item.addonsSnapshot || [],
   }));
@@ -133,6 +133,7 @@ export interface RawBackendCatalogVariant {
   id: string;
   productId: string;
   name: string;
+  price?: number;
   priceDelta?: number;
   priceModifier?: number;
   isInStock: boolean;
@@ -258,7 +259,7 @@ export const kdsApi = {
           productId: v.productId,
           name: v.name,
           isInStock: v.isInStock,
-          priceDelta: Number(v.priceDelta ?? v.priceModifier) || 0,
+          price: Number(v.price ?? v.priceDelta ?? v.priceModifier) || 0,
         })),
       })),
     }));

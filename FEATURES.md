@@ -303,11 +303,11 @@ This document provides a line-level, granular breakdown of every operational fea
 - **1-Click Approval & Suspension**: Instant toggle approving applicant credentials (`adminApi.setRiderApproval(id, true)`) or suspending problematic couriers.
 - **Cash Safety Limit Adjustment**: Modal allowing operations staff to adjust a courier's maximum COD limit (e.g. ৳3,000 to ৳10,000) based on trust and tenure.
 
-### 5.4a. Brands, Outlets & Staff Governance Hub
-- **Three-Tab Control Centre** (reworks the Vendors page): Outlets · Brands · Staff Accounts.
-- **Brands**: CRUD with outlet/staff counts, Media-Library logo picker, duplicate-name rejection, and deletion blocked while outlets/staff reference the brand.
-- **Outlets**: create/edit with brand selector (empty = standalone); **Catalog governance modal** — full category→product→variant/add-on view via `GET /admin/vendors/:id/catalog` with per-product price override and Mark Out/Restore availability (menu authoring stays in the vendor portal); **Staff manager modal** — assignments with scope badges, removal, phone-search user picker, and one-shot "create account & assign" provisioning (owners later sign in via phone OTP).
-- **Staff Accounts Registry**: every owner/manager assignment across outlets/brands (`GET /admin/vendor-staff`) with removal that demotes last-assignment accounts to CUSTOMER and purges the session cache for immediate revocation.
+### 5.4a. Brand → Outlet Governance (ADR-017)
+- **Brand Page** (`/vendors`): every brand with debounced name search and creation; Brand Cards show brand info (editable, Media-Library logo), the Brand Owner chip, and a minimal outlet list (name, area, status badges, product count) — clicking an outlet opens the **Outlet Page** (`/outlets/:id`); a Staff Accounts tab keeps the cross-outlet registry.
+- **Unified Outlet Page**: brand strip + editable outlet info (inline form: name, phone, commission, prep, radius), staff list, category-grouped catalog (lean rows: image, name, variation count, first-variation price), suspend/activate, and an operating-hours editor (`Copy 09:00–23:00 to All` shortcut). One aggregated `GET /admin/outlets/:id` payload.
+- **Unified Staff Profile Dialog** (view → edit, or straight to create): view shows name/phone/role/governance/status; edit keeps name + phone, toggles **Active/Inactive** (locked out immediately — session cache purged), and switches scope (**Owner ↔ one brand**, **Manager ↔ one outlet**); create attaches an existing user via debounced phone search or provisions a new account (sign-in via OTP later). One active assignment per account (409 otherwise); removal demotes last-assignment accounts to CUSTOMER.
+- **Unified Product Dialog** (view → edit, or straight to create): name, description, Media-Library image, product-level **stock in/out** toggle, and the **ordered variations editor** — rows of (name · absolute price · availability), add/remove/reorder with the first row anchored as the product price (not removable, move-up into place only). Server-side wholesale save enforces ≥1 variation, deletes omitted variations (safe — JSONB snapshots), renumbers order, and syncs `basePrice` to the first variation in one transaction (ADR-017).
 
 ### 5.5. COD Cash Deposit Verification
 - **Deposit Audit Queue**: Review couriers' submitted hub deposits via `GET /admin/finance/cash-deposits`.

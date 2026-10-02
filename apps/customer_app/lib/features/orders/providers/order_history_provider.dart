@@ -138,7 +138,7 @@ class OrderHistoryNotifier extends Notifier<OrderHistoryState> {
         selectedVariant = VariantModel(
           id: item.variantId!,
           name: item.variantName!,
-          price: item.variantPriceModifier ?? 0.0,
+          price: item.variantPrice ?? item.unitPrice,
           isInStock: true,
         );
       }

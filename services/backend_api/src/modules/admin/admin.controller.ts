@@ -34,21 +34,25 @@ import {
   CreateBrandDto,
   CreateCategoryDto,
   CreateCouponDto,
+  CreateOutletCategoryDto,
   CreateStaffUserDto,
   CreateVendorDto,
   ForceAssignRiderDto,
   GetLiveOrdersQueryDto,
   GetRidersQueryDto,
-  OverrideProductDto,
+  SaveProductDto,
   SetRiderApprovalDto,
-  ToggleProductStockDto,
   ToggleVendorStatusDto,
   UpdateBannerDto,
   UpdateBrandDto,
+  UpdateCategoryDto,
   UpdateCouponDto,
   UpdateDeliveryFeeDto,
+  UpdateOperatingHoursDto,
   UpdateRiderCashLimitDto,
+  UpdateStaffAccountDto,
   UpdateVendorDto,
+  UpdateVendorStaffDto,
 } from './dto/admin-governance.dto';
 
 @ApiTags('Super Admin Master Governance')
@@ -249,6 +253,68 @@ export class AdminController {
     };
   }
 
+  @Get('outlets/:id')
+  @ApiOperation({ summary: 'Aggregated outlet detail: brand, outlet info, staff, operating hours, catalog' })
+  @ApiResponse({ status: 404, description: 'Vendor outlet not found' })
+  async getOutletDetail(@Param('id') vendorId: string) {
+    const data = await this.adminService.getOutletDetail(vendorId);
+    return {
+      message: `Retrieved outlet detail for ${data.vendor.name}`,
+      data,
+    };
+  }
+
+  @Put('vendors/:id/operating-hours')
+  @ApiOperation({ summary: 'Replace the outlet weekly operating schedule (7 days)' })
+  async updateOperatingHours(@Param('id') vendorId: string, @Body() dto: UpdateOperatingHoursDto) {
+    const data = await this.adminService.updateOutletOperatingHours(vendorId, dto.hours);
+    return {
+      message: 'Operating hours updated successfully',
+      data,
+    };
+  }
+
+  @Post('vendors/:id/categories')
+  @ApiOperation({ summary: 'Create an outlet-scoped menu category' })
+  async createOutletCategory(@Param('id') vendorId: string, @Body() dto: CreateOutletCategoryDto) {
+    const data = await this.adminService.createOutletCategory(vendorId, dto);
+    return {
+      message: 'Category created successfully',
+      data,
+    };
+  }
+
+  @Patch('categories/:id')
+  @ApiOperation({ summary: 'Rename, resort, or deactivate a category' })
+  async updateCategory(@Param('id') categoryId: string, @Body() dto: UpdateCategoryDto) {
+    const data = await this.adminService.updateCategory(categoryId, dto);
+    return {
+      message: 'Category updated successfully',
+      data,
+    };
+  }
+
+  @Post('products')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a product with its ordered variations (first variation defines the product price)' })
+  async createProduct(@Body() dto: SaveProductDto) {
+    const data = await this.adminService.saveProduct(dto);
+    return {
+      message: 'Product created successfully',
+      data,
+    };
+  }
+
+  @Patch('products/:id')
+  @ApiOperation({ summary: 'Wholesale product save — variations create/update/delete/reorder in one transaction' })
+  async updateProduct(@Param('id') productId: string, @Body() dto: SaveProductDto) {
+    const data = await this.adminService.saveProduct(dto, productId);
+    return {
+      message: 'Product updated successfully',
+      data,
+    };
+  }
+
   @Post('vendors')
   @ApiOperation({ summary: 'Directly create new vendor outlet' })
   async createVendor(@Body() dto: CreateVendorDto) {
@@ -291,9 +357,9 @@ export class AdminController {
 
   // 6b. Brand Governance
   @Get('brands')
-  @ApiOperation({ summary: 'List all vendor brands with outlet and staff counts' })
-  async getBrands() {
-    const data = await this.adminService.getAllBrands();
+  @ApiOperation({ summary: 'List vendor brands with outlet/staff counts (optional name search)' })
+  async getBrands(@Query('search') search?: string) {
+    const data = await this.adminService.searchBrands(search);
     return {
       message: `Retrieved ${data.length} brands`,
       data,
@@ -366,6 +432,26 @@ export class AdminController {
     };
   }
 
+  @Patch('vendor-staff/:id')
+  @ApiOperation({ summary: 'Update a staff assignment (scope switch, active/inactive toggle)' })
+  async updateVendorStaff(@Param('id') staffId: string, @Body() dto: UpdateVendorStaffDto) {
+    const data = await this.adminService.updateVendorStaffAssignment(staffId, dto);
+    return {
+      message: 'Staff assignment updated successfully',
+      data,
+    };
+  }
+
+  @Patch('users/:id')
+  @ApiOperation({ summary: 'Edit a staff account name or phone (duplicate phone 409)' })
+  async updateStaffAccount(@Param('id') userId: string, @Body() dto: UpdateStaffAccountDto) {
+    const data = await this.adminService.updateStaffAccount(userId, dto);
+    return {
+      message: 'Staff account updated successfully',
+      data,
+    };
+  }
+
   @Delete('vendor-staff/:id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Remove a staff assignment (last-assignment accounts demote to CUSTOMER)' })
@@ -397,26 +483,6 @@ export class AdminController {
     return {
       message: 'Central category created successfully',
       data: category,
-    };
-  }
-
-  @Put('catalog/products/:id/override')
-  @ApiOperation({ summary: 'Centrally override product details across stores' })
-  async overrideProduct(@Param('id') productId: string, @Body() dto: OverrideProductDto) {
-    const updated = await this.adminService.overrideProduct(productId, dto);
-    return {
-      message: 'Product overridden successfully',
-      data: updated,
-    };
-  }
-
-  @Patch('catalog/products/:id/disable')
-  @ApiOperation({ summary: 'Disable or re-enable product centrally' })
-  async toggleProductDisable(@Param('id') productId: string, @Body() dto: ToggleProductStockDto) {
-    const updated = await this.adminService.toggleProductDisable(productId, dto.isInStock);
-    return {
-      message: `Product stock status updated to ${dto.isInStock ? 'IN_STOCK' : 'OUT_OF_STOCK'}`,
-      data: updated,
     };
   }
 

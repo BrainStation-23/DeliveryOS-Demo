@@ -5,7 +5,7 @@ export interface LedgerOrderItem {
   unitPrice: number;
   totalPrice: number;
   instructions?: string | null;
-  variant?: { name: string; priceDelta?: number; priceModifier?: number } | null;
+  variant?: { name: string; price?: number; priceDelta?: number; priceModifier?: number } | null;
   addons?: Array<{ name: string; price: number }>;
 }
 

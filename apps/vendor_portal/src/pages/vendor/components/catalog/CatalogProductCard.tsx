@@ -68,11 +68,7 @@ export const CatalogProductCard: React.FC<CatalogProductCardProps> = ({
               >
                 <span className="text-slate-700 dark:text-slate-300 font-medium truncate max-w-[140px]">
                   {variant.name}{' '}
-                  {variant.priceDelta !== 0 && (
-                    <span className="text-slate-400 font-normal">
-                      ({variant.priceDelta > 0 ? '+' : ''}৳{variant.priceDelta})
-                    </span>
-                  )}
+                  <span className="text-slate-400 font-normal">(৳{variant.price})</span>
                 </span>
                 <div className="shrink-0">
                   <StockToggleSwitch

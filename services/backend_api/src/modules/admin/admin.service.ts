@@ -821,7 +821,7 @@ export class AdminService {
             products: {
               orderBy: { sortOrder: 'asc' },
               include: {
-                variants: { orderBy: { name: 'asc' } },
+                variants: { orderBy: { sortOrder: 'asc' } },
                 addonGroups: { include: { addons: { orderBy: { name: 'asc' } } } },
               },
             },
@@ -848,7 +848,8 @@ export class AdminService {
           variants: p.variants.map((v) => ({
             id: v.id,
             name: v.name,
-            priceModifier: Number(v.priceModifier),
+            price: Number(v.price),
+            sortOrder: v.sortOrder,
             isInStock: v.isInStock,
           })),
           addonGroups: p.addonGroups.map((ag) => ({
@@ -954,7 +955,7 @@ export class AdminService {
 
   async createVendor(data: {
     name: string;
-    brandId?: string;
+    brandId: string;
     addressText: string;
     latitude: number;
     longitude: number;
@@ -962,10 +963,13 @@ export class AdminService {
     commissionRate?: number;
     defaultPrepTimeMinutes?: number;
   }) {
+    if (!data.brandId) {
+      throw new BadRequestException('Every outlet must belong to a brand');
+    }
     return this.prisma.vendor.create({
       data: {
         name: data.name,
-        brandId: data.brandId || null,
+        brandId: data.brandId,
         addressText: data.addressText,
         latitude: data.latitude,
         longitude: data.longitude,
@@ -997,9 +1001,8 @@ export class AdminService {
       where: { id: vendorId },
       data: {
         ...(data.name !== undefined && { name: data.name }),
-        // Empty string clears the brand link (standalone outlet); the DTO
-        // cannot carry null through its IsString validation.
-        ...(data.brandId !== undefined && { brandId: data.brandId || null }),
+        // Brands are mandatory (ADR-017): an update may switch brands but never detach.
+        ...(data.brandId !== undefined && data.brandId !== '' && { brandId: data.brandId }),
         ...(data.addressText !== undefined && { addressText: data.addressText }),
         ...(data.contactPhone !== undefined && { contactPhone: data.contactPhone }),
         ...(data.commissionRate !== undefined && { commissionRate: data.commissionRate }),
@@ -1034,6 +1037,24 @@ export class AdminService {
 
     const user = await this.prisma.user.findUnique({ where: { id: data.userId } });
     if (!user) throw new NotFoundException('User not found');
+
+    // One active assignment per account: an owner governs one brand, a manager
+    // one outlet — accumulating active roles is rejected explicitly.
+    const activeElsewhere = await this.prisma.vendorStaff.findFirst({
+      where: { userId: data.userId, isActive: true },
+    });
+    if (activeElsewhere) {
+      const sameRow =
+        activeElsewhere.vendorId === vendorId ||
+        (data.scope === PermissionScope.ALL_OUTLETS_MASTER &&
+          activeElsewhere.scope === PermissionScope.ALL_OUTLETS_MASTER &&
+          activeElsewhere.brandId === (data.brandId || vendor.brandId));
+      if (!sameRow) {
+        throw new ConflictException(
+          'This account already holds an active assignment — remove it before assigning elsewhere',
+        );
+      }
+    }
 
     // Ensure user role is VENDOR_ADMIN
     if (user.role !== UserRole.VENDOR_ADMIN && user.role !== UserRole.SUPER_ADMIN) {
@@ -1086,6 +1107,314 @@ export class AdminService {
   // ===========================================================================
   // 7. Master Catalog Authority
   // ===========================================================================
+
+  /**
+   * Wholesale product save (ADR-017): the variations array is the single
+   * source of truth. Invariants enforced in one transaction:
+   *  - at least one variation,
+   *  - variations ordered (first defines the product display price),
+   *  - product.basePrice synced to variations[0].price.
+   */
+  async saveProduct(
+    input: {
+      vendorId?: string;
+      categoryId: string;
+      name: string;
+      description?: string | null;
+      imageUrl?: string | null;
+      isInStock?: boolean;
+      sortOrder?: number;
+      variations: Array<{ id?: string; name: string; price: number; isInStock: boolean }>;
+    },
+    productId?: string,
+  ) {
+    const variations = input.variations.filter((v) => v.name.trim() && v.price >= 0);
+    if (variations.length === 0) {
+      throw new BadRequestException('A product must have at least one variation');
+    }
+
+    const basePrice = variations[0].price;
+
+    if (!productId && !input.vendorId) {
+      throw new BadRequestException('vendorId is required when creating a product');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (productId) {
+        const existing = await tx.product.findUnique({ where: { id: productId } });
+        if (!existing) throw new NotFoundException('Product not found');
+
+        const existingVariants = await tx.productVariant.findMany({ where: { productId } });
+        const keptIds = new Set(variations.map((v) => v.id).filter((id): id is string => !!id));
+        for (const variant of existingVariants) {
+          if (!keptIds.has(variant.id)) {
+            // Safe even for historical orders: line items freeze variant JSONB snapshots (ADR-008).
+            await tx.productVariant.delete({ where: { id: variant.id } });
+          }
+        }
+
+        await tx.product.update({
+          where: { id: productId },
+          data: {
+            name: input.name.trim(),
+            description: input.description ?? null,
+            imageUrl: input.imageUrl ?? null,
+            isInStock: input.isInStock ?? true,
+            sortOrder: input.sortOrder ?? 0,
+            categoryId: input.categoryId,
+            basePrice,
+          },
+        });
+
+        for (const [index, variant] of variations.entries()) {
+          const data = {
+            name: variant.name.trim(),
+            price: variant.price,
+            isInStock: variant.isInStock,
+            sortOrder: index + 1,
+          };
+          if (variant.id) {
+            await tx.productVariant.update({ where: { id: variant.id }, data });
+          } else {
+            await tx.productVariant.create({ data: { ...data, productId } });
+          }
+        }
+
+        return tx.product.findUnique({
+          where: { id: productId },
+          include: { variants: { orderBy: { sortOrder: 'asc' } } },
+        });
+      }
+
+      const created = await tx.product.create({
+        data: {
+          name: input.name.trim(),
+          description: input.description ?? null,
+          imageUrl: input.imageUrl ?? null,
+          isInStock: input.isInStock ?? true,
+          sortOrder: input.sortOrder ?? 0,
+          categoryId: input.categoryId,
+          vendorId: input.vendorId as string,
+          basePrice,
+          variants: {
+            create: variations.map((variant, index) => ({
+              name: variant.name.trim(),
+              price: variant.price,
+              isInStock: variant.isInStock,
+              sortOrder: index + 1,
+            })),
+          },
+        },
+        include: { variants: { orderBy: { sortOrder: 'asc' } } },
+      });
+      return created;
+    });
+  }
+
+  async updateVendorStaffAssignment(
+    staffId: string,
+    data: { isActive?: boolean; scope?: PermissionScope; brandId?: string; vendorId?: string },
+  ) {
+    const staff = await this.prisma.vendorStaff.findUnique({
+      where: { id: staffId },
+      include: { vendor: true },
+    });
+    if (!staff) throw new NotFoundException('Staff assignment not found');
+
+    const patch: Prisma.VendorStaffUncheckedUpdateInput = {};
+    if (data.isActive !== undefined) {
+      patch.isActive = data.isActive;
+    }
+
+    if (data.scope && data.scope !== staff.scope) {
+      // Owner scope binds to the brand, Manager scope binds to one outlet.
+      if (data.scope === PermissionScope.ALL_OUTLETS_MASTER) {
+        const brandId = data.brandId || staff.vendor?.brandId;
+        if (!brandId) throw new BadRequestException('Brand owner scope requires a brand');
+        patch.scope = data.scope;
+        patch.brandId = brandId;
+        patch.vendorId = null;
+      } else {
+        const vendorId = data.vendorId || staff.vendorId;
+        if (!vendorId) throw new BadRequestException('Branch manager scope requires an outlet');
+        patch.scope = data.scope;
+        patch.vendorId = vendorId;
+        patch.brandId = null;
+      }
+    }
+
+    const updated = await this.prisma.vendorStaff.update({ where: { id: staffId }, data: patch });
+
+    // Scope/active changes must reach the guarded session within this request's lifetime.
+    await this.redis.del(`auth:user:${staff.userId}`);
+    return updated;
+  }
+
+  async updateStaffAccount(
+    userId: string,
+    data: { fullName?: string; phone?: string },
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User account not found');
+
+    const phone = data.phone?.trim();
+    if (phone && phone !== user.phone) {
+      const duplicate = await this.prisma.user.findUnique({ where: { phone } });
+      if (duplicate) throw new ConflictException(`An account with phone ${phone} already exists`);
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(data.fullName !== undefined && { fullName: data.fullName.trim() }),
+        ...(phone !== undefined && { phone }),
+      },
+      select: { id: true, phone: true, fullName: true, role: true, status: true },
+    });
+
+    await this.redis.del(`auth:user:${userId}`);
+    return updated;
+  }
+
+  async searchBrands(search?: string) {
+    const term = search?.trim();
+    return this.prisma.vendorBrand.findMany({
+      where: term ? { name: { contains: term, mode: 'insensitive' } } : {},
+      include: { _count: { select: { outlets: true, staff: true } } },
+      orderBy: { name: 'asc' },
+      take: 50,
+    });
+  }
+
+  /** Aggregated outlet detail powering the unified Outlet Page. */
+  async getOutletDetail(vendorId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      include: {
+        brand: { select: { id: true, name: true, logoUrl: true } },
+        operatingHours: { orderBy: { dayOfWeek: 'asc' } },
+        staff: {
+          include: { user: { select: { id: true, fullName: true, phone: true, status: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+        categories: {
+          where: { isActive: true },
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            products: {
+              orderBy: { sortOrder: 'asc' },
+              include: { variants: { orderBy: { sortOrder: 'asc' } } },
+            },
+          },
+        },
+      },
+    });
+    if (!vendor) throw new NotFoundException('Vendor outlet not found');
+
+    return {
+      vendor: {
+        id: vendor.id,
+        name: vendor.name,
+        brandId: vendor.brandId,
+        brandName: vendor.brand?.name || null,
+        brandLogoUrl: vendor.brand?.logoUrl || null,
+        addressText: vendor.addressText,
+        contactPhone: vendor.contactPhone,
+        latitude: Number(vendor.latitude),
+        longitude: Number(vendor.longitude),
+        commissionRate: Number(vendor.commissionRate),
+        deliveryRadiusKm: Number(vendor.deliveryRadiusKm),
+        defaultPrepTimeMinutes: vendor.defaultPrepTimeMinutes,
+        isActive: vendor.isActive,
+        isBusy: vendor.isBusy,
+      },
+      operatingHours: vendor.operatingHours,
+      staff: vendor.staff.map((s) => ({
+        id: s.id,
+        userId: s.userId,
+        fullName: s.user?.fullName || 'Staff User',
+        phone: s.user?.phone || '',
+        userStatus: s.user?.status || 'ACTIVE',
+        scope: s.scope,
+        isActive: s.isActive,
+        vendorId: s.vendorId,
+        vendorName: s.vendorId === vendor.id ? vendor.name : null,
+        brandId: s.brandId,
+        brandName: vendor.brand?.name || null,
+      })),
+      categories: vendor.categories.map((c) => ({
+        id: c.id,
+        name: c.name,
+        sortOrder: c.sortOrder,
+        products: c.products.map((p) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          imageUrl: p.imageUrl,
+          isInStock: p.isInStock,
+          basePrice: Number(p.basePrice),
+          sortOrder: p.sortOrder,
+          variants: p.variants.map((v) => ({
+            id: v.id,
+            name: v.name,
+            price: Number(v.price),
+            sortOrder: v.sortOrder,
+            isInStock: v.isInStock,
+          })),
+        })),
+      })),
+    };
+  }
+
+  async updateOutletOperatingHours(
+    vendorId: string,
+    hours: Array<{ dayOfWeek: number; openTime: string; closeTime: string; isClosed: boolean }>,
+  ) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor outlet not found');
+
+    await this.prisma.$transaction(
+      hours.map((day) =>
+        this.prisma.vendorOperatingHour.upsert({
+          where: { vendorId_dayOfWeek: { vendorId, dayOfWeek: day.dayOfWeek } },
+          update: { openTime: day.openTime, closeTime: day.closeTime, isClosed: day.isClosed },
+          create: { vendorId, ...day },
+        }),
+      ),
+    );
+
+    return this.prisma.vendorOperatingHour.findMany({
+      where: { vendorId },
+      orderBy: { dayOfWeek: 'asc' },
+    });
+  }
+
+  async createOutletCategory(vendorId: string, data: { name: string; sortOrder?: number }) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor outlet not found');
+    return this.prisma.category.create({
+      data: {
+        vendorId,
+        name: data.name.trim(),
+        sortOrder: data.sortOrder ?? 0,
+        isActive: true,
+      },
+    });
+  }
+
+  async updateCategory(categoryId: string, data: { name?: string; sortOrder?: number; isActive?: boolean }) {
+    const category = await this.prisma.category.findUnique({ where: { id: categoryId } });
+    if (!category) throw new NotFoundException('Category not found');
+    return this.prisma.category.update({
+      where: { id: categoryId },
+      data: {
+        ...(data.name !== undefined && { name: data.name.trim() }),
+        ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+        ...(data.isActive !== undefined && { isActive: data.isActive }),
+      },
+    });
+  }
+
   async getCentralCategories() {
     return this.prisma.category.findMany({
       orderBy: { sortOrder: 'asc' },
@@ -1103,35 +1432,6 @@ export class AdminService {
         sortOrder: data.sortOrder || 0,
         isActive: data.isActive !== undefined ? data.isActive : true,
       },
-    });
-  }
-
-  async overrideProduct(
-    productId: string,
-    data: {
-      name?: string;
-      description?: string;
-      basePrice?: number;
-      categoryId?: string;
-      isInStock?: boolean;
-    },
-  ) {
-    const product = await this.prisma.product.findUnique({ where: { id: productId } });
-    if (!product) throw new NotFoundException('Product not found');
-
-    return this.prisma.product.update({
-      where: { id: productId },
-      data,
-    });
-  }
-
-  async toggleProductDisable(productId: string, isInStock: boolean) {
-    const product = await this.prisma.product.findUnique({ where: { id: productId } });
-    if (!product) throw new NotFoundException('Product not found');
-
-    return this.prisma.product.update({
-      where: { id: productId },
-      data: { isInStock },
     });
   }
 

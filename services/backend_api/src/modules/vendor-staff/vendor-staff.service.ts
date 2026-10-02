@@ -687,7 +687,7 @@ export class VendorStaffService {
               orderBy: { sortOrder: 'asc' },
               include: {
                 variants: {
-                  orderBy: { name: 'asc' },
+                  orderBy: { sortOrder: 'asc' },
                 },
                 addonGroups: {
                   include: {
@@ -726,8 +726,8 @@ export class VendorStaffService {
           variants: p.variants.map((v) => ({
             id: v.id,
             name: v.name,
-            priceDelta: Number(v.priceModifier),
-            priceModifier: Number(v.priceModifier),
+            price: Number(v.price),
+            sortOrder: v.sortOrder,
             isInStock: v.isInStock,
           })),
           addonGroups: p.addonGroups.map((ag) => ({

@@ -170,10 +170,16 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`GET /admin/riders`**: Fleet list (`approvalStatus=ALL | PENDING | APPROVED`, `isOnline=true|false`).
 - **`PATCH /admin/riders/:id/approval`**: Body `{ "isApproved": boolean }`.
 - **`PATCH /admin/riders/:id/cash-limit`**: Body `{ "maxCashLimit": 8000.0 }`.
-- **`GET /admin/vendors`** / **`POST /admin/vendors`** / **`PATCH /admin/vendors/:id`**: Complete vendor CRUD (empty-string `brandId` on update clears the brand link → standalone outlet).
-- **`GET /admin/vendors/:id/catalog`**: Full catalog governance view for one outlet — active categories → products with variants and add-on groups (names, prices, stock states). 404 for unknown outlets.
+- **`GET /admin/vendors`** / **`POST /admin/vendors`** / **`PATCH /admin/vendors/:id`**: Complete vendor CRUD — a `brandId` is required on create and can be switched on update but never detached (ADR-017).
+- **`GET /admin/vendors/:id/catalog`**: Full catalog governance view for one outlet — active categories → products with variations (absolute `price`, `sortOrder`) and add-on groups. 404 for unknown outlets.
+- **`GET /admin/outlets/:id`**: Aggregated Outlet Page payload — brand strip, outlet info, operating hours, staff assignments, and the category → product → variation catalog in one call (no N+1).
+- **`POST /admin/products`** / **`PATCH /admin/products/:id`**: Wholesale product save (ADR-017) — body `{ vendorId?, categoryId, name, description?, imageUrl?, isInStock?, sortOrder?, variations: [{ id?, name, price, isInStock }] }`. One ACID transaction: ≥1 variation enforced (400), omitted variation ids deleted (safe — snapshots are JSONB), order renumbered 1..n, `basePrice` synced to the first variation. Replaces the former override/disable endpoints.
+- **`PUT /admin/vendors/:id/operating-hours`**: Body `{ hours: [7 × { dayOfWeek, openTime "HH:mm", closeTime, isClosed }] }` — upserts the weekly schedule.
+- **`POST /admin/vendors/:id/categories`** / **`PATCH /admin/categories/:id`**: Outlet-scoped category create; rename/sort/deactivate.
+- **`PATCH /admin/vendor-staff/:id`**: Body `{ isActive?, scope?, brandId?, vendorId? }` — assignment active/inactive toggle (inactive staff lose vendor-portal access immediately via session-cache purge) and scope switch (owner rebinds to the brand, manager to an outlet).
+- **`PATCH /admin/users/:id`**: Body `{ fullName?, phone? }` — staff account edits with duplicate-phone 409 and session-cache purge.
 - **`POST /admin/vendors/:id/staff`**: Body `{ "userId": "uuid", "scope": "PARTICULAR_OUTLET" | "ALL_OUTLETS_MASTER", "brandId?" }` — assigns outlet staff scope (idempotent upsert; ALL_OUTLETS_MASTER defaults to the outlet's brand).
-- **`GET /admin/brands`** / **`POST /admin/brands`** / **`PATCH /admin/brands/:id`** / **`DELETE /admin/brands/:id`**: Brand CRUD — list carries outlet/staff counts; duplicate names 409; deletion 409-blocked while outlets or staff reference the brand.
+- **`GET /admin/brands?search=`** / **`POST /admin/brands`** / **`PATCH /admin/brands/:id`** / **`DELETE /admin/brands/:id`**: Brand CRUD — list carries outlet/staff counts with optional case-insensitive name search (take 50); duplicate names 409; deletion 409-blocked while outlets or staff reference the brand.
 - **`GET /admin/users/search?phone=`**: User lookup by phone fragment (min 3 chars, contains-match, take 10) — feeds the staff assignment picker.
 - **`POST /admin/users`**: Body `{ "phone", "fullName" }` — provisions a VENDOR_ADMIN owner/staff account (no password; the owner later signs in with this phone via OTP). Duplicate phone 409.
 - **`GET /admin/vendor-staff`**: Every staff assignment with user, outlet, brand, and scope.

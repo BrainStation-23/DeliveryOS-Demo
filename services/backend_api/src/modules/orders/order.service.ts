@@ -45,7 +45,7 @@ export interface OrderAddressSnapshot {
 export interface OrderVariantSnapshot {
   id: string;
   name: string;
-  priceModifier: number;
+  price: number;
   [key: string]: Prisma.InputJsonValue | undefined;
 }
 
@@ -324,11 +324,12 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
         if (!variant.isInStock) {
           throw new BadRequestException(`Variant "${variant.name}" for "${product.name}" is currently sold out`);
         }
-        unitPrice += Number(variant.priceModifier);
+        // Variations carry absolute prices (ADR-017); the chosen variation IS the item price.
+        unitPrice = Number(variant.price);
         variantSnapshot = {
           id: variant.id,
           name: variant.name,
-          priceModifier: Number(variant.priceModifier),
+          price: Number(variant.price),
         };
       }
 

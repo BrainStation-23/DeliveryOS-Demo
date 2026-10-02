@@ -149,7 +149,7 @@ export interface AdminCoupon {
 export interface AdminVendor {
   id: string;
   name: string;
-  brandId: string | null;
+  brandId: string;
   brandName: string | null;
   addressText: string;
   contactPhone: string;
@@ -208,7 +208,8 @@ export interface AdminCatalogProduct {
   basePrice: number;
   imageUrl: string | null;
   isInStock: boolean;
-  variants: Array<{ id: string; name: string; priceModifier: number; isInStock: boolean }>;
+  sortOrder: number;
+  variants: AdminProductVariation[];
   addonGroups: Array<{
     id: string;
     title: string;
@@ -216,6 +217,14 @@ export interface AdminCatalogProduct {
     maxSelection: number;
     addons: Array<{ id: string; name: string; price: number; isInStock: boolean }>;
   }>;
+}
+
+export interface AdminProductVariation {
+  id: string;
+  name: string;
+  price: number;
+  sortOrder: number;
+  isInStock: boolean;
 }
 
 export interface AdminCatalog {
@@ -227,6 +236,61 @@ export interface AdminCatalog {
     sortOrder: number;
     products: AdminCatalogProduct[];
   }>;
+}
+
+export interface SaveProductPayload {
+  vendorId?: string;
+  categoryId: string;
+  name: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  isInStock?: boolean;
+  sortOrder?: number;
+  variations: Array<{ id?: string; name: string; price: number; isInStock: boolean }>;
+}
+
+export interface AdminOperatingHour {
+  id: string;
+  dayOfWeek: number;
+  openTime: string;
+  closeTime: string;
+  isClosed: boolean;
+}
+
+export interface AdminStaffAssignment {
+  id: string;
+  userId: string;
+  fullName: string;
+  phone: string;
+  userStatus: string;
+  scope: 'ALL_OUTLETS_MASTER' | 'PARTICULAR_OUTLET';
+  isActive: boolean;
+  vendorId: string | null;
+  vendorName: string | null;
+  brandId: string | null;
+  brandName: string | null;
+}
+
+export interface OutletDetail {
+  vendor: {
+    id: string;
+    name: string;
+    brandId: string;
+    brandName: string | null;
+    brandLogoUrl: string | null;
+    addressText: string;
+    contactPhone: string;
+    latitude: number;
+    longitude: number;
+    commissionRate: number;
+    deliveryRadiusKm: number;
+    defaultPrepTimeMinutes: number;
+    isActive: boolean;
+    isBusy: boolean;
+  };
+  operatingHours: AdminOperatingHour[];
+  staff: AdminStaffAssignment[];
+  categories: AdminCatalog['categories'];
 }
 
 export interface SystemSettingsData {
@@ -539,8 +603,10 @@ export const adminApi = {
   },
 
   // 6b. Brand Governance
-  async getBrands(): Promise<AdminBrand[]> {
-    const res = await apiClient.get('/api/v1/admin/brands');
+  async getBrands(search?: string): Promise<AdminBrand[]> {
+    const res = await apiClient.get('/api/v1/admin/brands', {
+      params: search?.trim() ? { search: search.trim() } : {},
+    });
     const payload = res.data?.data || res.data;
     if (Array.isArray(payload)) return payload;
     if (Array.isArray(payload?.items)) return payload.items;
@@ -563,17 +629,48 @@ export const adminApi = {
   },
 
   // 6c. Catalog & Staff Account Governance
-  async getVendorCatalog(vendorId: string): Promise<AdminCatalog> {
-    const res = await apiClient.get(`/api/v1/admin/vendors/${vendorId}/catalog`);
+  async getOutletDetail(vendorId: string): Promise<OutletDetail> {
+    const res = await apiClient.get(`/api/v1/admin/outlets/${vendorId}`);
     return res.data?.data || res.data;
   },
 
-  async overrideProductPrice(productId: string, basePrice: number): Promise<void> {
-    await apiClient.put(`/api/v1/admin/catalog/products/${productId}/override`, { basePrice });
+  async saveProduct(
+    payload: SaveProductPayload,
+    productId?: string,
+  ): Promise<{ id: string; name: string }> {
+    const res = productId
+      ? await apiClient.patch(`/api/v1/admin/products/${productId}`, payload)
+      : await apiClient.post('/api/v1/admin/products', payload);
+    return res.data?.data || res.data;
   },
 
-  async setProductStock(productId: string, isInStock: boolean): Promise<void> {
-    await apiClient.patch(`/api/v1/admin/catalog/products/${productId}/disable`, { isInStock });
+  async updateOperatingHours(
+    vendorId: string,
+    hours: Array<{ dayOfWeek: number; openTime: string; closeTime: string; isClosed: boolean }>,
+  ): Promise<void> {
+    await apiClient.put(`/api/v1/admin/vendors/${vendorId}/operating-hours`, { hours });
+  },
+
+  async createOutletCategory(vendorId: string, data: { name: string; sortOrder?: number }): Promise<void> {
+    await apiClient.post(`/api/v1/admin/vendors/${vendorId}/categories`, data);
+  },
+
+  async updateCategory(
+    categoryId: string,
+    data: { name?: string; sortOrder?: number; isActive?: boolean },
+  ): Promise<void> {
+    await apiClient.patch(`/api/v1/admin/categories/${categoryId}`, data);
+  },
+
+  async updateVendorStaff(
+    staffId: string,
+    data: { isActive?: boolean; scope?: 'PARTICULAR_OUTLET' | 'ALL_OUTLETS_MASTER'; brandId?: string },
+  ): Promise<void> {
+    await apiClient.patch(`/api/v1/admin/vendor-staff/${staffId}`, data);
+  },
+
+  async updateStaffAccount(userId: string, data: { fullName?: string; phone?: string }): Promise<void> {
+    await apiClient.patch(`/api/v1/admin/users/${userId}`, data);
   },
 
   async searchUsersByPhone(phone: string): Promise<AdminUserSummary[]> {

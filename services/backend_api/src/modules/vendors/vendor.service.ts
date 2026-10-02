@@ -206,6 +206,7 @@ export class VendorService {
               include: {
                 variants: {
                   where: { isInStock: true },
+                  orderBy: { sortOrder: 'asc' },
                 },
                 addonGroups: {
                   include: {

@@ -28,6 +28,7 @@ Because DeliveryOS development is **AI-driven**, this ADR framework serves as a 
 | **[ADR-014](./ADR-014-unit-tests-and-error-monitoring.md)** | Unit Test Toolchain (Jest) & Error Monitoring (Sentry) | **Accepted** | 2026-09-28 | Quality / Observability |
 | **[ADR-015](./ADR-015-horizontal-scaling-readiness.md)** | Horizontal-Scaling Readiness for the Single-VPS Topology | **Accepted** | 2026-09-28 | Infrastructure / Realtime / Concurrency |
 | **[ADR-016](./ADR-016-centralized-media-library-and-client-side-editing.md)** | Centralized Media Library with Client-Side Crop & Resize | **Accepted** | 2026-10-02 | Media / Storage / Admin Portal |
+| **[ADR-017](./ADR-017-absolute-variation-pricing-and-brand-mandatory-outlets.md)** | Absolute Variation Pricing, Ordered Variations & Brand-Mandatory Outlets | **Accepted** | 2026-10-02 | Catalog / Data Model / Admin Portal |
 
 ---
 

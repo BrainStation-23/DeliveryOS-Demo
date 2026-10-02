@@ -390,9 +390,9 @@ async function main() {
   // Variants for Beef Burger
   await prisma.productVariant.createMany({
     data: [
-      { productId: beefBurger.id, name: 'Single Patty (150g)', priceModifier: 0.00, isInStock: true },
-      { productId: beefBurger.id, name: 'Double Patty (300g)', priceModifier: 120.00, isInStock: true },
-      { productId: beefBurger.id, name: 'Triple Monster (450g)', priceModifier: 220.00, isInStock: true }
+      { productId: beefBurger.id, name: 'Single Patty (150g)', price: 320.00, sortOrder: 1, isInStock: true },
+      { productId: beefBurger.id, name: 'Double Patty (300g)', price: 440.00, sortOrder: 2, isInStock: true },
+      { productId: beefBurger.id, name: 'Triple Monster (450g)', price: 540.00, sortOrder: 3, isInStock: true }
     ]
   });
 
@@ -447,8 +447,8 @@ async function main() {
 
   await prisma.productVariant.createMany({
     data: [
-      { productId: chickenBurger.id, name: 'Regular Zesty', priceModifier: 0.00, isInStock: true },
-      { productId: chickenBurger.id, name: 'Extra Fiery Hot', priceModifier: 20.00, isInStock: true }
+      { productId: chickenBurger.id, name: 'Regular Zesty', price: 280.00, sortOrder: 1, isInStock: true },
+      { productId: chickenBurger.id, name: 'Extra Fiery Hot', price: 300.00, sortOrder: 2, isInStock: true }
     ]
   });
 

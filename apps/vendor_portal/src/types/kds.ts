@@ -32,7 +32,7 @@ export interface KDSOrderItem {
   instructions?: string | null;
   specialInstructions?: string | null;
   variant?: KDSOrderItemVariant | null;
-  variantSnapshot?: { id: string; name: string; priceModifier: number } | null;
+  variantSnapshot?: { id: string; name: string; price?: number; priceModifier?: number } | null;
   toppings?: KDSOrderItemTopping[];
   addonsSnapshot?: Array<{ id: string; name: string; price: number }>;
 }
@@ -89,7 +89,7 @@ export interface ProductVariant {
   id: string;
   productId: string;
   name: string;
-  priceDelta: number;
+  price: number;
   isInStock: boolean;
 }
 
