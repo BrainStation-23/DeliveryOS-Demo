@@ -62,6 +62,7 @@
 | Cancellation, refunds, rollbacks | `ADR-002`, `ADR-011` | `orders.service.ts`, `admin.service.ts` (`cancelOrder`), `payments.service.ts` (`refundForOrder`) |
 | Vendor KDS, catalog, store hours | `BRD-05`, `TID-03` §2.3 | `apps/vendor_portal/src/` (`pages/vendor/`, `hooks/useKDSOrders`, `utils/sound.ts`) |
 | Admin console & fleet radar | `BRD-07`, `TID-03` §2.5 | `apps/admin_portal/src/` (`pages/admin/`, `components/dispatch/LiveFleetMap.tsx`) |
+| Admin analytics read layer | `ADR-018`, `TID-03` §2.5 | `src/modules/admin/admin-{analytics,customers,fleet,finance}.*.ts`, `apps/admin_portal/src/components/charts/` |
 | Customer app journeys | `BRD-04`, `TID-03` §2.2 | `apps/customer_app/lib/features/` (feature-first: domain/presentation/providers) |
 | Rider app & background GPS | `BRD-06`, `TID-03` §2.4 | `apps/rider_app/lib/features/`, `core/services/background_location_service.dart` |
 | Design system tokens (Flutter) | `AGENT_RULES.md` §3.7 | `apps/*/lib/core/constants/app_{colors,spacing,typography}.dart` |
@@ -72,7 +73,7 @@
 | Mobile release engineering | `TID-07` §6 | `scripts/build-android.sh`, `apps/*/android/` |
 | Docker / DevOps / env setup | `TID-07` | `deploy/` + [`deploy/README.md`](../deploy/README.md) |
 | Business rules & journeys (non-technical) | `BRD-00`–`BRD-07` ([index](./business-requirements-documents/README.md)) | — |
-| All ADRs | [ADR index](./architecture-decision-records/README.md) (`ADR-001`–`015`) | — |
+| All ADRs | [ADR index](./architecture-decision-records/README.md) (`ADR-001`–`018`) | — |
 
 ---
 

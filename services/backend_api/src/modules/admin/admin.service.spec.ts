@@ -54,7 +54,6 @@ describe('AdminService - Step 1.6: Idempotent Staff Assignment & Cache Invalidat
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
       { sendToUser: jest.fn().mockResolvedValue(true) } as never,
     );
   });
@@ -181,7 +180,6 @@ describe('AdminService - forceAssignRider fleet governance guards', () => {
       } as never,
       {} as never,
       {} as never,
-      {} as never,
       { sendToUser: jest.fn().mockResolvedValue(true) } as never,
     );
   });
@@ -271,7 +269,6 @@ describe('AdminService - getLiveOrders date-wise filtering', () => {
 
     service = new AdminService(
       prisma as never,
-      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -433,7 +430,6 @@ describe('AdminService - brand & staff account governance', () => {
     service = new AdminService(
       { ...({} as object), ...prisma } as never,
       prisma.redis as never,
-      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -616,7 +612,6 @@ describe('AdminService - product save with absolute variation pricing', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
       { sendToUser: jest.fn().mockResolvedValue(true) } as never,
     );
   });
@@ -718,7 +713,6 @@ describe('AdminService - staff assignment & account edits', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
       { sendToUser: jest.fn().mockResolvedValue(true) } as never,
     );
   });
@@ -786,5 +780,210 @@ describe('AdminService - staff assignment & account edits', () => {
       expect.objectContaining({ data: { fullName: 'New Name' } }),
     );
     expect(redis.del).toHaveBeenCalledWith('auth:user:user-1');
+  });
+});
+
+describe('AdminService - catalog deletion guard', () => {
+  let service: AdminService;
+  let prisma: Record<string, Record<string, jest.Mock>>;
+
+  beforeEach(() => {
+    prisma = {
+      product: { findUnique: jest.fn(), delete: jest.fn().mockResolvedValue({ id: 'product-1' }) },
+      productAddon: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      productAddonGroup: { findMany: jest.fn().mockResolvedValue([]), deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      productVariant: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    };
+    // The transaction helper simply invokes the callback with the same mock.
+    const tx = prisma;
+    (prisma as { $transaction?: jest.Mock }).$transaction = jest.fn((fn: (client: unknown) => unknown) => fn(tx));
+
+    service = new AdminService(
+      prisma as never,
+      { del: jest.fn() } as never,
+      {} as never,
+      {} as never,
+      { invalidateCache: jest.fn() } as never,
+      { sendToUser: jest.fn() } as never,
+    );
+  });
+
+  it('blocks deletion with 409 while order history references the product', async () => {
+    prisma.product.findUnique.mockResolvedValue({
+      id: 'product-1',
+      name: 'Burger',
+      _count: { orderItems: 3 },
+    });
+
+    await expect(service.deleteProduct('product-1')).rejects.toThrow('cannot be deleted');
+    expect(prisma.productVariant.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('hard-deletes an unreferenced product together with its variants and add-ons', async () => {
+    prisma.product.findUnique.mockResolvedValue({
+      id: 'product-1',
+      name: 'Burger',
+      _count: { orderItems: 0 },
+    });
+    prisma.productAddonGroup.findMany.mockResolvedValue([{ id: 'group-1' }]);
+
+    const result = await service.deleteProduct('product-1');
+
+    expect(result).toEqual({ id: 'product-1', name: 'Burger' });
+    expect(prisma.productAddon.deleteMany).toHaveBeenCalledWith({
+      where: { addonGroupId: { in: ['group-1'] } },
+    });
+    expect(prisma.productVariant.deleteMany).toHaveBeenCalledWith({ where: { productId: 'product-1' } });
+  });
+
+  it('rejects unknown product ids with 404', async () => {
+    prisma.product.findUnique.mockResolvedValue(null);
+    await expect(service.deleteProduct('missing')).rejects.toThrow('Product not found');
+  });
+});
+
+describe('AdminService - banner deeplink integrity', () => {
+  let service: AdminService;
+  let prisma: { vendor: { findUnique: jest.Mock }; category: { findUnique: jest.Mock }; banner: { create: jest.Mock; findUnique: jest.Mock; update: jest.Mock } };
+
+  beforeEach(() => {
+    prisma = {
+      vendor: { findUnique: jest.fn().mockResolvedValue({ id: 'vendor-1' }) },
+      category: { findUnique: jest.fn().mockResolvedValue({ id: 'category-1' }) },
+      banner: {
+        create: jest.fn().mockResolvedValue({ id: 'banner-1' }),
+        findUnique: jest.fn(),
+        update: jest.fn().mockResolvedValue({ id: 'banner-1' }),
+      },
+    };
+
+    service = new AdminService(
+      prisma as never,
+      { del: jest.fn() } as never,
+      {} as never,
+      {} as never,
+      { invalidateCache: jest.fn() } as never,
+      { sendToUser: jest.fn() } as never,
+    );
+  });
+
+  it('creates an EXTERNAL banner when an absolute http(s) URL is provided', async () => {
+    await service.createBanner({
+      title: 'Ramadan Deal',
+      imageUrl: '/uploads/a.png',
+      linkType: 'EXTERNAL' as never,
+      targetUrl: 'https://example.com/promo',
+    });
+
+    expect(prisma.banner.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ linkType: 'EXTERNAL', targetUrl: 'https://example.com/promo' }),
+      }),
+    );
+  });
+
+  it('rejects EXTERNAL banners without an absolute http(s) URL', async () => {
+    await expect(
+      service.createBanner({
+        title: 'Bad',
+        imageUrl: '/uploads/a.png',
+        linkType: 'EXTERNAL' as never,
+        targetUrl: 'example.com/promo',
+      }),
+    ).rejects.toThrow('targetUrl');
+  });
+
+  it('rejects OUTLET banners pointing at a nonexistent outlet', async () => {
+    prisma.vendor.findUnique.mockResolvedValue(null);
+    await expect(
+      service.createBanner({
+        title: 'Bad',
+        imageUrl: '/uploads/a.png',
+        linkType: 'OUTLET' as never,
+        targetId: 'ghost-outlet',
+      }),
+    ).rejects.toThrow('target outlet does not exist');
+  });
+
+  it('validates updates against the merged effective target', async () => {
+    prisma.banner.findUnique.mockResolvedValue({
+      id: 'banner-1',
+      linkType: 'OUTLET',
+      targetId: 'vendor-1',
+      targetUrl: null,
+    });
+
+    // Switching to EXTERNAL without supplying a URL must fail even though the
+    // stored row still carries the old OUTLET target.
+    await expect(
+      service.updateBanner('banner-1', { linkType: 'EXTERNAL' as never }),
+    ).rejects.toThrow('targetUrl');
+    expect(prisma.banner.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('AdminService - delivery economics settings', () => {
+  let service: AdminService;
+  let prisma: { systemSetting: { findUnique: jest.Mock; upsert: jest.Mock } };
+  let feeService: { invalidateCache: jest.Mock };
+
+  beforeEach(() => {
+    prisma = {
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        upsert: jest.fn().mockResolvedValue({ value: {} }),
+      },
+    };
+    feeService = { invalidateCache: jest.fn() };
+
+    service = new AdminService(
+      prisma as never,
+      { del: jest.fn() } as never,
+      {} as never,
+      {} as never,
+      feeService as never,
+      { sendToUser: jest.fn() } as never,
+    );
+  });
+
+  it('upserts delivery_economics and invalidates the pricing cache', async () => {
+    const payload = await service.updateDeliveryEconomics({
+      riderSharePercent: 75,
+      etaAvgSpeedKmh: 30,
+      etaFallbackMinutes: 12,
+    });
+
+    expect(payload).toEqual({
+      rider_share_percent: 75,
+      eta_avg_speed_kmh: 30,
+      eta_fallback_minutes: 12,
+    });
+    expect(prisma.systemSetting.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { key: 'delivery_economics' } }),
+    );
+    expect(feeService.invalidateCache).toHaveBeenCalledTimes(1);
+  });
+
+  it('exposes stored economics and defaults when the key is absent', async () => {
+    prisma.systemSetting.findUnique.mockImplementation(({ where }: { where: { key: string } }) =>
+      where.key === 'delivery_economics'
+        ? { value: { rider_share_percent: 70, eta_avg_speed_kmh: 20, eta_fallback_minutes: 8 } }
+        : null,
+    );
+
+    const settings = await service.getSystemSettings();
+    expect(settings.deliveryEconomics).toEqual({
+      rider_share_percent: 70,
+      eta_avg_speed_kmh: 20,
+      eta_fallback_minutes: 8,
+    });
+
+    prisma.systemSetting.findUnique.mockResolvedValue(null);
+    const defaults = await service.getSystemSettings();
+    expect(defaults.deliveryEconomics).toEqual({
+      rider_share_percent: 80,
+      eta_avg_speed_kmh: 25,
+      eta_fallback_minutes: 10,
+    });
   });
 });

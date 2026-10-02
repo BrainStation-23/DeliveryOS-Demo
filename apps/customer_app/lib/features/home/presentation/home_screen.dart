@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/constants.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/language_provider.dart';
@@ -7,6 +8,8 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/empty_state_view.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/presentation/phone_input_screen.dart';
+import '../../banners/domain/banner_action.dart';
+import '../../banners/domain/banner_model.dart';
 import '../../banners/presentation/banner_carousel.dart';
 import '../../cart/presentation/cart_screen.dart';
 import '../../cart/providers/cart_provider.dart';
@@ -27,6 +30,37 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+
+  /// Banner deeplink router: OUTLET → outlet page, CATEGORY → discovery seeded
+  /// with the category name, EXTERNAL → system browser (http/https only).
+  void _handleBannerTap(BannerModel banner) {
+    final action = resolveBannerAction(banner);
+    switch (action) {
+      case OpenOutlet(:final outletId, :final outletName):
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => OutletDetailScreen(
+              vendorId: outletId,
+              initialVendorName: outletName,
+            ),
+          ),
+        );
+      case OpenCategory(:final categoryName):
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SearchScreen(initialQuery: categoryName),
+          ),
+        );
+      case OpenExternalUrl(:final uri):
+        // Fire-and-forget: banner taps must never block the UI on the browser.
+        launchUrl(uri, mode: LaunchMode.externalApplication);
+      case OpenSearch():
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const SearchScreen()),
+        );
+    }
+  }
+
   String? _selectedCategory;
 
   @override
@@ -341,22 +375,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(top: 6.0, bottom: 8.0),
                 child: BannerCarousel(
-                  onBannerTap: (banner) {
-                    if ((banner.actionType == 'OUTLET' || banner.actionType == 'VENDOR') && banner.actionValue != null) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => OutletDetailScreen(
-                            vendorId: banner.actionValue!,
-                            initialVendorName: banner.title,
-                          ),
-                        ),
-                      );
-                    } else {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const SearchScreen()),
-                      );
-                    }
-                  },
+                  onBannerTap: (banner) => _handleBannerTap(banner),
                 ),
               ),
             ),

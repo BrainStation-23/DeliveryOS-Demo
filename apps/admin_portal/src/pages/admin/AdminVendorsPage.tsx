@@ -11,7 +11,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { extractApiError } from '../../utils/apiError';
-import { useDebounce } from '../../hooks/useDebounce';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { resolveMediaUrl } from '../../utils/mediaUrl';
 import { BrandFormModal } from './components/vendors/BrandFormModal';
 import { StaffAccountsTab } from './components/vendors/StaffAccountsTab';
@@ -32,8 +32,8 @@ export const AdminVendorsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<VendorsTab>('BRANDS');
   const [brandSearch, setBrandSearch] = useState('');
   const [outletSearch, setOutletSearch] = useState('');
-  const debouncedBrandSearch = useDebounce(brandSearch);
-  const debouncedOutletSearch = useDebounce(outletSearch);
+  const debouncedBrandSearch = useDebouncedValue(brandSearch);
+  const debouncedOutletSearch = useDebouncedValue(outletSearch);
 
   const [isBrandFormOpen, setIsBrandFormOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<AdminBrand | null>(null);
@@ -44,17 +44,22 @@ export const AdminVendorsPage: React.FC = () => {
 
   const [outletCreateBrand, setOutletCreateBrand] = useState<AdminBrand | null>(null);
 
-  const { data: brands = [], isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['admin-brands', debouncedBrandSearch],
-    queryFn: () => adminApi.getBrands(debouncedBrandSearch),
+  const [brandPage, setBrandPage] = useState(1);
+  const { data: brandPageData, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['admin-brands', debouncedBrandSearch, brandPage],
+    queryFn: () => adminApi.getBrands({ search: debouncedBrandSearch, page: brandPage, limit: 8 }),
+    placeholderData: (previous) => previous,
   });
+  const brands = brandPageData?.items ?? [];
+  const brandTotalPages = brandPageData?.totalPages ?? 1;
+  const brandTotal = brandPageData?.total ?? 0;
+  const safeBrands = Array.isArray(brands) ? brands : [];
 
   const { data: vendors = [] } = useQuery({
     queryKey: ['admin-vendors'],
     queryFn: adminApi.getVendors,
   });
 
-  const safeBrands = Array.isArray(brands) ? brands : [];
   const safeVendors = Array.isArray(vendors) ? vendors : [];
   const outletTerm = debouncedOutletSearch.trim().toLowerCase();
   const outletMatches = (v: AdminVendor) =>
@@ -129,7 +134,7 @@ export const AdminVendorsPage: React.FC = () => {
 
       <div className="flex border-b border-slate-200 dark:border-slate-800">
         {([
-          { id: 'BRANDS' as const, label: `Brands (${safeBrands.length})`, icon: Building2 },
+          { id: 'BRANDS' as const, label: `Brands (${brandTotal})`, icon: Building2 },
           { id: 'STAFF' as const, label: 'Staff Accounts', icon: UserRound },
         ]).map((tab) => {
           const Icon = tab.icon;
@@ -225,6 +230,33 @@ export const AdminVendorsPage: React.FC = () => {
                   onCreateOutlet={() => setOutletCreateBrand(brand)}
                 />
               ))}
+            </div>
+          )}
+
+          {brandTotalPages > 1 && (
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+              <span>Total {brandTotal} brands</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBrandPage((p) => Math.max(1, p - 1))}
+                  disabled={brandPage <= 1}
+                  className="rounded-lg px-2.5 py-1 font-medium hover:bg-slate-200 disabled:opacity-40 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                  {brandPage} / {brandTotalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setBrandPage((p) => Math.min(brandTotalPages, p + 1))}
+                  disabled={brandPage >= brandTotalPages}
+                  className="rounded-lg px-2.5 py-1 font-medium hover:bg-slate-200 disabled:opacity-40 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </div>

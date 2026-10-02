@@ -8,19 +8,22 @@ Operational specifications, master console controls, dispatch overrides, financi
 
 ```
 /admin
-├── / & /dashboard    # Operational Overview, Real-time KPIs & Order Feed
-├── /dispatch         # Leaflet Live Fleet Radar & Applicant Couriers Queue
-├── /orders           # Order Lifecycle Monitor, ?orderNumber Deep Linking & Overrides
-├── /promotions       # Hero Carousel Banners & Discount Coupon Engine
-├── /vendors          # Outlet Onboarding, Commission Rates & Staff Scopes
-└── /settings         # Order Flow FSM, Delivery Fee Economics & CSV Settlements
+├── / & /dashboard    # Date-Ranged Analytics Overview: KPI Cards w/ Trends, Charts, Top Outlets & Couriers, Order Feed
+├── /orders           # Order History: Status Glance Cards, Lifecycle Tabs, Date Filter, Search & Overrides
+├── /fleet            # Rider Fleet: Reflection Cards, Live Leaflet Radar, Unassigned Pool, Paginated Roster & Courier Details (/dispatch redirects here)
+├── /vendors          # Brands & Outlets Governance + Staff Accounts Registry; /outlets/:id Outlet Page (catalog, staff, schedule)
+├── /promotions       # Hero Carousel Banners (w/ Tap Deeplinks) & Discount Coupon Engine
+├── /customers        # Customer Directory: Filters, Lifetime Value & Delivery Profiles
+├── /media            # Central Media Library (ADR-016)
+├── /finance          # Financial Governance: Unified Per-Order Ledger, Vendor Settlements & Courier Cash Drops
+└── /settings         # Order Flow FSM (incl. Stale-Order TTL), Delivery Fee & Payout Economics
 ```
 
 ---
 
 ## 2. Administrative Controls & Workflows
 
-### 2.1 Live Fleet Radar & Dispatch Command (`/dispatch`)
+### 2.1 Live Fleet Radar & Dispatch Command (`/fleet`)
 - **Interactive Mapping Engine**: Leaflet OpenStreetMap radar tracking active couriers and unassigned orders (`LiveFleetMap`).
 - **Color-Coded Courier Pins**:
   - Emerald (`#10b981`): Online & idle, ready for dispatch.
@@ -30,7 +33,7 @@ Operational specifications, master console controls, dispatch overrides, financi
 - **Unassigned Orders Radar**: Bouncing amber target markers displaying order number, store name, and gross subtotal.
 - **SPA Deep Linking**: Map popup button `"Open Order →"` navigates to `/orders?orderNumber=...` via React Router without triggering page reloads or dropping WebSocket connections.
 
-### 2.2 Courier Fleet Governance & Applicant Queue (`/dispatch`)
+### 2.2 Courier Fleet Governance & Applicant Queue (`/fleet`)
 - **Applicant Queue**: Dedicated tab displaying newly registered couriers in `PENDING_APPROVAL` status.
 - **1-Click Approval / Suspension**: Instant toggle activating courier accounts (`PATCH /admin/riders/:id/approval`) or suspending problematic couriers.
 - **Cash Limit Adjustment Modal**: Allows operations staff to modify courier's `max_cash_limit` (e.g. from ৳5,000 to ৳10,000) based on tenure and trust.

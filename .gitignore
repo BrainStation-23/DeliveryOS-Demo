@@ -64,3 +64,6 @@ pnpm-debug.log*
 
 # Jest coverage output
 coverage/
+
+# ZCode session artifacts
+.zcode/

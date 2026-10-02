@@ -1,17 +1,21 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Tag, Plus } from 'lucide-react';
+import { Image as ImageIcon, Tag, Plus } from 'lucide-react';
 import adminApi, { AdminBanner, AdminCoupon } from '../../services/adminApi';
 import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
+import { Modal } from '../../components/ui/Modal';
+import { Tabs } from '../../components/ui/Tabs';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { SearchInput } from '../../components/common/SearchInput';
 import { PageHeader } from '../../components/common/PageHeader';
 import { extractApiError } from '../../utils/apiError';
-import { PromotionsTabBar, PromotionsTab } from './components/promotions/PromotionsTabBar';
 import { BannerGrid } from './components/promotions/BannerGrid';
 import { CouponTable } from './components/promotions/CouponTable';
 import { BannerFormModal } from './components/promotions/BannerFormModal';
 import { CouponFormModal } from './components/promotions/CouponFormModal';
-import { ConfirmDeleteModal } from './components/promotions/ConfirmDeleteModal';
+
+type PromotionsTab = 'BANNERS' | 'COUPONS';
 
 interface ConfirmState {
   title: string;
@@ -19,13 +23,38 @@ interface ConfirmState {
   onConfirm: () => void;
 }
 
+/** Filters banners by title or deeplink target (client-side; pilot-scale lists). */
+export function filterBannersByQuery(banners: AdminBanner[], query: string): AdminBanner[] {
+  const q = (query || '').trim().toLowerCase();
+  if (!q) return banners;
+  return banners.filter(
+    (b) =>
+      b.title.toLowerCase().includes(q) ||
+      b.linkType.toLowerCase().includes(q) ||
+      (b.targetUrl || '').toLowerCase().includes(q),
+  );
+}
+
+/** Filters coupons by code or description (client-side; pilot-scale lists). */
+export function filterCouponsByQuery(coupons: AdminCoupon[], query: string): AdminCoupon[] {
+  const q = (query || '').trim().toLowerCase();
+  if (!q) return coupons;
+  return coupons.filter(
+    (c) => c.code.toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q),
+  );
+}
+
 export const AdminPromotionsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<PromotionsTab>('BANNERS');
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
-  const [isCreateBannerModalOpen, setIsCreateBannerModalOpen] = useState(false);
-  const [isCreateCouponModalOpen, setIsCreateCouponModalOpen] = useState(false);
+  const [bannerSearch, setBannerSearch] = useState('');
+  const [couponSearch, setCouponSearch] = useState('');
+  const [bannerFormOpen, setBannerFormOpen] = useState(false);
+  const [editingBanner, setEditingBanner] = useState<AdminBanner | null>(null);
+  const [couponFormOpen, setCouponFormOpen] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<AdminCoupon | null>(null);
 
   const {
     data: banners = [],
@@ -47,16 +76,18 @@ export const AdminPromotionsPage: React.FC = () => {
     queryFn: adminApi.getCoupons,
   });
 
-  const safeBanners = Array.isArray(banners) ? banners : [];
-  const safeCoupons = Array.isArray(coupons) ? coupons : [];
+  const safeBanners = useMemo(() => filterBannersByQuery(banners, bannerSearch), [banners, bannerSearch]);
+  const safeCoupons = useMemo(() => filterCouponsByQuery(coupons, couponSearch), [coupons, couponSearch]);
 
-  const createBannerMutation = useMutation({
-    mutationFn: adminApi.createBanner,
+  const createOrUpdateBannerMutation = useMutation({
+    mutationFn: ({ id, payload }: { id?: string; payload: Parameters<typeof adminApi.createBanner>[0] }) =>
+      id ? adminApi.updateBanner(id, payload) : adminApi.createBanner(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
-      setIsCreateBannerModalOpen(false);
+      setBannerFormOpen(false);
+      setEditingBanner(null);
     },
-    onError: (err) => setActionError(extractApiError(err, 'Failed to create promotional banner.')),
+    onError: (err) => setActionError(extractApiError(err, 'Failed to save promotional banner.')),
   });
 
   const toggleBannerMutation = useMutation({
@@ -72,13 +103,15 @@ export const AdminPromotionsPage: React.FC = () => {
     onError: (err) => setActionError(extractApiError(err, 'Failed to delete promotional banner.')),
   });
 
-  const createCouponMutation = useMutation({
-    mutationFn: adminApi.createCoupon,
+  const createOrUpdateCouponMutation = useMutation({
+    mutationFn: ({ id, payload }: { id?: string; payload: Partial<AdminCoupon> }) =>
+      id ? adminApi.updateCoupon(id, payload) : adminApi.createCoupon(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
-      setIsCreateCouponModalOpen(false);
+      setCouponFormOpen(false);
+      setEditingCoupon(null);
     },
-    onError: (err) => setActionError(extractApiError(err, 'Failed to create promotional coupon.')),
+    onError: (err) => setActionError(extractApiError(err, 'Failed to save coupon.')),
   });
 
   const toggleCouponMutation = useMutation({
@@ -103,14 +136,14 @@ export const AdminPromotionsPage: React.FC = () => {
   const requestBannerDelete = (banner: AdminBanner) =>
     setConfirmState({
       title: 'Delete Promotional Banner',
-      message: 'Delete this promotional banner?',
+      message: `Delete the banner "${banner.title}"? The customer app stops showing it immediately.`,
       onConfirm: () => deleteBannerMutation.mutate(banner.id),
     });
 
   const requestCouponDelete = (coupon: AdminCoupon) =>
     setConfirmState({
       title: 'Delete Coupon Code',
-      message: `Delete coupon code ${coupon.code}?`,
+      message: `Delete coupon code ${coupon.code}? Customers can no longer apply it at checkout.`,
       onConfirm: () => deleteCouponMutation.mutate(coupon.id),
     });
 
@@ -118,13 +151,16 @@ export const AdminPromotionsPage: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title="Promotions & Coupon Engine"
-        subtitle="Manage home screen hero carousels and checkout discount coupon campaigns"
+        subtitle="Manage home screen hero banners with tap deeplinks and checkout discount coupon campaigns"
         icon={Tag}
         actions={
           activeTab === 'BANNERS' ? (
             <Button
               size="sm"
-              onClick={() => setIsCreateBannerModalOpen(true)}
+              onClick={() => {
+                setEditingBanner(null);
+                setBannerFormOpen(true);
+              }}
               leftIcon={<Plus className="h-4 w-4" />}
             >
               Add Promotional Banner
@@ -132,7 +168,10 @@ export const AdminPromotionsPage: React.FC = () => {
           ) : (
             <Button
               size="sm"
-              onClick={() => setIsCreateCouponModalOpen(true)}
+              onClick={() => {
+                setEditingCoupon(null);
+                setCouponFormOpen(true);
+              }}
               leftIcon={<Plus className="h-4 w-4" />}
             >
               Create Promo Code
@@ -145,71 +184,118 @@ export const AdminPromotionsPage: React.FC = () => {
         <Alert type="error" message={actionError} onDismiss={() => setActionError(null)} className="mb-4" />
       )}
 
-      <PromotionsTabBar
-        activeTab={activeTab}
+      <Tabs
+        aria-label="Promotions sections"
+        items={[
+          { id: 'BANNERS', label: 'Banners', icon: <ImageIcon className="h-4 w-4" />, count: banners.length },
+          { id: 'COUPONS', label: 'Coupons', icon: <Tag className="h-4 w-4" />, count: coupons.length },
+        ]}
+        selected={activeTab}
         onChange={setActiveTab}
-        bannersCount={safeBanners.length}
-        couponsCount={safeCoupons.length}
       />
 
       {activeTab === 'BANNERS' && (
-        <BannerGrid
-          banners={safeBanners}
-          isLoading={isLoadingBanners}
-          error={bannersError}
-          onRetry={() => refetchBanners()}
-          onToggle={toggleBanner}
-          onDelete={requestBannerDelete}
-          onAdd={() => setIsCreateBannerModalOpen(true)}
-        />
+        <div className="space-y-4">
+          <SearchInput
+            value={bannerSearch}
+            onChange={setBannerSearch}
+            placeholder="Search banners by title, link type, or URL..."
+          />
+          <BannerGrid
+            banners={safeBanners}
+            isLoading={isLoadingBanners}
+            error={bannersError}
+            onRetry={() => refetchBanners()}
+            onToggle={toggleBanner}
+            onEdit={(banner) => {
+              setEditingBanner(banner);
+              setBannerFormOpen(true);
+            }}
+            onDelete={requestBannerDelete}
+            onAdd={() => setBannerFormOpen(true)}
+          />
+        </div>
       )}
 
       {activeTab === 'COUPONS' && (
-        <CouponTable
-          coupons={safeCoupons}
-          isLoading={isLoadingCoupons}
-          error={couponsError}
-          onRetry={() => refetchCoupons()}
-          onToggle={toggleCoupon}
-          onDelete={requestCouponDelete}
-          onAdd={() => setIsCreateCouponModalOpen(true)}
-        />
+        <div className="space-y-4">
+          <SearchInput
+            value={couponSearch}
+            onChange={setCouponSearch}
+            placeholder="Search coupons by code or description..."
+          />
+          <CouponTable
+            coupons={safeCoupons}
+            isLoading={isLoadingCoupons}
+            error={couponsError}
+            onRetry={() => refetchCoupons()}
+            onToggle={toggleCoupon}
+            onEdit={(coupon) => {
+              setEditingCoupon(coupon);
+              setCouponFormOpen(true);
+            }}
+            onDelete={requestCouponDelete}
+            onAdd={() => setCouponFormOpen(true)}
+          />
+        </div>
       )}
 
       <BannerFormModal
-        isOpen={isCreateBannerModalOpen}
-        isSubmitting={createBannerMutation.isPending}
-        onClose={() => setIsCreateBannerModalOpen(false)}
+        isOpen={bannerFormOpen}
+        isSubmitting={createOrUpdateBannerMutation.isPending}
+        editing={editingBanner}
+        onClose={() => {
+          setBannerFormOpen(false);
+          setEditingBanner(null);
+        }}
         onSubmit={(payload) =>
-          createBannerMutation.mutate({
-            ...payload,
-            isActive: true,
+          createOrUpdateBannerMutation.mutate({
+            id: editingBanner?.id,
+            payload: editingBanner ? payload : { ...payload, isActive: true },
           })
         }
       />
 
       <CouponFormModal
-        isOpen={isCreateCouponModalOpen}
-        isSubmitting={createCouponMutation.isPending}
-        onClose={() => setIsCreateCouponModalOpen(false)}
+        isOpen={couponFormOpen}
+        isSubmitting={createOrUpdateCouponMutation.isPending}
+        editing={editingCoupon}
+        onClose={() => {
+          setCouponFormOpen(false);
+          setEditingCoupon(null);
+        }}
         onSubmit={(payload) =>
-          createCouponMutation.mutate({
-            ...payload,
-            isActive: true,
+          createOrUpdateCouponMutation.mutate({
+            id: editingCoupon?.id,
+            payload: editingCoupon ? payload : { ...payload, isActive: true },
           })
         }
       />
 
-      <ConfirmDeleteModal
+      <Modal
         isOpen={!!confirmState}
+        onClose={() => setConfirmState(null)}
         title={confirmState?.title || ''}
-        message={confirmState?.message || ''}
-        onCancel={() => setConfirmState(null)}
-        onConfirm={() => {
-          confirmState?.onConfirm();
-          setConfirmState(null);
-        }}
-      />
+        footer={
+          <div className="flex justify-end gap-2 w-full">
+            <Button variant="outline" size="sm" onClick={() => setConfirmState(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={() => {
+                confirmState?.onConfirm();
+                setConfirmState(null);
+              }}
+            >
+              Delete
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-slate-600 dark:text-slate-300">{confirmState?.message}</p>
+      </Modal>
     </div>
   );
 };

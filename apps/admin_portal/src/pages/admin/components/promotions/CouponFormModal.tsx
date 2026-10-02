@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { AdminCoupon } from '../../../../services/adminApi';
 import { Button } from '../../../../components/ui/Button';
 import { Input } from '../../../../components/ui/Input';
 import { Modal } from '../../../../components/ui/Modal';
@@ -16,6 +17,8 @@ export interface CouponFormPayload {
 interface CouponFormModalProps {
   isOpen: boolean;
   isSubmitting: boolean;
+  /** null = create mode; a coupon = edit mode prefilled from it */
+  editing: AdminCoupon | null;
   onClose: () => void;
   onSubmit: (payload: CouponFormPayload) => void;
 }
@@ -23,6 +26,7 @@ interface CouponFormModalProps {
 export const CouponFormModal: React.FC<CouponFormModalProps> = ({
   isOpen,
   isSubmitting,
+  editing,
   onClose,
   onSubmit,
 }) => {
@@ -36,21 +40,21 @@ export const CouponFormModal: React.FC<CouponFormModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setCouponCode('');
-      setCouponDescription('');
-      setCouponType('PERCENTAGE');
-      setCouponValue('20');
-      setMinSpend('300');
-      setMaxDiscount('100');
-      setUsageLimit('500');
+      setCouponCode(editing?.code || '');
+      setCouponDescription(editing?.description || '');
+      setCouponType(editing?.discountType || 'PERCENTAGE');
+      setCouponValue(String(editing?.discountValue ?? 20));
+      setMinSpend(String(editing?.minOrderAmount ?? 300));
+      setMaxDiscount(editing?.maxDiscountAmount != null ? String(editing.maxDiscountAmount) : '');
+      setUsageLimit(String(editing?.usageLimit ?? 500));
     }
-  }, [isOpen]);
+  }, [isOpen, editing]);
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Create Promotional Discount Coupon"
+      title={editing ? `Edit Coupon ${editing.code}` : 'Create Promotional Discount Coupon'}
       footer={
         <div className="flex justify-end gap-2 w-full">
           <Button variant="outline" size="sm" onClick={onClose}>
@@ -72,7 +76,7 @@ export const CouponFormModal: React.FC<CouponFormModalProps> = ({
               })
             }
           >
-            Activate Promo Code
+            {editing ? 'Save Changes' : 'Activate Promo Code'}
           </Button>
         </div>
       }

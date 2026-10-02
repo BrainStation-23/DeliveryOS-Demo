@@ -124,10 +124,17 @@ class BannerFields {
   @IsEnum(BannerLinkType)
   linkType?: BannerLinkType;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Target outlet/category id — required unless linkType is EXTERNAL' })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   targetId?: string;
+
+  @ApiPropertyOptional({ description: 'Absolute http(s) URL opened on tap — required when linkType is EXTERNAL' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  targetUrl?: string;
 
   @ApiPropertyOptional({ minimum: 0 })
   @Type(() => Number)
@@ -612,7 +619,7 @@ export class SetRiderApprovalDto {
   isApproved!: boolean;
 }
 
-export class GetRidersQueryDto {
+export class GetRidersQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: ['PENDING', 'APPROVED', 'ALL'] })
   @IsOptional()
   @IsIn(['PENDING', 'APPROVED', 'ALL'])
@@ -622,6 +629,11 @@ export class GetRidersQueryDto {
   @IsOptional()
   @IsIn(['true', 'false'])
   isOnline?: 'true' | 'false';
+
+  @ApiPropertyOptional({ description: 'Search term for courier name, phone, or vehicle type' })
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   get isOnlineParsed(): boolean | undefined {
     return this.isOnline !== undefined ? this.isOnline === 'true' : undefined;

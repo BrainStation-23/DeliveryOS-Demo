@@ -297,6 +297,7 @@ model Banner {
   imageUrl  String         @map("image_url") @db.Text
   linkType  BannerLinkType @default(OUTLET) @map("link_type")
   targetId  String?        @map("target_id") @db.VarChar(100)
+  targetUrl String?        @map("target_url") @db.VarChar(500)
   sortOrder Int            @default(0) @map("sort_order")
   isActive  Boolean        @default(true) @map("is_active")
   startsAt  DateTime       @default(now()) @map("starts_at") @db.Timestamptz

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
   Store,
-  Navigation,
+  Bike,
   FileText,
   Tag,
   Settings,
@@ -15,6 +15,7 @@ import {
   PanelLeftOpen,
   Landmark,
   Images,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { LanguageSelector } from '../components/LanguageSelector';
@@ -49,10 +50,11 @@ export const AdminLayout: React.FC = () => {
 
   const navItems = [
     { label: t('nav.admin.dashboard'), href: '/', icon: LayoutDashboard },
-    { label: t('nav.admin.vendors'), href: '/vendors', icon: Store },
-    { label: t('nav.admin.dispatch'), href: '/dispatch', icon: Navigation },
     { label: t('nav.admin.orders'), href: '/orders', icon: FileText },
+    { label: t('nav.admin.fleet'), href: '/fleet', icon: Bike },
+    { label: t('nav.admin.vendors'), href: '/vendors', icon: Store },
     { label: t('nav.admin.promotions'), href: '/promotions', icon: Tag },
+    { label: t('nav.admin.customers'), href: '/customers', icon: Users },
     { label: t('nav.admin.media'), href: '/media', icon: Images },
     { label: t('nav.admin.finance'), href: '/finance', icon: Landmark },
     { label: t('nav.admin.settings'), href: '/settings', icon: Settings },

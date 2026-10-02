@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveDateRange } from './orderDateRange';
+import { resolveDateRange } from './dateRange';
 
 // Fixed reference clock: October 2, 2026, 15:30 local time.
 const NOW = new Date(2026, 9, 2, 15, 30, 0, 0);

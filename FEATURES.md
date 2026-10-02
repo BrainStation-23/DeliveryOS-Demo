@@ -261,7 +261,15 @@ This document provides a line-level, granular breakdown of every operational fea
 
 ## 5. Super Admin Operations Console (`apps/admin_portal`)
 
+### 5.0. Date-Ranged Analytics Dashboard (ADR-018)
+- **Unified Date Window**: the shared preset toolbar (`TODAY` → `CUSTOM`) drives every dashboard widget through `GET /admin/analytics/overview` (windows capped at 90 days; `TODAY`/`YESTERDAY` switch charts to hourly buckets automatically).
+- **Enriched KPI Cards with Trends**: total orders, gross volume, commission, avg order value, delivered, cancellation rate, avg delivery minutes, and new customers — each card carries a vs-previous-equal-window delta badge (`TrendStatCard`; inverted tone for metrics where rising is bad); live snapshot cards show active outlets and couriers online.
+- **Trend & Mix Charts** (recharts): composed orders-bars + gross-volume-area chart over the window, and an order-status donut — colors centralized in `chartTheme.ts` mirroring the Tailwind primary tokens.
+- **Top Performers**: most-ordered outlets (orders + gross, with brand) and top-performing couriers (trips, earnings, COD collected) for the window.
+- **Recent Orders Feed**: the shared `OrdersTable` with fetch-on-demand unified details dialog, invalidated live by `order:new` / `order:status:changed`.
+
 ### 5.1. Live Fleet Radar & Dispatch Command
+- **Unified Rider Fleet Page** (`/fleet`, formerly `/dispatch` — redirect preserved): reflection cards, radar, unassigned-order pool, server-paginated roster, and courier details drawer on one screen (`AdminFleetPage`).
 - **Leaflet OpenStreetMap Radar Engine**: Zero-API-cost mapping engine tracking couriers and unassigned orders (`LiveFleetMap`).
 - **Color-Coded Courier Pins**:
   - Emerald `#10b981`: Online & idle, ready for dispatch.
@@ -277,6 +285,8 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Fetch-on-Demand Detail**: new `GET /admin/orders/:id` returns the enriched view (money breakdown + lifecycle timestamps + rejection reason); dashboard rows fetch it when opened, list payloads share the same shape.
 - **Date-Wise Filtering** (vendor-portal parity): Preset toolbar (`TODAY`/`YESTERDAY`/`LAST_7_DAYS`/`THIS_MONTH`/`ALL_TIME`/`CUSTOM` with start/end pickers) resolved to inclusive `placedAt` bounds server-side via `GET /admin/orders?dateFrom=&dateTo=` (ISO-8601, DTO-validated); deep-linked order numbers bypass the default `TODAY` window with `ALL_TIME` so targets always resolve.
 - **Order Number URL Query Deep Linking**: Navigating to `/orders?orderNumber=ORD-XXXX` automatically filters the table, highlights the order, and pre-opens the assignment or details modal (`AdminOrdersPage`).
+- **Status Glance Cards Row**: `GET /admin/analytics/orders-summary` returns per-status counts honoring the active date window + search; each card is a one-click shortcut applying the matching lifecycle filter (`OrderStatusCards`), and the lifecycle tabs now include the terminal **Cancelled** stage.
+- **Single Source of Search**: the debounced search box drives the server-side `search` param only (the old duplicate client-side filter was removed).
 - **Active Filter Banner**: Amber banner indicating active direct link filter with 1-click `"Clear Filter & View All"` button.
 - **Itemized Order Details Modal**:
   - Store outlet and customer details.
@@ -298,8 +308,9 @@ This document provides a line-level, granular breakdown of every operational fea
   - Reverses commission ledger, restores coupon quota, and broadcasts cancellation to all parties (`adminApi.cancelOrder(orderId, reason)`).
 
 ### 5.4. Courier Fleet Governance & Applicant Queue
-- **Dedicated Applicant Couriers Queue**: Filter tab displaying all pending courier self-registrations (`AdminDispatchPage`).
-- **Applicant Badge Metric Card**: Real-time counter of couriers awaiting verification.
+- **Server-Paginated Roster** (`FleetRosterTable`): `GET /admin/riders` with `page`/`limit`, courier name/phone/vehicle search, derived status filter (All/Online/On Trip/Offline), and the applicant queue toggle — rows carry cash-safety warnings, lifetime deliveries, 30-day earnings, and the active order (batched aggregates).
+- **Unified Courier Details Drawer** (`RiderDetailsDrawer` → `GET /admin/riders/:id`): profile + account status, cash-in-hand vs limit, lifetime and 30-day stats, active trip, recent orders (deep-link into Order History details), latest COD deposits, and inline governance actions — cash-limit modal, approve, and confirm-gated suspension.
+- **Dedicated Applicant Couriers Queue**: Applicant filter with real-time pending counter.
 - **1-Click Approval & Suspension**: Instant toggle approving applicant credentials (`adminApi.setRiderApproval(id, true)`) or suspending problematic couriers.
 - **Cash Safety Limit Adjustment**: Modal allowing operations staff to adjust a courier's maximum COD limit (e.g. ৳3,000 to ৳10,000) based on trust and tenure.
 
@@ -307,6 +318,8 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Brand Page** (`/vendors`): every brand with debounced name search and creation; Brand Cards show brand info (editable, Media-Library logo), the Brand Owner chip, and a minimal outlet list (name, area, status badges, product count) — clicking an outlet opens the **Outlet Page** (`/outlets/:id`); a Staff Accounts tab keeps the cross-outlet registry.
 - **Unified Outlet Page**: brand strip + editable outlet info (inline form: name, phone, commission, prep, radius), staff list, category-grouped catalog (lean rows: image, name, variation count, first-variation price), suspend/activate, and an operating-hours editor (`Copy 09:00–23:00 to All` shortcut). One aggregated `GET /admin/outlets/:id` payload.
 - **Unified Staff Profile Dialog** (view → edit, or straight to create): view shows name/phone/role/governance/status; edit keeps name + phone, toggles **Active/Inactive** (locked out immediately — session cache purged), and switches scope (**Owner ↔ one brand**, **Manager ↔ one outlet**); create attaches an existing user via debounced phone search or provisions a new account (sign-in via OTP later). One active assignment per account (409 otherwise); removal demotes last-assignment accounts to CUSTOMER.
+- **Catalog Product Deletion**: per-product delete (confirm-gated) via `DELETE /admin/products/:id` — 409-blocked while historical order line items reference the product, which must be retired via the stock toggle instead.
+- **Paginated Brand Grid + Staff Search**: brand cards page server-side (`GET /admin/brands?page=&limit=&search=`) and the Staff Accounts tab adds name/phone/brand/outlet search.
 - **Unified Product Dialog** (view → edit, or straight to create): name, description, Media-Library image, product-level **stock in/out** toggle, and the **ordered variations editor** — rows of (name · absolute price · availability), add/remove/reorder with the first row anchored as the product price (not removable, move-up into place only). Server-side wholesale save enforces ≥1 variation, deletes omitted variations (safe — JSONB snapshots), renumbers order, and syncs `basePrice` to the first variation in one transaction (ADR-017).
 
 ### 5.5. COD Cash Deposit Verification
@@ -316,11 +329,12 @@ This document provides a line-level, granular breakdown of every operational fea
   - Rejecting records operational notes explaining discrepancies.
 
 ### 5.6. Promotional Campaigns & Coupons
-- **Hero Carousel Banner Management**: Tab to schedule, activate, prioritize, and delete homepage promotion banners with image previews (`AdminPromotionsPage`).
+- **Hero Carousel Banner Management**: Tab to schedule, activate, prioritize, edit, and delete homepage promotion banners with image previews and title/link-type/URL search (`AdminPromotionsPage`).
+- **Banner Tap Deeplinks** (ADR-018): the banner form collects the deeplink target — `OUTLET` (outlet picker), `CATEGORY` (central-category picker), or `EXTERNAL` (absolute http(s) URL) — validated server-side on save; cards badge the link type. `GET /banners/active` returns `targetUrl` plus a resolved `targetName`, and the customer app routes taps accordingly (§2.6a).
 - **Discount Coupon Engine**:
   - Alphanumeric promo codes with flat or percentage discount modes.
   - Configurable minimum order spend, maximum discount ceiling, and total usage limits.
-  - 1-click active/inactive toggle and deletion.
+  - 1-click active/inactive toggle, code/description search, edit dialog, and deletion.
 
 ### 5.7. System Settings & Pipeline Governance
 - **Order Flow FSM Selector**: 1-click toggle between:
@@ -329,9 +343,12 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Delivery Fee Pricing Engine**:
   - `FIXED_FLAT`: Platform-wide uniform delivery fee (e.g. 50 BDT).
   - `DISTANCE_TIERED`: Base fee for initial 1.5 km plus incremental per-kilometer fee.
+- **Delivery Economics Card**: rider payout share of delivery fees (percent), average courier speed, and fallback ETA (`PATCH /admin/settings/delivery-economics`) — upserts the `delivery_economics` key and invalidates the pricing cache so the next order picks up the new split.
+- **Dispatch Timing Controls**: rider search timeout and stale-order auto-cancel TTL inputs on the order-flow card (`PATCH /admin/settings/order-flow` with `staleOrderTtlMinutes`).
 - **Apply Confirmation Gates**: Dispatch-mode switches and delivery-fee saves pop a confirmation dialog summarizing the pending change (reusable `ConfirmDialog`); canceling leaves the live configuration untouched — the pipeline mode previously applied instantly on card click.
 
-### 5.8. Financial Settlements & Statements Export
+### 5.8. Financial Governance: Ledger, Settlements & Statements Export
+- **Unified Per-Order Ledger Tab** (default, `/finance`): `GET /admin/finance/ledger` joins commission + rider-trip entries per order — summary cards (orders, gross, commission, net vendor payable, rider payouts, COD), order/outlet/brand/courier search, settlement-status filter, date window, pagination, and `GET /admin/finance/ledger/export` CSV of the whole filtered set (`FinanceLedgerSection`).
 - **JSON Statements Query**: Query vendor earnings, commission deductions, and pending payouts (`AdminSettingsPage`).
 - **RFC 4180 CSV Export**: One-tap export downloading formatted `vendor-settlements-YYYY-MM-DD.csv` for enterprise accounting systems (ERP / QuickBooks) ([ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md)).
 - **Settlement Batch Audit Trail**: Historical log of payout batches with batch references, transfer notes, and payout timestamps.
@@ -352,6 +369,10 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Reusable Picker for Creation Modules**: `MediaPickerModal` (browse + upload-in-place) replaces inline uploads — promotional banner creation now sources images exclusively from the central library; future modules reuse the same picker and `useMediaUpload` flow.
 - **Uniform Media URL Resolution**: DB stores relative `/uploads/...` URLs; the local nginx edge (mirroring prod) and the Vite dev proxy route `/uploads` to the backend, while `resolveMediaUrl` prefixes `VITE_API_URL` for split-origin deployments.
 
+### 5.11. Customer Directory & Delivery Profiles (ADR-018)
+- **Customer List** (`/customers`): server-paginated `GET /admin/customers` with name/phone search, account-status filter (Active/Pending/Suspended), and registration-date window; rows show lifetime order count, lifetime spend, and last order time (`AdminCustomersPage`).
+- **Unified Customer Details Drawer**: profile + account status, saved addresses (default-flagged), lifetime metrics (orders by status, spend, avg order value, delivery fees paid, coupon savings), and recent orders deep-linking into the unified Order History details (read-only surface by design).
+
 ---
 
 ## 6. Backend API & Engine Services (`services/backend_api`)
@@ -365,7 +386,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Order Flow (`/admin/settings/order-flow`)**: Config-driven dispatch (`order_flow_config`: `RIDER_FIRST`/`VENDOR_FIRST`, rider search timeout, stale-order TTL), broadcast engine with geo-targeted FCM push rings (5/6/10 km tiers, pool-wide socket broadcast), escalation scanner (30s leader-locked sweep, TTL-capped window), takeaway bypass on the canonical snapshot `deliveryMethod` field.
 - **Vendors (`/vendors`, `/cart`)**: PostGIS nearby discovery (`nearby`, `search`, `:id/catalog`) and authenticated address-coverage geofence validation (`validate-address-coverage`, owner-only `addressId` probes).
 - **Realtime**: Socket.IO gateway (`/events`) — room topology, JWT handshake auth, GPS telemetry ingestion (§ 6.3).
-- **Admin (`/admin`)**: 33 governance routes — overview KPIs, fleet, orders (force-assign/cancel), rider approval & cash limits, vendor/category/banner/coupon CRUD, media uploads, order-flow + delivery-fee settings, settlement cycles, statements, cash-deposit verification.
+- **Admin (`/admin`)**: 63 governance routes — overview KPIs, date-ranged analytics (overview + orders-summary), fleet, paginated rider roster + courier detail, orders (force-assign/cancel), customer directory + detail, vendor/category/banner (deeplink-validated)/coupon/product (incl. delete) CRUD, brand pagination, media uploads, order-flow (incl. stale-order TTL) + delivery-fee + delivery-economics settings, unified per-order ledger + CSV export, settlement cycles, statements, cash-deposit verification.
 - **Payments (`/payments`)**: Gateway session initiation, HMAC-verified idempotent webhooks, transaction status, browser callback redirects.
 - **Addresses (`/customers`)**: Customer address book CRUD + default selection, profile management.
 - **Geo (`/geo`)**: OSM Nominatim reverse geocoding with 24h Redis cache.
@@ -498,7 +519,12 @@ The platform is guarded by a layered verification pyramid. Backend integration s
 | **Merchant Catalog & Stock** | `apps/vendor_portal/src/pages/vendor/VendorCatalogPage.tsx` | `TID-03` (§2.3) | [ADR-008](context_docs/architecture-decision-records/ADR-008-immutable-jsonb-historical-snapshots.md) |
 | **Live Fleet Radar (OSM)** | `apps/admin_portal/src/components/dispatch/LiveFleetMap.tsx` | `BRD-07` (Sec 2.1) | [ADR-003](context_docs/architecture-decision-records/ADR-003-postgis-spatial-engine-and-redis-geohash.md) |
 | **Deep Link Order Overrides** | `apps/admin_portal/src/pages/admin/AdminOrdersPage.tsx` | `BRD-07` (Sec 2.3) | [ADR-006](context_docs/architecture-decision-records/ADR-006-dual-store-frontend-paradigm-and-websocket-invalidation.md) |
-| **Applicant Courier Queue** | `apps/admin_portal/src/pages/admin/AdminDispatchPage.tsx` | `BRD-06` (Sec 1) | [ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md) |
+| **Applicant Courier Queue** | `apps/admin_portal/src/pages/admin/AdminFleetPage.tsx` | `BRD-06` (Sec 1) | [ADR-002](context_docs/architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md) |
+| **Date-Ranged Analytics Dashboard** | `apps/admin_portal/src/pages/admin/AdminDashboardPage.tsx` + `services/backend_api/src/modules/admin/admin-analytics.service.ts` | `TID-03` (§2.5) + `BRD-07` (Sec 2.0) | [ADR-018](context_docs/architecture-decision-records/ADR-018-admin-analytics-read-layer-and-banner-deeplinks.md) |
+| **Unified Rider Fleet & Courier Details** | `apps/admin_portal/src/pages/admin/AdminFleetPage.tsx` + `admin-fleet.service.ts` | `BRD-06` + `TID-03` (§2.5) | [ADR-018](context_docs/architecture-decision-records/ADR-018-admin-analytics-read-layer-and-banner-deeplinks.md) |
+| **Customer Directory & Profiles** | `apps/admin_portal/src/pages/admin/AdminCustomersPage.tsx` + `admin-customers.service.ts` | `TID-03` (§2.5) | [ADR-018](context_docs/architecture-decision-records/ADR-018-admin-analytics-read-layer-and-banner-deeplinks.md) |
+| **Unified Per-Order Financial Ledger** | `apps/admin_portal/src/components/finance/FinanceLedgerSection.tsx` + `admin-finance.service.ts` | `BRD-07` (Sec 2.6) + `TID-03` (§2.5) | [ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md) |
+| **Banner Tap Deeplinks** | `services/backend_api/src/modules/promotions/banners/banner.service.ts` + `apps/customer_app/lib/features/banners/domain/banner_action.dart` | `TID-03` (§2.2) | [ADR-018](context_docs/architecture-decision-records/ADR-018-admin-analytics-read-layer-and-banner-deeplinks.md) |
 | **Cash Deposit Verification** | `apps/admin_portal/src/pages/admin/AdminSettingsPage.tsx` | `BRD-06` (Sec 6) + `TID-03` (§2.5) | [ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md) |
 | **CSV Settlements Export** | `apps/admin_portal/src/pages/admin/AdminSettingsPage.tsx` | `BRD-07` (Sec 2.6) | [ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md) |
 | **Search Add-to-Cart** | `apps/customer_app/lib/features/discovery/presentation/search_screen.dart` | `BRD-04` (Sec 3) | [ADR-008](context_docs/architecture-decision-records/ADR-008-immutable-jsonb-historical-snapshots.md) |

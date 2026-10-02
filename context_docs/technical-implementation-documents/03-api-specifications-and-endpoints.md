@@ -49,7 +49,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 ### 2.2 Customer Discovery, Cart & Checkout (`/vendors`, `/orders`, `/coupons`, `/banners`)
 - **`GET /banners/active`**
   - *Guard*: Public.
-  - *Response*: Array of `{ "id": "...", "title": "...", "imageUrl": "...", "linkType": "OUTLET" | "CATEGORY", "targetId": "..." }`.
+  - *Response*: Array of `{ "id": "...", "title": "...", "imageUrl": "...", "linkType": "OUTLET" | "CATEGORY" | "EXTERNAL", "targetId": "...", "targetUrl": "https://..." | null, "targetName": "..." | null }` — `targetUrl` carries the absolute http(s) link for `EXTERNAL` banners; `targetName` is the resolved outlet/category display name so mobile clients route deeplinks without extra lookups.
 - **`GET /vendors/nearby`**
   - *Guard*: Public.
   - *Query*: `lat` (float), `lng` (float), `vertical` (optional: `FOOD` | `GROCERY` | `SUPER_SHOP` | `PHARMACY`), `limit` (optional int: 1–100, default 50).
@@ -160,6 +160,8 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`POST /admin/media`**: Upload to the central library — `multipart/form-data` with `file` (JPEG/PNG/WebP/GIF, max 5 MB) plus optional `width`/`height` ints (final pixel dimensions after client-side crop/resize) and optional `name` (display name, ≤255 chars; defaults to the uploaded file name). Returns the registered entity.
 - **`DELETE /admin/media/:id`**: Deletes the asset row first, then unlinks the stored file (idempotent file removal; 404 for unknown ids).
 - **`GET /admin/overview`**: Platform KPIs (gross revenue, active orders, online fleet, pending applicants).
+- **`GET /admin/analytics/overview`**: Date-ranged dashboard analytics — query `dateFrom`/`dateTo` (ISO-8601 bounds on `placedAt`, window capped at 90 days, defaults to trailing 30 days) and `granularity=day|hour` (hourly requires ≤7-day windows). Returns KPI `cards` (orders, delivered, cancelled + cancellation rate, gross volume, commission, delivery fees, avg order value, avg delivery minutes, new customers — each with a delta vs the preceding equal-length window), live `snapshots` (active outlets, online riders), `statusCounts` per `OrderStatus`, `timeseries` buckets (orders / revenue / cancelled), `topOutlets` (by order count with gross volume), and `topRiders` (trips, earnings, COD collected).
+- **`GET /admin/analytics/orders-summary`**: Per-status order counts honoring the Order History `dateFrom`/`dateTo`/`search` semantics (status filter excluded) — powers the glance cards row.
 - **`GET /admin/fleet`**: Real-time fleet radar feed with GPS coordinates, online states, and cash safety margins.
 - **`GET /admin/orders`**
   - *Query*: `status` (optional), `search` (optional, matches order number/customer name/phone), `dateFrom`/`dateTo` (optional ISO-8601 inclusive bounds on `placedAt`), `page` (int, default 1), `limit` (int, default 10).
@@ -167,37 +169,43 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`GET /admin/orders/:id`**: Full detail view for one order — parties (outlet/customer/courier with phones), status + payment, money breakdown (`subtotal`, `couponDiscount`, `deliveryFee`, `taxAmount`, `totalAmount`), lifecycle timestamps (`placedAt`, `acceptedAt`, `pickedUpAt`, `deliveredAt`, `cancelledAt`, `rejectionReason`), line items, and delivery address. 404 for unknown ids.
 - **`POST /admin/orders/:id/force-assign`**: Body `{ "riderId": "uuid" }` (bypasses automated dispatch).
 - **`POST /admin/orders/:id/cancel`**: Body `{ "reason": "Min 5 char audit reason" }` (reverses ledger and voids holds).
-- **`GET /admin/riders`**: Fleet list (`approvalStatus=ALL | PENDING | APPROVED`, `isOnline=true|false`).
+- **`GET /admin/riders`**: Paginated courier roster — query `page`/`limit`, `search` (name/phone/vehicle, case-insensitive), `approvalStatus=ALL | PENDING | APPROVED`, `isOnline=true|false`. Rows carry derived `status` (ONLINE/ON_TRIP/OFFLINE), cash state + safety warning, `totalDeliveries`, `earnings30d`, and the active order (batched aggregates — no N+1).
+- **`GET /admin/riders/:id`**: Unified courier detail — profile + user, approval/cash state, lifetime stats (deliveries, trips, earnings, COD collected), 30-day earnings, active order, last 10 orders, last 5 cash deposits. 404 for unknown ids.
 - **`PATCH /admin/riders/:id/approval`**: Body `{ "isApproved": boolean }`.
 - **`PATCH /admin/riders/:id/cash-limit`**: Body `{ "maxCashLimit": 8000.0 }`.
+- **`GET /admin/customers`**: Paginated customer directory (role=CUSTOMER) — query `page`/`limit`, `search` (name/phone), `status=ACTIVE | PENDING_APPROVAL | SUSPENDED | ALL`, `dateFrom`/`dateTo` (registration window). Rows carry `orderCount`, `lifetimeSpend` (non-cancelled), and `lastOrderAt`.
+- **`GET /admin/customers/:id`**: Customer detail — profile, saved addresses, status-count metrics, lifetime spend / delivery fees / coupon savings / avg order value, and the last 10 orders. 404 for unknown or non-customer ids (read-only surface).
 - **`GET /admin/vendors`** / **`POST /admin/vendors`** / **`PATCH /admin/vendors/:id`**: Complete vendor CRUD — a `brandId` is required on create and can be switched on update but never detached (ADR-017).
 - **`GET /admin/vendors/:id/catalog`**: Full catalog governance view for one outlet — active categories → products with variations (absolute `price`, `sortOrder`) and add-on groups. 404 for unknown outlets.
 - **`GET /admin/outlets/:id`**: Aggregated Outlet Page payload — brand strip, outlet info, operating hours, staff assignments, and the category → product → variation catalog in one call (no N+1).
 - **`POST /admin/products`** / **`PATCH /admin/products/:id`**: Wholesale product save (ADR-017) — body `{ vendorId?, categoryId, name, description?, imageUrl?, isInStock?, sortOrder?, variations: [{ id?, name, price, isInStock }] }`. One ACID transaction: ≥1 variation enforced (400), omitted variation ids deleted (safe — snapshots are JSONB), order renumbered 1..n, `basePrice` synced to the first variation. Replaces the former override/disable endpoints.
+- **`DELETE /admin/products/:id`**: Hard product delete — removes add-ons, add-on groups, and variations in one transaction; 409 while any historical `OrderItem` references the product (retire those via `isInStock=false` instead).
+- **`PATCH /admin/vendors/:id/status`**: Body `{ "isActive": boolean }` — suspends/reactivates an outlet (suspended outlets stop surfacing in customer discovery).
 - **`PUT /admin/vendors/:id/operating-hours`**: Body `{ hours: [7 × { dayOfWeek, openTime "HH:mm", closeTime, isClosed }] }` — upserts the weekly schedule.
 - **`POST /admin/vendors/:id/categories`** / **`PATCH /admin/categories/:id`**: Outlet-scoped category create; rename/sort/deactivate.
 - **`PATCH /admin/vendor-staff/:id`**: Body `{ isActive?, scope?, brandId?, vendorId? }` — assignment active/inactive toggle (inactive staff lose vendor-portal access immediately via session-cache purge) and scope switch (owner rebinds to the brand, manager to an outlet).
 - **`PATCH /admin/users/:id`**: Body `{ fullName?, phone? }` — staff account edits with duplicate-phone 409 and session-cache purge.
 - **`POST /admin/vendors/:id/staff`**: Body `{ "userId": "uuid", "scope": "PARTICULAR_OUTLET" | "ALL_OUTLETS_MASTER", "brandId?" }` — assigns outlet staff scope (idempotent upsert; ALL_OUTLETS_MASTER defaults to the outlet's brand).
-- **`GET /admin/brands?search=`** / **`POST /admin/brands`** / **`PATCH /admin/brands/:id`** / **`DELETE /admin/brands/:id`**: Brand CRUD — list carries outlet/staff counts with optional case-insensitive name search (take 50); duplicate names 409; deletion 409-blocked while outlets or staff reference the brand.
+- **`GET /admin/brands?search=&page=&limit=`** / **`POST /admin/brands`** / **`PATCH /admin/brands/:id`** / **`DELETE /admin/brands/:id`**: Brand CRUD — paginated list (`{ items, total, page, limit, totalPages }`) carrying outlet/staff counts and the resolved brand owner with optional case-insensitive name search; duplicate names 409; deletion 409-blocked while outlets or staff reference the brand.
 - **`GET /admin/users/search?phone=`**: User lookup by phone fragment (min 3 chars, contains-match, take 10) — feeds the staff assignment picker.
 - **`POST /admin/users`**: Body `{ "phone", "fullName" }` — provisions a VENDOR_ADMIN owner/staff account (no password; the owner later signs in with this phone via OTP). Duplicate phone 409.
 - **`GET /admin/vendor-staff`**: Every staff assignment with user, outlet, brand, and scope.
 - **`DELETE /admin/vendor-staff/:id`**: Removes an assignment; demotes the account to CUSTOMER when it was the last tie and purges the session cache for immediate revocation. 404 for unknown ids.
 - **`GET /admin/catalog/categories`** / **`POST /admin/catalog/categories`**: Master central category list + creation.
-- **`PUT /admin/catalog/products/:id/override`**: Centrally overrides product name/description/basePrice/category/stock across stores.
-- **`PATCH /admin/catalog/products/:id/disable`**: Body `{ "isInStock": boolean }` — central stock toggle.
-- **`GET /admin/banners`** / **`POST /admin/banners`** / **`PATCH /admin/banners/:id`** / **`DELETE /admin/banners/:id`**: Banner CRUD.
+- **`GET /admin/banners`** / **`POST /admin/banners`** / **`PATCH /admin/banners/:id`** / **`DELETE /admin/banners/:id`**: Banner CRUD with deeplink integrity — body carries `title`, `imageUrl`, `linkType` (`OUTLET | CATEGORY | EXTERNAL`), `targetId` (validated to exist for OUTLET/CATEGORY), `targetUrl` (absolute http(s) required for EXTERNAL), `sortOrder`, `isActive`, `startsAt`/`endsAt`.
 - **`GET /admin/coupons`** / **`POST /admin/coupons`** / **`PATCH /admin/coupons/:id`** / **`DELETE /admin/coupons/:id`**: Coupon CRUD.
-- **`GET /admin/settings`**: Returns current FSM mode and delivery fee pricing mode.
-- **`GET /admin/settings/order-flow`**: Returns the active fulfillment flow config (`mode`, `riderSearchTimeoutSeconds`).
-- **`PATCH /admin/settings/order-flow`**: Body `{ "mode": "RIDER_FIRST" | "VENDOR_FIRST", "riderSearchTimeoutSeconds?" }`.
+- **`GET /admin/settings`**: Returns current FSM mode (with `rider_search_timeout_seconds` and `stale_order_ttl_minutes`), delivery fee pricing mode, and delivery economics (`rider_share_percent`, `eta_avg_speed_kmh`, `eta_fallback_minutes`).
+- **`GET /admin/settings/order-flow`**: Returns the active fulfillment flow config (`mode`, `riderSearchTimeoutSeconds`, `staleOrderTtlMinutes`).
+- **`PATCH /admin/settings/order-flow`**: Body `{ "mode": "RIDER_FIRST" | "VENDOR_FIRST", "riderSearchTimeoutSeconds?", "staleOrderTtlMinutes?" }` (5–720 min; drives the stale-order auto-cancel sweep).
 - **`PATCH /admin/settings/delivery-fee`**: Body `{ "mode": "FIXED_FLAT" | "DISTANCE_TIERED", "flatFee": 50.0, "baseFee": 40.0, "baseKm": 2.0, "perKmRate": 15.0 }`.
+- **`PATCH /admin/settings/delivery-economics`**: Body `{ "riderSharePercent": 80, "etaAvgSpeedKmh": 25, "etaFallbackMinutes": 10 }` — upserts `delivery_economics` and invalidates the pricing cache so the next order uses the new split/ETA inputs.
 - **`GET /admin/finance/settlement-export?format=csv`**: Downloads RFC 4180 CSV settlement file.
 - **`POST /admin/finance/settle-cycle`**: Triggers batch settlement cycle for pending orders.
 - **`GET /admin/finance/settlement-batches`**: Lists historical settlement batches.
 - **`GET /admin/finance/cash-deposits`**: Lists courier cash deposits awaiting verification.
 - **`PATCH /admin/finance/cash-deposits/:id/verify`**: Body `{ "action": "APPROVE" | "REJECT", "notes": "..." }`.
+- **`GET /admin/finance/ledger`**: Unified per-order financial ledger — paginated join of commission + rider trip entries; query `page`/`limit`, `dateFrom`/`dateTo` (bounds on order `placedAt`), `search` (order number / outlet / brand / courier), `settlementStatus` (`PENDING | PROCESSING | SETTLED`). Rows carry gross, commission (with rate), net vendor payable, rider earnings + COD collected, settlement status and batch number; the response also carries page-spanning `summary` totals.
+- **`GET /admin/finance/ledger/export`**: RFC 4180 CSV of the filtered ledger (pages through the whole filtered set server-side).
 
 ### 2.6 Payments Module (`/payments`)
 - **`POST /payments/initiate`**

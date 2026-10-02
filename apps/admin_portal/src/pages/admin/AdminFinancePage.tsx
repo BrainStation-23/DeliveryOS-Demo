@@ -1,35 +1,25 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Landmark,
-  FileSpreadsheet,
-  Banknote,
-  LucideIcon,
-} from 'lucide-react';
+import { Landmark, FileSpreadsheet, Banknote, BookOpen } from 'lucide-react';
 import adminApi from '../../services/adminApi';
 import { Alert } from '../../components/ui/Alert';
+import { Tabs } from '../../components/ui/Tabs';
 import { PageHeader } from '../../components/common/PageHeader';
 import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { extractApiError } from '../../utils/apiError';
 import { CashDepositsSection } from '../../components/finance/CashDepositsSection';
+import { FinanceLedgerSection } from '../../components/finance/FinanceLedgerSection';
 import { VendorSettlementsSection } from '../../components/settings/VendorSettlementsSection';
 
-export type FinanceTabId = 'settlements' | 'deposits';
-
-interface TabDefinition {
-  id: FinanceTabId;
-  label: string;
-  icon: LucideIcon;
-  badge?: number;
-  badgeVariant?: 'primary' | 'warning';
-}
+export type FinanceTabId = 'ledger' | 'settlements' | 'deposits';
 
 export const AdminFinancePage: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as FinanceTabId | null;
-  const activeTab: FinanceTabId = tabParam === 'deposits' ? 'deposits' : 'settlements';
+  const activeTab: FinanceTabId =
+    tabParam === 'deposits' || tabParam === 'settlements' ? tabParam : 'ledger';
 
   const [isExporting, setIsExporting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -103,7 +93,7 @@ export const AdminFinancePage: React.FC = () => {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        if (newTab === 'settlements') {
+        if (newTab === 'ledger') {
           next.delete('tab');
         } else {
           next.set('tab', newTab);
@@ -117,20 +107,7 @@ export const AdminFinancePage: React.FC = () => {
   const safeSettlements = Array.isArray(settlements) ? settlements : [];
   const safeBatches = Array.isArray(batches) ? batches : [];
 
-  const tabs: TabDefinition[] = [
-    {
-      id: 'settlements',
-      label: 'Vendor Settlements & Ledgers',
-      icon: FileSpreadsheet,
-    },
-    {
-      id: 'deposits',
-      label: 'Courier Cash Drops Governance',
-      icon: Banknote,
-      badge: pendingDepositsCount > 0 ? pendingDepositsCount : undefined,
-      badgeVariant: 'warning',
-    },
-  ];
+
 
   return (
     <div className="space-y-6">
@@ -144,50 +121,30 @@ export const AdminFinancePage: React.FC = () => {
         <Alert type="error" message={actionError} onDismiss={() => setActionError(null)} />
       )}
 
-      {/* Accessible Tab Bar */}
-      <div className="border-b border-slate-200 dark:border-slate-800">
-        <nav
-          className="-mb-px flex space-x-2 sm:space-x-6 overflow-x-auto scrollbar-none"
-          role="tablist"
-          aria-label="Financial governance sections"
-        >
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                role="tab"
-                id={`tab-${tab.id}`}
-                aria-controls={`tabpanel-${tab.id}`}
-                aria-selected={isActive}
-                onClick={() => handleTabChange(tab.id)}
-                className={`flex items-center gap-2 py-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap focus:outline-hidden ${
-                  isActive
-                    ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-slate-700'
-                }`}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span>{tab.label}</span>
-                {tab.badge !== undefined && (
-                  <span
-                    className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      tab.badgeVariant === 'warning'
-                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                        : 'bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300'
-                    }`}
-                  >
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+      <Tabs
+        aria-label="Financial governance sections"
+        items={[
+          { id: 'ledger', label: 'Unified Ledger', icon: <BookOpen className="h-4 w-4" /> },
+          { id: 'settlements', label: 'Vendor Settlements', icon: <FileSpreadsheet className="h-4 w-4" /> },
+          {
+            id: 'deposits',
+            label: 'Courier Cash Drops',
+            icon: <Banknote className="h-4 w-4" />,
+            count: pendingDepositsCount > 0 ? pendingDepositsCount : undefined,
+          },
+        ]}
+        selected={activeTab}
+        onChange={handleTabChange}
+      />
 
       {/* Tab Panels */}
+      {/* 0. Unified Per-Order Ledger Panel */}
+      {activeTab === 'ledger' && (
+        <div role="tabpanel" id="tabpanel-ledger" aria-labelledby="tab-ledger" className="space-y-6">
+          <FinanceLedgerSection onError={setActionError} />
+        </div>
+      )}
+
       {/* 1. Vendor Settlements Panel */}
       {activeTab === 'settlements' && (
         <div

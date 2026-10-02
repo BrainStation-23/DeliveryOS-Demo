@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Images, Upload, Copy, Check, Trash2, Search } from 'lucide-react';
+import { Images, Upload, Copy, Check, Trash2 } from 'lucide-react';
 import adminApi, { MediaAsset } from '../../services/adminApi';
 import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/common/PageHeader';
+import { SearchInput } from '../../components/common/SearchInput';
 import { EmptyState } from '../../components/common/EmptyState';
 import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -128,16 +129,12 @@ export const AdminMediaPage: React.FC = () => {
         />
       ) : (
         <>
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search media by name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:border-primary-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            />
-          </div>
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search media by name..."
+            className="max-w-md"
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {assets.map((asset) => (

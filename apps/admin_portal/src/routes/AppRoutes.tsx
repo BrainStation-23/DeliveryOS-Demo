@@ -17,8 +17,8 @@ import { NotFoundPage } from '../pages/common/NotFoundPage';
 const AdminDashboardPage = lazy(() =>
   import('../pages/admin/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })),
 );
-const AdminDispatchPage = lazy(() =>
-  import('../pages/admin/AdminDispatchPage').then((m) => ({ default: m.AdminDispatchPage })),
+const AdminFleetPage = lazy(() =>
+  import('../pages/admin/AdminFleetPage').then((m) => ({ default: m.AdminFleetPage })),
 );
 const AdminOrdersPage = lazy(() =>
   import('../pages/admin/AdminOrdersPage').then((m) => ({ default: m.AdminOrdersPage })),
@@ -40,6 +40,9 @@ const AdminMediaPage = lazy(() =>
 );
 const AdminOutletPage = lazy(() =>
   import('../pages/admin/AdminOutletPage').then((m) => ({ default: m.AdminOutletPage })),
+);
+const AdminCustomersPage = lazy(() =>
+  import('../pages/admin/AdminCustomersPage').then((m) => ({ default: m.AdminCustomersPage })),
 );
 
 const RouteFallback: React.FC = () => (
@@ -73,9 +76,11 @@ export const AppRoutes: React.FC = () => {
           <Route path="/dashboard" element={<AdminDashboardPage />} />
           <Route path="/vendors" element={<AdminVendorsPage />} />
           <Route path="/outlets/:outletId" element={<AdminOutletPage />} />
-          <Route path="/dispatch" element={<AdminDispatchPage />} />
+          <Route path="/fleet" element={<AdminFleetPage />} />
+          <Route path="/dispatch" element={<Navigate to="/fleet" replace />} />
           <Route path="/orders" element={<AdminOrdersPage />} />
           <Route path="/promotions" element={<AdminPromotionsPage />} />
+          <Route path="/customers" element={<AdminCustomersPage />} />
           <Route path="/media" element={<AdminMediaPage />} />
           <Route path="/finance" element={<AdminFinancePage />} />
           <Route path="/financial-governance" element={<Navigate to="/finance" replace />} />

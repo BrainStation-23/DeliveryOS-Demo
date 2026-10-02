@@ -19,7 +19,7 @@
 - **Rules & Standards**: [`context_docs/AGENT_RULES.md`](./context_docs/AGENT_RULES.md) (authoritative governance & DoD)
 - **Feature Catalog**: [`FEATURES.md`](./FEATURES.md) (granular capability index + test traceability)
 - **Roadmap & Changelog**: [`CHANGELOG.md`](./CHANGELOG.md) (milestone tracker & SemVer release history)
-- **ADR Index**: [`context_docs/architecture-decision-records/README.md`](./context_docs/architecture-decision-records/README.md) (`ADR-001` through `ADR-015`)
+- **ADR Index**: [`context_docs/architecture-decision-records/README.md`](./context_docs/architecture-decision-records/README.md) (`ADR-001` through `ADR-018`)
 - **BRD Suite**: [`context_docs/business-requirements-documents/README.md`](./context_docs/business-requirements-documents/README.md) (`BRD-00` through `BRD-07`)
 - **TID Suite**: [`context_docs/technical-implementation-documents/README.md`](./context_docs/technical-implementation-documents/README.md) (`TID-01` through `TID-07`)
 

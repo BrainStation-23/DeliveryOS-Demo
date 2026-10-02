@@ -14,14 +14,30 @@ import 'widgets/search_item_card.dart';
 import 'widgets/search_store_card.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({super.key});
+  /// Optional seed query (e.g. a banner deeplink landing on a category name).
+  final String? initialQuery;
+
+  const SearchScreen({super.key, this.initialQuery});
 
   @override
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
-  final TextEditingController _controller = TextEditingController();
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialQuery);
+    final seed = widget.initialQuery?.trim();
+    if (seed != null && seed.isNotEmpty) {
+      // Deeplink seeds run once on mount so the results are visible immediately.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(searchProvider.notifier).onQueryChanged(seed);
+      });
+    }
+  }
 
   @override
   void dispose() {

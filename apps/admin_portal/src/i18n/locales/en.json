@@ -21,12 +21,14 @@
     "admin": {
       "dashboard": "Overview",
       "vendors": "Merchants & Outlets",
-      "dispatch": "Live Dispatch & Fleet",
+      "dispatch": "Rider Fleet",
       "orders": "Order History",
       "promotions": "Coupons & Banners",
       "media": "Media Library",
       "finance": "Financial Governance",
-      "settings": "System Settings"
+      "settings": "System Settings",
+      "fleet": "Rider Fleet",
+      "customers": "Customers"
     }
   },
   "admin": {

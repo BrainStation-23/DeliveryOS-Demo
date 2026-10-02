@@ -42,17 +42,21 @@ export const DEFAULT_DELIVERY_FEE_CONFIG: DeliveryFeeConfig = {
   perKmRate: 10.0,
 };
 
+/** Canonical fallback economics — exported so the admin settings surface and
+ *  the pricing engine can never drift into different "defaults". */
+export const DEFAULT_DELIVERY_ECONOMICS: DeliveryEconomicsConfig = {
+  rider_share_percent: 80,
+  eta_avg_speed_kmh: 25,
+  eta_fallback_minutes: 10,
+};
+
 @Injectable()
 export class DeliveryFeeService {
   private readonly logger = new Logger(DeliveryFeeService.name);
 
   private readonly defaultConfig: DeliveryFeeConfig = DEFAULT_DELIVERY_FEE_CONFIG;
 
-  private readonly defaultEconomics: DeliveryEconomicsConfig = {
-    rider_share_percent: 80,
-    eta_avg_speed_kmh: 25,
-    eta_fallback_minutes: 10,
-  };
+  private readonly defaultEconomics: DeliveryEconomicsConfig = DEFAULT_DELIVERY_ECONOMICS;
 
   private cachedFeeConfig: { config: DeliveryFeeConfig; expiresAt: number } | null = null;
   private cachedEconomics: { config: DeliveryEconomicsConfig; expiresAt: number } | null = null;

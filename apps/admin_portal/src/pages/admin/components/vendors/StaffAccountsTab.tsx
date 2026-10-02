@@ -8,6 +8,7 @@ import { LoadingSpinner } from '../../../../components/ui/LoadingSpinner';
 import { EmptyState } from '../../../../components/common/EmptyState';
 import { QueryErrorBanner } from '../../../../components/common/QueryErrorBanner';
 import { ConfirmDialog } from '../../../../components/ui/ConfirmDialog';
+import { SearchInput } from '../../../../components/common/SearchInput';
 import { extractApiError } from '../../../../utils/apiError';
 import { StaffProfileDialog } from '../staff/StaffProfileDialog';
 
@@ -21,6 +22,7 @@ export const StaffAccountsTab: React.FC<StaffAccountsTabProps> = ({ onError }) =
   const [removeTarget, setRemoveTarget] = useState<AdminStaffAssignment | null>(null);
   const [profileTarget, setProfileTarget] = useState<AdminStaffAssignment | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data: staffRows = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-vendor-staff'],
@@ -38,10 +40,24 @@ export const StaffAccountsTab: React.FC<StaffAccountsTabProps> = ({ onError }) =
     onError: (err) => onError(extractApiError(err, 'Staff removal failed.')),
   });
 
-  const safeRows = Array.isArray(staffRows) ? staffRows : [];
+  const term = searchQuery.trim().toLowerCase();
+  const safeRows = (Array.isArray(staffRows) ? staffRows : []).filter(
+    (row) =>
+      !term ||
+      row.fullName.toLowerCase().includes(term) ||
+      row.phone.includes(term) ||
+      (row.brandName || '').toLowerCase().includes(term) ||
+      (row.vendorName || '').toLowerCase().includes(term),
+  );
 
   return (
     <div className="space-y-4">
+      <SearchInput
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search staff by name, phone, brand, or outlet..."
+      />
+
       {isError ? (
         <QueryErrorBanner error={error} onRetry={() => refetch()} />
       ) : isLoading ? (

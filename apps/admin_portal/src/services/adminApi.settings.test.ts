@@ -53,7 +53,7 @@ describe('adminApi settings and settlements methods', () => {
         data: { data: { mode: 'VENDOR_FIRST', riderSearchTimeoutSeconds: 60 } },
       });
 
-      const result = await adminApi.updateOrderFlow('VENDOR_FIRST', 60);
+      const result = await adminApi.updateOrderFlow({ mode: 'VENDOR_FIRST', riderSearchTimeoutSeconds: 60 });
 
       expect(patchMock).toHaveBeenCalledWith('/api/v1/admin/settings/order-flow', {
         mode: 'VENDOR_FIRST',

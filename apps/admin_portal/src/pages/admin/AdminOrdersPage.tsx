@@ -13,10 +13,12 @@ import { useSocketQueryInvalidation } from '../../hooks/useSocketSubscription';
 import { OrderDetailsModal } from '../../components/orders/OrderDetailsModal';
 import { ForceAssignModal } from '../../components/orders/ForceAssignModal';
 import { CancelOrderModal } from '../../components/orders/CancelOrderModal';
-import { OrderLifecycleStageId, filterOrdersByQuery } from './components/orders/orderFilters';
-import { DatePreset, resolveDateRange } from './components/orders/orderDateRange';
+import { OrderLifecycleStageId } from './components/orders/orderFilters';
+import { DatePreset, resolveDateRange } from '../../utils/dateRange';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { OrderLifecycleTabs } from './components/orders/OrderLifecycleTabs';
-import { OrderDateFilterToolbar } from './components/orders/OrderDateFilterToolbar';
+import { DateRangeFilterToolbar } from '../../components/common/DateRangeFilterToolbar';
+import { OrderStatusCards } from './components/orders/OrderStatusCards';
 import { OrderDeepLinkBanner } from './components/orders/OrderDeepLinkBanner';
 import { OrdersTable } from './components/orders/OrdersTable';
 
@@ -50,12 +52,23 @@ export const AdminOrdersPage: React.FC = () => {
     [datePreset, customStartDate, customEndDate],
   );
 
+  const debouncedSearch = useDebouncedValue(searchQuery);
+
   const { data: ordersData, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['admin-orders', selectedStatus, page, searchQuery, datePreset, dateFromIso, dateToIso],
-    queryFn: () => adminApi.getOrders(selectedStatus, page, 20, searchQuery, dateFromIso, dateToIso),
+    queryKey: ['admin-orders', selectedStatus, page, debouncedSearch, datePreset, dateFromIso, dateToIso],
+    queryFn: () => adminApi.getOrders(selectedStatus, page, 20, debouncedSearch, dateFromIso, dateToIso),
     refetchInterval: 30000,
     placeholderData: (previous) => previous,
   });
+  // Status-mix cards honor the same date window + search as the list itself.
+  const { data: statusSummary, isLoading: isSummaryLoading } = useQuery({
+    queryKey: ['admin-orders-summary', debouncedSearch, datePreset, dateFromIso, dateToIso],
+    queryFn: () =>
+      adminApi.getOrdersStatusSummary({ dateFrom: dateFromIso, dateTo: dateToIso, search: debouncedSearch }),
+    placeholderData: (previous) => previous,
+  });
+  useSocketQueryInvalidation(ORDER_SOCKET_EVENTS, [['admin-orders-summary']]);
+
   const orders: AdminOrder[] = Array.isArray(ordersData)
     ? ordersData
     : (Array.isArray(ordersData?.items) ? ordersData.items : []);
@@ -73,7 +86,6 @@ export const AdminOrdersPage: React.FC = () => {
   const availableRiders = safeFleet.filter((r) => Boolean(r && r.isOnline));
 
   const safeOrders = Array.isArray(orders) ? orders : [];
-  const filteredOrders = filterOrdersByQuery(safeOrders, searchQuery);
 
   useEffect(() => {
     if (orderNumberParam) {
@@ -157,6 +169,17 @@ export const AdminOrdersPage: React.FC = () => {
         }
       />
 
+      <OrderStatusCards
+        counts={statusSummary?.counts ?? {}}
+        total={statusSummary?.total ?? 0}
+        selected={selectedStatus}
+        onSelect={(status) => {
+          setPage(1);
+          setSelectedStatus(status);
+        }}
+        isLoading={isSummaryLoading}
+      />
+
       <OrderLifecycleTabs
         selected={selectedStatus}
         onChange={(stage: OrderLifecycleStageId) => {
@@ -165,7 +188,7 @@ export const AdminOrdersPage: React.FC = () => {
         }}
       />
 
-      <OrderDateFilterToolbar
+      <DateRangeFilterToolbar
         datePreset={datePreset}
         onDatePresetChange={(preset) => {
           setPage(1);
@@ -214,7 +237,7 @@ export const AdminOrdersPage: React.FC = () => {
             )}
           </div>
           <div className="text-xs text-slate-500">
-            Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{filteredOrders.length}</span> of{' '}
+            Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{safeOrders.length}</span> of{' '}
             <span className="font-semibold text-slate-900 dark:text-slate-100">{totalOrders}</span> live orders
           </div>
         </div>
@@ -235,7 +258,7 @@ export const AdminOrdersPage: React.FC = () => {
           </div>
         ) : (
           <OrdersTable
-            orders={filteredOrders}
+            orders={safeOrders}
             page={page}
             totalPages={totalPages}
             totalItems={totalOrders}

@@ -8,9 +8,8 @@ import {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { TrackingGateway } from '../realtime/tracking.gateway';
-import { OrderFlowService } from '../order-flow/order-flow.service';
 import { OrderFlowMode } from '../order-flow/dto/update-order-flow.dto';
-import { PaginatedResult, toPaginatedResult } from '../../common/dto/pagination.dto';
+import { PaginatedResult, PaginationQueryDto, toPaginatedResult } from '../../common/dto/pagination.dto';
 
 export interface LiveOrderView {
   id: string;
@@ -57,7 +56,7 @@ import {
 } from '@prisma/client';
 import { OrderService } from '../orders/order.service';
 import { AdminCancelOrderDto } from './dto/admin-cancel-order.dto';
-import { DeliveryFeeConfig, DeliveryFeeService, DEFAULT_DELIVERY_FEE_CONFIG, normalizeDeliveryFeeConfig } from '../promotions/pricing/delivery-fee.service';
+import { DeliveryFeeConfig, DeliveryFeeService, DEFAULT_DELIVERY_ECONOMICS, DEFAULT_DELIVERY_FEE_CONFIG, DeliveryEconomicsConfig, normalizeDeliveryFeeConfig } from '../promotions/pricing/delivery-fee.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GetLiveOrdersQueryDto } from './dto/admin-governance.dto';
 import { startOfRegionToday } from '../../common/utils/region-time';
@@ -75,7 +74,6 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly trackingGateway: TrackingGateway,
-    private readonly orderFlowService: OrderFlowService,
     private readonly orderService: OrderService,
     private readonly deliveryFeeService: DeliveryFeeService,
     private readonly notificationsService: NotificationsService,
@@ -569,17 +567,20 @@ export class AdminService {
     imageUrl: string;
     linkType?: BannerLinkType;
     targetId?: string;
+    targetUrl?: string;
     sortOrder?: number;
     isActive?: boolean;
     startsAt?: Date;
     endsAt?: Date;
   }) {
+    await this.validateBannerTarget(data);
     return this.prisma.banner.create({
       data: {
         title: data.title,
         imageUrl: data.imageUrl,
         linkType: data.linkType || BannerLinkType.OUTLET,
         targetId: data.targetId || null,
+        targetUrl: data.targetUrl || null,
         sortOrder: data.sortOrder || 0,
         isActive: data.isActive !== undefined ? data.isActive : true,
         startsAt: data.startsAt || new Date(),
@@ -595,6 +596,7 @@ export class AdminService {
       imageUrl?: string;
       linkType?: BannerLinkType;
       targetId?: string;
+      targetUrl?: string;
       sortOrder?: number;
       isActive?: boolean;
       startsAt?: Date;
@@ -604,10 +606,42 @@ export class AdminService {
     const banner = await this.prisma.banner.findUnique({ where: { id } });
     if (!banner) throw new NotFoundException('Banner not found');
 
+    await this.validateBannerTarget(data, banner);
+
     return this.prisma.banner.update({
       where: { id },
       data,
     });
+  }
+
+  /** Deeplink integrity: an EXTERNAL banner must carry an absolute http(s)
+   *  URL; OUTLET/CATEGORY banners must reference an existing target so the
+   *  customer app can never be deeplinked into a dead screen. */
+  private async validateBannerTarget(
+    data: { linkType?: BannerLinkType; targetId?: string; targetUrl?: string },
+    existing?: { linkType: BannerLinkType; targetId: string | null; targetUrl: string | null },
+  ) {
+    const linkType = data.linkType ?? existing?.linkType ?? BannerLinkType.OUTLET;
+    const targetId = data.targetId ?? existing?.targetId ?? null;
+    const targetUrl = data.targetUrl ?? existing?.targetUrl ?? null;
+
+    if (linkType === BannerLinkType.EXTERNAL) {
+      if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) {
+        throw new BadRequestException('EXTERNAL banners require a valid absolute http(s) targetUrl');
+      }
+      return;
+    }
+
+    if (!targetId) {
+      throw new BadRequestException(`${linkType} banners require a targetId`);
+    }
+    if (linkType === BannerLinkType.OUTLET) {
+      const vendor = await this.prisma.vendor.findUnique({ where: { id: targetId }, select: { id: true } });
+      if (!vendor) throw new BadRequestException('Banner target outlet does not exist');
+    } else if (linkType === BannerLinkType.CATEGORY) {
+      const category = await this.prisma.category.findUnique({ where: { id: targetId }, select: { id: true } });
+      if (!category) throw new BadRequestException('Banner target category does not exist');
+    }
   }
 
   async deleteBanner(id: string) {
@@ -1212,6 +1246,42 @@ export class AdminService {
     });
   }
 
+  /**
+   * Hard product delete guarded by order history: line items freeze JSONB
+   * snapshots (ADR-008) but carry a required product FK, so any product that
+   * ever appeared on an order must be retired via isInStock instead.
+   */
+  async deleteProduct(productId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({
+        where: { id: productId },
+        include: { _count: { select: { orderItems: true } } },
+      });
+      if (!product) throw new NotFoundException('Product not found');
+
+      if (product._count.orderItems > 0) {
+        throw new ConflictException(
+          `"${product.name}" appears on ${product._count.orderItems} historical order line item(s) and cannot be deleted — mark it out of stock instead`,
+        );
+      }
+
+      const addonGroups = await tx.productAddonGroup.findMany({
+        where: { productId },
+        select: { id: true },
+      });
+      if (addonGroups.length > 0) {
+        await tx.productAddon.deleteMany({
+          where: { addonGroupId: { in: addonGroups.map((g) => g.id) } },
+        });
+      }
+      await tx.productAddonGroup.deleteMany({ where: { productId } });
+      await tx.productVariant.deleteMany({ where: { productId } });
+      await tx.product.delete({ where: { id: productId } });
+
+      return { id: productId, name: product.name };
+    });
+  }
+
   async updateVendorStaffAssignment(
     staffId: string,
     data: { isActive?: boolean; scope?: PermissionScope; brandId?: string; vendorId?: string },
@@ -1277,24 +1347,32 @@ export class AdminService {
     return updated;
   }
 
-  async searchBrands(search?: string) {
+  async searchBrands(search: string | undefined, pagination: PaginationQueryDto) {
     const term = search?.trim();
-    const brands = await this.prisma.vendorBrand.findMany({
-      where: term ? { name: { contains: term, mode: 'insensitive' } } : {},
-      include: {
-        _count: { select: { outlets: true, staff: true } },
-        // Brand-scoped owners carry vendorId=null, so they never surface in
-        // outlet-derived staff lists — resolve them straight from the brand.
-        staff: {
-          where: { scope: PermissionScope.ALL_OUTLETS_MASTER },
-          include: { user: { select: { id: true, fullName: true, phone: true, status: true } } },
-        },
-      },
-      orderBy: { name: 'asc' },
-      take: 50,
-    });
+    const where: Prisma.VendorBrandWhereInput = term
+      ? { name: { contains: term, mode: 'insensitive' } }
+      : {};
 
-    return brands.map((b) => {
+    const [brands, total] = await this.prisma.$transaction([
+      this.prisma.vendorBrand.findMany({
+        where,
+        include: {
+          _count: { select: { outlets: true, staff: true } },
+          // Brand-scoped owners carry vendorId=null, so they never surface in
+          // outlet-derived staff lists — resolve them straight from the brand.
+          staff: {
+            where: { scope: PermissionScope.ALL_OUTLETS_MASTER },
+            include: { user: { select: { id: true, fullName: true, phone: true, status: true } } },
+          },
+        },
+        orderBy: { name: 'asc' },
+        skip: pagination.skip,
+        take: pagination.limit,
+      }),
+      this.prisma.vendorBrand.count({ where }),
+    ]);
+
+    const items = brands.map((b) => {
       const ownerStaff = b.staff.find((s) => s.isActive) || b.staff[0];
       return {
         id: b.id,
@@ -1320,6 +1398,14 @@ export class AdminService {
           : null,
       };
     });
+
+    return {
+      items,
+      total,
+      page: pagination.page,
+      limit: pagination.limit,
+      totalPages: Math.max(1, Math.ceil(total / pagination.limit)),
+    };
   }
 
   /** Aggregated outlet detail powering the unified Outlet Page. */
@@ -1476,29 +1562,25 @@ export class AdminService {
   // 8. Platform System Settings
   // ===========================================================================
   async getSystemSettings() {
-    const [orderFlowSetting, deliveryFeeSetting] = await Promise.all([
+    const [orderFlowSetting, deliveryFeeSetting, economicsSetting] = await Promise.all([
       this.prisma.systemSetting.findUnique({ where: { key: 'order_flow_config' } }),
       this.prisma.systemSetting.findUnique({ where: { key: 'delivery_fee_config' } }),
+      this.prisma.systemSetting.findUnique({ where: { key: 'delivery_economics' } }),
     ]);
 
     return {
       orderFlow:
         (orderFlowSetting?.value as unknown as OrderFlowSettingPayload | null) || {
-        mode: OrderFlowMode.RIDER_FIRST,
-        rider_search_timeout_seconds: 90,
-      },
+          mode: OrderFlowMode.RIDER_FIRST,
+          rider_search_timeout_seconds: 90,
+        },
       deliveryFee: normalizeDeliveryFeeConfig(
         deliveryFeeSetting?.value as Record<string, unknown> | null,
         DEFAULT_DELIVERY_FEE_CONFIG,
       ),
+      deliveryEconomics: (economicsSetting?.value as unknown as DeliveryEconomicsConfig | null) ||
+        DEFAULT_DELIVERY_ECONOMICS,
     };
-  }
-
-  async updateOrderFlow(mode: OrderFlowMode, riderSearchTimeoutSeconds?: number) {
-    return this.orderFlowService.setOrderFlowConfig({
-      mode,
-      riderSearchTimeoutSeconds,
-    });
   }
 
   async updateDeliveryFeeMode(data: {
@@ -1536,6 +1618,32 @@ export class AdminService {
     this.deliveryFeeService.invalidateCache();
 
     return updated.value as unknown as DeliveryFeeConfig;
+  }
+
+  async updateDeliveryEconomics(data: {
+    riderSharePercent: number;
+    etaAvgSpeedKmh: number;
+    etaFallbackMinutes: number;
+  }): Promise<DeliveryEconomicsConfig> {
+    const payload: DeliveryEconomicsConfig = {
+      rider_share_percent: data.riderSharePercent,
+      eta_avg_speed_kmh: data.etaAvgSpeedKmh,
+      eta_fallback_minutes: data.etaFallbackMinutes,
+    };
+
+    await this.prisma.systemSetting.upsert({
+      where: { key: 'delivery_economics' },
+      update: { value: { ...payload } },
+      create: {
+        key: 'delivery_economics',
+        value: { ...payload },
+        description: 'Rider payout share of delivery fees and ETA computation economics',
+      },
+    });
+
+    this.deliveryFeeService.invalidateCache();
+
+    return payload;
   }
 
   // ===========================================================================
@@ -1640,46 +1748,8 @@ export class AdminService {
 
   // ===========================================================================
   // 10. Rider Fleet Approval & Governance
+  // (roster listing + detail live in AdminFleetService)
   // ===========================================================================
-  async getAllRiders(filters?: { approvalStatus?: 'PENDING' | 'APPROVED' | 'ALL'; isOnline?: boolean }) {
-    const where: Prisma.RiderWhereInput = {};
-    if (filters?.approvalStatus === 'PENDING') {
-      where.isApproved = false;
-    } else if (filters?.approvalStatus === 'APPROVED') {
-      where.isApproved = true;
-    }
-    if (filters?.isOnline !== undefined) {
-      where.isOnline = filters.isOnline;
-    }
-
-    const riders = await this.prisma.rider.findMany({
-      where,
-      include: {
-        user: { select: { id: true, fullName: true, phone: true, email: true, createdAt: true } },
-        _count: { select: { orders: true, trips: true } },
-      },
-      orderBy: { updatedAt: 'desc' },
-    });
-
-    return riders.map((r) => ({
-      id: r.id,
-      userId: r.userId,
-      fullName: r.user.fullName || 'Courier Partner',
-      phone: r.user.phone,
-      email: r.user.email,
-      vehicleType: r.vehicleType,
-      isOnline: r.isOnline,
-      isApproved: r.isApproved,
-      cashInHand: Number(r.cashInHand),
-      maxCashLimit: Number(r.maxCashLimit),
-      latitude: r.latitude,
-      longitude: r.longitude,
-      totalOrders: r._count.orders,
-      totalTrips: r._count.trips,
-      joinedAt: r.user.createdAt,
-    }));
-  }
-
   async setRiderApproval(riderId: string, isApproved: boolean) {
     const rider = await this.prisma.rider.findUnique({ where: { id: riderId } });
     if (!rider) throw new NotFoundException(`Rider with ID "${riderId}" not found`);

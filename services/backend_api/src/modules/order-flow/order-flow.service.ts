@@ -189,7 +189,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
     const nextValue = {
       mode: dto.mode,
       rider_search_timeout_seconds: dto.riderSearchTimeoutSeconds ?? existingValue.rider_search_timeout_seconds ?? 90,
-      stale_order_ttl_minutes: existingValue.stale_order_ttl_minutes ?? 60,
+      stale_order_ttl_minutes: dto.staleOrderTtlMinutes ?? existingValue.stale_order_ttl_minutes ?? 60,
       description:
         dto.mode === OrderFlowMode.RIDER_FIRST
           ? 'Zero Food Waste Mode: Secures rider before kitchen begins prep.'

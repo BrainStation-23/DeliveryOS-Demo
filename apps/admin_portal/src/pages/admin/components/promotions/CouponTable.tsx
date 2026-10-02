@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tag, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Tag, Plus, Trash2 } from 'lucide-react';
 import { AdminCoupon } from '../../../../services/adminApi';
 import { Badge } from '../../../../components/ui/Badge';
 import { Button } from '../../../../components/ui/Button';
@@ -13,6 +13,7 @@ interface CouponTableProps {
   error: unknown;
   onRetry: () => void;
   onToggle: (coupon: AdminCoupon) => void;
+  onEdit: (coupon: AdminCoupon) => void;
   onDelete: (coupon: AdminCoupon) => void;
   onAdd: () => void;
 }
@@ -23,6 +24,7 @@ export const CouponTable: React.FC<CouponTableProps> = ({
   error,
   onRetry,
   onToggle,
+  onEdit,
   onDelete,
   onAdd,
 }) => {
@@ -107,6 +109,15 @@ export const CouponTable: React.FC<CouponTableProps> = ({
                       onClick={() => onToggle(coupon)}
                     >
                       {coupon.isActive ? 'Pause' : 'Activate'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs h-7 px-2 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-950/40"
+                      onClick={() => onEdit(coupon)}
+                      leftIcon={<Pencil className="h-3.5 w-3.5" />}
+                    >
+                      Edit
                     </Button>
                     <Button
                       variant="ghost"

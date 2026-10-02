@@ -8,6 +8,7 @@ import {
   Plus,
   Power,
   Store,
+  Trash2,
   UserRound,
   Users,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/common/PageHeader';
 import { EmptyState } from '../../components/common/EmptyState';
 import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { resolveMediaUrl } from '../../utils/mediaUrl';
 import { formatCurrency } from '../../utils/formatters';
 import { extractApiError } from '../../utils/apiError';
@@ -42,6 +44,7 @@ export const AdminOutletPage: React.FC = () => {
   const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
   const [productCreateCategory, setProductCreateCategory] = useState<string | undefined>(undefined);
   const [isHoursEditorOpen, setIsHoursEditorOpen] = useState(false);
+  const [deleteProductTarget, setDeleteProductTarget] = useState<AdminCatalogProduct | null>(null);
 
   const {
     data: outlet,
@@ -63,6 +66,17 @@ export const AdminOutletPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
     },
     onError: (err) => setActionError(extractApiError(err, 'Failed to update outlet status.')),
+  });
+
+  const deleteProductMutation = useMutation({
+    mutationFn: (productId: string) => adminApi.deleteProduct(productId),
+    onSuccess: () => {
+      setActionError(null);
+      setDeleteProductTarget(null);
+      queryClient.invalidateQueries({ queryKey: ['admin-outlet-detail', outletId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
+    },
+    onError: (err) => setActionError(extractApiError(err, 'Failed to delete the product.')),
   });
 
   const updateOutletMutation = useMutation({
@@ -309,9 +323,29 @@ export const AdminOutletPage: React.FC = () => {
                               </div>
                             </div>
                           </div>
-                          <span className="text-xs font-bold text-slate-900 dark:text-slate-100 shrink-0">
-                            {formatCurrency(product.variants[0]?.price ?? 0)}
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                              {formatCurrency(product.variants[0]?.price ?? 0)}
+                            </span>
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteProductTarget(product);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.stopPropagation();
+                                  setDeleteProductTarget(product);
+                                }
+                              }}
+                              className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                              title="Delete product"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </span>
+                          </div>
                         </button>
                       ))
                     )}
@@ -347,6 +381,33 @@ export const AdminOutletPage: React.FC = () => {
           })}
         </div>
       </section>
+
+      <ConfirmDialog
+        isOpen={!!deleteProductTarget}
+        title="Delete Product?"
+        variant="danger"
+        confirmLabel="Delete Product"
+        message={
+          deleteProductTarget && (
+            <>
+              <p>
+                Permanently delete <strong className="text-slate-900 dark:text-slate-100">{deleteProductTarget.name}</strong>{' '}
+                and all its variations and add-ons?
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Products that already appear on customer orders cannot be deleted — mark them out of stock instead.
+              </p>
+            </>
+          )
+        }
+        isPending={deleteProductMutation.isPending}
+        onConfirm={() => {
+          if (deleteProductTarget) {
+            deleteProductMutation.mutate(deleteProductTarget.id);
+          }
+        }}
+        onCancel={() => setDeleteProductTarget(null)}
+      />
 
       <StaffProfileDialog
         assignment={staffDialogAssignment}

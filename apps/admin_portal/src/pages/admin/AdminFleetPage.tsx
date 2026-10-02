@@ -1,34 +1,42 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Navigation, RefreshCw } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Bike, RefreshCw } from 'lucide-react';
 import adminApi, { AdminOrder, FleetRider } from '../../services/adminApi';
 import { getSocket } from '../../services/socket';
 import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
 import { PageHeader } from '../../components/common/PageHeader';
 import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
-import { extractApiError } from '../../utils/apiError';
-import {
-  FleetApprovalFilter,
-  FleetStatusFilter,
-  computeFleetStats,
-  filterFleet,
-} from './components/dispatch/fleetFilters';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { computeFleetStats } from './components/dispatch/fleetFilters';
 import { FleetStatCards } from './components/dispatch/FleetStatCards';
 import { FleetRadarPanel, EscalationAlert } from './components/dispatch/FleetRadarPanel';
-import { FleetRosterPanel } from './components/dispatch/FleetRosterPanel';
 import { UnassignedPoolPanel } from './components/dispatch/UnassignedPoolPanel';
-import { CashLimitModal } from './components/dispatch/CashLimitModal';
+import {
+  FleetRosterTable,
+  FleetRosterStatusFilter,
+  FleetRosterApprovalFilter,
+} from './components/dispatch/FleetRosterTable';
+import { RiderDetailsDrawer } from './components/dispatch/RiderDetailsDrawer';
 
-export const AdminDispatchPage: React.FC = () => {
+const ROSTER_PAGE_SIZE = 20;
+
+/**
+ * Unified Rider Fleet command centre: live reflection cards, geographic radar,
+ * the dispatch unassigned pool, and a server-paginated searchable roster with
+ * the unified courier details drawer.
+ */
+export const AdminFleetPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [statusFilter, setStatusFilter] = useState<FleetStatusFilter>('ALL');
-  const [approvalFilter, setApprovalFilter] = useState<FleetApprovalFilter>('ALL');
+  const [statusFilter, setStatusFilter] = useState<FleetRosterStatusFilter>('ALL');
+  const [approvalFilter, setApprovalFilter] = useState<FleetRosterApprovalFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRider, setSelectedRider] = useState<FleetRider | null>(null);
-  const [isCashModalOpen, setIsCashModalOpen] = useState(false);
+  const [rosterPage, setRosterPage] = useState(1);
+  const [detailsRiderId, setDetailsRiderId] = useState<string | null>(null);
   const [escalationAlert, setEscalationAlert] = useState<EscalationAlert | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
+
+  const debouncedSearch = useDebouncedValue(searchQuery);
 
   const { data: fleet = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-fleet'],
@@ -42,6 +50,24 @@ export const AdminDispatchPage: React.FC = () => {
     refetchInterval: 30000,
   });
 
+  const { data: roster, isLoading: isRosterLoading } = useQuery({
+    queryKey: ['admin-riders', rosterPage, debouncedSearch, statusFilter, approvalFilter],
+    queryFn: () =>
+      adminApi.getRiderRoster({
+        page: rosterPage,
+        limit: ROSTER_PAGE_SIZE,
+        search: debouncedSearch,
+        approvalStatus: approvalFilter,
+        ...(statusFilter === 'ONLINE'
+          ? { isOnline: 'true' as const }
+          : statusFilter === 'OFFLINE'
+            ? { isOnline: 'false' as const }
+            : {}),
+      }),
+    refetchInterval: 30000,
+    placeholderData: (previous) => previous,
+  });
+
   const safeFleet = Array.isArray(fleet) ? fleet : [];
   const unassignedOrders: AdminOrder[] = Array.isArray(unassignedData)
     ? unassignedData
@@ -49,7 +75,6 @@ export const AdminDispatchPage: React.FC = () => {
   const safeUnassignedOrders = Array.isArray(unassignedOrders) ? unassignedOrders : [];
 
   const stats = computeFleetStats(safeFleet);
-  const filteredFleet = filterFleet(safeFleet, { statusFilter, approvalFilter, searchQuery });
 
   const lastLocationPatchMapRef = useRef<Map<string, number>>(new Map());
 
@@ -59,6 +84,7 @@ export const AdminDispatchPage: React.FC = () => {
     const handleFleetAndOrderEvent = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-fleet'] });
       queryClient.invalidateQueries({ queryKey: ['admin-unassigned-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-riders'] });
     };
 
     // GPS events stream continuously — patch the cached fleet rows directly
@@ -119,34 +145,12 @@ export const AdminDispatchPage: React.FC = () => {
     };
   }, [queryClient]);
 
-  const updateCashLimitMutation = useMutation({
-    mutationFn: ({ id, limit }: { id: string; limit: number }) =>
-      adminApi.updateRiderCashLimit(id, limit),
-    onSuccess: () => {
-      setMutationError(null);
-      queryClient.invalidateQueries({ queryKey: ['admin-fleet'] });
-      setIsCashModalOpen(false);
-      setSelectedRider(null);
-    },
-    onError: (err) => setMutationError(extractApiError(err, 'Failed to update the cash safety limit.')),
-  });
-
-  const toggleApprovalMutation = useMutation({
-    mutationFn: ({ id, isApproved }: { id: string; isApproved: boolean }) =>
-      adminApi.setRiderApproval(id, isApproved),
-    onSuccess: () => {
-      setMutationError(null);
-      queryClient.invalidateQueries({ queryKey: ['admin-fleet'] });
-    },
-    onError: (err) => setMutationError(extractApiError(err, 'Courier approval update failed.')),
-  });
-
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Live Fleet Radar & Dispatch"
-        subtitle="Real-time courier GPS oversight, active trips, and COD cash safety thresholds"
-        icon={Navigation}
+        title="Rider Fleet"
+        subtitle="Live courier GPS radar, fleet reflection cards, dispatch pool, and per-courier governance"
+        icon={Bike}
         actions={
           <Button
             variant="outline"
@@ -170,47 +174,48 @@ export const AdminDispatchPage: React.FC = () => {
         totalRiders={fleet.length}
         isLoading={isLoading}
         applicantsFilterActive={approvalFilter === 'PENDING'}
-        onToggleApplicantsFilter={() => setApprovalFilter(approvalFilter === 'PENDING' ? 'ALL' : 'PENDING')}
+        onToggleApplicantsFilter={() => {
+          setRosterPage(1);
+          setApprovalFilter(approvalFilter === 'PENDING' ? 'ALL' : 'PENDING');
+        }}
       />
 
       <FleetRadarPanel
         fleet={safeFleet}
         unassignedOrders={safeUnassignedOrders}
         onlineCount={stats.onlineCount}
-        selectedRiderId={selectedRider?.id}
-        onSelectRider={(riderId) => {
-          const found = safeFleet.find((r) => r.id === riderId);
-          if (found) setSelectedRider(found);
-        }}
+        selectedRiderId={detailsRiderId ?? undefined}
+        onSelectRider={(riderId) => setDetailsRiderId(riderId)}
         escalation={escalationAlert}
         onDismissEscalation={() => setEscalationAlert(null)}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4">
-          <FleetRosterPanel
-            riders={filteredFleet}
-            isLoading={isLoading}
+          <FleetRosterTable
+            rows={roster?.items ?? []}
+            total={roster?.total ?? 0}
+            page={roster?.page ?? rosterPage}
+            totalPages={roster?.totalPages ?? 1}
+            isLoading={isRosterLoading}
+            searchQuery={searchQuery}
             statusFilter={statusFilter}
             approvalFilter={approvalFilter}
-            searchQuery={searchQuery}
             pendingApplicantsCount={stats.pendingApplicantsCount}
-            approvalTogglePendingFor={
-              toggleApprovalMutation.isPending ? toggleApprovalMutation.variables?.id ?? null : null
-            }
-            onStatusFilterChange={setStatusFilter}
-            onApprovalFilterChange={setApprovalFilter}
-            onSearchQueryChange={setSearchQuery}
-            onSetCashLimit={(rider) => {
-              setSelectedRider(rider);
-              setIsCashModalOpen(true);
+            onSearchQueryChange={(value) => {
+              setSearchQuery(value);
+              setRosterPage(1);
             }}
-            onToggleApproval={(rider) =>
-              toggleApprovalMutation.mutate({
-                id: rider.id,
-                isApproved: rider.isApproved === false ? true : false,
-              })
-            }
+            onStatusFilterChange={(status) => {
+              setStatusFilter(status);
+              setRosterPage(1);
+            }}
+            onApprovalFilterChange={(approval) => {
+              setApprovalFilter(approval);
+              setRosterPage(1);
+            }}
+            onPageChange={setRosterPage}
+            onOpenDetails={setDetailsRiderId}
           />
         </div>
 
@@ -221,14 +226,11 @@ export const AdminDispatchPage: React.FC = () => {
         />
       </div>
 
-      {selectedRider && isCashModalOpen && (
-        <CashLimitModal
-          rider={selectedRider}
-          isSubmitting={updateCashLimitMutation.isPending}
-          onClose={() => setIsCashModalOpen(false)}
-          onSubmit={(limit) => updateCashLimitMutation.mutate({ id: selectedRider.id, limit })}
-        />
-      )}
+      <RiderDetailsDrawer
+        riderId={detailsRiderId}
+        onClose={() => setDetailsRiderId(null)}
+        onError={setMutationError}
+      />
     </div>
   );
 };

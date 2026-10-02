@@ -1,12 +1,21 @@
-import React, { useState } from 'react';
-import { Shuffle, Truck, Store, Check } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Shuffle, Truck, Store, Check, Save } from 'lucide-react';
 import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+
+export interface DispatchTimingConfig {
+  riderSearchTimeoutSeconds: number;
+  staleOrderTtlMinutes: number;
+}
 
 export interface OrderFlowSettingsCardProps {
   currentMode: 'RIDER_FIRST' | 'VENDOR_FIRST';
+  timing: DispatchTimingConfig | null;
   isUpdating: boolean;
   onUpdateMode: (mode: 'RIDER_FIRST' | 'VENDOR_FIRST') => void;
+  onUpdateTiming: (timing: DispatchTimingConfig) => void;
 }
 
 const MODE_LABELS: Record<'RIDER_FIRST' | 'VENDOR_FIRST', string> = {
@@ -16,10 +25,27 @@ const MODE_LABELS: Record<'RIDER_FIRST' | 'VENDOR_FIRST', string> = {
 
 export const OrderFlowSettingsCard: React.FC<OrderFlowSettingsCardProps> = ({
   currentMode,
+  timing,
   isUpdating,
   onUpdateMode,
+  onUpdateTiming,
 }) => {
   const [pendingMode, setPendingMode] = useState<'RIDER_FIRST' | 'VENDOR_FIRST' | null>(null);
+  const [timeoutInput, setTimeoutInput] = useState('');
+  const [staleTtlInput, setStaleTtlInput] = useState('');
+  const [isTimingConfirmOpen, setIsTimingConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    if (timing) {
+      setTimeoutInput(String(timing.riderSearchTimeoutSeconds));
+      setStaleTtlInput(String(timing.staleOrderTtlMinutes));
+    }
+  }, [timing]);
+
+  const timingDirty =
+    !!timing &&
+    (timeoutInput !== String(timing.riderSearchTimeoutSeconds) ||
+      staleTtlInput !== String(timing.staleOrderTtlMinutes));
 
   const requestModeSwitch = (mode: 'RIDER_FIRST' | 'VENDOR_FIRST') => {
     if (mode !== currentMode && !isUpdating) {
@@ -124,6 +150,76 @@ export const OrderFlowSettingsCard: React.FC<OrderFlowSettingsCardProps> = ({
           </div>
         </button>
       </div>
+
+      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800 space-y-3">
+        <div>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Dispatch Timing</h3>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+            Rider broadcast timeout before the dispatch escalation widens the search radius, and the sweep that
+            auto-cancels stuck unassigned orders.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Rider Search Timeout (seconds, 15–600)
+            </label>
+            <Input
+              type="number"
+              value={timeoutInput}
+              onChange={(e) => setTimeoutInput(e.target.value)}
+              placeholder="90"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Stale Order Auto-Cancel (minutes, 5–720)
+            </label>
+            <Input
+              type="number"
+              value={staleTtlInput}
+              onChange={(e) => setStaleTtlInput(e.target.value)}
+              placeholder="60"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            disabled={!timingDirty}
+            onClick={() => setIsTimingConfirmOpen(true)}
+            leftIcon={<Save className="h-3.5 w-3.5" />}
+          >
+            Save Timing
+          </Button>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        isOpen={isTimingConfirmOpen}
+        title="Update Dispatch Timing?"
+        confirmLabel="Apply Timing"
+        message={
+          <>
+            <p>
+              Set the rider search timeout to <strong>{timeoutInput || '—'}s</strong> and the stale-order
+              auto-cancel sweep to <strong>{staleTtlInput || '—'} minutes</strong>?
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Timeout changes affect the next dispatch broadcast; the sweep picks up the new TTL on its next pass.
+            </p>
+          </>
+        }
+        isPending={isUpdating}
+        onConfirm={() => {
+          onUpdateTiming({
+            riderSearchTimeoutSeconds: parseInt(timeoutInput, 10) || 90,
+            staleOrderTtlMinutes: parseInt(staleTtlInput, 10) || 60,
+          });
+          setIsTimingConfirmOpen(false);
+        }}
+        onCancel={() => setIsTimingConfirmOpen(false)}
+      />
 
       <ConfirmDialog
         isOpen={pendingMode !== null}

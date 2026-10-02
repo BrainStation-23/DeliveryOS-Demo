@@ -25,9 +25,16 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { IMAGE_UPLOAD_INTERCEPTOR_OPTIONS } from '../../common/storage/image-upload.options';
 import { UserRole } from '@prisma/client';
 import { AdminService } from './admin.service';
+import { AdminFleetService } from './admin-fleet.service';
+import { AdminFinanceService, FinanceLedgerRow } from './admin-finance.service';
 import { MediaService } from '../media/media.service';
 import { AdminCancelOrderDto } from './dto/admin-cancel-order.dto';
 import { VerifyCashDepositDto } from './dto/verify-cash-deposit.dto';
+import {
+  GetBrandsQueryDto,
+  GetFinanceLedgerQueryDto,
+  UpdateDeliveryEconomicsDto,
+} from './dto/admin-insights.dto';
 import {
   AssignVendorStaffDto,
   CreateBannerDto,
@@ -63,6 +70,8 @@ import {
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
+    private readonly adminFleetService: AdminFleetService,
+    private readonly adminFinanceService: AdminFinanceService,
     private readonly mediaService: MediaService,
   ) {}
 
@@ -315,6 +324,18 @@ export class AdminController {
     };
   }
 
+  @Delete('products/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a catalog product (blocked with 409 while historical order line items reference it)' })
+  @ApiResponse({ status: 409, description: 'Product is referenced by order history' })
+  async deleteProduct(@Param('id') productId: string) {
+    const data = await this.adminService.deleteProduct(productId);
+    return {
+      message: `Product "${data.name}" deleted successfully`,
+      data,
+    };
+  }
+
   @Post('vendors')
   @ApiOperation({ summary: 'Directly create new vendor outlet' })
   async createVendor(@Body() dto: CreateVendorDto) {
@@ -357,11 +378,11 @@ export class AdminController {
 
   // 6b. Brand Governance
   @Get('brands')
-  @ApiOperation({ summary: 'List vendor brands with outlet/staff counts (optional name search)' })
-  async getBrands(@Query('search') search?: string) {
-    const data = await this.adminService.searchBrands(search);
+  @ApiOperation({ summary: 'Paginated vendor brands with outlet/staff counts (optional name search)' })
+  async getBrands(@Query() query: GetBrandsQueryDto = new GetBrandsQueryDto()) {
+    const data = await this.adminService.searchBrands(query.search, query);
     return {
-      message: `Retrieved ${data.length} brands`,
+      message: `Retrieved ${data.items.length} of ${data.total} brands`,
       data,
     };
   }
@@ -507,6 +528,16 @@ export class AdminController {
     };
   }
 
+  @Patch('settings/delivery-economics')
+  @ApiOperation({ summary: 'Update rider payout share and ETA economics (pricing cache invalidated immediately)' })
+  async updateDeliveryEconomics(@Body() dto: UpdateDeliveryEconomicsDto) {
+    const updated = await this.adminService.updateDeliveryEconomics(dto);
+    return {
+      message: 'Delivery economics updated successfully',
+      data: updated,
+    };
+  }
+
   // 9. Financial Settlements & CSV Export
   @Get('finance/settlement-export')
   @ApiOperation({ summary: 'Export financial vendor settlement statements as CSV or JSON' })
@@ -538,11 +569,22 @@ export class AdminController {
 
   // 10. Rider Fleet Approval & Governance
   @Get('riders')
-  @ApiOperation({ summary: 'List all courier partners with optional approval and online status filters' })
+  @ApiOperation({ summary: 'Paginated courier roster with approval/online filters, search, and per-rider performance metrics' })
   async getRiders(@Query() query: GetRidersQueryDto = new GetRidersQueryDto()) {
-    const data = await this.adminService.getAllRiders({ approvalStatus: query.approvalStatus, isOnline: query.isOnlineParsed });
+    const result = await this.adminFleetService.getRidersPage(query);
     return {
-      message: `Retrieved ${data.length} delivery couriers`,
+      message: `Retrieved ${result.items.length} of ${result.total} delivery couriers`,
+      data: result,
+    };
+  }
+
+  @Get('riders/:id')
+  @ApiOperation({ summary: 'Unified courier detail: profile, cash state, lifetime stats, active order, recent orders and deposits' })
+  @ApiResponse({ status: 404, description: 'Rider not found' })
+  async getRiderDetail(@Param('id') riderId: string) {
+    const data = await this.adminFleetService.getRiderDetail(riderId);
+    return {
+      message: `Retrieved courier profile for ${data.rider.fullName}`,
       data,
     };
   }
@@ -585,6 +627,39 @@ export class AdminController {
       message: `Retrieved ${data.length} cash deposit records`,
       data,
     };
+  }
+
+  // 12b. Unified Per-Order Financial Ledger
+  @Get('finance/ledger')
+  @ApiOperation({ summary: 'Paginated per-order ledger joining commission and rider trip entries with summary totals' })
+  async getFinanceLedger(@Query() query: GetFinanceLedgerQueryDto = new GetFinanceLedgerQueryDto()) {
+    const result = await this.adminFinanceService.getFinanceLedger(query);
+    return {
+      message: `Retrieved ${result.items.length} of ${result.total} ledger entries`,
+      data: result,
+    };
+  }
+
+  @Get('finance/ledger/export')
+  @ApiOperation({ summary: 'Export the unified per-order financial ledger as CSV (honors the same filters)' })
+  async exportFinanceLedger(
+    @Query() query: GetFinanceLedgerQueryDto = new GetFinanceLedgerQueryDto(),
+    @Res() res: Response,
+  ) {
+    const rows: FinanceLedgerRow[] = [];
+    // Page through the filtered set so exports are not silently capped at one page.
+    for (let page = 1; ; page += 1) {
+      const pageQuery = Object.assign(new GetFinanceLedgerQueryDto(), query, { page });
+      const result = await this.adminFinanceService.getFinanceLedger(pageQuery);
+      rows.push(...result.items);
+      if (page >= result.totalPages || result.items.length === 0) break;
+    }
+
+    const csvContent = this.adminFinanceService.generateLedgerCsv(rows);
+    const filename = `finance-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.status(200).send(csvContent);
   }
 
   @Patch('finance/cash-deposits/:id/verify')

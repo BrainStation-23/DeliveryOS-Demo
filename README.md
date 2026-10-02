@@ -269,3 +269,6 @@ All authoritative system rules, business workflows, technical specifications, an
    - [`ADR-013`](./context_docs/architecture-decision-records/ADR-013-real-world-integration-stack.md): Real-World Integration Stack — SMS, SSLCommerz, FCM Push, Token Rotation & Background Telemetry
    - [`ADR-014`](./context_docs/architecture-decision-records/ADR-014-unit-tests-and-error-monitoring.md): Unit Test Toolchain (Jest) & Error Monitoring (Sentry)
    - [`ADR-015`](./context_docs/architecture-decision-records/ADR-015-horizontal-scaling-readiness.md): Horizontal-Scaling Readiness & Data Safety
+   - [`ADR-016`](./context_docs/architecture-decision-records/ADR-016-centralized-media-library-and-client-side-editing.md): Centralized Media Library & Client-Side Editing
+   - [`ADR-017`](./context_docs/architecture-decision-records/ADR-017-absolute-variation-pricing-and-brand-mandatory-outlets.md): Absolute Variation Pricing & Brand-Mandatory Outlets
+   - [`ADR-018`](./context_docs/architecture-decision-records/ADR-018-admin-analytics-read-layer-and-banner-deeplinks.md): Admin Analytics Read Layer & Banner Deeplinks

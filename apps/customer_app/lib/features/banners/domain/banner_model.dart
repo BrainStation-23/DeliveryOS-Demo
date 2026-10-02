@@ -8,6 +8,8 @@ class BannerModel {
   final String imageUrl;
   final String? actionType;
   final String? actionValue;
+  final String? targetUrl;
+  final String? targetName;
   final String? deepLink;
   final int sortOrder;
 
@@ -18,6 +20,8 @@ class BannerModel {
     required this.imageUrl,
     this.actionType,
     this.actionValue,
+    this.targetUrl,
+    this.targetName,
     this.deepLink,
     this.sortOrder = 0,
   });
@@ -30,6 +34,8 @@ class BannerModel {
       imageUrl: resolveImageUrl(json['imageUrl'] ?? json['image_url']),
       actionType: (json['linkType'] ?? json['link_type'] ?? json['actionType'] ?? json['action_type'])?.toString(),
       actionValue: (json['targetId'] ?? json['target_id'] ?? json['actionValue'] ?? json['action_value'])?.toString(),
+      targetUrl: (json['targetUrl'] ?? json['target_url'])?.toString(),
+      targetName: (json['targetName'] ?? json['target_name'])?.toString(),
       deepLink: (json['deepLink'] ?? json['deep_link'])?.toString(),
       sortOrder: parseInt(json['sortOrder'] ?? json['sort_order'], 0),
     );

@@ -24,4 +24,14 @@ export class UpdateOrderFlowDto {
   @Min(15)
   @Max(600)
   riderSearchTimeoutSeconds?: number;
+
+  @ApiPropertyOptional({
+    description: 'Minutes before a stuck unassigned order is auto-cancelled by the stale-order sweep',
+    example: 60,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(5)
+  @Max(720)
+  staleOrderTtlMinutes?: number;
 }
