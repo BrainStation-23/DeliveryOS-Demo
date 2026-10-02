@@ -22,9 +22,10 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { StorageService } from '../../common/storage/storage.service';
+import { IMAGE_UPLOAD_INTERCEPTOR_OPTIONS } from '../../common/storage/image-upload.options';
 import { UserRole } from '@prisma/client';
 import { AdminService } from './admin.service';
+import { MediaService } from '../media/media.service';
 import { AdminCancelOrderDto } from './dto/admin-cancel-order.dto';
 import { VerifyCashDepositDto } from './dto/verify-cash-deposit.dto';
 import {
@@ -47,8 +48,6 @@ import {
   UpdateVendorDto,
 } from './dto/admin-governance.dto';
 
-const ALLOWED_UPLOAD_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-
 @ApiTags('Super Admin Master Governance')
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -57,35 +56,27 @@ const ALLOWED_UPLOAD_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'i
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
-    private readonly storageService: StorageService,
+    private readonly mediaService: MediaService,
   ) {}
 
-  // 0. Media Uploads
+  // 0. Media Uploads (legacy alias — every upload is registered in the media library)
   @Post('uploads')
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { files: 1, fileSize: 5 * 1024 * 1024 },
-      fileFilter: (_req, file, callback) => {
-        if (ALLOWED_UPLOAD_MIME.has(file.mimetype)) {
-          callback(null, true);
-        } else {
-          callback(new BadRequestException('Only JPEG, PNG, WebP, or GIF images are allowed'), false);
-        }
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file', IMAGE_UPLOAD_INTERCEPTOR_OPTIONS))
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Upload a promotional image (JPEG/PNG/WebP/GIF, max 5 MB)' })
-  @ApiResponse({ status: 201, description: 'Stored image URL' })
-  async uploadImage(@UploadedFile() file?: Express.Multer.File) {
+  @ApiOperation({ summary: 'Upload an image (JPEG/PNG/WebP/GIF, max 5 MB); registers a media library asset' })
+  @ApiResponse({ status: 201, description: 'Registered media asset with its public URL' })
+  async uploadImage(
+    @UploadedFile() file?: Express.Multer.File,
+    @CurrentUser() user?: { id: string },
+  ) {
     if (!file) {
       throw new BadRequestException('Multipart field "file" is required');
     }
-    const stored = await this.storageService.saveImage(file);
+    const data = await this.mediaService.uploadImage(file, { uploadedById: user?.id });
     return {
       message: 'Image uploaded successfully',
-      data: stored,
+      data,
     };
   }
 

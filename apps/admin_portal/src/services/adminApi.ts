@@ -8,6 +8,27 @@ export interface PaginatedOrders {
   totalPages: number;
 }
 
+export interface PaginatedMedia {
+  items: MediaAsset[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface MediaAsset {
+  id: string;
+  url: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  width: number | null;
+  height: number | null;
+  uploadedBy: { id: string; fullName: string } | null;
+  createdAt: string;
+}
+
 export interface AdminOverview {
   metrics: {
     totalOrders: number;
@@ -350,22 +371,6 @@ export const adminApi = {
     return [];
   },
 
-  async uploadImage(file: File): Promise<string> {
-    const form = new FormData();
-    form.append('file', file);
-    const res = await apiClient.post('/api/v1/admin/uploads', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    const payload = res.data?.data || res.data;
-    const base = (apiClient.defaults.baseURL as string) || '';
-    const url = payload?.url as string;
-    // Relative /uploads URLs resolve against the API origin, not the SPA origin
-    if (url.startsWith('/') && base && !base.includes(window.location.origin)) {
-      return `${base.replace(/\/$/, '').replace(/\/api\/v1$/, '')}${url}`;
-    }
-    return url;
-  },
-
   async createBanner(data: Partial<AdminBanner>): Promise<AdminBanner> {
     const res = await apiClient.post('/api/v1/admin/banners', data);
     return res.data?.data || res.data;
@@ -547,6 +552,35 @@ export const adminApi = {
       notes,
     });
     return res.data?.data || res.data;
+  },
+
+  // 10. Central Media Library
+  async uploadMedia(file: File | Blob, width?: number, height?: number): Promise<MediaAsset> {
+    const form = new FormData();
+    form.append('file', file);
+    if (width) form.append('width', String(width));
+    if (height) form.append('height', String(height));
+    const res = await apiClient.post('/api/v1/admin/media', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data?.data || res.data;
+  },
+
+  async getMedia(page = 1, limit = 24): Promise<PaginatedMedia> {
+    const res = await apiClient.get('/api/v1/admin/media', { params: { page, limit } });
+    const payload = res.data?.data || res.data;
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    return {
+      items,
+      total: typeof payload?.total === 'number' ? payload.total : items.length,
+      page: typeof payload?.page === 'number' ? payload.page : page,
+      limit: typeof payload?.limit === 'number' ? payload.limit : limit,
+      totalPages: typeof payload?.totalPages === 'number' ? payload.totalPages : 1,
+    };
+  },
+
+  async deleteMedia(id: string): Promise<void> {
+    await apiClient.delete(`/api/v1/admin/media/${id}`);
   },
 };
 

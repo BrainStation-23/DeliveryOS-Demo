@@ -186,7 +186,6 @@ export const AdminPromotionsPage: React.FC = () => {
             isActive: true,
           })
         }
-        onUploadError={(message) => setActionError(message)}
       />
 
       <CouponFormModal

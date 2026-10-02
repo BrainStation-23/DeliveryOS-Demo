@@ -35,6 +35,9 @@ const AdminSettingsPage = lazy(() =>
 const AdminFinancePage = lazy(() =>
   import('../pages/admin/AdminFinancePage').then((m) => ({ default: m.AdminFinancePage })),
 );
+const AdminMediaPage = lazy(() =>
+  import('../pages/admin/AdminMediaPage').then((m) => ({ default: m.AdminMediaPage })),
+);
 
 const RouteFallback: React.FC = () => (
   <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950">
@@ -69,6 +72,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="/dispatch" element={<AdminDispatchPage />} />
           <Route path="/orders" element={<AdminOrdersPage />} />
           <Route path="/promotions" element={<AdminPromotionsPage />} />
+          <Route path="/media" element={<AdminMediaPage />} />
           <Route path="/finance" element={<AdminFinancePage />} />
           <Route path="/financial-governance" element={<Navigate to="/finance" replace />} />
           <Route path="/settings" element={<AdminSettingsPage />} />

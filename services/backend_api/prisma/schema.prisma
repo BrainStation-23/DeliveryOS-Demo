@@ -99,6 +99,7 @@ model User {
   rider       Rider?
   vendorStaff VendorStaff[]
   orders      Order[]
+  mediaAssets MediaAsset[]
 
   @@map("users")
 }
@@ -533,4 +534,28 @@ model SettlementBatch {
   riderTrips  RiderTripLedger[]
 
   @@map("settlement_batches")
+}
+
+// -----------------------------------------------------------------------------
+// Central media asset library: every uploaded image (banners, future modules)
+// is registered here so the admin console can list, inspect, copy, and delete
+// platform media from one place. Files live in the existing storage driver.
+// -----------------------------------------------------------------------------
+
+model MediaAsset {
+  id           String   @id @default(uuid()) @db.Uuid
+  url          String   @unique @db.VarChar(255)
+  filename     String   @db.VarChar(255)
+  originalName String   @map("original_name") @db.VarChar(255)
+  mimeType     String   @map("mime_type") @db.VarChar(50)
+  sizeBytes    Int      @map("size_bytes")
+  width        Int?
+  height       Int?
+  uploadedById String?  @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@map("media_assets")
 }

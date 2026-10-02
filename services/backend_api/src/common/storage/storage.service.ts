@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 
 const ALLOWED_IMAGE_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
@@ -44,6 +44,23 @@ export class StorageService {
 
     this.logger.log(`Stored upload ${fileName} (${file.size} bytes) via local driver`);
     return { url: `/uploads/${fileName}`, driver: this.driver };
+  }
+
+  /**
+   * Remove a previously stored image. `force` keeps repeated cleanup
+   * idempotent, and basename() confines the unlink to the upload directory
+   * even if a caller-supplied URL carries traversal segments.
+   */
+  async deleteImage(url: string): Promise<void> {
+    if (this.driver !== 'local') {
+      throw new BadRequestException(`Storage driver "${this.driver}" is not supported yet; use "local"`);
+    }
+    const fileName = path.basename(url);
+    if (!fileName || fileName === '.' || fileName === '/') {
+      throw new BadRequestException('Invalid stored image URL');
+    }
+    await rm(path.join(this.uploadDir, fileName), { force: true });
+    this.logger.log(`Deleted upload ${fileName} via local driver`);
   }
 
   private async hasImageMagicBytes(buffer: Buffer): Promise<boolean> {

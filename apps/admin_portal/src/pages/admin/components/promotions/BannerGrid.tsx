@@ -6,6 +6,7 @@ import { Button } from '../../../../components/ui/Button';
 import { LoadingSpinner } from '../../../../components/ui/LoadingSpinner';
 import { EmptyState } from '../../../../components/common/EmptyState';
 import { QueryErrorBanner } from '../../../../components/common/QueryErrorBanner';
+import { resolveMediaUrl } from '../../../../utils/mediaUrl';
 
 interface BannerGridProps {
   banners: AdminBanner[];
@@ -63,7 +64,7 @@ export const BannerGrid: React.FC<BannerGridProps> = ({
           <div>
             <div className="relative h-40 bg-slate-100 dark:bg-slate-800">
               <img
-                src={banner.imageUrl}
+                src={resolveMediaUrl(banner.imageUrl)}
                 alt={banner.title}
                 className="h-full w-full object-cover"
                 onError={(e) => {

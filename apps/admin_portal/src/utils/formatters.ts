@@ -39,3 +39,10 @@ export function formatPhoneNumber(phone: string | null | undefined): string {
   // Clean representation
   return phone.trim();
 }
+
+export function formatBytes(bytes: number | null | undefined): string {
+  const num = Number(bytes) || 0;
+  if (num < 1024) return `${num} B`;
+  if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
+  return `${(num / (1024 * 1024)).toFixed(2)} MB`;
+}

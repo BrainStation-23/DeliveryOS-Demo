@@ -14,6 +14,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Landmark,
+  Images,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { LanguageSelector } from '../components/LanguageSelector';
@@ -52,6 +53,7 @@ export const AdminLayout: React.FC = () => {
     { label: t('nav.admin.dispatch'), href: '/dispatch', icon: Navigation },
     { label: t('nav.admin.orders'), href: '/orders', icon: FileText },
     { label: t('nav.admin.promotions'), href: '/promotions', icon: Tag },
+    { label: t('nav.admin.media'), href: '/media', icon: Images },
     { label: t('nav.admin.finance'), href: '/finance', icon: Landmark },
     { label: t('nav.admin.settings'), href: '/settings', icon: Settings },
   ];

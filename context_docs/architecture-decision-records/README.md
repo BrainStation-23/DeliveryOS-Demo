@@ -27,6 +27,7 @@ Because DeliveryOS development is **AI-driven**, this ADR framework serves as a 
 | **[ADR-013](./ADR-013-real-world-integration-stack.md)** | Real-World Integration Stack — SMS, SSLCommerz, FCM Push, Token Rotation & Background Telemetry | **Accepted** | 2026-09-28 | Integrations / Auth / Mobile |
 | **[ADR-014](./ADR-014-unit-tests-and-error-monitoring.md)** | Unit Test Toolchain (Jest) & Error Monitoring (Sentry) | **Accepted** | 2026-09-28 | Quality / Observability |
 | **[ADR-015](./ADR-015-horizontal-scaling-readiness.md)** | Horizontal-Scaling Readiness for the Single-VPS Topology | **Accepted** | 2026-09-28 | Infrastructure / Realtime / Concurrency |
+| **[ADR-016](./ADR-016-centralized-media-library-and-client-side-editing.md)** | Centralized Media Library with Client-Side Crop & Resize | **Accepted** | 2026-10-02 | Media / Storage / Admin Portal |
 
 ---
 

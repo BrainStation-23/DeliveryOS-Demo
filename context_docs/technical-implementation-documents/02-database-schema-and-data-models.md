@@ -36,6 +36,8 @@ erDiagram
 
     BANNERS }o--o| VENDORS : links_to
     BANNERS }o--o| CATEGORIES : links_to
+
+    USERS ||--o{ MEDIA_ASSETS : uploads
 ```
 
 ---
@@ -437,6 +439,21 @@ CREATE TABLE payments (
 CREATE INDEX idx_payments_order_id ON payments(order_id);
 CREATE INDEX idx_payments_transaction_id ON payments(transaction_id);
 CREATE INDEX idx_payments_status ON payments(status);
+
+-- 23. Central Media Asset Library (ADR-016)
+CREATE TABLE media_assets (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    url VARCHAR(255) UNIQUE NOT NULL,
+    filename VARCHAR(255) NOT NULL,
+    original_name VARCHAR(255) NOT NULL,
+    mime_type VARCHAR(50) NOT NULL,
+    size_bytes INT NOT NULL,
+    width INT,
+    height INT,
+    uploaded_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_media_assets_created_at ON media_assets(created_at);
 ```
 
 ---

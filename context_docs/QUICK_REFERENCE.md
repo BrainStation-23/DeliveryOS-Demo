@@ -49,7 +49,7 @@
 | Feature inventory & traceability | [FEATURES.md](../FEATURES.md) | — |
 | Release history & roadmap | [CHANGELOG.md](../CHANGELOG.md) | — |
 | Monorepo topology & ingress | `ADR-001`, `ADR-005`, `TID-01` | `deploy/nginx.local.conf`, `deploy/nginx-templates/` |
-| Database schema, migrations | `TID-02` | `services/backend_api/prisma/schema.prisma` (22 models), `prisma/migrations/` |
+| Database schema, migrations | `TID-02` | `services/backend_api/prisma/schema.prisma` (23 models), `prisma/migrations/` |
 | REST endpoints & DTOs | `TID-03` | `services/backend_api/src/modules/*/**.controller.ts` |
 | WebSocket rooms & events | `TID-04` | `src/modules/realtime/tracking.gateway.ts` |
 | Order FSM & dispatch | `ADR-002`, `TID-05` | `src/modules/orders/order-state.machine.ts`, `src/modules/order-flow/order-flow.service.ts` |

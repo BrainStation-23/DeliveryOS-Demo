@@ -20,6 +20,7 @@ import { GeoModule } from './modules/geo/geo.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
+import { MediaModule } from './modules/media/media.module';
 
 @Module({
   imports: [
@@ -115,6 +116,7 @@ import { AddressesModule } from './modules/addresses/addresses.module';
     NotificationsModule,
     PaymentsModule,
     AddressesModule,
+    MediaModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
