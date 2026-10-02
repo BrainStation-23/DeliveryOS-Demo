@@ -94,7 +94,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Geofenced Coverage Check**: Client and server address validation using PostGIS `ST_DWithin` ensuring customer is within merchant service radius (`POST /vendors/validate-address-coverage`).
 
 ### 2.3. Home Discovery & Promotions
-- **Dynamic Hero Banners**: Auto-scrolling banner carousel displaying active platform promotions, linked to vendors or promo codes (`BannerCarousel`).
+- **Dynamic Hero Banners**: Auto-scrolling banner carousel displaying active platform promotions, linked to vendors or promo codes (`BannerCarousel`). Relative media-library URLs (`/uploads/...`, ADR-016) are joined onto the API origin at parse time via `resolveImageUrl` — banners created in the central Media Library render without app-side changes.
 - **Category Filter Grid**: Quick vertical category selector (`All`, `FOOD`, `GROCERY`, `PHARMACY`) filtering nearby outlets in real-time (`HomeScreen`).
 - **Hyperlocal Vendor Feed**: Distance-sorted merchant cards showing delivery fee, ETA in minutes, rating, open status badge, and rush-hour pause indicators.
 

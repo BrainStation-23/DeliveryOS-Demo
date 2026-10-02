@@ -108,6 +108,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    volumes:
+      - deliveryos_uploads:/app/uploads
     networks:
       - deliveryos_network
     logging: *default-logging
@@ -189,6 +191,8 @@ volumes:
     name: deliveryos_pgdata
   deliveryos_redisdata:
     name: deliveryos_redisdata
+  deliveryos_uploads:
+    name: deliveryos_uploads
 
 # ==============================================================================
 # ISOLATED BRIDGE NETWORK

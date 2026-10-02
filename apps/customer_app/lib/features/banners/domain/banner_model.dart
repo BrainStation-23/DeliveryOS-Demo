@@ -1,3 +1,4 @@
+import '../../../../core/utils/image_url_resolver.dart';
 import '../../../../core/utils/numeric_parser.dart';
 
 class BannerModel {
@@ -26,7 +27,7 @@ class BannerModel {
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? '',
       subtitle: json['subtitle'] as String?,
-      imageUrl: json['imageUrl'] as String? ?? json['image_url'] as String? ?? '',
+      imageUrl: resolveImageUrl(json['imageUrl'] ?? json['image_url']),
       actionType: (json['linkType'] ?? json['link_type'] ?? json['actionType'] ?? json['action_type'])?.toString(),
       actionValue: (json['targetId'] ?? json['target_id'] ?? json['actionValue'] ?? json['action_value'])?.toString(),
       deepLink: (json['deepLink'] ?? json['deep_link'])?.toString(),
