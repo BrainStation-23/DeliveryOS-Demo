@@ -25,6 +25,7 @@ import { extractApiError } from '../../utils/apiError';
 import { StaffProfileDialog } from './components/staff/StaffProfileDialog';
 import { ProductDialog } from './components/products/ProductDialog';
 import { OperatingHoursEditor } from './components/outlets/OperatingHoursEditor';
+import { OutletInfoDialog } from './components/outlets/OutletInfoDialog';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -34,7 +35,7 @@ export const AdminOutletPage: React.FC = () => {
   const queryClient = useQueryClient();
 
   const [actionError, setActionError] = useState<string | null>(null);
-  const [isEditingOutlet, setIsEditingOutlet] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [staffDialogAssignment, setStaffDialogAssignment] = useState<AdminStaffAssignment | null>(null);
   const [isStaffDialogOpen, setIsStaffDialogOpen] = useState(false);
   const [productDialogTarget, setProductDialogTarget] = useState<AdminCatalogProduct | null>(null);
@@ -69,7 +70,7 @@ export const AdminOutletPage: React.FC = () => {
       adminApi.updateVendor(outletId as string, data),
     onSuccess: () => {
       setActionError(null);
-      setIsEditingOutlet(false);
+      setIsEditDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ['admin-outlet-detail', outletId] });
       queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
     },
@@ -137,59 +138,57 @@ export const AdminOutletPage: React.FC = () => {
       {actionError && <QueryErrorBanner error={{ message: actionError } as never} onRetry={() => setActionError(null)} />}
 
       {/* Brand strip + outlet info */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-          <div className="h-10 w-10 rounded-xl bg-primary-50 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300 flex items-center justify-center overflow-hidden shrink-0">
-            {vendor.brandLogoUrl ? (
-              <img src={resolveMediaUrl(vendor.brandLogoUrl)} alt={vendor.brandName || 'Brand'} className="h-full w-full object-cover" />
+          <div className="h-14 w-14 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center overflow-hidden shrink-0 dark:bg-slate-800">
+            {vendor.logoUrl ? (
+              <img src={resolveMediaUrl(vendor.logoUrl)} alt={vendor.name} className="h-full w-full object-cover" />
             ) : (
-              <Building2 className="h-5 w-5" />
+              <Store className="h-6 w-6" />
             )}
           </div>
-          <div>
-            <div className="text-xs font-bold text-slate-900 dark:text-slate-100">{vendor.brandName}</div>
-            <div className="text-[11px] text-slate-500">Brand (governs every linked outlet)</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{vendor.name}</div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="h-5 w-5 rounded-md bg-primary-50 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300 flex items-center justify-center overflow-hidden shrink-0">
+                {vendor.brandLogoUrl ? (
+                  <img src={resolveMediaUrl(vendor.brandLogoUrl)} alt={vendor.brandName || 'Brand'} className="h-full w-full object-cover" />
+                ) : (
+                  <Building2 className="h-3 w-3" />
+                )}
+              </div>
+              <span className="text-[11px] font-semibold text-primary-700 dark:text-primary-300 truncate">
+                {vendor.brandName}
+              </span>
+              <span className="text-[10px] text-slate-400">· Brand (governs every linked outlet)</span>
+            </div>
+            <div className="text-[11px] text-slate-500 truncate mt-0.5">{vendor.addressText}</div>
           </div>
         </div>
 
-        {isEditingOutlet ? (
-          <OutletEditForm
-            initial={{
-              name: vendor.name,
-              contactPhone: vendor.contactPhone,
-              commissionRate: String(vendor.commissionRate),
-              defaultPrepTimeMinutes: String(vendor.defaultPrepTimeMinutes),
-              deliveryRadiusKm: String(vendor.deliveryRadiusKm),
-            }}
-            isSaving={updateOutletMutation.isPending}
-            onSave={(data) => updateOutletMutation.mutate(data)}
-            onCancel={() => setIsEditingOutlet(false)}
-          />
-        ) : (
-          <div className="pt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-center text-xs">
-            <InfoCell label="Phone" value={vendor.contactPhone} />
-            <InfoCell label="Commission" value={`${vendor.commissionRate}%`} />
-            <InfoCell label="Prep Time" value={`${vendor.defaultPrepTimeMinutes} min`} />
-            <InfoCell label="Radius" value={`${vendor.deliveryRadiusKm} km`} />
-            <div>
-              <span className="text-slate-400 block text-[10px] mb-0.5">Status</span>
-              <div className="flex items-center justify-center gap-1.5">
-                {vendor.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Suspended</Badge>}
-                {vendor.isBusy && <Badge variant="warning">Rush</Badge>}
-              </div>
-            </div>
-            <div className="col-span-2 sm:col-span-3 lg:col-span-5 pt-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs h-7"
-                onClick={() => setIsEditingOutlet(true)}
-              >
-                Edit Outlet Info
-              </Button>
+        <div className="pt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-center text-xs">
+          <InfoCell label="Phone" value={vendor.contactPhone} />
+          <InfoCell label="Commission" value={`${vendor.commissionRate}%`} />
+          <InfoCell label="Prep Time" value={`${vendor.defaultPrepTimeMinutes} min`} />
+          <InfoCell label="Radius" value={`${vendor.deliveryRadiusKm} km`} />
+          <div>
+            <span className="text-slate-400 block text-[10px] mb-0.5">Status</span>
+            <div className="flex items-center justify-center gap-1.5">
+              {vendor.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Suspended</Badge>}
+              {vendor.isBusy && <Badge variant="warning">Rush</Badge>}
             </div>
           </div>
-        )}
+          <div className="col-span-2 sm:col-span-3 lg:col-span-5 pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => setIsEditDialogOpen(true)}
+            >
+              Edit Outlet Info
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -374,6 +373,23 @@ export const AdminOutletPage: React.FC = () => {
         hours={outlet.operatingHours}
         onClose={() => setIsHoursEditorOpen(false)}
       />
+
+      <OutletInfoDialog
+        isOpen={isEditDialogOpen}
+        isSubmitting={updateOutletMutation.isPending}
+        editing={{ id: vendor.id, name: vendor.name }}
+        brandName={vendor.brandName || undefined}
+        initial={{
+          name: vendor.name,
+          contactPhone: vendor.contactPhone,
+          addressText: vendor.addressText,
+          commissionRate: vendor.commissionRate,
+          defaultPrepTimeMinutes: vendor.defaultPrepTimeMinutes,
+          deliveryRadiusKm: vendor.deliveryRadiusKm,
+        }}
+        onClose={() => setIsEditDialogOpen(false)}
+        onSubmit={(payload) => updateOutletMutation.mutate(payload)}
+      />
     </div>
   );
 };
@@ -384,71 +400,3 @@ const InfoCell: React.FC<{ label: string; value: string }> = ({ label, value }) 
     <span className="font-bold text-slate-900 dark:text-slate-100">{value}</span>
   </div>
 );
-
-const OutletEditForm: React.FC<{
-  initial: { name: string; contactPhone: string; commissionRate: string; defaultPrepTimeMinutes: string; deliveryRadiusKm: string };
-  isSaving: boolean;
-  onSave: (data: {
-    name: string;
-    contactPhone: string;
-    commissionRate: number;
-    defaultPrepTimeMinutes: number;
-    deliveryRadiusKm: number;
-  }) => void;
-  onCancel: () => void;
-}> = ({ initial, isSaving, onSave, onCancel }) => {
-  const [name, setName] = useState(initial.name);
-  const [phone, setPhone] = useState(initial.contactPhone);
-  const [commission, setCommission] = useState(initial.commissionRate);
-  const [prep, setPrep] = useState(initial.defaultPrepTimeMinutes);
-  const [radius, setRadius] = useState(initial.deliveryRadiusKm);
-
-  return (
-    <div className="pt-4 space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Outlet Name</label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Phone</label>
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-        </div>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Commission %</label>
-          <Input type="number" value={commission} onChange={(e) => setCommission(e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Prep (min)</label>
-          <Input type="number" value={prep} onChange={(e) => setPrep(e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Radius (km)</label>
-          <Input type="number" value={radius} onChange={(e) => setRadius(e.target.value)} />
-        </div>
-      </div>
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button
-          size="sm"
-          isLoading={isSaving}
-          onClick={() =>
-            onSave({
-              name: name.trim(),
-              contactPhone: phone.trim(),
-              commissionRate: parseFloat(commission) || 15,
-              defaultPrepTimeMinutes: parseInt(prep, 10) || 20,
-              deliveryRadiusKm: parseFloat(radius) || 5,
-            })
-          }
-        >
-          Save Outlet
-        </Button>
-      </div>
-    </div>
-  );
-};

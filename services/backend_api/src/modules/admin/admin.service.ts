@@ -719,6 +719,7 @@ export class AdminService {
       brandName: v.brand?.name || null,
       addressText: v.addressText,
       contactPhone: v.contactPhone,
+      logoUrl: v.logoUrl,
       latitude: Number(v.latitude),
       longitude: Number(v.longitude),
       deliveryRadiusKm: Number(v.deliveryRadiusKm),
@@ -1278,11 +1279,46 @@ export class AdminService {
 
   async searchBrands(search?: string) {
     const term = search?.trim();
-    return this.prisma.vendorBrand.findMany({
+    const brands = await this.prisma.vendorBrand.findMany({
       where: term ? { name: { contains: term, mode: 'insensitive' } } : {},
-      include: { _count: { select: { outlets: true, staff: true } } },
+      include: {
+        _count: { select: { outlets: true, staff: true } },
+        // Brand-scoped owners carry vendorId=null, so they never surface in
+        // outlet-derived staff lists — resolve them straight from the brand.
+        staff: {
+          where: { scope: PermissionScope.ALL_OUTLETS_MASTER },
+          include: { user: { select: { id: true, fullName: true, phone: true, status: true } } },
+        },
+      },
       orderBy: { name: 'asc' },
       take: 50,
+    });
+
+    return brands.map((b) => {
+      const ownerStaff = b.staff.find((s) => s.isActive) || b.staff[0];
+      return {
+        id: b.id,
+        name: b.name,
+        logoUrl: b.logoUrl,
+        totalOutlets: b._count.outlets,
+        totalStaff: b._count.staff,
+        createdAt: b.createdAt,
+        owner: ownerStaff
+          ? {
+              id: ownerStaff.id,
+              userId: ownerStaff.userId,
+              fullName: ownerStaff.user?.fullName || 'Owner',
+              phone: ownerStaff.user?.phone || '',
+              userStatus: ownerStaff.user?.status || 'ACTIVE',
+              scope: ownerStaff.scope,
+              isActive: ownerStaff.isActive,
+              vendorId: null,
+              vendorName: null,
+              brandId: b.id,
+              brandName: b.name,
+            }
+          : null,
+      };
     });
   }
 
@@ -1318,6 +1354,7 @@ export class AdminService {
         brandId: vendor.brandId,
         brandName: vendor.brand?.name || null,
         brandLogoUrl: vendor.brand?.logoUrl || null,
+        logoUrl: vendor.logoUrl,
         addressText: vendor.addressText,
         contactPhone: vendor.contactPhone,
         latitude: Number(vendor.latitude),

@@ -153,6 +153,7 @@ export interface AdminVendor {
   brandName: string | null;
   addressText: string;
   contactPhone: string;
+  logoUrl: string | null;
   isBusy: boolean;
   isActive: boolean;
   commissionRate: number;
@@ -177,6 +178,7 @@ export interface AdminBrand {
   totalOutlets: number;
   totalStaff: number;
   createdAt: string;
+  owner: AdminStaffAssignment | null;
 }
 
 export interface AdminUserSummary {
@@ -278,6 +280,7 @@ export interface OutletDetail {
     brandId: string;
     brandName: string | null;
     brandLogoUrl: string | null;
+    logoUrl: string | null;
     addressText: string;
     contactPhone: string;
     latitude: number;
@@ -556,13 +559,14 @@ export const adminApi = {
 
   async createVendor(data: {
     name: string;
-    brandId?: string;
+    brandId: string;
     addressText: string;
-    latitude: number;
-    longitude: number;
+    latitude?: number;
+    longitude?: number;
     contactPhone: string;
     commissionRate?: number;
     defaultPrepTimeMinutes?: number;
+    deliveryRadiusKm?: number;
   }): Promise<AdminVendor> {
     const res = await apiClient.post('/api/v1/admin/vendors', data);
     return res.data?.data || res.data;
