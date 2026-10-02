@@ -35,7 +35,11 @@
     "activeBranch": "الفرع النشط",
     "allOutletsConsolidated": "جميع الفروع (مجمعة)",
     "primaryStore": "المتجر الرئيسي",
-    "selectedBranch": "الفرع المحدد"
+    "selectedBranch": "الفرع المحدد",
+    "clear": "مسح",
+    "enableSound": "تفعيل الصوت",
+    "muteSound": "كتم التنبيهات الصوتية",
+    "unmuteSound": "إلغاء كتم التنبيهات الصوتية"
   },
   "auth": {
     "title": "بوابة DeliveryOS",
@@ -128,6 +132,15 @@
     "audioAlertActive": "التنبيه الصوتي مفعّل",
     "audioAlertMuted": "التنبيه الصوتي صامت",
     "enableSound": "تفعيل التنبيه الصوتي",
+    "rushPause": "إيقاف الذروة",
+    "pause": "إيقاف",
+    "pausedOrders": "الطلبات موقفة",
+    "paused": "متوقف",
+    "rushHourActiveTitle": "المتجر متوقف. اضغط لاستئناف استقبال طلبات العملاء",
+    "pauseOrdersTitle": "وقت الذروة؟ اضغط لإيقاف الطلبات الجديدة مؤقتاً",
+    "rushHourActiveBanner": "إيقاف الذروة المؤقت للطوارئ مفعل لـ {{name}} — تم إيقاف طلبات العملاء الجديدة مؤقتاً.",
+    "resumeOrders": "استئناف الطلبات",
+    "soundMutedNotice": "التنبيه الصوتي مكتوم حالياً. قد تفوتك طلبات المطبخ الواردة.",
     "customer": "العميل:",
     "rider": "المندوب:",
     "awaitingRider": "بانتظار تعيين مندوب",

@@ -35,7 +35,11 @@
     "activeBranch": "Active Branch",
     "allOutletsConsolidated": "All Outlets (Consolidated)",
     "primaryStore": "Primary Store",
-    "selectedBranch": "Selected Branch"
+    "selectedBranch": "Selected Branch",
+    "clear": "Clear",
+    "enableSound": "Enable Sound",
+    "muteSound": "Mute Sound Alerts",
+    "unmuteSound": "Unmute Sound Alerts"
   },
   "auth": {
     "title": "DeliveryOS Portal",
@@ -128,6 +132,15 @@
     "audioAlertActive": "Sound Alerts Active",
     "audioAlertMuted": "Sound Muted",
     "enableSound": "Enable Sound Chime",
+    "rushPause": "Rush Pause",
+    "pause": "Pause",
+    "pausedOrders": "Orders Paused",
+    "paused": "Paused",
+    "rushHourActiveTitle": "Store orders are paused. Click to resume incoming customer orders",
+    "pauseOrdersTitle": "Rush hour? Click to temporarily pause new incoming orders",
+    "rushHourActiveBanner": "Emergency Rush Hour Pause Active for {{name}} — Incoming customer orders are temporarily blocked.",
+    "resumeOrders": "Resume Orders",
+    "soundMutedNotice": "Audio chime alert is currently muted. You may miss incoming kitchen orders.",
     "customer": "Customer:",
     "rider": "Rider:",
     "awaitingRider": "Awaiting Rider Broadcast",

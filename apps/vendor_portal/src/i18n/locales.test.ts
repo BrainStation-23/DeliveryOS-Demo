@@ -59,4 +59,43 @@ describe('Vendor Portal i18n locales symmetry', () => {
     assertNonEmpty(bn as Record<string, unknown>, 'bn');
     assertNonEmpty(ar as Record<string, unknown>, 'ar');
   });
+
+  it('ensures all statically referenced translation keys in codebase exist in en.json', () => {
+    const modules = import.meta.glob<string>('../**/*.{ts,tsx}', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    });
+
+    const keyRegex = /\bt\(\s*['`"]([a-zA-Z0-9_.-]+)['`"]/g;
+    const missingKeys: { file: string; key: string }[] = [];
+
+    function getNested(obj: Record<string, unknown>, keyPath: string): unknown {
+      const parts = keyPath.split('.');
+      let cur: unknown = obj;
+      for (const part of parts) {
+        if (cur == null || typeof cur !== 'object' || !(part in (cur as Record<string, unknown>))) {
+          return undefined;
+        }
+        cur = (cur as Record<string, unknown>)[part];
+      }
+      return cur;
+    }
+
+    for (const [filePath, content] of Object.entries(modules)) {
+      if (filePath.endsWith('.test.ts') || filePath.endsWith('.test.tsx')) {
+        continue;
+      }
+      let match: RegExpExecArray | null;
+      while ((match = keyRegex.exec(content)) !== null) {
+        const key = match[1];
+        if (getNested(en as Record<string, unknown>, key) === undefined) {
+          missingKeys.push({ file: filePath, key });
+        }
+      }
+    }
+
+    expect(missingKeys).toEqual([]);
+  });
 });
+

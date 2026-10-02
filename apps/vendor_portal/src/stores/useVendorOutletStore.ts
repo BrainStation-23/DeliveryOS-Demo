@@ -21,6 +21,7 @@ export interface VendorOutletState {
   fetchOutlets: () => Promise<void>;
   refetchOutlets: () => Promise<void>;
   getActiveOutlet: () => AccessibleOutlet | null;
+  reset: () => void;
 }
 
 const getSavedActiveOutlet = (): string => {
@@ -35,6 +36,15 @@ export const useVendorOutletStore = create<VendorOutletState>((set, get) => ({
   activeOutletId: getSavedActiveOutlet(),
   outlets: [],
   isLoading: false,
+
+  reset: () => {
+    try {
+      localStorage.removeItem('deliveryos_active_outlet');
+    } catch {
+      // ignore
+    }
+    set({ activeOutletId: 'ALL', outlets: [], isLoading: false });
+  },
 
   setActiveOutletId: (id: string) => {
     localStorage.setItem('deliveryos_active_outlet', id);

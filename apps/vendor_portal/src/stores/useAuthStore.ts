@@ -146,6 +146,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem(VENDOR_TOKEN_KEY);
     localStorage.removeItem(VENDOR_REFRESH_KEY);
     localStorage.removeItem(VENDOR_USER_KEY);
+    try {
+      localStorage.removeItem('deliveryos_active_outlet');
+    } catch {
+      // ignore
+    }
     disconnectSocket();
     set({
       token: null,

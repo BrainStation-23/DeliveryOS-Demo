@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   ChefHat,
@@ -29,10 +29,17 @@ import { useRushPause } from '../hooks/useRushPause';
 const VendorLayoutInner: React.FC = () => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const { activeOutlet } = useVendorOutlet();
   const [isMuted, setIsMuted] = useState(soundEngine.getIsMuted());
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { isTogglingRush, toggleRushPause } = useRushPause();
+
+  const handleLogout = () => {
+    setIsMobileMenuOpen(false);
+    logout();
+    navigate('/login', { replace: true });
+  };
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     try {
       return localStorage.getItem('deliveryos_vendor_sidebar_collapsed') === 'true';
@@ -147,7 +154,7 @@ const VendorLayoutInner: React.FC = () => {
           displayName={displayName}
           roleTitle={roleTitle}
           phone={user?.phone}
-          onLogout={logout}
+          onLogout={handleLogout}
           isCollapsed={isCollapsed}
         />
       </aside>
@@ -299,10 +306,7 @@ const VendorLayoutInner: React.FC = () => {
                 displayName={displayName}
                 roleTitle={roleTitle}
                 phone={user?.phone}
-                onLogout={() => {
-                  setIsMobileMenuOpen(false);
-                  logout();
-                }}
+                onLogout={handleLogout}
               />
             </div>
           </div>

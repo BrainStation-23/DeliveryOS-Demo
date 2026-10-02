@@ -18,12 +18,15 @@ interface VendorOutletContextType {
 export const VendorOutletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const fetchOutlets = useVendorOutletStore((s) => s.fetchOutlets);
+  const reset = useVendorOutletStore((s) => s.reset);
 
   useEffect(() => {
     if (isAuthenticated) {
       fetchOutlets();
+    } else {
+      reset();
     }
-  }, [isAuthenticated, fetchOutlets]);
+  }, [isAuthenticated, fetchOutlets, reset]);
 
   return <>{children}</>;
 };

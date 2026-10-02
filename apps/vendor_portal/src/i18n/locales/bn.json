@@ -35,7 +35,11 @@
     "activeBranch": "সক্রিয় শাখা",
     "allOutletsConsolidated": "সকল আউটলেট (একত্রিত)",
     "primaryStore": "মূল আউটলেট",
-    "selectedBranch": "নির্বাচিত শাখা"
+    "selectedBranch": "নির্বাচিত শাখা",
+    "clear": "মুছে ফেলুন",
+    "enableSound": "শব্দ চালু করুন",
+    "muteSound": "শব্দ বন্ধ করুন",
+    "unmuteSound": "শব্দ চালু করুন"
   },
   "auth": {
     "title": "DeliveryOS পোর্টাল",
@@ -128,6 +132,15 @@
     "audioAlertActive": "সাউন্ড এলার্ট সক্রিয়",
     "audioAlertMuted": "সাউন্ড মিউট করা",
     "enableSound": "সাউন্ড চালু করুন",
+    "rushPause": "রাশ আওয়ার বিরতি",
+    "pause": "বিরতি",
+    "pausedOrders": "অর্ডার স্থগিত",
+    "paused": "স্থগিত",
+    "rushHourActiveTitle": "অর্ডার গ্রহণ বন্ধ আছে। পুনরায় অর্ডার চালু করতে ক্লিক করুন",
+    "pauseOrdersTitle": "কিচেন ব্যস্ত? সাময়িকভাবে নতুন অর্ডার বন্ধ করুন",
+    "rushHourActiveBanner": "{{name}}-এর জন্য রাশ আওয়ার বিরতি সক্রিয় — সাময়িকভাবে নতুন অর্ডার গ্রহণ বন্ধ রয়েছে।",
+    "resumeOrders": "অর্ডার গ্রহণ চালু করুন",
+    "soundMutedNotice": "অডিও অ্যালার্ম বন্ধ আছে। নতুন কিচেন অর্ডার লক্ষ্য করতে নাও পারেন।",
     "customer": "গ্রাহক:",
     "rider": "রাইডার:",
     "awaitingRider": "রাইডারের অপেক্ষায়",
