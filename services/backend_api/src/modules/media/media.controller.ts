@@ -20,10 +20,10 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { IMAGE_UPLOAD_INTERCEPTOR_OPTIONS } from '../../common/storage/image-upload.options';
 import { MediaService } from './media.service';
 import { UploadMediaDto } from './dto/upload-media.dto';
+import { ListMediaQueryDto } from './dto/list-media.dto';
 
 @ApiTags('Super Admin Media Library')
 @Controller('admin/media')
@@ -51,6 +51,7 @@ export class MediaController {
       uploadedById: user?.id,
       width: dto.width,
       height: dto.height,
+      name: dto.name,
     });
     return {
       message: 'Image uploaded successfully',
@@ -59,9 +60,9 @@ export class MediaController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List media library assets (paginated, newest first)' })
-  async list(@Query() query: PaginationQueryDto = new PaginationQueryDto()) {
-    const result = await this.mediaService.listAssets(query);
+  @ApiOperation({ summary: 'List media library assets (paginated, newest first, optional name search)' })
+  async list(@Query() query: ListMediaQueryDto = new ListMediaQueryDto()) {
+    const result = await this.mediaService.listAssets(query, query.search);
     return {
       message: `Retrieved ${result.items.length} of ${result.total} media assets`,
       data: result,

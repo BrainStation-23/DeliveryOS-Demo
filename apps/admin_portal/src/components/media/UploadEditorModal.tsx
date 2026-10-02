@@ -11,6 +11,7 @@ import {
   computeResizedDimensions,
   cropImageToBlob,
 } from '../../utils/imageEdit';
+import { defaultMediaNameForFile, normalizeMediaName } from '../../utils/mediaName';
 import type { EditedImage } from '../../hooks/useMediaUpload';
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -34,6 +35,7 @@ export const UploadEditorModal: React.FC<UploadEditorModalProps> = ({
   const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
   const [aspectId, setAspectId] = useState<string>('FREE');
   const [resizeCapId, setResizeCapId] = useState<string>('PX_1920');
+  const [mediaName, setMediaName] = useState<string>('');
   const [editError, setEditError] = useState<string | null>(null);
   const [isEncoding, setIsEncoding] = useState(false);
 
@@ -46,12 +48,13 @@ export const UploadEditorModal: React.FC<UploadEditorModalProps> = ({
     };
   }, [objectUrl]);
 
-  // Each newly staged file starts from a clean selection.
+  // Each newly staged file starts from a clean selection and its default name.
   React.useEffect(() => {
     if (file) {
       setCrop(undefined);
       setCompletedCrop(null);
       setEditError(null);
+      setMediaName(defaultMediaNameForFile(file.name));
     }
   }, [file]);
 
@@ -103,7 +106,10 @@ export const UploadEditorModal: React.FC<UploadEditorModalProps> = ({
         );
         return;
       }
-      onConfirm(edited);
+      onConfirm({
+        ...edited,
+        name: normalizeMediaName(mediaName, defaultMediaNameForFile(file?.name || '')),
+      });
     } catch (err) {
       setEditError(err instanceof Error ? err.message : 'Failed to process the image.');
     } finally {
@@ -136,6 +142,20 @@ export const UploadEditorModal: React.FC<UploadEditorModalProps> = ({
     >
       <div className="space-y-4">
         {editError && <Alert type="error" message={editError} onDismiss={() => setEditError(null)} />}
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            Media Name (shown in the library and used for search)
+          </label>
+          <input
+            type="text"
+            value={mediaName}
+            onChange={(e) => setMediaName(e.target.value)}
+            maxLength={255}
+            placeholder="e.g. Weekend Feast Hero Banner"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-primary-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          />
+        </div>
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
           <div className="flex items-center gap-1.5">

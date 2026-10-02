@@ -8,6 +8,8 @@ export interface EditedImage {
   width: number;
   height: number;
   mimeType: string;
+  /** Library display name chosen in the editor. */
+  name: string;
 }
 
 interface UseMediaUploadOptions {
@@ -25,8 +27,8 @@ export function useMediaUpload({ onUploaded, onError }: UseMediaUploadOptions) {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const uploadMutation = useMutation({
-    mutationFn: ({ file, width, height }: { file: File; width?: number; height?: number }) =>
-      adminApi.uploadMedia(file, width, height),
+    mutationFn: ({ file, width, height, name }: { file: File; width?: number; height?: number; name?: string }) =>
+      adminApi.uploadMedia(file, width, height, name),
     onSuccess: (asset) => {
       queryClient.invalidateQueries({ queryKey: ['admin-media'] });
       onUploaded?.(asset);
@@ -49,9 +51,11 @@ export function useMediaUpload({ onUploaded, onError }: UseMediaUploadOptions) {
   const handleEditorConfirm = useCallback(
     (edited: EditedImage) => {
       if (!pendingFile) return;
-      const file = new File([edited.blob], pendingFile.name || 'upload', { type: edited.mimeType });
+      const file = new File([edited.blob], edited.name || pendingFile.name || 'upload', {
+        type: edited.mimeType,
+      });
       setPendingFile(null);
-      uploadMutation.mutate({ file, width: edited.width, height: edited.height });
+      uploadMutation.mutate({ file, width: edited.width, height: edited.height, name: edited.name });
     },
     [pendingFile, uploadMutation],
   );

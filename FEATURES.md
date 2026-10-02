@@ -337,9 +337,9 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Reusable Component Primitives**: `PageHeader`, `StatCard`, and `EmptyState`.
 
 ### 5.10. Central Media Library & Asset Control (ADR-016)
-- **Client-Side Crop & Resize Before Upload**: `UploadEditorModal` (react-image-crop) with free-form + 16:9 / 4:3 / 1:1 aspect presets, longest-edge caps (original / 1920 / 1280 / 800 px), live output-dimension readout, canvas re-encode (GIF → static frame), and a pre-upload 5 MB guard; re-edit as many times as desired before confirming.
+- **Client-Side Crop & Resize Before Upload**: `UploadEditorModal` (react-image-crop) with free-form + 16:9 / 4:3 / 1:1 aspect presets, longest-edge caps (original / 1920 / 1280 / 800 px), live output-dimension readout, canvas re-encode (GIF → static frame), and a pre-upload 5 MB guard; re-edit as many times as desired before confirming. A **Media Name** field renames the asset at upload time (defaults to the file name sans extension; normalized and 255-capped).
 - **Registered Asset Inventory**: every upload (via `/admin/media` or the legacy `/admin/uploads` alias) persists a `media_assets` row — URL, filenames, MIME, byte size, post-edit pixel dimensions, uploading admin, timestamp.
-- **Library Grid** (`/media`): thumbnails with one-click absolute-URL copy, format/size/dimension/upload info, paginated newest-first, and confirmation-gated delete (row then file, idempotent).
+- **Library Grid** (`/media`): thumbnails with one-click absolute-URL copy, format/size/dimension/upload info, paginated newest-first, and confirmation-gated delete (row then file, idempotent). **Name search** (`?search=`, case-insensitive over display name and stored filename) with debounced search boxes in both the library page and the picker modal.
 - **Reusable Picker for Creation Modules**: `MediaPickerModal` (browse + upload-in-place) replaces inline uploads — promotional banner creation now sources images exclusively from the central library; future modules reuse the same picker and `useMediaUpload` flow.
 - **Uniform Media URL Resolution**: DB stores relative `/uploads/...` URLs; the local nginx edge (mirroring prod) and the Vite dev proxy route `/uploads` to the backend, while `resolveMediaUrl` prefixes `VITE_API_URL` for split-origin deployments.
 

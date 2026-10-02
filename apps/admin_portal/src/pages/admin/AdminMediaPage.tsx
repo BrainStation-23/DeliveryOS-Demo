@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Images, Upload, Copy, Check, Trash2 } from 'lucide-react';
+import { Images, Upload, Copy, Check, Trash2, Search } from 'lucide-react';
 import adminApi, { MediaAsset } from '../../services/adminApi';
 import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
@@ -10,6 +10,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { UploadEditorModal } from '../../components/media/UploadEditorModal';
 import { resolveMediaUrl } from '../../utils/mediaUrl';
 import { formatBytes, formatDateTime } from '../../utils/formatters';
@@ -26,6 +27,8 @@ export const AdminMediaPage: React.FC = () => {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebouncedValue(searchQuery);
   const [actionError, setActionError] = useState<string | null>(null);
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [copiedAssetId, setCopiedAssetId] = useState<string | null>(null);
@@ -38,9 +41,14 @@ export const AdminMediaPage: React.FC = () => {
     });
 
   const { data: mediaData, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['admin-media', page],
-    queryFn: () => adminApi.getMedia(page, 24),
+    queryKey: ['admin-media', page, debouncedSearch],
+    queryFn: () => adminApi.getMedia(page, 24, debouncedSearch),
   });
+
+  // A new search term always restarts from the first page.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
 
   const assets = Array.isArray(mediaData?.items) ? mediaData.items : [];
   const totalPages = mediaData?.totalPages ?? 1;
@@ -106,8 +114,12 @@ export const AdminMediaPage: React.FC = () => {
       ) : assets.length === 0 ? (
         <EmptyState
           icon={Images}
-          title="No media uploaded yet"
-          message="Upload your first image — crop and resize it right in the browser before it lands in the library."
+          title={debouncedSearch ? 'No media matches your search' : 'No media uploaded yet'}
+          message={
+            debouncedSearch
+              ? `Nothing in the library matches “${debouncedSearch}”. Try a different name or upload a new image.`
+              : 'Upload your first image — crop and resize it right in the browser before it lands in the library.'
+          }
           action={
             <Button size="sm" onClick={() => fileInputRef.current?.click()} leftIcon={<Upload className="h-4 w-4" />}>
               Upload Media
@@ -116,6 +128,17 @@ export const AdminMediaPage: React.FC = () => {
         />
       ) : (
         <>
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search media by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:border-primary-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            />
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {assets.map((asset) => (
               <div

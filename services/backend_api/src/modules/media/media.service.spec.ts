@@ -88,6 +88,14 @@ describe('MediaService - central media library', () => {
     });
   });
 
+  it('prefers the requested display name over the uploaded file name', async () => {
+    await service.uploadImage(mockFile({ originalname: 'IMG_20261002_142331.jpg' }), {
+      name: 'Weekend Feast Hero',
+    });
+
+    expect(prisma.mediaAsset.create.mock.calls[0][0].data.originalName).toBe('Weekend Feast Hero');
+  });
+
   it('sanitizes hostile original names and falls back to the stored filename', async () => {
     await service.uploadImage(mockFile({ originalname: '../../etc/passwd\nroot' }));
 
@@ -117,6 +125,21 @@ describe('MediaService - central media library', () => {
       limit: 10,
       totalPages: 1,
     });
+  });
+
+  it('filters listings by a case-insensitive name/filename search on both query and count', async () => {
+    await service.listAssets({ page: 1, limit: 24, skip: 0 } as never, '  Weekend  ');
+
+    const expectedWhere = {
+      OR: [
+        { originalName: { contains: 'Weekend', mode: 'insensitive' } },
+        { filename: { contains: 'Weekend', mode: 'insensitive' } },
+      ],
+    };
+    expect(prisma.mediaAsset.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expectedWhere }),
+    );
+    expect(prisma.mediaAsset.count).toHaveBeenCalledWith({ where: expectedWhere });
   });
 
   it('deletes the database row before unlinking the stored file', async () => {

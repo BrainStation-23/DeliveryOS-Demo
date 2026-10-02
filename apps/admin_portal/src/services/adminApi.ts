@@ -555,19 +555,22 @@ export const adminApi = {
   },
 
   // 10. Central Media Library
-  async uploadMedia(file: File | Blob, width?: number, height?: number): Promise<MediaAsset> {
+  async uploadMedia(file: File | Blob, width?: number, height?: number, name?: string): Promise<MediaAsset> {
     const form = new FormData();
     form.append('file', file);
     if (width) form.append('width', String(width));
     if (height) form.append('height', String(height));
+    if (name) form.append('name', name);
     const res = await apiClient.post('/api/v1/admin/media', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return res.data?.data || res.data;
   },
 
-  async getMedia(page = 1, limit = 24): Promise<PaginatedMedia> {
-    const res = await apiClient.get('/api/v1/admin/media', { params: { page, limit } });
+  async getMedia(page = 1, limit = 24, search?: string): Promise<PaginatedMedia> {
+    const res = await apiClient.get('/api/v1/admin/media', {
+      params: { page, limit, ...(search?.trim() ? { search: search.trim() } : {}) },
+    });
     const payload = res.data?.data || res.data;
     const items = Array.isArray(payload?.items) ? payload.items : [];
     return {

@@ -38,7 +38,10 @@ COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/clie
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
 
-RUN chown -R node:node /app
+RUN chown -R node:node /app \
+    # Pre-create the uploads dir with node ownership so a freshly mounted,
+    # empty named volume initializes writable by the non-root runtime user.
+    && mkdir -p /app/uploads && chown node:node /app/uploads
 USER node
 
 EXPOSE 4000

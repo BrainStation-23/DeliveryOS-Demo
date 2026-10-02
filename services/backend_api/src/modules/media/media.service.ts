@@ -29,6 +29,8 @@ export interface UploadMetadata {
   uploadedById?: string;
   width?: number;
   height?: number;
+  /** Library display name; falls back to the uploaded file name. */
+  name?: string;
 }
 
 @Injectable()
@@ -49,7 +51,7 @@ export class MediaService {
       data: {
         url: stored.url,
         filename,
-        originalName: this.sanitizeOriginalName(file.originalname, filename),
+        originalName: this.sanitizeOriginalName(meta.name || file.originalname, filename),
         mimeType: file.mimetype,
         sizeBytes: file.size,
         width: meta.width ?? null,
@@ -61,15 +63,26 @@ export class MediaService {
     return this.toView(asset);
   }
 
-  async listAssets(pagination: PaginationQueryDto): Promise<PaginatedResult<MediaAssetView>> {
+  async listAssets(pagination: PaginationQueryDto, search?: string): Promise<PaginatedResult<MediaAssetView>> {
+    const term = search?.trim();
+    const where: Prisma.MediaAssetWhereInput = term
+      ? {
+          OR: [
+            { originalName: { contains: term, mode: 'insensitive' } },
+            { filename: { contains: term, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
     const [assets, total] = await this.prisma.$transaction([
       this.prisma.mediaAsset.findMany({
+        where,
         orderBy: { createdAt: 'desc' },
         skip: pagination.skip,
         take: pagination.limit,
         include: UPLOADER_INCLUDE,
       }),
-      this.prisma.mediaAsset.count(),
+      this.prisma.mediaAsset.count({ where }),
     ]);
     return toPaginatedResult(
       assets.map((asset) => this.toView(asset)),

@@ -156,8 +156,8 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Guard*: `JwtAuthGuard` + `RolesGuard` (`SUPER_ADMIN`).
   - *Body*: `multipart/form-data` with `file` (JPEG/PNG/WebP/GIF, max 5 MB).
   - *Response*: the registered `media_assets` entity (ADR-016), including its public `url`.
-- **`GET /admin/media`**: Central media library listing — paginated `{ items, total, page, limit, totalPages }`, newest first; each item carries `id`, `url`, `filename`, `originalName`, `mimeType`, `sizeBytes`, `width`/`height` (client-measured post-crop), `uploadedBy { id, fullName }`, `createdAt`.
-- **`POST /admin/media`**: Upload to the central library — `multipart/form-data` with `file` (JPEG/PNG/WebP/GIF, max 5 MB) plus optional `width`/`height` ints (final pixel dimensions after client-side crop/resize). Returns the registered entity.
+- **`GET /admin/media`**: Central media library listing — paginated `{ items, total, page, limit, totalPages }`, newest first, with optional `search` (case-insensitive contains over `originalName` and `filename`); each item carries `id`, `url`, `filename`, `originalName`, `mimeType`, `sizeBytes`, `width`/`height` (client-measured post-crop), `uploadedBy { id, fullName }`, `createdAt`.
+- **`POST /admin/media`**: Upload to the central library — `multipart/form-data` with `file` (JPEG/PNG/WebP/GIF, max 5 MB) plus optional `width`/`height` ints (final pixel dimensions after client-side crop/resize) and optional `name` (display name, ≤255 chars; defaults to the uploaded file name). Returns the registered entity.
 - **`DELETE /admin/media/:id`**: Deletes the asset row first, then unlinks the stored file (idempotent file removal; 404 for unknown ids).
 - **`GET /admin/overview`**: Platform KPIs (gross revenue, active orders, online fleet, pending applicants).
 - **`GET /admin/fleet`**: Real-time fleet radar feed with GPS coordinates, online states, and cash safety margins.
