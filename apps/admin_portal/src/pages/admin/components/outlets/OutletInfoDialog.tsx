@@ -55,8 +55,8 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
       setCommission(String(initial?.commissionRate ?? 15));
       setPrep(String(initial?.defaultPrepTimeMinutes ?? 20));
       setRadius(String(initial?.deliveryRadiusKm ?? 5));
-      setLatitude('23.7925');
-      setLongitude('90.4078');
+      setLatitude(String(initial?.latitude ?? 23.7925));
+      setLongitude(String(initial?.longitude ?? 90.4078));
     }
   }, [isOpen, initial]);
 
@@ -67,7 +67,7 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={isCreate ? `New Outlet — ${brandName || 'Brand'}` : `Edit Outlet — ${editing?.name || ''}`}
-      description={isCreate ? 'Onboarded under this brand (brands own every outlet)' : 'Brand link, GPS, and governance stay managed from the outlet page'}
+      description={isCreate ? 'Onboarded under this brand (brands own every outlet)' : 'Outlet identity, contact, street address, GPS pin, and commercial terms'}
       footer={
         <div className="flex justify-end gap-2 w-full">
           <Button variant="outline" size="sm" onClick={onClose}>
@@ -85,9 +85,8 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
                 commissionRate: parseFloat(commission) || 15,
                 defaultPrepTimeMinutes: parseInt(prep, 10) || 20,
                 deliveryRadiusKm: parseFloat(radius) || 5,
-                ...(isCreate
-                  ? { latitude: parseFloat(latitude) || 23.7925, longitude: parseFloat(longitude) || 90.4078 }
-                  : {}),
+                ...(Number.isFinite(parseFloat(latitude)) ? { latitude: parseFloat(latitude) } : {}),
+                ...(Number.isFinite(parseFloat(longitude)) ? { longitude: parseFloat(longitude) } : {}),
               })
             }
           >
@@ -112,26 +111,26 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
           </div>
         </div>
 
-        {isCreate && (
-          <>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Street Address
-              </label>
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Sector 4, Road 7, House 12, Uttara, Dhaka" />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">GPS Latitude</label>
-                <Input value={latitude} onChange={(e) => setLatitude(e.target.value)} placeholder="23.7925" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">GPS Longitude</label>
-                <Input value={longitude} onChange={(e) => setLongitude(e.target.value)} placeholder="90.4078" />
-              </div>
-            </div>
-          </>
-        )}
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            Street Address
+          </label>
+          <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Sector 4, Road 7, House 12, Uttara, Dhaka" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              GPS Latitude <span className="font-normal text-slate-400">(-90 to 90)</span>
+            </label>
+            <Input value={latitude} onChange={(e) => setLatitude(e.target.value)} placeholder="23.7925" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              GPS Longitude <span className="font-normal text-slate-400">(-180 to 180)</span>
+            </label>
+            <Input value={longitude} onChange={(e) => setLongitude(e.target.value)} placeholder="90.4078" />
+          </div>
+        </div>
 
         <div className="grid grid-cols-3 gap-3">
           <div>

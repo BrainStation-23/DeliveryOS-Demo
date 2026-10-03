@@ -304,6 +304,18 @@ export class AdminController {
     };
   }
 
+  @Delete('categories/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a menu category (blocked with 409 while any product is attached)' })
+  @ApiResponse({ status: 409, description: 'Category still has products attached' })
+  async deleteCategory(@Param('id') categoryId: string) {
+    const data = await this.adminService.deleteCategory(categoryId);
+    return {
+      message: `Category "${data.name}" deleted successfully`,
+      data,
+    };
+  }
+
   @Post('products')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a product with its ordered variations (first variation defines the product price)' })

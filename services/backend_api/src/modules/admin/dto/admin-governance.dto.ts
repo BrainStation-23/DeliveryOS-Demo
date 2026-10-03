@@ -322,6 +322,22 @@ class VendorFields {
   @Max(240)
   defaultPrepTimeMinutes?: number;
 
+  @ApiPropertyOptional({ minimum: -90, maximum: 90, description: 'GPS latitude (move the outlet pin)' })
+  @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @ApiPropertyOptional({ minimum: -180, maximum: 180, description: 'GPS longitude (move the outlet pin)' })
+  @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()

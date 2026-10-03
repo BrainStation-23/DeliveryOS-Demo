@@ -8,6 +8,8 @@ export interface PageHeaderProps {
   description?: React.ReactNode;
   icon?: LucideIcon | React.ReactNode;
   badge?: React.ReactNode;
+  /** Leading affordance rendered left of the title (e.g. a back button). */
+  leading?: React.ReactNode;
   actions?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
@@ -19,6 +21,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   description,
   icon,
   badge,
+  leading,
   actions,
   children,
   className,
@@ -37,7 +40,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
   return (
     <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between', className)}>
-      <div className="min-w-0">
+      <div className="flex items-start gap-2 min-w-0">
+        {leading && <div className="shrink-0 pt-0.5">{leading}</div>}
+        <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2.5">
           {renderIcon()}
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
@@ -50,6 +55,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             {subText}
           </p>
         )}
+        </div>
       </div>
 
       {actionSlot && (

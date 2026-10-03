@@ -193,9 +193,12 @@ export const vendorsApi = {
     data: {
       name?: string;
       contactPhone?: string;
+      addressText?: string;
       commissionRate?: number;
       deliveryRadiusKm?: number;
       defaultPrepTimeMinutes?: number;
+      latitude?: number;
+      longitude?: number;
       isActive?: boolean;
     },
   ): Promise<AdminVendor> {
@@ -288,6 +291,11 @@ export const vendorsApi = {
     data: { name?: string; sortOrder?: number; isActive?: boolean },
   ): Promise<void> {
     await apiClient.patch(`/api/v1/admin/categories/${categoryId}`, data);
+  },
+
+  async deleteCategory(categoryId: string): Promise<{ id: string; name: string }> {
+    const res = await apiClient.delete(`/api/v1/admin/categories/${categoryId}`);
+    return unwrapData<{ id: string; name: string }>(res);
   },
 
   async updateVendorStaff(

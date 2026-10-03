@@ -3,33 +3,29 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
-  Building2,
   Clock,
-  Plus,
+  Pencil,
   Power,
-  Store,
-  Trash2,
+  Plus,
   UserRound,
-  Users,
 } from 'lucide-react';
 import adminApi, { AdminCatalogProduct, AdminStaffAssignment } from '../../services/adminApi';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/common/PageHeader';
-import { EmptyState } from '../../components/common/EmptyState';
 import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { resolveMediaUrl } from '../../utils/mediaUrl';
-import { formatCurrency } from '../../utils/formatters';
 import { extractApiError } from '../../utils/apiError';
 import { StaffProfileDialog } from './components/staff/StaffProfileDialog';
 import { ProductDialog } from './components/products/ProductDialog';
 import { OperatingHoursEditor } from './components/outlets/OperatingHoursEditor';
 import { OutletInfoDialog } from './components/outlets/OutletInfoDialog';
+import { OutletCatalogSection } from './components/outlets/OutletCatalogSection';
+import { CategoryDialog } from './components/outlets/CategoryDialog';
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const AdminOutletPage: React.FC = () => {
   const { outletId } = useParams<{ outletId: string }>();
@@ -45,6 +41,10 @@ export const AdminOutletPage: React.FC = () => {
   const [productCreateCategory, setProductCreateCategory] = useState<string | undefined>(undefined);
   const [isHoursEditorOpen, setIsHoursEditorOpen] = useState(false);
   const [deleteProductTarget, setDeleteProductTarget] = useState<AdminCatalogProduct | null>(null);
+  const [isSuspendConfirmOpen, setIsSuspendConfirmOpen] = useState(false);
+  const [categoryDialogTarget, setCategoryDialogTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [deleteCategoryTarget, setDeleteCategoryTarget] = useState<{ id: string; name: string } | null>(null);
 
   const {
     data: outlet,
@@ -68,17 +68,6 @@ export const AdminOutletPage: React.FC = () => {
     onError: (err) => setActionError(extractApiError(err, 'Failed to update outlet status.')),
   });
 
-  const deleteProductMutation = useMutation({
-    mutationFn: (productId: string) => adminApi.deleteProduct(productId),
-    onSuccess: () => {
-      setActionError(null);
-      setDeleteProductTarget(null);
-      queryClient.invalidateQueries({ queryKey: ['admin-outlet-detail', outletId] });
-      queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
-    },
-    onError: (err) => setActionError(extractApiError(err, 'Failed to delete the product.')),
-  });
-
   const updateOutletMutation = useMutation({
     mutationFn: (data: Parameters<typeof adminApi.updateVendor>[1]) =>
       adminApi.updateVendor(outletId as string, data),
@@ -89,6 +78,28 @@ export const AdminOutletPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
     },
     onError: (err) => setActionError(extractApiError(err, 'Failed to update outlet.')),
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (categoryId: string) => adminApi.deleteCategory(categoryId),
+    onSuccess: () => {
+      setActionError(null);
+      setDeleteCategoryTarget(null);
+      queryClient.invalidateQueries({ queryKey: ['admin-outlet-detail', outletId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
+    },
+    onError: (err) => setActionError(extractApiError(err, 'Failed to delete the category.')),
+  });
+
+  const deleteProductMutation = useMutation({
+    mutationFn: (productId: string) => adminApi.deleteProduct(productId),
+    onSuccess: () => {
+      setActionError(null);
+      setDeleteProductTarget(null);
+      queryClient.invalidateQueries({ queryKey: ['admin-outlet-detail', outletId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
+    },
+    onError: (err) => setActionError(extractApiError(err, 'Failed to delete the product.')),
   });
 
   if (isLoading) {
@@ -124,263 +135,237 @@ export const AdminOutletPage: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title={vendor.name}
-        subtitle={`Outlet of ${vendor.brandName || 'its brand'} · ${vendor.addressText}`}
-        icon={Store}
+        subtitle={vendor.brandName || undefined}
+        leading={
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 w-9 p-0 rounded-full"
+            onClick={() => navigate('/vendors')}
+            aria-label="Back to Brands"
+            title="Back to Brands"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        }
+        badge={
+          vendor.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Suspended</Badge>
+        }
         actions={
           <>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate('/vendors')}
-              leftIcon={<ArrowLeft className="h-4 w-4" />}
+              onClick={() => setIsEditDialogOpen(true)}
+              leftIcon={<Pencil className="h-3.5 w-3.5" />}
             >
-              Back to Brands
+              Edit Info
             </Button>
-            <Button
-              variant={vendor.isActive ? 'outline' : 'primary'}
-              size="sm"
-              isLoading={toggleStatusMutation.isPending}
-              onClick={() => toggleStatusMutation.mutate(!vendor.isActive)}
-              leftIcon={<Power className="h-3.5 w-3.5" />}
-            >
-              {vendor.isActive ? 'Suspend Outlet' : 'Activate Outlet'}
-            </Button>
+            {vendor.isActive ? (
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setIsSuspendConfirmOpen(true)}
+                leftIcon={<Power className="h-3.5 w-3.5" />}
+              >
+                Suspend
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                isLoading={toggleStatusMutation.isPending}
+                onClick={() => toggleStatusMutation.mutate(true)}
+                leftIcon={<Power className="h-3.5 w-3.5" />}
+              >
+                Activate
+              </Button>
+            )}
           </>
         }
       />
 
       {actionError && <QueryErrorBanner error={{ message: actionError } as never} onRetry={() => setActionError(null)} />}
 
-      {/* Brand strip + outlet info */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-          <div className="h-14 w-14 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center overflow-hidden shrink-0 dark:bg-slate-800">
-            {vendor.logoUrl ? (
-              <img src={resolveMediaUrl(vendor.logoUrl)} alt={vendor.name} className="h-full w-full object-cover" />
-            ) : (
-              <Store className="h-6 w-6" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{vendor.name}</div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <div className="h-5 w-5 rounded-md bg-primary-50 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300 flex items-center justify-center overflow-hidden shrink-0">
-                {vendor.brandLogoUrl ? (
-                  <img src={resolveMediaUrl(vendor.brandLogoUrl)} alt={vendor.brandName || 'Brand'} className="h-full w-full object-cover" />
-                ) : (
-                  <Building2 className="h-3 w-3" />
-                )}
-              </div>
-              <span className="text-[11px] font-semibold text-primary-700 dark:text-primary-300 truncate">
-                {vendor.brandName}
-              </span>
-              <span className="text-[10px] text-slate-400">· Brand (governs every linked outlet)</span>
-            </div>
-            <div className="text-[11px] text-slate-500 truncate mt-0.5">{vendor.addressText}</div>
-          </div>
-        </div>
-
-        <div className="pt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-center text-xs">
+      {/* Compact info strip — the name lives in the page title only */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center text-xs">
           <InfoCell label="Phone" value={vendor.contactPhone} />
+          <InfoCell label="Street Address" value={vendor.addressText} truncate />
+          <InfoCell label="GPS" value={`${Number(vendor.latitude).toFixed(4)}, ${Number(vendor.longitude).toFixed(4)}`} />
           <InfoCell label="Commission" value={`${vendor.commissionRate}%`} />
           <InfoCell label="Prep Time" value={`${vendor.defaultPrepTimeMinutes} min`} />
           <InfoCell label="Radius" value={`${vendor.deliveryRadiusKm} km`} />
-          <div>
-            <span className="text-slate-400 block text-[10px] mb-0.5">Status</span>
-            <div className="flex items-center justify-center gap-1.5">
-              {vendor.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Suspended</Badge>}
-              {vendor.isBusy && <Badge variant="warning">Rush</Badge>}
-            </div>
-          </div>
-          <div className="col-span-2 sm:col-span-3 lg:col-span-5 pt-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs h-7"
-              onClick={() => setIsEditDialogOpen(true)}
-            >
-              Edit Outlet Info
-            </Button>
-          </div>
         </div>
       </div>
 
+      {/* Catalog is the main surface; staff + schedule stack compactly beside it */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Staff */}
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-              <Users className="h-4 w-4 text-primary-600" /> Staff ({outlet.staff.length})
-            </h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs h-7 px-2 text-primary-600 dark:text-primary-400"
-              onClick={() => openStaffDialog(null)}
-              leftIcon={<Plus className="h-3.5 w-3.5" />}
-            >
-              New Staff
-            </Button>
-          </div>
-          {outlet.staff.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">No staff accounts bound to this outlet yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {outlet.staff.map((staff) => (
-                <button
-                  key={staff.id}
-                  type="button"
-                  onClick={() => openStaffDialog(staff)}
-                  className="w-full text-left rounded-xl border border-slate-200 p-3 hover:border-primary-400 hover:ring-2 hover:ring-primary-500/20 transition-all cursor-pointer dark:border-slate-800"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
-                      {staff.fullName}
-                    </span>
+        <div className="xl:col-span-2">
+          <OutletCatalogSection
+            categories={outlet.categories}
+            onEditProduct={(product) => openProductDialog(product)}
+            onCreateProduct={(categoryId) => openProductDialog(null, categoryId)}
+            onDeleteProduct={(product) => setDeleteProductTarget(product)}
+            onCreateCategory={() => {
+              setCategoryDialogTarget(null);
+              setIsCategoryDialogOpen(true);
+            }}
+            onEditCategory={(category) => {
+              setCategoryDialogTarget(category);
+              setIsCategoryDialogOpen(true);
+            }}
+            onDeleteCategory={(category) => setDeleteCategoryTarget(category)}
+          />
+        </div>
+
+        <div className="space-y-6">
+          {/* Staff — compact */}
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                <UserRound className="h-4 w-4 text-primary-600" /> Staff ({outlet.staff.length})
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7 px-2 text-primary-600 dark:text-primary-400"
+                onClick={() => openStaffDialog(null)}
+                leftIcon={<Plus className="h-3.5 w-3.5" />}
+              >
+                New Staff
+              </Button>
+            </div>
+
+            {outlet.staff.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-3 text-center">
+                No staff assigned — managers are attached here, owners from the brand card.
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {outlet.staff.map((staff) => (
+                  <button
+                    key={staff.id}
+                    type="button"
+                    onClick={() => openStaffDialog(staff)}
+                    className="w-full text-left rounded-lg border border-slate-100 px-2.5 py-2 flex items-center gap-2.5 hover:border-primary-300 transition-colors cursor-pointer dark:border-slate-800"
+                    title="View / edit staff profile"
+                  >
+                    <div className="h-8 w-8 rounded-full bg-primary-100 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300 flex items-center justify-center font-bold text-[11px] shrink-0">
+                      {staff.fullName.charAt(0).toUpperCase() || '?'}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
+                          {staff.fullName}
+                        </span>
+                        {!staff.isActive && <Badge variant="danger">Inactive</Badge>}
+                      </div>
+                      <div className="text-[10px] text-slate-500 truncate">{staff.phone}</div>
+                    </div>
                     {staff.scope === 'ALL_OUTLETS_MASTER' ? (
                       <Badge variant="purple">Owner</Badge>
                     ) : (
                       <Badge variant="info">Manager</Badge>
                     )}
-                  </div>
-                  <div className="flex items-center justify-between gap-2 mt-1">
-                    <span className="text-[11px] text-slate-500">{staff.phone}</span>
-                    {staff.isActive ? (
-                      <Badge variant="success">Active</Badge>
-                    ) : (
-                      <Badge variant="danger">Inactive</Badge>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-          <p className="text-[10px] text-slate-400 mt-3 flex items-center gap-1">
-            <UserRound className="h-3 w-3" /> Click a profile to view — edit from there.
-          </p>
-        </section>
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="text-[10px] text-slate-400 mt-3">Click a profile to view or edit.</p>
+          </section>
 
-        {/* Catalog */}
-        <section className="xl:col-span-2 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Catalog</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs h-7 px-2 text-primary-600 dark:text-primary-400"
-              onClick={() => openProductDialog(null, outlet.categories[0]?.id)}
-              leftIcon={<Plus className="h-3.5 w-3.5" />}
-            >
-              New Product
-            </Button>
-          </div>
-
-          {outlet.categories.length === 0 ? (
-            <EmptyState
-              message="No menu categories yet — create the first product to get started."
-              action={
-                <Button size="sm" onClick={() => openProductDialog(null, undefined)} leftIcon={<Plus className="h-4 w-4" />}>
-                  New Product
-                </Button>
-              }
-            />
-          ) : (
-            <div className="space-y-4">
-              {outlet.categories.map((category) => (
-                <div key={category.id}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{category.name}</span>
-                    <span className="text-[10px] text-slate-400">{category.products.length} items</span>
-                  </div>
-                  <div className="rounded-xl border border-slate-200 divide-y divide-slate-100 dark:border-slate-800 dark:divide-slate-800 overflow-hidden">
-                    {category.products.length === 0 ? (
-                      <div className="px-3.5 py-3 text-xs text-slate-400 italic">No products in this category.</div>
-                    ) : (
-                      category.products.map((product) => (
-                        <button
-                          key={product.id}
-                          type="button"
-                          onClick={() => openProductDialog(product)}
-                          className="w-full text-left px-3.5 py-2.5 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                        >
-                          <div className="min-w-0 flex items-center gap-2.5">
-                            {product.imageUrl && (
-                              <img
-                                src={resolveMediaUrl(product.imageUrl)}
-                                alt={product.name}
-                                className="h-8 w-8 rounded-lg object-cover shrink-0"
-                              />
-                            )}
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
-                                  {product.name}
-                                </span>
-                                {!product.isInStock && <Badge variant="danger">Out</Badge>}
-                              </div>
-                              <div className="text-[10px] text-slate-500">
-                                {product.variants.length} variation{product.variants.length === 1 ? '' : 's'}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                              {formatCurrency(product.variants[0]?.price ?? 0)}
-                            </span>
-                            <span
-                              role="button"
-                              tabIndex={0}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeleteProductTarget(product);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.stopPropagation();
-                                  setDeleteProductTarget(product);
-                                }
-                              }}
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                              title="Delete product"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </span>
-                          </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              ))}
+          {/* Operating hours — compact */}
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                <Clock className="h-4 w-4 text-primary-600" /> Hours
+              </h3>
+              <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setIsHoursEditorOpen(true)}>
+                Edit
+              </Button>
             </div>
-          )}
-        </section>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px]">
+              {DAYS.map((day, index) => {
+                const hours = outlet.operatingHours.find((h) => h.dayOfWeek === index);
+                return (
+                  <div
+                    key={day}
+                    className="flex items-center justify-between rounded-lg border border-slate-100 px-2.5 py-1.5 dark:border-slate-800"
+                  >
+                    <span className="font-bold text-slate-600 dark:text-slate-300">{day}</span>
+                    <span className={hours?.isClosed ? 'text-rose-500' : 'text-slate-600 dark:text-slate-400'}>
+                      {hours && !hours.isClosed ? `${hours.openTime}–${hours.closeTime}` : 'Closed'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </div>
       </div>
 
-      {/* Settings */}
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-            <Clock className="h-4 w-4 text-primary-600" /> Operating Hours
-          </h3>
-          <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setIsHoursEditorOpen(true)}>
-            Edit Schedule
-          </Button>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-center text-[11px]">
-          {DAYS.map((day, index) => {
-            const hours = outlet.operatingHours.find((h) => h.dayOfWeek === index);
-            return (
-              <div key={day} className="rounded-lg border border-slate-100 px-2 py-2 dark:border-slate-800">
-                <div className="font-bold text-slate-700 dark:text-slate-300">{day.slice(0, 3)}</div>
-                <div className={hours?.isClosed ? 'text-rose-500' : 'text-slate-600 dark:text-slate-400'}>
-                  {hours && !hours.isClosed ? `${hours.openTime}–${hours.closeTime}` : 'Closed'}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      <ConfirmDialog
+        isOpen={isSuspendConfirmOpen}
+        title="Suspend Outlet?"
+        variant="danger"
+        confirmLabel="Suspend Outlet"
+        message={
+          <>
+            <p>
+              Suspend <strong className="text-slate-900 dark:text-slate-100">{vendor.name}</strong>?
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              The outlet disappears from customer discovery immediately — new orders stop, in-flight orders continue.
+              Reactivate any time from this page.
+            </p>
+          </>
+        }
+        isPending={toggleStatusMutation.isPending}
+        onConfirm={() => {
+          toggleStatusMutation.mutate(false);
+          setIsSuspendConfirmOpen(false);
+        }}
+        onCancel={() => setIsSuspendConfirmOpen(false)}
+      />
+
+      <CategoryDialog
+        isOpen={isCategoryDialogOpen}
+        vendorId={vendor.id}
+        editing={categoryDialogTarget}
+        onClose={() => {
+          setIsCategoryDialogOpen(false);
+          setCategoryDialogTarget(null);
+        }}
+        onError={setActionError}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deleteCategoryTarget}
+        title="Delete Category?"
+        variant="danger"
+        confirmLabel="Delete Category"
+        message={
+          deleteCategoryTarget && (
+            <>
+              <p>
+                Delete the empty category{' '}
+                <strong className="text-slate-900 dark:text-slate-100">{deleteCategoryTarget.name}</strong>?
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Categories holding products cannot be deleted — move or remove the products first.
+              </p>
+            </>
+          )
+        }
+        isPending={deleteCategoryMutation.isPending}
+        onConfirm={() => {
+          if (deleteCategoryTarget) {
+            deleteCategoryMutation.mutate(deleteCategoryTarget.id);
+          }
+        }}
+        onCancel={() => setDeleteCategoryTarget(null)}
+      />
 
       <ConfirmDialog
         isOpen={!!deleteProductTarget}
@@ -391,8 +376,9 @@ export const AdminOutletPage: React.FC = () => {
           deleteProductTarget && (
             <>
               <p>
-                Permanently delete <strong className="text-slate-900 dark:text-slate-100">{deleteProductTarget.name}</strong>{' '}
-                and all its variations and add-ons?
+                Permanently delete{' '}
+                <strong className="text-slate-900 dark:text-slate-100">{deleteProductTarget.name}</strong> and all its
+                variations and add-ons?
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Products that already appear on customer orders cannot be deleted — mark them out of stock instead.
@@ -424,7 +410,11 @@ export const AdminOutletPage: React.FC = () => {
       <ProductDialog
         product={productDialogTarget}
         isOpen={isProductDialogOpen}
-        createContext={{ vendorId: vendor.id, categoryId: productCreateCategory }}
+        createContext={{
+          vendorId: vendor.id,
+          categoryId: productCreateCategory,
+          categories: outlet.categories.map((category) => ({ id: category.id, name: category.name })),
+        }}
         onClose={() => setIsProductDialogOpen(false)}
       />
 
@@ -447,6 +437,8 @@ export const AdminOutletPage: React.FC = () => {
           commissionRate: vendor.commissionRate,
           defaultPrepTimeMinutes: vendor.defaultPrepTimeMinutes,
           deliveryRadiusKm: vendor.deliveryRadiusKm,
+          latitude: vendor.latitude,
+          longitude: vendor.longitude,
         }}
         onClose={() => setIsEditDialogOpen(false)}
         onSubmit={(payload) => updateOutletMutation.mutate(payload)}
@@ -455,9 +447,15 @@ export const AdminOutletPage: React.FC = () => {
   );
 };
 
-const InfoCell: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-  <div>
+const InfoCell: React.FC<{ label: string; value: string; truncate?: boolean }> = ({ label, value, truncate }) => (
+  <div className="min-w-0">
     <span className="text-slate-400 block text-[10px] mb-0.5">{label}</span>
-    <span className="font-bold text-slate-900 dark:text-slate-100">{value}</span>
+    <span
+      className={`font-bold text-slate-900 dark:text-slate-100 ${truncate ? 'block truncate' : ''}`}
+      title={truncate ? value : undefined}
+    >
+      {value}
+    </span>
   </div>
 );
+

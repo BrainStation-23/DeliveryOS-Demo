@@ -1144,3 +1144,68 @@ describe('AdminService - brand owner governance (setBrandOwner)', () => {
     await expect(service.setBrandOwner('brand-1', 'ghost-user')).rejects.toThrow('Owner user not found');
   });
 });
+
+describe('AdminService - outlet GPS edit passthrough', () => {
+  const prisma = {
+    vendor: { findUnique: jest.fn().mockResolvedValue({ id: 'vendor-1' }), update: jest.fn().mockResolvedValue({ id: 'vendor-1' }) },
+  };
+  const service = new AdminService(
+    prisma as never,
+    { del: jest.fn() } as never,
+    {} as never,
+    {} as never,
+    { invalidateCache: jest.fn() } as never,
+    { sendToUser: jest.fn() } as never,
+  );
+
+  it('updates the outlet pin when coordinates are provided', async () => {
+    await service.updateVendor('vendor-1', { latitude: 23.8759, longitude: 90.3796 });
+    expect(prisma.vendor.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ latitude: 23.8759, longitude: 90.3796 }) }),
+    );
+  });
+
+  it('leaves coordinates untouched when they are not part of the patch', async () => {
+    prisma.vendor.update.mockClear();
+    await service.updateVendor('vendor-1', { contactPhone: '+8801700000099' });
+    const data = prisma.vendor.update.mock.calls[0][0].data;
+    expect(data.latitude).toBeUndefined();
+    expect(data.longitude).toBeUndefined();
+  });
+});
+
+describe('AdminService - category deletion guard', () => {
+  const prisma = {
+    category: {
+      findUnique: jest.fn(),
+      delete: jest.fn().mockResolvedValue({ id: 'cat-1' }),
+    },
+  };
+  const service = new AdminService(
+    prisma as never,
+    { del: jest.fn() } as never,
+    {} as never,
+    {} as never,
+    { invalidateCache: jest.fn() } as never,
+    { sendToUser: jest.fn() } as never,
+  );
+
+  it('deletes a product-less category', async () => {
+    prisma.category.findUnique.mockResolvedValue({ id: 'cat-1', name: 'Sides', _count: { products: 0 } });
+    const result = await service.deleteCategory('cat-1');
+    expect(result).toEqual({ id: 'cat-1', name: 'Sides' });
+    expect(prisma.category.delete).toHaveBeenCalledWith({ where: { id: 'cat-1' } });
+  });
+
+  it('blocks deletion with 409 while products are attached', async () => {
+    prisma.category.delete.mockClear();
+    prisma.category.findUnique.mockResolvedValue({ id: 'cat-1', name: 'Sides', _count: { products: 3 } });
+    await expect(service.deleteCategory('cat-1')).rejects.toThrow('product(s) attached');
+    expect(prisma.category.delete).not.toHaveBeenCalledWith({ where: { id: 'cat-1' } });
+  });
+
+  it('rejects unknown categories with 404', async () => {
+    prisma.category.findUnique.mockResolvedValue(null);
+    await expect(service.deleteCategory('ghost')).rejects.toThrow('Category not found');
+  });
+});

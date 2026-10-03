@@ -1120,6 +1120,8 @@ export class AdminService {
       commissionRate?: number;
       deliveryRadiusKm?: number;
       defaultPrepTimeMinutes?: number;
+      latitude?: number;
+      longitude?: number;
       isActive?: boolean;
     },
   ) {
@@ -1137,6 +1139,8 @@ export class AdminService {
         ...(data.commissionRate !== undefined && { commissionRate: data.commissionRate }),
         ...(data.deliveryRadiusKm !== undefined && { deliveryRadiusKm: data.deliveryRadiusKm }),
         ...(data.defaultPrepTimeMinutes !== undefined && { defaultPrepTimeMinutes: data.defaultPrepTimeMinutes }),
+        ...(data.latitude !== undefined && { latitude: data.latitude }),
+        ...(data.longitude !== undefined && { longitude: data.longitude }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
     });
@@ -1630,6 +1634,29 @@ export class AdminService {
         ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
     });
+  }
+
+  /**
+   * Category deletion guarded by product attachments: products reference the
+   * category with a nullable FK, but silently orphaning live menu items is
+   * never acceptable — categories only delete while product-less (retire
+   * stocked ones via PATCH isActive=false instead).
+   */
+  async deleteCategory(categoryId: string) {
+    const category = await this.prisma.category.findUnique({
+      where: { id: categoryId },
+      include: { _count: { select: { products: true } } },
+    });
+    if (!category) throw new NotFoundException('Category not found');
+
+    if (category._count.products > 0) {
+      throw new ConflictException(
+        `Category "${category.name}" still has ${category._count.products} product(s) attached — move or delete them first`,
+      );
+    }
+
+    await this.prisma.category.delete({ where: { id: categoryId } });
+    return { id: categoryId, name: category.name };
   }
 
   async getCentralCategories() {

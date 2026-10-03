@@ -24,7 +24,7 @@ interface ProductDialogProps {
   /** Product to view/edit; null = create mode. */
   product: AdminCatalogProduct | null;
   isOpen: boolean;
-  createContext: { vendorId: string; categoryId?: string } | null;
+  createContext: { vendorId: string; categoryId?: string; categories?: Array<{ id: string; name: string }> } | null;
   onClose: () => void;
 }
 
@@ -149,7 +149,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({ product, isOpen, c
                   <Button
                     size="sm"
                     isLoading={saveMutation.isPending}
-                    disabled={!name.trim() || (isCreate && !categoryId && !createContext?.categoryId)}
+                    disabled={!name.trim() || (isCreate && !categoryId)}
                     onClick={handleSave}
                   >
                     {isCreate ? 'Create Product' : 'Save Product'}
@@ -219,6 +219,27 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({ product, isOpen, c
 
           {mode === 'edit' && (
             <>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Category {isCreate ? '' : <span className="font-normal text-slate-400">(unchanged)</span>}
+                </label>
+                <select
+                  value={categoryId}
+                  disabled={!isCreate}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-primary-500 focus:outline-none disabled:cursor-default dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                >
+                  <option value="">
+                    {isCreate ? 'Select a category...' : 'Keep current category'}
+                  </option>
+                  {(createContext?.categories ?? []).map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
