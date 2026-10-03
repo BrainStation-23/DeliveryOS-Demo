@@ -164,8 +164,106 @@ export const CustomerDetailsDrawer: React.FC<CustomerDetailsDrawerProps> = ({ cu
       <Drawer
         isOpen={!!customerId}
         onClose={onClose}
-        title={customer ? customer.fullName : 'Customer Details'}
-        description={customer?.phone}
+        title={
+          customer ? (
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 text-white font-bold text-xs shadow-xs shrink-0">
+                {getInitials(customer.fullName)}
+              </div>
+              <div className="min-w-0 flex items-center gap-2 flex-wrap">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 truncate">
+                  {customer.fullName}
+                </h3>
+                <Badge
+                  variant={
+                    customer.status === 'ACTIVE'
+                      ? 'success'
+                      : customer.status === 'SUSPENDED'
+                      ? 'danger'
+                      : 'warning'
+                  }
+                  size="sm"
+                >
+                  {customer.status.replace('_', ' ')}
+                </Badge>
+              </div>
+            </div>
+          ) : (
+            'Customer Details'
+          )
+        }
+        description={
+          customer ? (
+            <div className="mt-1 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+              <span className="flex items-center gap-1 font-mono">
+                <Phone className="h-3 w-3 shrink-0 text-slate-400" />
+                {customer.phone}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleCopyPhone(customer.phone)}
+                className="p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                title="Copy phone number"
+              >
+                {copiedPhone ? (
+                  <Check className="h-3 w-3 text-emerald-500" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
+              </button>
+              {customer.email && (
+                <>
+                  <span className="text-slate-300 dark:text-slate-700">·</span>
+                  <a
+                    href={`mailto:${customer.email}`}
+                    className="flex items-center gap-1 truncate hover:text-primary-600 dark:hover:text-primary-400"
+                  >
+                    <Mail className="h-3 w-3 shrink-0 text-slate-400" />
+                    {customer.email}
+                  </a>
+                </>
+              )}
+              <span className="text-slate-300 dark:text-slate-700">·</span>
+              <span className="flex items-center gap-1 text-[11px]">
+                <Calendar className="h-3 w-3 text-slate-400" />
+                joined {formatDate(customer.createdAt)}
+              </span>
+            </div>
+          ) : undefined
+        }
+        action={
+          customer ? (
+            customer.status === 'ACTIVE' ? (
+              <Button
+                size="sm"
+                variant="outline"
+                leftIcon={<Ban className="h-3.5 w-3.5 shrink-0 text-rose-600 dark:text-rose-400" />}
+                className="text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 cursor-pointer whitespace-nowrap text-xs h-8"
+                onClick={() => {
+                  setActionError(null);
+                  setSuspendReason('');
+                  setSuspendReasonError(null);
+                  setIsSuspendModalOpen(true);
+                }}
+              >
+                Suspend
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                leftIcon={<CheckCircle className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />}
+                className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 cursor-pointer whitespace-nowrap text-xs h-8"
+                onClick={() => {
+                  setActionError(null);
+                  setIsReactivateConfirmOpen(true);
+                }}
+              >
+                Withdraw Suspend
+              </Button>
+            )
+          ) : undefined
+        }
       >
         {isLoading || !detail ? (
           <div className="flex flex-col items-center justify-center py-20 text-center text-sm text-slate-400">
@@ -186,99 +284,6 @@ export const CustomerDetailsDrawer: React.FC<CustomerDetailsDrawerProps> = ({ cu
                 </button>
               </div>
             )}
-
-            {/* Customer Profile Card */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 text-white font-bold text-sm shadow-sm shrink-0">
-                    {getInitials(customer?.fullName)}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
-                      {customer?.fullName}
-                    </h3>
-                    <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
-                      <span className="flex items-center gap-1 font-mono">
-                        <Phone className="h-3 w-3 shrink-0 text-slate-400" />
-                        {customer?.phone}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => customer?.phone && handleCopyPhone(customer.phone)}
-                        className="p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                        title="Copy phone number"
-                      >
-                        {copiedPhone ? (
-                          <Check className="h-3 w-3 text-emerald-500" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                      </button>
-                    </div>
-                    {customer?.email && (
-                      <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
-                        <Mail className="h-3 w-3 shrink-0 text-slate-400" />
-                        <a
-                          href={`mailto:${customer.email}`}
-                          className="truncate hover:text-primary-600 dark:hover:text-primary-400"
-                        >
-                          {customer.email}
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Status Badge & Actions */}
-                <div className="flex flex-col items-end gap-1.5 shrink-0">
-                  <Badge
-                    variant={
-                      customer?.status === 'ACTIVE'
-                        ? 'success'
-                        : customer?.status === 'SUSPENDED'
-                        ? 'danger'
-                        : 'warning'
-                    }
-                  >
-                    {customer?.status?.replace('_', ' ')}
-                  </Badge>
-                  <span className="flex items-center gap-1 text-[11px] text-slate-500">
-                    <Calendar className="h-3 w-3 text-slate-400" />
-                    joined {formatDate(customer?.createdAt)}
-                  </span>
-                  {customer?.status === 'ACTIVE' ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      leftIcon={<Ban className="h-3.5 w-3.5 shrink-0 text-rose-600 dark:text-rose-400" />}
-                      className="mt-1 text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 cursor-pointer whitespace-nowrap text-xs"
-                      onClick={() => {
-                        setActionError(null);
-                        setSuspendReason('');
-                        setSuspendReasonError(null);
-                        setIsSuspendModalOpen(true);
-                      }}
-                    >
-                      Suspend
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      leftIcon={<CheckCircle className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />}
-                      className="mt-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 cursor-pointer whitespace-nowrap text-xs"
-                      onClick={() => {
-                        setActionError(null);
-                        setIsReactivateConfirmOpen(true);
-                      }}
-                    >
-                      Withdraw Suspend
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
 
             {/* Account Suspension Warning Card */}
             {customer?.status === 'SUSPENDED' && (

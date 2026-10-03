@@ -5,8 +5,9 @@ import { cn } from '../../utils/cn';
 export interface DrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  title?: string;
-  description?: string;
+  title?: React.ReactNode;
+  description?: React.ReactNode;
+  action?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
   widthClass?: string;
@@ -18,6 +19,7 @@ export const Drawer: React.FC<DrawerProps> = ({
   onClose,
   title,
   description,
+  action,
   children,
   footer,
   widthClass = 'max-w-xl',
@@ -50,20 +52,29 @@ export const Drawer: React.FC<DrawerProps> = ({
         role="dialog"
         aria-modal="true"
       >
-        <div className="flex items-start justify-between border-b border-slate-100 px-5 sm:px-6 py-4 dark:border-slate-800 shrink-0">
-          <div>
-            {title && <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">{title}</h3>}
-            {description && (
+        <div className="flex items-start justify-between border-b border-slate-100 px-5 sm:px-6 py-4 dark:border-slate-800 shrink-0 gap-3">
+          <div className="min-w-0 flex-1">
+            {title && (typeof title === 'string' ? (
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 truncate">{title}</h3>
+            ) : (
+              title
+            ))}
+            {description && (typeof description === 'string' ? (
               <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">{description}</p>
-            )}
+            ) : (
+              description
+            ))}
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors"
-            aria-label="Close panel"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {action}
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors cursor-pointer"
+              aria-label="Close panel"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 sm:p-6">{children}</div>
