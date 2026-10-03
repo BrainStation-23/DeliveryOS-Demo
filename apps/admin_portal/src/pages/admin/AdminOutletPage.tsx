@@ -318,7 +318,7 @@ export const AdminOutletPage: React.FC = () => {
 
       {/* Compact info strip — the name lives in the page title only */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-center text-xs">
           <InfoCell label="Phone" value={vendor.contactPhone} />
           <div className="min-w-0">
             <span className="text-slate-400 block text-[10px] mb-0.5">Street Address</span>
@@ -333,18 +333,6 @@ export const AdminOutletPage: React.FC = () => {
               />
             </div>
           </div>
-          <InfoCell
-            label="Location"
-            value={
-              <GoogleMapsLink
-                variant="badge"
-                latitude={vendor.latitude}
-                longitude={vendor.longitude}
-                addressFallback={vendor.addressText}
-                label="Google Maps"
-              />
-            }
-          />
           <InfoCell label="Commission" value={`${vendor.commissionRate}%`} />
           <InfoCell label="Prep Time" value={`${vendor.defaultPrepTimeMinutes} min`} />
           <InfoCell label="Radius" value={`${vendor.deliveryRadiusKm} km`} />

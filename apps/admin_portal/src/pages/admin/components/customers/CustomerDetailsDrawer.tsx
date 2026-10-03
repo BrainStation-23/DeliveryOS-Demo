@@ -431,14 +431,6 @@ export const CustomerDetailsDrawer: React.FC<CustomerDetailsDrawerProps> = ({ cu
                               </Badge>
                             )}
                           </div>
-
-                          <GoogleMapsLink
-                            variant="button"
-                            latitude={address.latitude}
-                            longitude={address.longitude}
-                            addressFallback={address.addressLine}
-                            label="Google Maps"
-                          />
                         </div>
 
                         <div className="flex items-start justify-between gap-2">

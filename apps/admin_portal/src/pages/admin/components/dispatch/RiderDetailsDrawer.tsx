@@ -118,10 +118,10 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
                   <span>Last seen {formatDateTime(rider.lastSeenAt)}</span>
                   {rider.latitude != null && rider.longitude != null && (
                     <GoogleMapsLink
-                      variant="badge"
+                      variant="icon"
                       latitude={rider.latitude}
                       longitude={rider.longitude}
-                      label="Google Maps"
+                      title="Open rider last known location on Google Maps"
                     />
                   )}
                 </p>

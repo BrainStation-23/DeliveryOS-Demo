@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, MapPin } from 'lucide-react';
+import { ExternalLink, Map } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 export interface GoogleMapsLinkProps {
@@ -10,6 +10,7 @@ export interface GoogleMapsLinkProps {
   label?: string;
   className?: string;
   title?: string;
+  icon?: React.ReactNode;
 }
 
 /**
@@ -43,10 +44,11 @@ export const GoogleMapsLink: React.FC<GoogleMapsLinkProps> = ({
   latitude,
   longitude,
   addressFallback,
-  variant = 'button',
-  label = 'Google Maps',
+  variant = 'icon',
+  label = 'Maps',
   className,
   title,
+  icon,
 }) => {
   const url = buildGoogleMapsUrl(latitude, longitude, addressFallback);
   if (!url) return null;
@@ -62,6 +64,8 @@ export const GoogleMapsLink: React.FC<GoogleMapsLinkProps> = ({
     ? 'Open exact location on Google Maps'
     : 'Open address on Google Maps';
 
+  const renderedIcon = icon ?? <Map className="h-3.5 w-3.5" />;
+
   if (variant === 'icon') {
     return (
       <a
@@ -76,7 +80,7 @@ export const GoogleMapsLink: React.FC<GoogleMapsLinkProps> = ({
         )}
         aria-label={title || defaultTitle}
       >
-        <MapPin className="h-3.5 w-3.5" />
+        {renderedIcon}
       </a>
     );
   }
@@ -94,7 +98,7 @@ export const GoogleMapsLink: React.FC<GoogleMapsLinkProps> = ({
           className
         )}
       >
-        <MapPin className="h-3 w-3" />
+        {renderedIcon}
         <span>{label}</span>
         <ExternalLink className="h-2.5 w-2.5" />
       </a>
@@ -113,7 +117,7 @@ export const GoogleMapsLink: React.FC<GoogleMapsLinkProps> = ({
         className
       )}
     >
-      <MapPin className="h-3 w-3" />
+      {renderedIcon}
       <span>{label}</span>
       <ExternalLink className="h-3 w-3" />
     </a>

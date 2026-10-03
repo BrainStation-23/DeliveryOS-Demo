@@ -131,15 +131,6 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
           <SectionCard
             icon={<Store className="h-3.5 w-3.5 text-primary-600" />}
             title="Outlet"
-            action={
-              <GoogleMapsLink
-                variant="icon"
-                latitude={order.vendorLatitude}
-                longitude={order.vendorLongitude}
-                addressFallback={order.vendorAddress}
-                title={`Open ${order.vendorName} on Google Maps`}
-              />
-            }
           >
             <DetailLine label="Store">{order.vendorName}</DetailLine>
             <div className="mt-2">
@@ -151,6 +142,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                     latitude={order.vendorLatitude}
                     longitude={order.vendorLongitude}
                     addressFallback={order.vendorAddress}
+                    title={`Open ${order.vendorName} on Google Maps`}
                   />
                 </div>
               </DetailLine>
@@ -307,15 +299,6 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
           <SectionCard
             icon={<MapPin className="h-3.5 w-3.5 text-primary-600" />}
             title="Delivery Address"
-            action={
-              <GoogleMapsLink
-                variant="button"
-                latitude={order.deliveryLatitude}
-                longitude={order.deliveryLongitude}
-                addressFallback={order.deliveryAddress}
-                label="Google Maps"
-              />
-            }
           >
             <div className="flex items-start justify-between gap-2">
               <p className="text-xs font-medium text-slate-700 dark:text-slate-300 leading-relaxed flex-1">
