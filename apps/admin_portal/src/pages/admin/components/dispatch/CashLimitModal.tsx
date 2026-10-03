@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
-import { FleetRider } from '../../../../services/adminApi';
 import { Button } from '../../../../components/ui/Button';
 import { Input } from '../../../../components/ui/Input';
 import { Modal } from '../../../../components/ui/Modal';
 
+/** Minimal courier cash profile the modal needs — satisfies FleetRider rows
+ *  and RiderDetail profiles alike without structural casts. */
+export interface CashLimitModalRider {
+  riderName: string;
+  cashInHand: number;
+  maxCashLimit: number;
+}
+
 interface CashLimitModalProps {
-  rider: FleetRider;
+  rider: CashLimitModalRider;
   isSubmitting: boolean;
   onClose: () => void;
   onSubmit: (limit: number) => void;

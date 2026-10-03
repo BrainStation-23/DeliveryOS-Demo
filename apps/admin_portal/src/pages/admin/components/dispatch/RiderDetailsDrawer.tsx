@@ -282,9 +282,13 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
         )}
       </Drawer>
 
-      {rider && (
+      {rider && isCashModalOpen && (
         <CashLimitModal
-          rider={{ id: rider.id, riderName: rider.fullName, maxCashLimit: rider.maxCashLimit, cashInHand: rider.cashInHand } as never}
+          rider={{
+            riderName: rider.fullName,
+            maxCashLimit: rider.maxCashLimit,
+            cashInHand: rider.cashInHand,
+          }}
           isSubmitting={cashLimitMutation.isPending}
           onClose={() => setIsCashModalOpen(false)}
           onSubmit={(limit) => cashLimitMutation.mutate(limit)}
