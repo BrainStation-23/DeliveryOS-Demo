@@ -10,8 +10,6 @@ import { Alert } from '../../../../components/ui/Alert';
 import { useDebouncedValue } from '../../../../hooks/useDebouncedValue';
 import { extractApiError } from '../../../../utils/apiError';
 
-type StaffScope = 'PARTICULAR_OUTLET' | 'ALL_OUTLETS_MASTER';
-
 interface StaffProfileDialogProps {
   /** Assignment to view/edit; null in create mode. */
   assignment: AdminStaffAssignment | null;
@@ -46,7 +44,6 @@ export const StaffProfileDialog: React.FC<StaffProfileDialogProps> = ({
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [isActive, setIsActive] = useState(true);
-  const [scope, setScope] = useState<StaffScope>('PARTICULAR_OUTLET');
   const [actionError, setActionError] = useState<string | null>(null);
 
   // create-mode: existing user lookup
@@ -66,12 +63,10 @@ export const StaffProfileDialog: React.FC<StaffProfileDialogProps> = ({
         setFullName(assignment.fullName);
         setPhone(assignment.phone);
         setIsActive(assignment.isActive);
-        setScope(assignment.scope);
       } else {
         setFullName('');
         setPhone('');
         setIsActive(true);
-        setScope('PARTICULAR_OUTLET');
       }
     }
   }, [isOpen, assignment, isCreate]);
@@ -93,7 +88,10 @@ export const StaffProfileDialog: React.FC<StaffProfileDialogProps> = ({
     mutationFn: async () => {
       if (assignment) {
         await adminApi.updateStaffAccount(assignment.userId, { fullName: fullName.trim(), phone: phone.trim() });
-        return adminApi.updateVendorStaff(assignment.id, { isActive, scope });
+        // The role/scope is fixed at assignment time — the profile edit only
+        // touches account identity and access. Re-scoping happens by removing
+        // and re-attaching the account where the new role applies.
+        return adminApi.updateVendorStaff(assignment.id, { isActive });
       }
       const target = createScope as NonNullable<typeof createScope>;
       let userId = selectedUser?.id;
@@ -101,7 +99,7 @@ export const StaffProfileDialog: React.FC<StaffProfileDialogProps> = ({
         const created = await adminApi.createStaffUser({ phone: phone.trim(), fullName: fullName.trim() });
         userId = created.id;
       }
-      return adminApi.assignVendorStaff(target.vendorId, { userId, scope });
+      return adminApi.assignVendorStaff(target.vendorId, { userId, scope: 'PARTICULAR_OUTLET' });
     },
     onSuccess: () => {
       setActionError(null);
@@ -124,7 +122,7 @@ export const StaffProfileDialog: React.FC<StaffProfileDialogProps> = ({
       title={isCreate ? 'New Staff Account' : mode === 'view' ? 'Staff Profile' : 'Edit Staff Account'}
       description={
         isCreate
-          ? 'Attach an existing user by phone or provision a new account — owners sign in via OTP.'
+          ? 'Attach an existing user by phone or provision a new account as a Branch Manager — sign-in is via OTP.'
           : assignment?.scope === 'ALL_OUTLETS_MASTER'
             ? `Brand Owner — governs every ${brandName || 'brand'} outlet`
             : 'Branch Manager — locked to one outlet'
@@ -299,34 +297,20 @@ export const StaffProfileDialog: React.FC<StaffProfileDialogProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Role Scope</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {([
-                  { id: 'PARTICULAR_OUTLET' as const, title: 'Branch Manager', desc: `One outlet${outletName ? ` — ${outletName}` : ''}` },
-                  { id: 'ALL_OUTLETS_MASTER' as const, title: 'Brand Owner', desc: `All outlets${brandName ? ` — ${brandName}` : ''}` },
-                ]).map((option) => (
-                  <label
-                    key={option.id}
-                    className={`flex items-start gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                      scope === option.id
-                        ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-950/20'
-                        : 'border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="profile_scope"
-                      checked={scope === option.id}
-                      onChange={() => setScope(option.id)}
-                      className="mt-0.5 text-primary-600 focus:ring-primary-500"
-                    />
-                    <div>
-                      <div className="text-[11px] font-bold text-slate-900 dark:text-slate-100">{option.title}</div>
-                      <div className="text-[10px] text-slate-500">{option.desc}</div>
-                    </div>
-                  </label>
-                ))}
-              </div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Role</label>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                {assignment?.scope === 'ALL_OUTLETS_MASTER' ? (
+                  <>
+                    <Badge variant="purple">Brand Owner</Badge>
+                    <span className="ml-1.5">{brandName}</span>
+                  </>
+                ) : (
+                  <>
+                    <Badge variant="info">Branch Manager</Badge>
+                    <span className="ml-1.5">{outletName || '—'}</span>
+                  </>
+                )}
+              </p>
             </div>
 
             <div>

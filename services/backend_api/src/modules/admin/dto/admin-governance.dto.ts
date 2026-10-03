@@ -69,6 +69,15 @@ export class UpdateBrandDto {
   logoUrl?: string;
 }
 
+export class SetBrandOwnerDto {
+  @ApiPropertyOptional({
+    description: 'User id to make the brand owner — omitted/null clears the ownership',
+  })
+  @IsOptional()
+  @IsString()
+  userId?: string | null;
+}
+
 export class CreateStaffUserDto {
   @ApiProperty({ example: '+8801712345678', description: 'Phone number — the account owner later signs in with OTP' })
   @IsString()

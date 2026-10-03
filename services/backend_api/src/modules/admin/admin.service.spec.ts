@@ -1030,3 +1030,117 @@ describe('AdminService - delivery economics settings', () => {
     });
   });
 });
+
+describe('AdminService - brand owner governance (setBrandOwner)', () => {
+  let service: AdminService;
+  let prisma: Record<string, Record<string, jest.Mock>> & { $transaction: jest.Mock };
+  let redis: { del: jest.Mock };
+
+  const ownerRow = (userId: string) => ({
+    id: 'staff-old-owner',
+    userId,
+    scope: 'ALL_OUTLETS_MASTER',
+    isActive: true,
+    brandId: 'brand-1',
+    user: { id: userId, fullName: 'Previous Owner', phone: '+8801700000099', role: 'VENDOR_ADMIN' },
+  });
+
+  const makePristine = () => ({
+    vendorBrand: {
+      findUnique: jest.fn().mockResolvedValue({
+        id: 'brand-1',
+        name: 'Kacchi House',
+        staff: [ownerRow('user-old-owner')],
+      }),
+    },
+    vendorStaff: {
+      delete: jest.fn().mockResolvedValue({}),
+      count: jest.fn().mockResolvedValue(0),
+      create: jest.fn().mockResolvedValue({ id: 'staff-new', scope: 'ALL_OUTLETS_MASTER' }),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+    user: {
+      findUnique: jest.fn().mockResolvedValue({
+        id: 'user-new-owner',
+        fullName: 'New Owner',
+        phone: '+8801700000088',
+        role: 'CUSTOMER',
+      }),
+      update: jest.fn().mockResolvedValue({}),
+    },
+  });
+
+  beforeEach(() => {
+    prisma = makePristine() as never;
+    (prisma as { $transaction?: jest.Mock }).$transaction = jest.fn((fn: (client: unknown) => unknown) => fn(prisma));
+    redis = { del: jest.fn().mockResolvedValue(1) };
+
+    service = new AdminService(
+      prisma as never,
+      redis as never,
+      {} as never,
+      {} as never,
+      { invalidateCache: jest.fn() } as never,
+      { sendToUser: jest.fn() } as never,
+    );
+  });
+
+  it('replaces the owner: old master removed and demoted, candidate promoted and cached sessions purged', async () => {
+    const result = await service.setBrandOwner('brand-1', 'user-new-owner');
+
+    expect(result.owner).toMatchObject({ userId: 'user-new-owner', fullName: 'New Owner', isActive: true });
+    expect(result.demotedCount).toBe(1);
+    expect(prisma.vendorStaff.delete).toHaveBeenCalledWith({ where: { id: 'staff-old-owner' } });
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-old-owner' },
+      data: { role: 'CUSTOMER' },
+    });
+    expect(prisma.vendorStaff.create).toHaveBeenCalledWith({
+      data: { userId: 'user-new-owner', brandId: 'brand-1', scope: 'ALL_OUTLETS_MASTER', isActive: true },
+    });
+    // Promote + role guard for both the demoted old owner and the new owner
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-new-owner' },
+      data: { role: 'VENDOR_ADMIN' },
+    });
+    expect(redis.del).toHaveBeenCalledWith('auth:user:user-old-owner');
+    expect(redis.del).toHaveBeenCalledWith('auth:user:user-new-owner');
+  });
+
+  it('clears ownership when no user id is given and demotes a last-tie owner', async () => {
+    const result = await service.setBrandOwner('brand-1', null);
+
+    expect(result).toEqual({ owner: null, demotedCount: 1 });
+    expect(prisma.vendorStaff.create).not.toHaveBeenCalled();
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-old-owner' },
+      data: { role: 'CUSTOMER' },
+    });
+  });
+
+  it('keeps the previous owner role when they still hold other assignments', async () => {
+    prisma.vendorStaff.count.mockResolvedValue(2);
+    const result = await service.setBrandOwner('brand-1', 'user-new-owner');
+
+    expect(result.demotedCount).toBe(0);
+    expect(prisma.user.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'user-old-owner' } }),
+    );
+  });
+
+  it('rejects a candidate holding an active assignment elsewhere with 409', async () => {
+    prisma.vendorStaff.findFirst.mockResolvedValue({ id: 'other-assignment', vendorId: 'vendor-9' });
+
+    await expect(service.setBrandOwner('brand-1', 'user-new-owner')).rejects.toThrow('active assignment');
+    expect(prisma.vendorStaff.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects unknown brands and unknown owner users with 404', async () => {
+    prisma.vendorBrand.findUnique.mockResolvedValue(null);
+    await expect(service.setBrandOwner('ghost', 'user-new-owner')).rejects.toThrow('Brand not found');
+
+    prisma.vendorBrand.findUnique.mockResolvedValue({ id: 'brand-1', name: 'B', staff: [] });
+    prisma.user.findUnique.mockResolvedValue(null);
+    await expect(service.setBrandOwner('brand-1', 'ghost-user')).rejects.toThrow('Owner user not found');
+  });
+});

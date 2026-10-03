@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Images } from 'lucide-react';
 import { AdminBrand } from '../../../../services/adminApi';
 import { Button } from '../../../../components/ui/Button';
@@ -6,6 +6,13 @@ import { Input } from '../../../../components/ui/Input';
 import { Modal } from '../../../../components/ui/Modal';
 import { MediaPickerModal } from '../../../../components/media/MediaPickerModal';
 import { resolveMediaUrl } from '../../../../utils/mediaUrl';
+import { BrandOwnerPicker, BrandOwnerState } from './BrandOwnerPicker';
+
+export interface BrandFormPayload {
+  name: string;
+  logoUrl?: string;
+  owner: BrandOwnerState;
+}
 
 interface BrandFormModalProps {
   isOpen: boolean;
@@ -13,7 +20,7 @@ interface BrandFormModalProps {
   /** Null = create mode. */
   editing: AdminBrand | null;
   onClose: () => void;
-  onSubmit: (payload: { name: string; logoUrl?: string }) => void;
+  onSubmit: (payload: BrandFormPayload) => void;
 }
 
 export const BrandFormModal: React.FC<BrandFormModalProps> = ({
@@ -26,6 +33,22 @@ export const BrandFormModal: React.FC<BrandFormModalProps> = ({
   const [name, setName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [owner, setOwner] = useState<BrandOwnerState>({
+    userId: null,
+    label: '',
+    changed: false,
+  });
+
+  // Stable while the dialog is open — a fresh object identity per render would
+  // retrigger the picker's reset effect and wipe an in-progress search.
+  const initialOwner = useMemo(
+    () => (editing?.owner ? { userId: editing.owner.userId, fullName: editing.owner.fullName } : null),
+    [editing],
+  );
+
+  // The picker remounts against the editing brand via its initialOwner prop;
+  // this stable callback keeps its change notifications from re-rendering us.
+  const handleOwnerChange = useCallback((state: BrandOwnerState) => setOwner(state), []);
 
   useEffect(() => {
     if (isOpen) {
@@ -45,7 +68,7 @@ export const BrandFormModal: React.FC<BrandFormModalProps> = ({
             <Button variant="outline" size="sm" onClick={onClose}>
               Cancel
             </Button>
-            <Button size="sm" disabled={!name.trim()} isLoading={isSubmitting} onClick={() => onSubmit({ name: name.trim(), logoUrl: logoUrl || undefined })}>
+            <Button size="sm" disabled={!name.trim()} isLoading={isSubmitting} onClick={() => onSubmit({ name: name.trim(), logoUrl: logoUrl || undefined, owner })}>
               {editing ? 'Save Brand' : 'Create Brand'}
             </Button>
           </div>
@@ -91,6 +114,8 @@ export const BrandFormModal: React.FC<BrandFormModalProps> = ({
               </div>
             )}
           </div>
+
+          <BrandOwnerPicker initialOwner={initialOwner} onChange={handleOwnerChange} />
         </div>
       </Modal>
 

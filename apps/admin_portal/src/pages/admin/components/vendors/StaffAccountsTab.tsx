@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Store, Trash2, UserRound, Users } from 'lucide-react';
-import adminApi, { AdminStaffAssignment } from '../../../../services/adminApi';
+import { Store, Trash2, Users } from 'lucide-react';
+import adminApi, { AdminStaffAssignment, AdminVendorStaffRow } from '../../../../services/adminApi';
 import { Badge } from '../../../../components/ui/Badge';
 import { Button } from '../../../../components/ui/Button';
 import { LoadingSpinner } from '../../../../components/ui/LoadingSpinner';
@@ -20,13 +20,27 @@ interface StaffAccountsTabProps {
 export const StaffAccountsTab: React.FC<StaffAccountsTabProps> = ({ onError }) => {
   const queryClient = useQueryClient();
   const [removeTarget, setRemoveTarget] = useState<AdminStaffAssignment | null>(null);
+  const [toggleTarget, setToggleTarget] = useState<{ row: AdminVendorStaffRow; nextActive: boolean } | null>(null);
   const [profileTarget, setProfileTarget] = useState<AdminStaffAssignment | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'ALL_OUTLETS_MASTER' | 'PARTICULAR_OUTLET'>('ALL');
 
   const { data: staffRows = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-vendor-staff'],
     queryFn: adminApi.getVendorStaff,
+  });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: ({ staffId, isActive }: { staffId: string; isActive: boolean }) =>
+      adminApi.updateVendorStaff(staffId, { isActive }),
+    onSuccess: () => {
+      setToggleTarget(null);
+      queryClient.invalidateQueries({ queryKey: ['admin-vendor-staff'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-brands'] });
+    },
+    onError: (err) => onError(extractApiError(err, 'Status change failed.')),
   });
 
   const removeMutation = useMutation({
@@ -43,20 +57,47 @@ export const StaffAccountsTab: React.FC<StaffAccountsTabProps> = ({ onError }) =
   const term = searchQuery.trim().toLowerCase();
   const safeRows = (Array.isArray(staffRows) ? staffRows : []).filter(
     (row) =>
-      !term ||
-      row.fullName.toLowerCase().includes(term) ||
-      row.phone.includes(term) ||
-      (row.brandName || '').toLowerCase().includes(term) ||
-      (row.vendorName || '').toLowerCase().includes(term),
+      (roleFilter === 'ALL' || row.scope === roleFilter) &&
+      (!term ||
+        row.fullName.toLowerCase().includes(term) ||
+        row.phone.includes(term) ||
+        (row.brandName || '').toLowerCase().includes(term) ||
+        (row.vendorName || '').toLowerCase().includes(term)),
   );
 
   return (
     <div className="space-y-4">
-      <SearchInput
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search staff by name, phone, brand, or outlet..."
-      />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search staff by name, phone, outlet, or brand..."
+          className="sm:w-96"
+        />
+        <div className="flex flex-wrap items-center gap-1.5">
+          {([
+            { id: 'ALL' as const, label: 'All' },
+            { id: 'ALL_OUTLETS_MASTER' as const, label: 'Owners' },
+            { id: 'PARTICULAR_OUTLET' as const, label: 'Managers' },
+          ]).map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setRoleFilter(option.id)}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                roleFilter === option.id
+                  ? 'bg-primary-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+          <span className="text-[11px] text-slate-400 ml-1">
+            {safeRows.length} of {(Array.isArray(staffRows) ? staffRows : []).length} accounts
+          </span>
+        </div>
+      </div>
 
       {isError ? (
         <QueryErrorBanner error={error} onRetry={() => refetch()} />
@@ -92,7 +133,7 @@ export const StaffAccountsTab: React.FC<StaffAccountsTabProps> = ({ onError }) =
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{row.fullName}</span>
-                    {!row.isActive && <Badge variant="danger">Inactive</Badge>}
+                    {row.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
                   </div>
                   <div className="text-[11px] text-slate-500 truncate">{row.phone}</div>
                   <div className="flex items-center gap-1.5 mt-1">
@@ -108,7 +149,27 @@ export const StaffAccountsTab: React.FC<StaffAccountsTabProps> = ({ onError }) =
                   </div>
                 </div>
               </button>
-              <div className="flex justify-end mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5">
+                  {([true, false]).map((value) => (
+                    <button
+                      key={String(value)}
+                      type="button"
+                      disabled={toggleStatusMutation.isPending || row.isActive === value}
+                      onClick={() => setToggleTarget({ row, nextActive: value })}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-colors ${
+                        row.isActive === value
+                          ? value
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-slate-500 text-white'
+                          : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer'
+                      }`}
+                      title={value ? 'Grant vendor-portal access' : 'Lock vendor-portal access immediately'}
+                    >
+                      {value ? 'Active' : 'Inactive'}
+                    </button>
+                  ))}
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -124,16 +185,41 @@ export const StaffAccountsTab: React.FC<StaffAccountsTabProps> = ({ onError }) =
         </div>
       )}
 
-      <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
-        <UserRound className="h-3 w-3" /> Click an account to open its profile — view details or edit name, phone,
-        status, and scope.
-      </p>
-
       <StaffProfileDialog
         assignment={profileTarget}
         isOpen={isProfileOpen}
         createScope={null}
         onClose={() => setIsProfileOpen(false)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!toggleTarget}
+        title={toggleTarget?.nextActive ? 'Activate Staff Access?' : 'Deactivate Staff Access?'}
+        variant={toggleTarget?.nextActive ? 'primary' : 'danger'}
+        confirmLabel={toggleTarget?.nextActive ? 'Activate' : 'Deactivate'}
+        message={
+          toggleTarget && (
+            <>
+              <p>
+                {toggleTarget.nextActive ? 'Restore vendor-portal access for ' : 'Deactivate '}
+                <strong className="text-slate-900 dark:text-slate-100">{toggleTarget.row.fullName}</strong>
+                {toggleTarget.nextActive ? '?' : '?'}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {toggleTarget.nextActive
+                  ? 'The account regains access to the vendor portal on their next sign-in.'
+                  : 'They lose vendor-portal access immediately — active sessions are locked out on the spot. The assignment itself is kept.'}
+              </p>
+            </>
+          )
+        }
+        isPending={toggleStatusMutation.isPending}
+        onConfirm={() => {
+          if (toggleTarget) {
+            toggleStatusMutation.mutate({ staffId: toggleTarget.row.id, isActive: toggleTarget.nextActive });
+          }
+        }}
+        onCancel={() => setToggleTarget(null)}
       />
 
       <ConfirmDialog

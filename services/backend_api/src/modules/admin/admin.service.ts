@@ -855,6 +855,87 @@ export class AdminService {
     await this.prisma.vendorBrand.delete({ where: { id: brandId } });
   }
 
+  /**
+   * Sets, replaces, or clears the brand owner (the brand-scoped
+   * ALL_OUTLETS_MASTER assignment) in one atomic operation. Replacing an
+   * owner removes the previous master assignment and demotes accounts whose
+   * last tie it was — identical semantics to removeVendorStaff. A candidate
+   * holding any other active assignment is rejected (one active role per
+   * account).
+   */
+  async setBrandOwner(brandId: string, userId?: string | null) {
+    const { result, sessionPurgeIds } = await this.prisma.$transaction(async (tx) => {
+      const brand = await tx.vendorBrand.findUnique({
+        where: { id: brandId },
+        include: {
+          staff: {
+            where: { scope: PermissionScope.ALL_OUTLETS_MASTER, isActive: true },
+            include: { user: { select: { id: true, fullName: true, phone: true, role: true } } },
+          },
+        },
+      });
+      if (!brand) throw new NotFoundException('Brand not found');
+
+      const demotedUserIds: string[] = [];
+      for (const owner of brand.staff) {
+        await tx.vendorStaff.delete({ where: { id: owner.id } });
+        const remaining = await tx.vendorStaff.count({ where: { userId: owner.userId } });
+        if (remaining === 0 && owner.user?.role === UserRole.VENDOR_ADMIN) {
+          await tx.user.update({
+            where: { id: owner.userId },
+            data: { role: UserRole.CUSTOMER },
+          });
+          demotedUserIds.push(owner.userId);
+        }
+      }
+
+      if (!userId) {
+        return { result: { owner: null, demotedCount: demotedUserIds.length }, sessionPurgeIds: demotedUserIds };
+      }
+
+      const user = await tx.user.findUnique({ where: { id: userId } });
+      if (!user) throw new NotFoundException('Owner user not found');
+
+      // This brand's owners were just cleared, so anything still active means
+      // the candidate is committed to another outlet or brand.
+      const activeElsewhere = await tx.vendorStaff.findFirst({ where: { userId, isActive: true } });
+      if (activeElsewhere) {
+        throw new ConflictException(
+          `${user.fullName} already holds an active assignment — remove it before making them the brand owner`,
+        );
+      }
+
+      const created = await tx.vendorStaff.create({
+        data: { userId, brandId, scope: PermissionScope.ALL_OUTLETS_MASTER, isActive: true },
+      });
+
+      if (user.role !== UserRole.VENDOR_ADMIN && user.role !== UserRole.SUPER_ADMIN) {
+        await tx.user.update({ where: { id: userId }, data: { role: UserRole.VENDOR_ADMIN } });
+      }
+
+      return {
+        result: {
+          owner: {
+            id: created.id,
+            userId,
+            fullName: user.fullName,
+            phone: user.phone,
+            scope: created.scope,
+            isActive: true,
+          },
+          demotedCount: demotedUserIds.length,
+        },
+        sessionPurgeIds: [...demotedUserIds, userId],
+      };
+    });
+
+    for (const id of sessionPurgeIds) {
+      await this.redis.del(`auth:user:${id}`);
+    }
+
+    return result;
+  }
+
   // ===========================================================================
   // 6c. Outlet Catalog Governance View
   // ===========================================================================

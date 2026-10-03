@@ -247,6 +247,11 @@ export const vendorsApi = {
     await apiClient.delete(`/api/v1/admin/brands/${brandId}`);
   },
 
+  async setBrandOwner(brandId: string, userId: string | null): Promise<{ owner: AdminBrand['owner']; demotedCount: number }> {
+    const res = await apiClient.put(`/api/v1/admin/brands/${brandId}/owner`, userId ? { userId } : {});
+    return unwrapData<{ owner: AdminBrand['owner']; demotedCount: number }>(res);
+  },
+
   async getOutletDetail(vendorId: string): Promise<OutletDetail> {
     const res = await apiClient.get(`/api/v1/admin/outlets/${vendorId}`);
     return unwrapData<OutletDetail>(res);

@@ -48,6 +48,7 @@ import {
   GetLiveOrdersQueryDto,
   GetRidersQueryDto,
   SaveProductDto,
+  SetBrandOwnerDto,
   SetRiderApprovalDto,
   ToggleVendorStatusDto,
   UpdateBannerDto,
@@ -404,6 +405,19 @@ export class AdminController {
     const data = await this.adminService.updateBrand(brandId, dto);
     return {
       message: 'Brand updated successfully',
+      data,
+    };
+  }
+
+  @Put('brands/:id/owner')
+  @ApiOperation({ summary: 'Set, replace, or clear the brand owner (brand-scoped master assignment)' })
+  @ApiResponse({ status: 409, description: 'Candidate already holds an active assignment elsewhere' })
+  async setBrandOwner(@Param('id') brandId: string, @Body() dto: SetBrandOwnerDto) {
+    const data = await this.adminService.setBrandOwner(brandId, dto.userId);
+    return {
+      message: data.owner
+        ? `${data.owner.fullName} is now the brand owner`
+        : 'Brand ownership cleared',
       data,
     };
   }

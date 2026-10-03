@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Building2, ChevronRight, Plus, Search, Store, UserRound } from 'lucide-react';
+import { Building2, ChevronRight, Plus, Store, UserRound } from 'lucide-react';
 import adminApi, { AdminBrand, AdminStaffAssignment, AdminVendor } from '../../services/adminApi';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -10,6 +10,8 @@ import { PageHeader } from '../../components/common/PageHeader';
 import { EmptyState } from '../../components/common/EmptyState';
 import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Tabs } from '../../components/ui/Tabs';
+import { SearchInput } from '../../components/common/SearchInput';
 import { extractApiError } from '../../utils/apiError';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { resolveMediaUrl } from '../../utils/mediaUrl';
@@ -30,10 +32,8 @@ export const AdminVendorsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<VendorsTab>('BRANDS');
-  const [brandSearch, setBrandSearch] = useState('');
-  const [outletSearch, setOutletSearch] = useState('');
-  const debouncedBrandSearch = useDebouncedValue(brandSearch);
-  const debouncedOutletSearch = useDebouncedValue(outletSearch);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
 
   const [isBrandFormOpen, setIsBrandFormOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<AdminBrand | null>(null);
@@ -45,15 +45,18 @@ export const AdminVendorsPage: React.FC = () => {
   const [outletCreateBrand, setOutletCreateBrand] = useState<AdminBrand | null>(null);
 
   const [brandPage, setBrandPage] = useState(1);
+  // While searching, one term matches brands AND the outlets inside them, so
+  // the whole catalogue is pulled (pilot scale) and matched client-side.
+  const term = debouncedSearch.trim().toLowerCase();
+  const isSearching = term.length > 0;
   const { data: brandPageData, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['admin-brands', debouncedBrandSearch, brandPage],
-    queryFn: () => adminApi.getBrands({ search: debouncedBrandSearch, page: brandPage, limit: 8 }),
+    queryKey: ['admin-brands', brandPage, isSearching],
+    queryFn: () =>
+      adminApi.getBrands({ page: isSearching ? 1 : brandPage, limit: isSearching ? 100 : 8 }),
     placeholderData: (previous) => previous,
   });
-  const brands = brandPageData?.items ?? [];
   const brandTotalPages = brandPageData?.totalPages ?? 1;
   const brandTotal = brandPageData?.total ?? 0;
-  const safeBrands = Array.isArray(brands) ? brands : [];
 
   const { data: vendors = [] } = useQuery({
     queryKey: ['admin-vendors'],
@@ -61,31 +64,51 @@ export const AdminVendorsPage: React.FC = () => {
   });
 
   const safeVendors = Array.isArray(vendors) ? vendors : [];
-  const outletTerm = debouncedOutletSearch.trim().toLowerCase();
+  const outletsOf = (brandId: string) => safeVendors.filter((v) => v.brandId === brandId);
   const outletMatches = (v: AdminVendor) =>
-    !outletTerm ||
-    v.name.toLowerCase().includes(outletTerm) ||
-    v.addressText.toLowerCase().includes(outletTerm);
+    !isSearching ||
+    v.name.toLowerCase().includes(term) ||
+    v.addressText.toLowerCase().includes(term);
+  const brandNameMatches = (brand: AdminBrand) => brand.name.toLowerCase().includes(term);
 
-  const createBrandMutation = useMutation({
-    mutationFn: adminApi.createBrand,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-brands'] });
-      setIsBrandFormOpen(false);
+  // A brand surfaces when its own name matches OR any of its outlets do; a
+  // name-matched brand keeps its full outlet list, an outlet-matched brand
+  // narrows to the matching outlets only.
+  const visibleBrands = (Array.isArray(brandPageData?.items) ? brandPageData.items : [])
+    .map((brand) => {
+      const outlets = outletsOf(brand.id);
+      const nameMatch = !isSearching || brandNameMatches(brand);
+      const matchedOutlets = nameMatch ? outlets : outlets.filter(outletMatches);
+      return { brand, outlets: matchedOutlets, matched: nameMatch || outlets.some(outletMatches) };
+    })
+    .filter((entry) => entry.matched);
+
+  // One orchestrated save: brand fields first, then the owner swap only when
+  // the picker reports a change (create chains the owner onto the new brand).
+  const saveBrandMutation = useMutation({
+    mutationFn: async ({
+      editing,
+      payload,
+    }: {
+      editing: AdminBrand | null;
+      payload: Parameters<typeof adminApi.createBrand>[0] & { owner: { userId: string | null; changed: boolean } };
+    }) => {
+      const brand = editing
+        ? await adminApi.updateBrand(editing.id, { name: payload.name, logoUrl: payload.logoUrl })
+        : await adminApi.createBrand({ name: payload.name, logoUrl: payload.logoUrl });
+      if (payload.owner.changed) {
+        await adminApi.setBrandOwner(brand.id, payload.owner.userId);
+      }
+      return brand;
     },
-    onError: (err) => setActionError(extractApiError(err, 'Failed to create brand.')),
-  });
-
-  const updateBrandMutation = useMutation({
-    mutationFn: ({ brandId, data }: { brandId: string; data: { name?: string; logoUrl?: string } }) =>
-      adminApi.updateBrand(brandId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-brands'] });
       queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-vendor-staff'] });
       setIsBrandFormOpen(false);
       setEditingBrand(null);
     },
-    onError: (err) => setActionError(extractApiError(err, 'Failed to update brand.')),
+    onError: (err) => setActionError(extractApiError(err, 'Failed to save brand.')),
   });
 
   const deleteBrandMutation = useMutation({
@@ -132,54 +155,27 @@ export const AdminVendorsPage: React.FC = () => {
 
       {actionError && <QueryErrorBanner error={{ message: actionError } as never} onRetry={() => setActionError(null)} />}
 
-      <div className="flex border-b border-slate-200 dark:border-slate-800">
-        {([
-          { id: 'BRANDS' as const, label: `Brands (${brandTotal})`, icon: Building2 },
-          { id: 'STAFF' as const, label: 'Staff Accounts', icon: UserRound },
-        ]).map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 border-b-2 py-3 px-4 sm:px-5 text-sm font-semibold transition-all ${
-                isActive
-                  ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
-              }`}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      <Tabs
+        aria-label="Brands & outlets sections"
+        items={[
+          { id: 'BRANDS', label: 'Brands', icon: <Building2 className="h-4 w-4" /> },
+          { id: 'STAFF', label: 'Staff Accounts', icon: <UserRound className="h-4 w-4" /> },
+        ]}
+        selected={activeTab}
+        onChange={setActiveTab}
+      />
 
       {activeTab === 'BRANDS' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search brands by name..."
-                value={brandSearch}
-                onChange={(e) => setBrandSearch(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:border-primary-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-              />
-            </div>
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search outlets by name or area..."
-                value={outletSearch}
-                onChange={(e) => setOutletSearch(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:border-primary-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-              />
-            </div>
-          </div>
+          <SearchInput
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setBrandPage(1);
+            }}
+            placeholder="Search brands or outlets by name or area..."
+            className="max-w-xl"
+          />
 
           {isLoading ? (
             <div className="py-16 text-center">
@@ -187,13 +183,13 @@ export const AdminVendorsPage: React.FC = () => {
             </div>
           ) : isError ? (
             <QueryErrorBanner error={error} onRetry={() => refetch()} />
-          ) : safeBrands.length === 0 ? (
+          ) : visibleBrands.length === 0 ? (
             <EmptyState
               icon={Building2}
-              title={debouncedBrandSearch ? 'No brands match your search' : 'No brands yet'}
+              title={isSearching ? 'No brands or outlets match your search' : 'No brands yet'}
               message={
-                debouncedBrandSearch
-                  ? `Nothing matches “${debouncedBrandSearch}” — try another name or create a new brand.`
+                isSearching
+                  ? `Nothing matches “${debouncedSearch.trim()}” — try a brand or outlet name.`
                   : 'Brands group multi-branch chains under one owner scope. Create the first brand to link outlets to it.'
               }
               action={
@@ -211,11 +207,11 @@ export const AdminVendorsPage: React.FC = () => {
             />
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-              {safeBrands.map((brand) => (
+              {visibleBrands.map(({ brand, outlets }) => (
                 <BrandCard
                   key={brand.id}
                   brand={brand}
-                  outlets={safeVendors.filter((v) => v.brandId === brand.id && outletMatches(v))}
+                  outlets={outlets}
                   isDeleting={deleteBrandMutation.isPending}
                   onEdit={() => {
                     setEditingBrand(brand);
@@ -233,7 +229,7 @@ export const AdminVendorsPage: React.FC = () => {
             </div>
           )}
 
-          {brandTotalPages > 1 && (
+          {!isSearching && brandTotalPages > 1 && (
             <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900">
               <span>Total {brandTotal} brands</span>
               <div className="flex items-center gap-2">
@@ -266,19 +262,13 @@ export const AdminVendorsPage: React.FC = () => {
 
       <BrandFormModal
         isOpen={isBrandFormOpen}
-        isSubmitting={createBrandMutation.isPending || updateBrandMutation.isPending}
+        isSubmitting={saveBrandMutation.isPending}
         editing={editingBrand}
         onClose={() => {
           setIsBrandFormOpen(false);
           setEditingBrand(null);
         }}
-        onSubmit={(payload) => {
-          if (editingBrand) {
-            updateBrandMutation.mutate({ brandId: editingBrand.id, data: payload });
-          } else {
-            createBrandMutation.mutate(payload);
-          }
-        }}
+        onSubmit={(payload) => saveBrandMutation.mutate({ editing: editingBrand, payload })}
       />
 
       <StaffProfileDialog
