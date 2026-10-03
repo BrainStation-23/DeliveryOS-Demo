@@ -172,7 +172,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   MaterialPageRoute(
                     builder: (_) => OutletDetailScreen(
                       vendorId: outlet.id,
-                      initialVendorName: outlet.name,
+                      initialVendorName: outlet.displayName,
                     ),
                   ),
                 );

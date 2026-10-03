@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Building2, ChevronRight, Plus, Store, UserRound } from 'lucide-react';
+import { Building2, ChevronRight, Plus, UserRound } from 'lucide-react';
 import adminApi, { AdminBrand, AdminStaffAssignment, AdminVendor } from '../../services/adminApi';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -426,13 +426,6 @@ const BrandCard: React.FC<{
             onClick={() => onOpenOutlet(outlet.id)}
             className="w-full text-left rounded-xl border border-slate-200 bg-white px-3 py-2.5 flex items-center gap-3 hover:border-primary-400 hover:ring-2 hover:ring-primary-500/20 transition-all cursor-pointer dark:border-slate-800 dark:bg-slate-900"
           >
-            <div className="h-11 w-11 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 overflow-hidden dark:bg-slate-800">
-              {outlet.logoUrl ? (
-                <img src={resolveMediaUrl(outlet.logoUrl)} alt={outlet.name} className="h-full w-full object-cover" />
-              ) : (
-                <Store className="h-5 w-5" />
-              )}
-            </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{outlet.name}</span>

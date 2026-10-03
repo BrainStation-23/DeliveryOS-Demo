@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { outletDisplayName } from '../../common/utils/outlet-display-name';
 import { GetNearbyVendorsDto } from './dto/get-nearby-vendors.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { ValidateAddressCoverageDto } from './dto/validate-address-coverage.dto';
@@ -16,6 +17,7 @@ import { DeliveryFeeService } from '../promotions/pricing/delivery-fee.service';
 export interface RawNearbyVendorRow {
   id: string;
   name: string;
+  brandName: string | null;
   vertical: string;
   contactPhone: string;
   logoUrl: string | null;
@@ -34,6 +36,7 @@ export interface RawNearbyVendorRow {
 export interface RawOutletSearchRow {
   id: string;
   name: string;
+  brandName: string | null;
   vertical: string;
   logoUrl: string | null;
   addressText: string;
@@ -79,6 +82,7 @@ export class VendorService {
       SELECT 
         v.id,
         v.name,
+        b.name AS "brandName",
         v.vertical,
         v.contact_phone AS "contactPhone",
         v.logo_url AS "logoUrl",
@@ -96,6 +100,7 @@ export class VendorService {
           CAST(ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326) AS geography)
         ) / 1000)::numeric, 2) AS "distanceKm"
       FROM vendors v
+      JOIN vendor_brands b ON b.id = v.brand_id
       WHERE v.is_active = TRUE
         AND ST_DWithin(
           CAST(ST_SetSRID(ST_MakePoint(v.longitude, v.latitude), 4326) AS geography),
@@ -116,6 +121,8 @@ export class VendorService {
         distanceKm,
         deliveryRadiusKm: Number(vendor.deliveryRadiusKm),
         deliveryFee: this.deliveryFeeService.computeFee(feeConfig, distanceKm),
+        // Canonical outlet representation everywhere: "Brand - Outlet".
+        displayName: outletDisplayName(vendor.brandName, vendor.name, ' - '),
       };
     });
   }
@@ -132,6 +139,7 @@ export class VendorService {
       SELECT 
         v.id,
         v.name,
+        b.name AS "brandName",
         v.vertical,
         v.logo_url AS "logoUrl",
         v.address_text AS "addressText",
@@ -140,8 +148,9 @@ export class VendorService {
           CAST(ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326) AS geography)
         ) / 1000)::numeric, 2) AS "distanceKm"
       FROM vendors v
+      JOIN vendor_brands b ON b.id = v.brand_id
       WHERE v.is_active = TRUE
-        AND v.name ILIKE ${term}
+        AND (v.name ILIKE ${term} OR b.name ILIKE ${term})
         AND ST_DWithin(
           CAST(ST_SetSRID(ST_MakePoint(v.longitude, v.latitude), 4326) AS geography),
           CAST(ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326) AS geography),
@@ -181,7 +190,11 @@ export class VendorService {
     `;
 
     return {
-      outlets: outlets.map((o) => ({ ...o, distanceKm: Number(o.distanceKm) })),
+      outlets: outlets.map((o) => ({
+        ...o,
+        distanceKm: Number(o.distanceKm),
+        displayName: outletDisplayName(o.brandName, o.name, ' - '),
+      })),
       items: items.map((i) => ({ ...i, distanceKm: Number(i.distanceKm), basePrice: Number(i.basePrice) })),
     };
   }

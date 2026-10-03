@@ -2,6 +2,19 @@
 class NearbyVendor {
   final String id;
   final String name;
+  final String? brandName;
+
+  /// Canonical outlet representation: "Brand - Outlet" — shown once when the
+  /// outlet name already carries the brand (no "X - X" doubling).
+  String get displayName {
+    final brand = (brandName ?? '').trim();
+    if (brand.isEmpty) return name;
+    if (name == brand || name.startsWith('$brand ') || name.startsWith('$brand—')) {
+      return name;
+    }
+    return '$brand - $name';
+  }
+
   final String vertical;
   final String? contactPhone;
   final String? logoUrl;
@@ -19,6 +32,7 @@ class NearbyVendor {
   const NearbyVendor({
     required this.id,
     required this.name,
+    this.brandName,
     required this.vertical,
     this.contactPhone,
     this.logoUrl,
@@ -38,6 +52,7 @@ class NearbyVendor {
     return NearbyVendor(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      brandName: json['brandName'] as String? ?? json['brand_name'] as String?,
       vertical: (json['vertical'] as String? ?? 'FOOD').toUpperCase(),
       contactPhone: json['contactPhone'] as String? ?? json['contact_phone'] as String?,
       logoUrl: json['logoUrl'] as String? ?? json['logo_url'] as String?,
@@ -66,6 +81,7 @@ class NearbyVendor {
     return {
       'id': id,
       'name': name,
+      'brandName': brandName,
       'vertical': vertical,
       'contactPhone': contactPhone,
       'logoUrl': logoUrl,

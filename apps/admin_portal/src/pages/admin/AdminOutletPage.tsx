@@ -134,8 +134,7 @@ export const AdminOutletPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={vendor.name}
-        subtitle={vendor.brandName || undefined}
+        title={vendor.brandName ? `${vendor.brandName} — ${vendor.name}` : vendor.name}
         leading={
           <Button
             variant="outline"
@@ -186,6 +185,13 @@ export const AdminOutletPage: React.FC = () => {
       />
 
       {actionError && <QueryErrorBanner error={{ message: actionError } as never} onRetry={() => setActionError(null)} />}
+
+      {/* Outlet cover image — the customer-app banner */}
+      {vendor.bannerUrl && (
+        <div className="relative h-36 sm:h-44 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+          <img src={resolveMediaUrl(vendor.bannerUrl)} alt={`${vendor.name} cover`} className="h-full w-full object-cover" />
+        </div>
+      )}
 
       {/* Compact info strip — the name lives in the page title only */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -434,6 +440,7 @@ export const AdminOutletPage: React.FC = () => {
           name: vendor.name,
           contactPhone: vendor.contactPhone,
           addressText: vendor.addressText,
+          bannerUrl: vendor.bannerUrl || undefined,
           commissionRate: vendor.commissionRate,
           defaultPrepTimeMinutes: vendor.defaultPrepTimeMinutes,
           deliveryRadiusKm: vendor.deliveryRadiusKm,

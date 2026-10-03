@@ -60,6 +60,7 @@ import { DeliveryFeeConfig, DeliveryFeeService, DEFAULT_DELIVERY_ECONOMICS, DEFA
 import { NotificationsService } from '../notifications/notifications.service';
 import { GetLiveOrdersQueryDto } from './dto/admin-governance.dto';
 import { startOfRegionToday } from '../../common/utils/region-time';
+import { outletDisplayName } from '../../common/utils/outlet-display-name';
 
 export interface OrderFlowSettingPayload {
   mode: OrderFlowMode;
@@ -116,7 +117,7 @@ export class AdminService {
         orderBy: { placedAt: 'desc' },
         include: {
           customer: { select: { fullName: true, phone: true } },
-          vendor: { select: { name: true } },
+          vendor: { select: { name: true, brand: { select: { name: true } } } },
           rider: { include: { user: { select: { fullName: true, phone: true } } } },
         },
       }),
@@ -165,7 +166,7 @@ export class AdminService {
         id: o.id,
         orderNumber: o.orderNumber,
         customerName: o.customer?.fullName || 'Guest',
-        outletName: o.vendor?.name || 'Unknown Outlet',
+        outletName: outletDisplayName(o.vendor?.brand?.name, o.vendor?.name),
         riderName: o.rider?.user?.fullName || null,
         status: o.status,
         totalAmount: Number(o.totalAmount),
@@ -202,7 +203,7 @@ export class AdminService {
         orderNumber: true,
         status: true,
         placedAt: true,
-        vendor: { select: { name: true } },
+        vendor: { select: { name: true, brand: { select: { name: true } } } },
       },
       orderBy: { placedAt: 'desc' },
     });
@@ -221,7 +222,7 @@ export class AdminService {
             id: ord.id,
             orderNumber: ord.orderNumber,
             status: ord.status,
-            vendorName: ord.vendor?.name,
+            vendorName: outletDisplayName(ord.vendor?.brand?.name, ord.vendor?.name),
           }
         : null;
 
@@ -314,7 +315,7 @@ export class AdminService {
         take: pagination.limit,
         include: {
           customer: { select: { fullName: true, phone: true } },
-          vendor: { select: { id: true, name: true, addressText: true, latitude: true, longitude: true } },
+          vendor: { select: { id: true, name: true, addressText: true, latitude: true, longitude: true, brand: { select: { name: true } } } },
           rider: {
             include: {
               user: { select: { fullName: true, phone: true } },
@@ -336,7 +337,7 @@ export class AdminService {
       where: { id: orderId },
       include: {
         customer: { select: { fullName: true, phone: true } },
-        vendor: { select: { id: true, name: true, addressText: true, latitude: true, longitude: true } },
+        vendor: { select: { id: true, name: true, addressText: true, latitude: true, longitude: true, brand: { select: { name: true } } } },
         rider: {
           include: {
             user: { select: { fullName: true, phone: true } },
@@ -354,7 +355,7 @@ export class AdminService {
   private toLiveOrderView(o: Prisma.OrderGetPayload<{
     include: {
       customer: { select: { fullName: true; phone: true } };
-      vendor: { select: { id: true; name: true; addressText: true; latitude: true; longitude: true } };
+      vendor: { select: { id: true; name: true; addressText: true; latitude: true; longitude: true; brand: { select: { name: true } } } };
       rider: { include: { user: { select: { fullName: true; phone: true } } } };
       orderItems: true;
     };
@@ -363,7 +364,7 @@ export class AdminService {
       id: o.id,
       orderNumber: o.orderNumber,
       vendorId: o.vendorId,
-      vendorName: o.vendor?.name || 'Store',
+      vendorName: outletDisplayName(o.vendor?.brand?.name, o.vendor?.name),
       vendorAddress: o.vendor?.addressText || '',
       vendorLatitude: o.vendor?.latitude ?? null,
       vendorLongitude: o.vendor?.longitude ?? null,
@@ -766,7 +767,7 @@ export class AdminService {
       brandName: v.brand?.name || null,
       addressText: v.addressText,
       contactPhone: v.contactPhone,
-      logoUrl: v.logoUrl,
+      bannerUrl: v.bannerUrl,
       latitude: Number(v.latitude),
       longitude: Number(v.longitude),
       deliveryRadiusKm: Number(v.deliveryRadiusKm),
@@ -1089,7 +1090,9 @@ export class AdminService {
     latitude: number;
     longitude: number;
     contactPhone: string;
+    bannerUrl?: string;
     commissionRate?: number;
+    deliveryRadiusKm?: number;
     defaultPrepTimeMinutes?: number;
   }) {
     if (!data.brandId) {
@@ -1103,7 +1106,9 @@ export class AdminService {
         latitude: data.latitude,
         longitude: data.longitude,
         contactPhone: data.contactPhone,
+        ...(data.bannerUrl !== undefined && { bannerUrl: data.bannerUrl }),
         commissionRate: data.commissionRate ?? 15.00,
+        deliveryRadiusKm: data.deliveryRadiusKm ?? 5.00,
         defaultPrepTimeMinutes: data.defaultPrepTimeMinutes ?? 20,
         isActive: true,
       },
@@ -1120,6 +1125,8 @@ export class AdminService {
       commissionRate?: number;
       deliveryRadiusKm?: number;
       defaultPrepTimeMinutes?: number;
+      logoUrl?: string;
+      bannerUrl?: string;
       latitude?: number;
       longitude?: number;
       isActive?: boolean;
@@ -1141,6 +1148,7 @@ export class AdminService {
         ...(data.defaultPrepTimeMinutes !== undefined && { defaultPrepTimeMinutes: data.defaultPrepTimeMinutes }),
         ...(data.latitude !== undefined && { latitude: data.latitude }),
         ...(data.longitude !== undefined && { longitude: data.longitude }),
+        ...(data.bannerUrl !== undefined && data.bannerUrl !== '' && { bannerUrl: data.bannerUrl || null }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
     });
@@ -1538,7 +1546,7 @@ export class AdminService {
         brandId: vendor.brandId,
         brandName: vendor.brand?.name || null,
         brandLogoUrl: vendor.brand?.logoUrl || null,
-        logoUrl: vendor.logoUrl,
+        bannerUrl: vendor.bannerUrl,
         addressText: vendor.addressText,
         contactPhone: vendor.contactPhone,
         latitude: Number(vendor.latitude),

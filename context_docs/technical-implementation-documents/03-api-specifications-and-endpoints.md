@@ -54,6 +54,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Guard*: Public.
   - *Query*: `lat` (float), `lng` (float), `vertical` (optional: `FOOD` | `GROCERY` | `SUPER_SHOP` | `PHARMACY`), `limit` (optional int: 1–100, default 50).
   - *Action*: Executes PostGIS `ST_DWithin` returning outlets where user is within `delivery_radius_km`.
+  - Rows carry `brandName` and `displayName` (`"Brand - Outlet"`, the canonical customer-facing representation; `/vendors/search` matches brand names too).
 - **`GET /vendors/search`**
   - *Guard*: Public.
   - *Query*: `q` (string), `lat` (float), `lng` (float).
@@ -163,6 +164,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`GET /admin/analytics/overview`**: Date-ranged dashboard analytics — query `dateFrom`/`dateTo` (ISO-8601 bounds on `placedAt`, window capped at 90 days, defaults to trailing 30 days) and `granularity=day|hour` (hourly requires ≤7-day windows). Returns KPI `cards` (orders, delivered, cancelled + cancellation rate, gross volume, commission, delivery fees, avg order value, avg delivery minutes, new customers — each with a delta vs the preceding equal-length window), live `snapshots` (active outlets, online riders), `statusCounts` per `OrderStatus`, `timeseries` buckets (orders / revenue / cancelled), `topOutlets` (by order count with gross volume), and `topRiders` (trips, earnings, COD collected).
 - **`GET /admin/analytics/orders-summary`**: Per-status order counts honoring the Order History `dateFrom`/`dateTo`/`search`/`assignment` semantics (status filter excluded) plus `unassignedCount` (active riderless orders in the same window, always computed regardless of the `assignment` filter) — powers the glance cards row and the Unassigned toggle badge.
 - **`GET /admin/fleet`**: Real-time fleet radar feed with GPS coordinates, online states, and cash safety margins.
+- Outlet representation across the console is the canonical **"Brand — Outlet"** display name (`vendorName`/`outletName` in admin order, overview, fleet, and customer payloads), and outlets carry a `bannerUrl` cover image (the customer-app banner; the brand logo represents the outlet — per-outlet logos are retired from the admin surface) manageable from the Outlet Info dialog and `POST/PATCH /admin/vendors`.
 - **`GET /admin/orders`**
   - *Query*: `status` (optional), `assignment` (optional `UNASSIGNED | ASSIGNED` — UNASSIGNED isolates the dispatch queue: active, non-terminal orders with no courier across every lifecycle stage; ASSIGNED keeps only secured orders), `search` (optional, matches order number/customer name/phone), `dateFrom`/`dateTo` (optional ISO-8601 inclusive bounds on `placedAt`), `page` (int, default 1), `limit` (int, default 10).
   - *Response*: Paginated orders `{ "items": [...], "total": 120, "page": 1, "limit": 10, "totalPages": 12 }`.

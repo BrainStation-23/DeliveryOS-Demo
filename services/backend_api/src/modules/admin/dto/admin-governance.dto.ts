@@ -322,6 +322,12 @@ class VendorFields {
   @Max(240)
   defaultPrepTimeMinutes?: number;
 
+  @ApiPropertyOptional({ description: 'Outlet cover image — the customer-app banner (the brand logo represents the outlet)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  bannerUrl?: string;
+
   @ApiPropertyOptional({ minimum: -90, maximum: 90, description: 'GPS latitude (move the outlet pin)' })
   @Type(() => Number)
   @IsOptional()

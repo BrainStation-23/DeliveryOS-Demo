@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { outletDisplayName } from '../../common/utils/outlet-display-name';
 import { PaginatedResult, toPaginatedResult } from '../../common/dto/pagination.dto';
 import { GetCustomersQueryDto } from './dto/admin-insights.dto';
 
@@ -138,7 +139,7 @@ export class AdminCustomersService {
           paymentMethod: true,
           paymentStatus: true,
           placedAt: true,
-          vendor: { select: { name: true } },
+          vendor: { select: { name: true, brand: { select: { name: true } } } },
         },
       }),
     ]);
@@ -168,7 +169,7 @@ export class AdminCustomersService {
         id: o.id,
         orderNumber: o.orderNumber,
         status: o.status,
-        vendorName: o.vendor?.name || 'Store',
+        vendorName: outletDisplayName(o.vendor?.brand?.name, o.vendor?.name),
         totalAmount: Number(o.totalAmount),
         paymentMethod: o.paymentMethod,
         paymentStatus: o.paymentStatus,

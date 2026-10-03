@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
-  Store,
+  Building2,
   Bike,
   FileText,
   Tag,
@@ -52,7 +52,7 @@ export const AdminLayout: React.FC = () => {
     { label: t('nav.admin.dashboard'), href: '/', icon: LayoutDashboard },
     { label: t('nav.admin.orders'), href: '/orders', icon: FileText },
     { label: t('nav.admin.fleet'), href: '/fleet', icon: Bike },
-    { label: t('nav.admin.vendors'), href: '/vendors', icon: Store },
+    { label: t('nav.admin.vendors'), href: '/vendors', icon: Building2 },
     { label: t('nav.admin.promotions'), href: '/promotions', icon: Tag },
     { label: t('nav.admin.customers'), href: '/customers', icon: Users },
     { label: t('nav.admin.media'), href: '/media', icon: Images },

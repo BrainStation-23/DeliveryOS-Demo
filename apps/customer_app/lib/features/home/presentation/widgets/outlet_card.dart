@@ -23,7 +23,7 @@ class OutletCard extends StatelessWidget {
           MaterialPageRoute(
             builder: (_) => OutletDetailScreen(
               vendorId: vendor.id,
-              initialVendorName: vendor.name,
+              initialVendorName: vendor.displayName,
             ),
           ),
         );
@@ -65,7 +65,7 @@ class OutletCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      vendor.name,
+                      vendor.displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.titleSmall.copyWith(

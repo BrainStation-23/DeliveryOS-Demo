@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  ChefHat,
-  UtensilsCrossed,
+  Package,
+  ClipboardList,
   Clock,
   CheckCircle2,
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { useVendorOutlet } from '../../contexts/VendorOutletContext';
 import { useKDSOrders } from '../../hooks/useKDSOrders';
@@ -18,12 +19,22 @@ import { Badge } from '../../components/ui/Badge';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/common/PageHeader';
 import { cn } from '../../utils/cn';
+import kdsApi from '../../services/kdsApi';
+import { SalesLedgerDetailModal } from './components/SalesLedgerDetailModal';
 
 export const VendorDashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { activeOutletId, activeOutlet } = useVendorOutlet();
   const [activeTab, setActiveTab] = useState<'ALL' | 'NEW' | 'PREPARING' | 'READY'>('ALL');
+  const [detailsOrderId, setDetailsOrderId] = useState<string | null>(null);
+
+  // Unified order details: fetched on demand when the card's info icon opens.
+  const { data: detailOrder, isLoading: isDetailLoading } = useQuery({
+    queryKey: ['vendor-order-detail', detailsOrderId],
+    queryFn: () => kdsApi.getOrderDetail(detailsOrderId as string),
+    enabled: !!detailsOrderId,
+  });
 
   const targetVendorId =
     activeOutletId && activeOutletId !== 'ALL'
@@ -100,7 +111,7 @@ export const VendorDashboardPage: React.FC = () => {
       <PageHeader
         title={t('kds.title')}
         description={`${outletDisplayName} • ${t('kds.subtitle')}`}
-        icon={<ChefHat className="h-5 w-5 text-amber-500" />}
+        icon={<ClipboardList className="h-5 w-5 text-amber-500" />}
         badge={
           <Badge variant="primary" size="md">
             {t('kds.activeOrders', { count: totalActive })}
@@ -176,6 +187,7 @@ export const VendorDashboardPage: React.FC = () => {
                 order={order}
                 onAccept={acceptOrder}
                 onReject={rejectOrder}
+                onOpenDetails={setDetailsOrderId}
                 isActionLoading={isAccepting}
                 isRejecting={isRejecting}
               />
@@ -188,7 +200,7 @@ export const VendorDashboardPage: React.FC = () => {
             count={inPreparationOrders.length}
             colorVariant="amber"
             badgeVariant="warning"
-            headerIcon={<UtensilsCrossed className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+            headerIcon={<ClipboardList className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
             emptyIcon={<Clock className="h-5 w-5" />}
             emptyTitle={t('kds.kitchenQueueClear')}
             emptySubtitle={t('kds.kitchenQueueClearSub')}
@@ -199,6 +211,7 @@ export const VendorDashboardPage: React.FC = () => {
                 key={order.id}
                 order={order}
                 onMarkReady={markOrderReady}
+                onOpenDetails={setDetailsOrderId}
                 isActionLoading={isMarkingReady}
               />
             ))}
@@ -221,12 +234,19 @@ export const VendorDashboardPage: React.FC = () => {
                 key={order.id}
                 order={order}
                 onHandover={handoverOrder}
+                onOpenDetails={setDetailsOrderId}
                 isActionLoading={isHandingOver}
               />
             ))}
           </KDSLaneColumn>
         </div>
       )}
+
+      <SalesLedgerDetailModal
+        order={detailOrder || null}
+        onClose={() => setDetailsOrderId(null)}
+      />
+      {detailsOrderId && isDetailLoading && null}
     </div>
   );
 };

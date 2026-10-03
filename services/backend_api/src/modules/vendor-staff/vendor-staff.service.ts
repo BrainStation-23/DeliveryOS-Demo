@@ -15,6 +15,126 @@ import { OrderFlowService } from '../order-flow/order-flow.service';
 import { assertTransition } from '../orders/order-state.machine';
 import { OrderService } from '../orders/order.service';
 
+/** Ledger join used by both the sales ledger list and the per-order detail. */
+const LEDGER_INCLUDE = {
+  order: {
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      paymentMethod: true,
+      paymentStatus: true,
+      subtotal: true,
+      couponDiscount: true,
+      deliveryFee: true,
+      taxAmount: true,
+      totalAmount: true,
+      customerNotes: true,
+      rejectionReason: true,
+      prepTimeMinutes: true,
+      deliveryAddressSnapshot: true,
+      customerPhoneSnapshot: true,
+      placedAt: true,
+      acceptedAt: true,
+      pickedUpAt: true,
+      deliveredAt: true,
+      cancelledAt: true,
+      customer: { select: { fullName: true, phone: true } },
+      rider: {
+        select: {
+          id: true,
+          vehicleType: true,
+          user: { select: { fullName: true, phone: true } },
+        },
+      },
+      orderItems: {
+        select: {
+          id: true,
+          productNameSnapshot: true,
+          quantity: true,
+          unitPrice: true,
+          totalPrice: true,
+          variantSnapshot: true,
+          addonsSnapshot: true,
+        },
+      },
+    },
+  },
+  vendor: { select: { id: true, name: true, addressText: true } },
+} satisfies Prisma.CommissionLedgerInclude;
+
+type LedgerRow = Prisma.CommissionLedgerGetPayload<{ include: typeof LEDGER_INCLUDE }>;
+
+/** Maps a joined commission-ledger row to the vendor portal ledger shape. */
+function toLedgerRow(l: LedgerRow) {
+  const gross = Number(l.grossAmount);
+  const commission = Number(l.commissionAmount);
+  const net = Number(l.netVendorPayable);
+  return {
+    id: l.id,
+    orderId: l.orderId,
+    orderNumber: l.order?.orderNumber || 'N/A',
+    vendorId: l.vendorId,
+    vendorName: l.vendor?.name || 'Unknown Outlet',
+    vendorAddress: l.vendor?.addressText || null,
+    customerName: l.order?.customer?.fullName || 'Guest Customer',
+    customerPhone: l.order?.customerPhoneSnapshot || l.order?.customer?.phone || '',
+    customerNotes: l.order?.customerNotes || null,
+    rejectionReason: l.order?.rejectionReason || null,
+    prepTimeMinutes: l.order?.prepTimeMinutes ?? null,
+    deliveryAddress: l.order?.deliveryAddressSnapshot || null,
+    paymentMethod: l.order?.paymentMethod || 'CASH_ON_DELIVERY',
+    paymentStatus: l.order?.paymentStatus || 'PENDING',
+    orderStatus: l.order?.status || 'UNKNOWN',
+    subtotal: Number(l.order?.subtotal || 0),
+    couponDiscount: Number(l.order?.couponDiscount || 0),
+    deliveryFee: Number(l.order?.deliveryFee || 0),
+    taxAmount: Number(l.order?.taxAmount || 0),
+    totalAmount: Number(l.order?.totalAmount || 0),
+    placedAt: l.order?.placedAt || l.createdAt,
+    acceptedAt: l.order?.acceptedAt || null,
+    pickedUpAt: l.order?.pickedUpAt || null,
+    deliveredAt: l.order?.deliveredAt || null,
+    cancelledAt: l.order?.cancelledAt || null,
+    rider: l.order?.rider
+      ? {
+          id: l.order.rider.id,
+          fullName: l.order.rider.user?.fullName || 'Assigned Rider',
+          phone: l.order.rider.user?.phone || '',
+          vehicleType: l.order.rider.vehicleType || 'motorcycle',
+        }
+      : null,
+    grossAmount: gross,
+    commissionRate: Number(l.commissionRate),
+    commissionAmount: commission,
+    netVendorPayable: net,
+    settlementStatus: l.settlementStatus,
+    settledAt: l.settledAt,
+    createdAt: l.createdAt,
+    items: (l.order?.orderItems || []).map((i) => ({
+      id: i.id,
+      productName: i.productNameSnapshot,
+      quantity: i.quantity,
+      unitPrice: Number(i.unitPrice),
+      totalPrice: Number(i.totalPrice),
+      variant: i.variantSnapshot,
+      addons: i.addonsSnapshot,
+    })),
+  };
+}
+
+/** Outlet row of GET /vendor/outlets — brandName feeds the portal top bar. */
+export interface AccessibleOutletRow {
+  id: string;
+  name: string;
+  addressText: string;
+  isBusy: boolean;
+  isActive: boolean;
+  defaultPrepTimeMinutes: number;
+  brandId: string;
+  brandName: string | null;
+}
+
 @Injectable()
 export class VendorStaffService {
   constructor(
@@ -479,8 +599,13 @@ export class VendorStaffService {
    * 8. Get Accessible Outlets (Scoped by user role / tier)
    */
   async getAccessibleOutlets(user: User) {
+    const withBrandName = <T extends { brand?: { name: string } | null }>(outlet: T): AccessibleOutletRow => ({
+      ...(outlet as unknown as AccessibleOutletRow),
+      brandName: outlet.brand?.name ?? null,
+    });
+
     if (user.role === UserRole.SUPER_ADMIN) {
-      return this.prisma.vendor.findMany({
+      const outlets = await this.prisma.vendor.findMany({
         select: {
           id: true,
           name: true,
@@ -489,9 +614,11 @@ export class VendorStaffService {
           isActive: true,
           defaultPrepTimeMinutes: true,
           brandId: true,
+          brand: { select: { name: true } },
         },
         orderBy: { name: 'asc' },
       });
+      return outlets.map(withBrandName);
     }
 
     const staffRecord = await this.prisma.vendorStaff.findFirst({
@@ -508,6 +635,7 @@ export class VendorStaffService {
                 isActive: true,
                 defaultPrepTimeMinutes: true,
                 brandId: true,
+                brand: { select: { name: true } },
               },
               orderBy: { name: 'asc' },
             },
@@ -522,6 +650,7 @@ export class VendorStaffService {
             isActive: true,
             defaultPrepTimeMinutes: true,
             brandId: true,
+            brand: { select: { name: true } },
           },
         },
       },
@@ -532,10 +661,10 @@ export class VendorStaffService {
     }
 
     if (staffRecord.scope === PermissionScope.ALL_OUTLETS_MASTER && staffRecord.brand) {
-      return staffRecord.brand.outlets;
+      return staffRecord.brand.outlets.map(withBrandName);
     }
 
-    return staffRecord.vendor ? [staffRecord.vendor] : [];
+    return staffRecord.vendor ? [staffRecord.vendor].map(withBrandName) : ([] as AccessibleOutletRow[]);
   }
 
   /**
@@ -753,6 +882,92 @@ export class VendorStaffService {
    * Optional date bounds let the portal pull a single business day instead of
    * the full history; the summary is computed over exactly the returned scope.
    */
+  /**
+   * Unified per-order detail for the vendor portal: one order's ledger row
+   * (same shape as the sales-ledger list) behind staff-outlet access checks.
+   */
+  async getOrderLedgerDetail(user: User, orderId: string) {
+    const ledger = await this.prisma.commissionLedger.findUnique({
+      where: { orderId },
+      include: LEDGER_INCLUDE,
+    });
+    if (ledger) {
+      await this.validateStaffOutletAccess(user, ledger.vendorId);
+      return toLedgerRow(ledger);
+    }
+
+    // Live orders can pre-date their ledger row (seeded or mid-flight data):
+    // fall back to the order itself so every card is still detail-viewable,
+    // with commission fields reported as unset until the ledger exists.
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        customer: { select: { fullName: true, phone: true } },
+        rider: {
+          select: { id: true, vehicleType: true, user: { select: { fullName: true, phone: true } } },
+        },
+        orderItems: true,
+        vendor: { select: { id: true, name: true, addressText: true } },
+      },
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    await this.validateStaffOutletAccess(user, order.vendorId);
+
+    return {
+      id: order.id,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      vendorId: order.vendorId,
+      vendorName: order.vendor?.name || 'Unknown Outlet',
+      vendorAddress: order.vendor?.addressText || null,
+      customerName: order.customer?.fullName || 'Guest Customer',
+      customerPhone: order.customerPhoneSnapshot || order.customer?.phone || '',
+      customerNotes: order.customerNotes || null,
+      rejectionReason: order.rejectionReason || null,
+      prepTimeMinutes: order.prepTimeMinutes ?? null,
+      deliveryAddress: order.deliveryAddressSnapshot || null,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.status,
+      subtotal: Number(order.subtotal || 0),
+      couponDiscount: Number(order.couponDiscount || 0),
+      deliveryFee: Number(order.deliveryFee || 0),
+      taxAmount: Number(order.taxAmount || 0),
+      totalAmount: Number(order.totalAmount || 0),
+      placedAt: order.placedAt,
+      acceptedAt: order.acceptedAt || null,
+      pickedUpAt: order.pickedUpAt || null,
+      deliveredAt: order.deliveredAt || null,
+      cancelledAt: order.cancelledAt || null,
+      rider: order.rider
+        ? {
+            id: order.rider.id,
+            fullName: order.rider.user?.fullName || 'Assigned Rider',
+            phone: order.rider.user?.phone || '',
+            vehicleType: order.rider.vehicleType || 'motorcycle',
+          }
+        : null,
+      grossAmount: Number(order.subtotal || 0),
+      commissionRate: 0,
+      commissionAmount: 0,
+      netVendorPayable: 0,
+      settlementStatus: 'PENDING',
+      settledAt: null,
+      createdAt: order.placedAt,
+      items: (order.orderItems || []).map((i) => ({
+        id: i.id,
+        productName: i.productNameSnapshot,
+        quantity: i.quantity,
+        unitPrice: Number(i.unitPrice),
+        totalPrice: Number(i.totalPrice),
+        variant: i.variantSnapshot,
+        addons: i.addonsSnapshot,
+      })),
+    };
+  }
+
   async getSalesLedger(
     user: User,
     vendorId?: string,
@@ -781,68 +996,7 @@ export class VendorStaffService {
             }
           : {}),
       },
-      include: {
-        order: {
-          select: {
-            id: true,
-            orderNumber: true,
-            status: true,
-            paymentMethod: true,
-            paymentStatus: true,
-            subtotal: true,
-            couponDiscount: true,
-            deliveryFee: true,
-            taxAmount: true,
-            totalAmount: true,
-            customerNotes: true,
-            rejectionReason: true,
-            prepTimeMinutes: true,
-            deliveryAddressSnapshot: true,
-            customerPhoneSnapshot: true,
-            placedAt: true,
-            acceptedAt: true,
-            pickedUpAt: true,
-            deliveredAt: true,
-            cancelledAt: true,
-            customer: {
-              select: {
-                fullName: true,
-                phone: true,
-              },
-            },
-            rider: {
-              select: {
-                id: true,
-                vehicleType: true,
-                user: {
-                  select: {
-                    fullName: true,
-                    phone: true,
-                  },
-                },
-              },
-            },
-            orderItems: {
-              select: {
-                id: true,
-                productNameSnapshot: true,
-                quantity: true,
-                unitPrice: true,
-                totalPrice: true,
-                variantSnapshot: true,
-                addonsSnapshot: true,
-              },
-            },
-          },
-        },
-        vendor: {
-          select: {
-            id: true,
-            name: true,
-            addressText: true,
-          },
-        },
-      },
+      include: LEDGER_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -851,65 +1005,11 @@ export class VendorStaffService {
     let totalNet = 0;
 
     const formattedLedgers = ledgers.map((l) => {
-      const gross = Number(l.grossAmount);
-      const commission = Number(l.commissionAmount);
-      const net = Number(l.netVendorPayable);
-
-      totalGross += gross;
-      totalCommission += commission;
-      totalNet += net;
-
-      return {
-        id: l.id,
-        orderId: l.orderId,
-        orderNumber: l.order?.orderNumber || 'N/A',
-        vendorId: l.vendorId,
-        vendorName: l.vendor?.name || 'Unknown Outlet',
-        vendorAddress: l.vendor?.addressText || null,
-        customerName: l.order?.customer?.fullName || 'Guest Customer',
-        customerPhone: l.order?.customerPhoneSnapshot || l.order?.customer?.phone || '',
-        customerNotes: l.order?.customerNotes || null,
-        rejectionReason: l.order?.rejectionReason || null,
-        prepTimeMinutes: l.order?.prepTimeMinutes ?? null,
-        deliveryAddress: l.order?.deliveryAddressSnapshot || null,
-        paymentMethod: l.order?.paymentMethod || 'CASH_ON_DELIVERY',
-        paymentStatus: l.order?.paymentStatus || 'PENDING',
-        orderStatus: l.order?.status || 'UNKNOWN',
-        subtotal: Number(l.order?.subtotal || 0),
-        couponDiscount: Number(l.order?.couponDiscount || 0),
-        deliveryFee: Number(l.order?.deliveryFee || 0),
-        taxAmount: Number(l.order?.taxAmount || 0),
-        totalAmount: Number(l.order?.totalAmount || 0),
-        placedAt: l.order?.placedAt || l.createdAt,
-        acceptedAt: l.order?.acceptedAt || null,
-        pickedUpAt: l.order?.pickedUpAt || null,
-        deliveredAt: l.order?.deliveredAt || null,
-        cancelledAt: l.order?.cancelledAt || null,
-        rider: l.order?.rider
-          ? {
-              id: l.order.rider.id,
-              fullName: l.order.rider.user?.fullName || 'Assigned Rider',
-              phone: l.order.rider.user?.phone || '',
-              vehicleType: l.order.rider.vehicleType || 'motorcycle',
-            }
-          : null,
-        grossAmount: gross,
-        commissionRate: Number(l.commissionRate),
-        commissionAmount: commission,
-        netVendorPayable: net,
-        settlementStatus: l.settlementStatus,
-        settledAt: l.settledAt,
-        createdAt: l.createdAt,
-        items: (l.order?.orderItems || []).map((i) => ({
-          id: i.id,
-          productName: i.productNameSnapshot,
-          quantity: i.quantity,
-          unitPrice: Number(i.unitPrice),
-          totalPrice: Number(i.totalPrice),
-          variant: i.variantSnapshot,
-          addons: i.addonsSnapshot,
-        })),
-      };
+      const row = toLedgerRow(l);
+      totalGross += row.grossAmount;
+      totalCommission += row.commissionAmount;
+      totalNet += row.netVendorPayable;
+      return row;
     });
 
     return {

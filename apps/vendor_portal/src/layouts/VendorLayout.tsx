@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  ChefHat,
-  UtensilsCrossed,
-  Receipt,
+  Building2,
+  ShoppingBag,
   Store,
+  ClipboardList,
+  Package,
+  Receipt,
   Volume2,
   VolumeX,
   Menu,
@@ -30,7 +32,7 @@ const VendorLayoutInner: React.FC = () => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { activeOutlet } = useVendorOutlet();
+  const { activeOutlet, outlets } = useVendorOutlet();
   const [isMuted, setIsMuted] = useState(soundEngine.getIsMuted());
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { isTogglingRush, toggleRushPause } = useRushPause();
@@ -61,8 +63,8 @@ const VendorLayoutInner: React.FC = () => {
   };
 
   const navItems = [
-    { label: t('nav.vendor.kds'), href: '/', icon: ChefHat },
-    { label: t('nav.vendor.catalog'), href: '/catalog', icon: UtensilsCrossed },
+    { label: t('nav.vendor.kds'), href: '/', icon: ClipboardList },
+    { label: t('nav.vendor.catalog'), href: '/catalog', icon: Package },
     { label: t('nav.vendor.orders'), href: '/orders', icon: Receipt },
     { label: t('nav.vendor.settings'), href: '/settings', icon: Store },
   ];
@@ -90,6 +92,11 @@ const VendorLayoutInner: React.FC = () => {
 
   const { displayName, roleTitle } = parseUserIdentity();
 
+  // The consolidated "All Outlets" view still speaks the user's brand; fall
+  // back to the first accessible outlet's brand for scope-less accounts.
+  const brandName =
+    activeOutlet?.brandName ?? outlets.find((o) => o.brandName)?.brandName ?? null;
+
   const toggleSound = () => {
     const nextMuted = !isMuted;
     soundEngine.setMuted(nextMuted);
@@ -116,7 +123,7 @@ const VendorLayoutInner: React.FC = () => {
             <>
               <div className="flex items-center gap-3 min-w-0">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm shrink-0">
-                  <ChefHat className="h-5 w-5" />
+                  <ShoppingBag className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
                   <h1 className="text-base font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
@@ -171,6 +178,14 @@ const VendorLayoutInner: React.FC = () => {
             >
               <Menu className="h-5 w-5" />
             </button>
+
+            {/* Brand identity — outlets always render under their brand */}
+            {brandName && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/40 dark:border-amber-900 dark:text-amber-300 text-xs font-bold shrink-0 max-w-[220px]">
+                <Building2 className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{brandName}</span>
+              </span>
+            )}
 
             {/* Scoped Outlet Switcher */}
             <div className="min-w-0 max-w-[200px] sm:max-w-[260px] md:max-w-xs">
@@ -277,7 +292,7 @@ const VendorLayoutInner: React.FC = () => {
               <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-5 dark:border-slate-800">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm shrink-0">
-                    <UtensilsCrossed className="h-4 w-4" />
+                    <Package className="h-4 w-4" />
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">

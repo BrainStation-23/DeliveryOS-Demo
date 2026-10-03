@@ -1,13 +1,26 @@
 class SearchOutlet {
   final String id;
   final String name;
+  final String? brandName;
   final String? logoUrl;
   final String addressText;
   final double distanceKm;
 
+  /// Canonical outlet representation: "Brand - Outlet" — shown once when the
+  /// outlet name already carries the brand (no "X - X" doubling).
+  String get displayName {
+    final brand = (brandName ?? '').trim();
+    if (brand.isEmpty) return name;
+    if (name == brand || name.startsWith('$brand ') || name.startsWith('$brand—')) {
+      return name;
+    }
+    return '$brand - $name';
+  }
+
   SearchOutlet({
     required this.id,
     required this.name,
+    this.brandName,
     this.logoUrl,
     required this.addressText,
     required this.distanceKm,
@@ -17,6 +30,7 @@ class SearchOutlet {
     return SearchOutlet(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      brandName: json['brandName'] as String? ?? json['brand_name'] as String?,
       logoUrl: json['logoUrl'] as String? ?? json['logo_url'] as String?,
       addressText: json['addressText'] as String? ??
           json['address_text'] as String? ??

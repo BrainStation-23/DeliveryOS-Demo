@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
+import { Images } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import { Input } from '../../../../components/ui/Input';
 import { Modal } from '../../../../components/ui/Modal';
+import { MediaPickerModal } from '../../../../components/media/MediaPickerModal';
+import { resolveMediaUrl } from '../../../../utils/mediaUrl';
 
 export interface OutletInfoPayload {
   name: string;
   contactPhone: string;
   addressText?: string;
+  bannerUrl?: string;
   commissionRate: number;
   defaultPrepTimeMinutes: number;
   deliveryRadiusKm: number;
@@ -41,6 +45,8 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [bannerUrl, setBannerUrl] = useState('');
+  const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
   const [commission, setCommission] = useState('15');
   const [prep, setPrep] = useState('20');
   const [radius, setRadius] = useState('5');
@@ -52,6 +58,7 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
       setName(initial?.name || '');
       setPhone(initial?.contactPhone || '');
       setAddress(initial?.addressText || '');
+      setBannerUrl(initial?.bannerUrl || '');
       setCommission(String(initial?.commissionRate ?? 15));
       setPrep(String(initial?.defaultPrepTimeMinutes ?? 20));
       setRadius(String(initial?.deliveryRadiusKm ?? 5));
@@ -63,6 +70,7 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
   const isCreate = !editing;
 
   return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={onClose}
@@ -82,6 +90,7 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
                 name: name.trim(),
                 contactPhone: phone.trim(),
                 addressText: address.trim() || undefined,
+                bannerUrl: bannerUrl || undefined,
                 commissionRate: parseFloat(commission) || 15,
                 defaultPrepTimeMinutes: parseInt(prep, 10) || 20,
                 deliveryRadiusKm: parseFloat(radius) || 5,
@@ -132,6 +141,23 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
           </div>
         </div>
 
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            Cover Image (customer banner — the brand logo represents the outlet)
+          </label>
+          <div className="flex gap-2">
+            <Input value={bannerUrl} onChange={(e) => setBannerUrl(e.target.value)} placeholder="Optional" readOnly className="cursor-default" />
+            <Button variant="outline" size="sm" className="shrink-0" onClick={() => setIsMediaPickerOpen(true)} leftIcon={<Images className="h-4 w-4" />}>
+              Pick
+            </Button>
+          </div>
+          {bannerUrl && (
+            <div className="mt-2 h-16 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden dark:border-slate-800 dark:bg-slate-800">
+              <img src={resolveMediaUrl(bannerUrl)} alt="Cover preview" className="h-full w-full object-cover" />
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Commission %</label>
@@ -148,5 +174,15 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
         </div>
       </div>
     </Modal>
+
+    <MediaPickerModal
+      isOpen={isMediaPickerOpen}
+      onClose={() => setIsMediaPickerOpen(false)}
+      onSelect={(url) => {
+        setBannerUrl(url);
+        setIsMediaPickerOpen(false);
+      }}
+    />
+    </>
   );
 };

@@ -157,9 +157,23 @@ export class VendorStaffController {
     };
   }
 
+  @Get('orders/:orderId/detail')
+  @ApiOperation({ summary: 'Unified per-order detail (ledger shape) for the vendor portal' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async getOrderDetail(
+    @CurrentUser() user: User,
+    @Param('orderId') orderId: string,
+  ) {
+    const data = await this.vendorStaffService.getOrderLedgerDetail(user, orderId);
+    return {
+      message: `Order ${data.orderNumber} retrieved`,
+      data,
+    };
+  }
+
   @Get('orders/live')
-  @ApiOperation({ summary: 'Get live orders queue for vendor kitchen console' })
-  @ApiResponse({ status: 200, description: 'Live kitchen orders list' })
+  @ApiOperation({ summary: 'Get live orders queue for the vendor order board' })
+  @ApiResponse({ status: 200, description: 'Live orders list' })
   async getLiveOrders(
     @CurrentUser() user: User,
     @Query('vendorId') vendorId?: string,

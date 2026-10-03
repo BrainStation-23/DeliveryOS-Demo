@@ -168,8 +168,14 @@ export interface RawBackendCatalog {
 }
 
 export const kdsApi = {
+  /** Unified per-order detail (ledger shape) powering the order info dialog. */
+  async getOrderDetail(orderId: string): Promise<LedgerItem> {
+    const response = await apiClient.get(`/api/v1/vendor/orders/${orderId}/detail`);
+    return response.data?.data || response.data;
+  },
+
   /**
-   * Fetch active kitchen orders queue
+   * Fetch active order board queue
    */
   async getLiveOrders(vendorId?: string): Promise<KDSOrder[]> {
     const params = vendorId ? { vendorId } : undefined;
@@ -303,6 +309,7 @@ export const kdsApi = {
       isActive: boolean;
       defaultPrepTimeMinutes: number;
       brandId?: string | null;
+      brandName?: string | null;
     }>
   > {
     const response = await apiClient.get('/api/v1/vendor/outlets');

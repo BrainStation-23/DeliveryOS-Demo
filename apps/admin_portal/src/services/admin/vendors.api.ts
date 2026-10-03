@@ -7,7 +7,7 @@ export interface AdminVendor {
   brandName: string | null;
   addressText: string;
   contactPhone: string;
-  logoUrl: string | null;
+  bannerUrl: string | null;
   isBusy: boolean;
   isActive: boolean;
   commissionRate: number;
@@ -134,7 +134,7 @@ export interface OutletDetail {
     brandId: string;
     brandName: string | null;
     brandLogoUrl: string | null;
-    logoUrl: string | null;
+    bannerUrl: string | null;
     addressText: string;
     contactPhone: string;
     latitude: number;
@@ -180,6 +180,7 @@ export const vendorsApi = {
     latitude?: number;
     longitude?: number;
     contactPhone: string;
+    bannerUrl?: string;
     commissionRate?: number;
     defaultPrepTimeMinutes?: number;
     deliveryRadiusKm?: number;
@@ -194,6 +195,7 @@ export const vendorsApi = {
       name?: string;
       contactPhone?: string;
       addressText?: string;
+      bannerUrl?: string;
       commissionRate?: number;
       deliveryRadiusKm?: number;
       defaultPrepTimeMinutes?: number;

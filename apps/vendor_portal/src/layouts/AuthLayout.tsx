@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet } from 'react-router-dom';
-import { UtensilsCrossed } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 import { LanguageSelector } from '../components/LanguageSelector';
 
 export const AuthLayout: React.FC = () => {
@@ -13,7 +13,7 @@ export const AuthLayout: React.FC = () => {
       <header className="flex items-center justify-between px-4 sm:px-6 py-4">
         <div className="flex items-center gap-2.5">
           <div className="h-8 w-8 rounded-lg bg-amber-500 flex items-center justify-center font-bold text-white shadow-lg shadow-amber-500/30 shrink-0">
-            <UtensilsCrossed className="h-4 w-4" />
+            <ShoppingBag className="h-4 w-4" />
           </div>
           <div>
             <span className="font-extrabold text-base sm:text-lg tracking-tight">DeliveryOS</span>

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Clock,
   Bike,
+  Eye,
   CreditCard,
   Banknote,
   CheckCircle,
@@ -30,6 +31,7 @@ interface KDSOrderCardProps {
   onHandover?: (orderId: string) => void;
   isActionLoading?: boolean;
   isRejecting?: boolean;
+  onOpenDetails?: (orderId: string) => void;
 }
 
 export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
@@ -41,6 +43,7 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
   onHandover,
   isActionLoading = false,
   isRejecting = false,
+  onOpenDetails,
 }) => {
   const { t } = useTranslation();
   const [selectedCustomTime, setSelectedCustomTime] = useState<number>(defaultPrepTimeMinutes);
@@ -87,6 +90,16 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
               <Clock className="h-3 w-3 mr-1 text-slate-400" />
               {getElapsedMins()}
             </span>
+            {onOpenDetails && (
+              <button
+                type="button"
+                onClick={() => onOpenDetails(order.id)}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600 hover:underline cursor-pointer dark:text-primary-400"
+                title="View order details"
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">

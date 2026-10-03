@@ -99,7 +99,7 @@ export const RushHourPauseWidget: React.FC<RushHourPauseWidgetProps> = ({
         <div className="mt-3 flex items-center text-xs text-slate-500 dark:text-slate-400">
           <span className="flex items-center gap-1.5 text-[11px]">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            Kitchen receiving live orders normally
+            Store receiving live orders normally
           </span>
         </div>
       )}

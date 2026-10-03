@@ -66,9 +66,11 @@ export const CatalogProductCard: React.FC<CatalogProductCardProps> = ({
                 key={variant.id}
                 className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs dark:bg-slate-800/60"
               >
-                <span className="text-slate-700 dark:text-slate-300 font-medium truncate max-w-[140px]">
-                  {variant.name}{' '}
-                  <span className="text-slate-400 font-normal">(৳{variant.price})</span>
+                <span className="flex-1 min-w-0 text-slate-700 dark:text-slate-300 font-medium truncate">
+                  {variant.name}
+                </span>
+                <span className="shrink-0 text-slate-500 dark:text-slate-400 font-semibold tabular-nums">
+                  ৳{variant.price}
                 </span>
                 <div className="shrink-0">
                   <StockToggleSwitch

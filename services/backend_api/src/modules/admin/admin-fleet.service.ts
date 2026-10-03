@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { OrderStatus, SettlementStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { outletDisplayName } from '../../common/utils/outlet-display-name';
 import { PaginatedResult, toPaginatedResult } from '../../common/dto/pagination.dto';
 import { GetRidersQueryDto } from './dto/admin-governance.dto';
 
@@ -122,7 +123,7 @@ export class AdminFleetService {
         : Promise.resolve([]),
       this.prisma.order.findMany({
         where: { riderId: { in: riderIds }, status: { in: [...IN_FLIGHT_STATUSES] } },
-        select: { riderId: true, id: true, orderNumber: true, status: true, vendor: { select: { name: true } } },
+        select: { riderId: true, id: true, orderNumber: true, status: true, vendor: { select: { name: true, brand: { select: { name: true } } } } },
         orderBy: { placedAt: 'desc' },
       }),
     ]);
@@ -161,7 +162,7 @@ export class AdminFleetService {
               id: active.id,
               orderNumber: active.orderNumber,
               status: active.status,
-              vendorName: active.vendor?.name ?? null,
+              vendorName: outletDisplayName(active.vendor?.brand?.name, active.vendor?.name),
             }
           : null,
         joinedAt: r.user.createdAt,
@@ -194,7 +195,7 @@ export class AdminFleetService {
         }),
         this.prisma.order.findFirst({
           where: { riderId, status: { in: [...IN_FLIGHT_STATUSES] } },
-          select: { id: true, orderNumber: true, status: true, vendor: { select: { name: true } } },
+          select: { id: true, orderNumber: true, status: true, vendor: { select: { name: true, brand: { select: { name: true } } } } },
           orderBy: { placedAt: 'desc' },
         }),
         this.prisma.order.findMany({
@@ -208,7 +209,7 @@ export class AdminFleetService {
             totalAmount: true,
             paymentMethod: true,
             placedAt: true,
-            vendor: { select: { name: true } },
+            vendor: { select: { name: true, brand: { select: { name: true } } } },
           },
         }),
         this.prisma.cashDeposit.findMany({
@@ -251,14 +252,14 @@ export class AdminFleetService {
             id: activeOrders.id,
             orderNumber: activeOrders.orderNumber,
             status: activeOrders.status,
-            vendorName: activeOrders.vendor?.name ?? null,
+            vendorName: outletDisplayName(activeOrders.vendor?.brand?.name, activeOrders.vendor?.name),
           }
         : null,
       recentOrders: recentOrders.map((o) => ({
         id: o.id,
         orderNumber: o.orderNumber,
         status: o.status,
-        vendorName: o.vendor?.name || 'Store',
+        vendorName: outletDisplayName(o.vendor?.brand?.name, o.vendor?.name),
         totalAmount: Number(o.totalAmount),
         paymentMethod: o.paymentMethod,
         placedAt: o.placedAt,

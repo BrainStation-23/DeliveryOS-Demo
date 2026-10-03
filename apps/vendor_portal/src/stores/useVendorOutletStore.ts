@@ -11,6 +11,7 @@ export interface AccessibleOutlet {
   isActive: boolean;
   defaultPrepTimeMinutes: number;
   brandId?: string | null;
+  brandName?: string | null;
 }
 
 export interface VendorOutletState {
