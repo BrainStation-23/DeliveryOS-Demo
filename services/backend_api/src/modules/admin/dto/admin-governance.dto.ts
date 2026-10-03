@@ -88,6 +88,14 @@ export class GetLiveOrdersQueryDto extends PaginationQueryDto {
   @IsEnum(OrderStatus)
   status?: OrderStatus;
 
+  @ApiPropertyOptional({
+    enum: ['UNASSIGNED', 'ASSIGNED'],
+    description: 'Courier assignment filter — UNASSIGNED shows active orders (non-terminal) with no rider',
+  })
+  @IsOptional()
+  @IsIn(['UNASSIGNED', 'ASSIGNED'])
+  assignment?: 'UNASSIGNED' | 'ASSIGNED';
+
   @ApiPropertyOptional({ description: 'Search term for order number, customer name, or customer phone' })
   @IsOptional()
   @IsString()

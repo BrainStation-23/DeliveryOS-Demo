@@ -38,7 +38,7 @@ export const AdminOrdersPage: React.FC = () => {
   const [customEndDate, setCustomEndDate] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [selectedRiderId, setSelectedRiderId] = useState<string>('');
+  const [unassignedOnly, setUnassignedOnly] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelTargetOrder, setCancelTargetOrder] = useState<AdminOrder | null>(null);
   const [detailsOrder, setDetailsOrder] = useState<AdminOrder | null>(null);
@@ -54,17 +54,25 @@ export const AdminOrdersPage: React.FC = () => {
 
   const debouncedSearch = useDebouncedValue(searchQuery);
 
+  const assignmentFilter = unassignedOnly ? ('UNASSIGNED' as const) : undefined;
+
   const { data: ordersData, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['admin-orders', selectedStatus, page, debouncedSearch, datePreset, dateFromIso, dateToIso],
-    queryFn: () => adminApi.getOrders(selectedStatus, page, 20, debouncedSearch, dateFromIso, dateToIso),
+    queryKey: ['admin-orders', selectedStatus, page, debouncedSearch, datePreset, dateFromIso, dateToIso, assignmentFilter],
+    queryFn: () =>
+      adminApi.getOrders(selectedStatus, page, 20, debouncedSearch, dateFromIso, dateToIso, assignmentFilter),
     refetchInterval: 30000,
     placeholderData: (previous) => previous,
   });
   // Status-mix cards honor the same date window + search as the list itself.
   const { data: statusSummary, isLoading: isSummaryLoading } = useQuery({
-    queryKey: ['admin-orders-summary', debouncedSearch, datePreset, dateFromIso, dateToIso],
+    queryKey: ['admin-orders-summary', debouncedSearch, datePreset, dateFromIso, dateToIso, assignmentFilter],
     queryFn: () =>
-      adminApi.getOrdersStatusSummary({ dateFrom: dateFromIso, dateTo: dateToIso, search: debouncedSearch }),
+      adminApi.getOrdersStatusSummary({
+        dateFrom: dateFromIso,
+        dateTo: dateToIso,
+        search: debouncedSearch,
+        assignment: assignmentFilter,
+      }),
     placeholderData: (previous) => previous,
   });
   useSocketQueryInvalidation(ORDER_SOCKET_EVENTS, [['admin-orders-summary']]);
@@ -83,7 +91,6 @@ export const AdminOrdersPage: React.FC = () => {
   });
 
   const safeFleet = Array.isArray(fleet) ? fleet : [];
-  const availableRiders = safeFleet.filter((r) => Boolean(r && r.isOnline));
 
   const safeOrders = Array.isArray(orders) ? orders : [];
 
@@ -117,9 +124,9 @@ export const AdminOrdersPage: React.FC = () => {
       setActionError(null);
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       queryClient.invalidateQueries({ queryKey: ['admin-fleet'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-orders-summary'] });
       setIsAssignModalOpen(false);
       setSelectedOrder(null);
-      setSelectedRiderId('');
     },
     onError: (err) => setActionError(extractApiError(err, 'Force-assign failed. Please retry.')),
   });
@@ -138,7 +145,6 @@ export const AdminOrdersPage: React.FC = () => {
 
   const openAssignModal = (order: AdminOrder) => {
     setSelectedOrder(order);
-    setSelectedRiderId(order.riderId || (availableRiders[0]?.id ?? ''));
     setIsAssignModalOpen(true);
   };
 
@@ -236,9 +242,36 @@ export const AdminOrdersPage: React.FC = () => {
               </button>
             )}
           </div>
-          <div className="text-xs text-slate-500">
-            Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{safeOrders.length}</span> of{' '}
-            <span className="font-semibold text-slate-900 dark:text-slate-100">{totalOrders}</span> live orders
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setPage(1);
+                setUnassignedOnly((prev) => !prev);
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer h-8 ${
+                unassignedOnly
+                  ? 'bg-amber-500 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+              }`}
+              title="Show only active orders with no courier assigned"
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${unassignedOnly ? 'bg-white' : 'bg-amber-500'}`}
+              />
+              Unassigned Only
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+                  unassignedOnly ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                }`}
+              >
+                {statusSummary?.unassignedCount ?? 0}
+              </span>
+            </button>
+            <div className="text-xs text-slate-500">
+              Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{safeOrders.length}</span> of{' '}
+              <span className="font-semibold text-slate-900 dark:text-slate-100">{totalOrders}</span> live orders
+            </div>
           </div>
         </div>
 
@@ -291,17 +324,12 @@ export const AdminOrdersPage: React.FC = () => {
       <ForceAssignModal
         isOpen={isAssignModalOpen}
         order={selectedOrder}
-        availableRiders={availableRiders}
-        selectedRiderId={selectedRiderId}
+        fleet={safeFleet}
         isPending={forceAssignMutation.isPending}
         onClose={() => setIsAssignModalOpen(false)}
-        onSelectRider={setSelectedRiderId}
-        onConfirm={() => {
-          if (selectedOrder && selectedRiderId) {
-            forceAssignMutation.mutate({
-              orderId: selectedOrder.id,
-              riderId: selectedRiderId,
-            });
+        onConfirm={(riderId) => {
+          if (selectedOrder) {
+            forceAssignMutation.mutate({ orderId: selectedOrder.id, riderId });
           }
         }}
       />

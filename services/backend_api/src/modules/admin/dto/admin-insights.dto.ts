@@ -45,6 +45,14 @@ export class GetOrdersSummaryQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({
+    enum: ['UNASSIGNED', 'ASSIGNED'],
+    description: 'Courier assignment filter — mirrors GET /admin/orders',
+  })
+  @IsOptional()
+  @IsIn(['UNASSIGNED', 'ASSIGNED'])
+  assignment?: 'UNASSIGNED' | 'ASSIGNED';
 }
 
 export class GetCustomersQueryDto extends PaginationQueryDto {

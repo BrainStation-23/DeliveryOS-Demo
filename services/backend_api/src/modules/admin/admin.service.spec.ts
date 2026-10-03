@@ -330,6 +330,49 @@ describe('AdminService - getLiveOrders date-wise filtering', () => {
     });
   });
 
+  it('UNASSIGNED narrows to active orders without a courier and excludes terminal statuses', async () => {
+    const query = new GetLiveOrdersQueryDto();
+    query.assignment = 'UNASSIGNED';
+
+    await service.getLiveOrders(undefined, query);
+
+    expect(prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          riderId: null,
+          status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
+        }),
+      }),
+    );
+  });
+
+  it('UNASSIGNED keeps an explicit status filter instead of the terminal exclusion', async () => {
+    const query = new GetLiveOrdersQueryDto();
+    query.assignment = 'UNASSIGNED';
+    query.status = OrderStatus.READY_FOR_PICKUP;
+
+    await service.getLiveOrders(query.status, query);
+
+    expect(prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ riderId: null, status: OrderStatus.READY_FOR_PICKUP }),
+      }),
+    );
+  });
+
+  it('ASSIGNED keeps only orders with a courier', async () => {
+    const query = new GetLiveOrdersQueryDto();
+    query.assignment = 'ASSIGNED';
+
+    await service.getLiveOrders(undefined, query);
+
+    expect(prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ riderId: { not: null } }),
+      }),
+    );
+  });
+
   it('getOrderById returns the enriched detail view with money breakdown and lifecycle timestamps', async () => {
     prisma.order.findUnique.mockResolvedValue({
       id: 'order-1',

@@ -228,6 +228,7 @@ describe('AdminAnalyticsService', () => {
       { status: OrderStatus.PLACED, _count: { _all: 2 } },
       { status: OrderStatus.DELIVERED, _count: { _all: 3 } },
     ]);
+    prisma.order.count.mockResolvedValueOnce(2);
 
     const query = new GetOrdersSummaryQueryDto();
     query.dateFrom = '2026-09-01T00:00:00.000Z';
@@ -237,12 +238,42 @@ describe('AdminAnalyticsService', () => {
     expect(summary).toEqual({
       counts: expect.objectContaining({ PLACED: 2, DELIVERED: 3, CANCELLED: 0 }),
       total: 5,
+      unassignedCount: 2,
     });
     expect(prisma.order.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           placedAt: { gte: new Date('2026-09-01T00:00:00.000Z') },
           OR: expect.any(Array),
+        }),
+      }),
+    );
+    // The dispatch-queue badge always counts active riderless orders even when
+    // the visible list is filtered another way.
+    expect(prisma.order.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          riderId: null,
+          status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
+        }),
+      }),
+    );
+  });
+
+  it('UNASSIGNED narrows the status counts to active riderless orders', async () => {
+    prisma.order.groupBy.mockResolvedValueOnce([{ status: OrderStatus.PLACED, _count: { _all: 4 } }]);
+    prisma.order.count.mockResolvedValueOnce(4);
+
+    const query = new GetOrdersSummaryQueryDto();
+    query.assignment = 'UNASSIGNED';
+    const summary = await service.getOrdersSummary(query);
+
+    expect(summary.total).toBe(4);
+    expect(prisma.order.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          riderId: null,
+          status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
         }),
       }),
     );

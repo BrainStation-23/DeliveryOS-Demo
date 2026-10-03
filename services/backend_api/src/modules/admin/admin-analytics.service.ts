@@ -229,8 +229,42 @@ export class AdminAnalyticsService {
   }
 
   /** Status-count summary powering the Order History glance cards; honors the
-   *  same date/search semantics as GET /admin/orders minus the status filter. */
+   *  same date/search/assignment semantics as GET /admin/orders minus the
+   *  status filter. Also returns the live dispatch queue size so the console
+   *  can badge the "Unassigned" toggle. */
   async getOrdersSummary(query: GetOrdersSummaryQueryDto) {
+    const where = this.buildOrderSummaryWhere(query);
+
+    const [grouped, unassignedCount] = await Promise.all([
+      this.prisma.order.groupBy({
+        by: ['status'],
+        where,
+        _count: { _all: true },
+      }),
+      this.prisma.order.count({
+        where: {
+          ...this.buildOrderSummaryWhere({ ...query, assignment: undefined }),
+          riderId: null,
+          status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
+        },
+      }),
+    ]);
+
+    const counts = Object.fromEntries(
+      Object.values(OrderStatus).map((status) => [
+        status,
+        grouped.find((s) => s.status === status)?._count._all ?? 0,
+      ]),
+    );
+
+    return {
+      counts,
+      total: grouped.reduce((sum, s) => sum + s._count._all, 0),
+      unassignedCount,
+    };
+  }
+
+  private buildOrderSummaryWhere(query: GetOrdersSummaryQueryDto): Prisma.OrderWhereInput {
     const where: Prisma.OrderWhereInput = {};
     if (query.dateFrom || query.dateTo) {
       where.placedAt = {
@@ -246,21 +280,15 @@ export class AdminAnalyticsService {
         { customer: { fullName: { contains: term, mode: 'insensitive' } } },
       ];
     }
-
-    const grouped = await this.prisma.order.groupBy({
-      by: ['status'],
-      where,
-      _count: { _all: true },
-    });
-
-    const counts = Object.fromEntries(
-      Object.values(OrderStatus).map((status) => [
-        status,
-        grouped.find((s) => s.status === status)?._count._all ?? 0,
-      ]),
-    );
-
-    return { counts, total: grouped.reduce((sum, s) => sum + s._count._all, 0) };
+    if (query.assignment === 'UNASSIGNED') {
+      where.riderId = null;
+      if (!where.status) {
+        where.status = { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] };
+      }
+    } else if (query.assignment === 'ASSIGNED') {
+      where.riderId = { not: null };
+    }
+    return where;
   }
 
   private async collectWindowMetrics(from: Date, to: Date): Promise<WindowMetrics> {

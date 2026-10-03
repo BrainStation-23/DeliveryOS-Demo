@@ -42,6 +42,8 @@ export interface AnalyticsOverview {
 export interface OrdersStatusSummary {
   counts: Record<string, number>;
   total: number;
+  /** Active (non-terminal) orders with no courier — the dispatch queue size. */
+  unassignedCount?: number;
 }
 
 export interface AnalyticsOverviewParams {
@@ -56,7 +58,12 @@ export const analyticsApi = {
     return unwrapData<AnalyticsOverview>(res);
   },
 
-  async getOrdersStatusSummary(params: { dateFrom?: string; dateTo?: string; search?: string }): Promise<OrdersStatusSummary> {
+  async getOrdersStatusSummary(params: {
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+    assignment?: 'UNASSIGNED' | 'ASSIGNED';
+  }): Promise<OrdersStatusSummary> {
     const res = await apiClient.get('/api/v1/admin/analytics/orders-summary', { params });
     return unwrapData<OrdersStatusSummary>(res);
   },

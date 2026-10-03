@@ -273,6 +273,19 @@ export class AdminService {
       where.status = statusFilter as OrderStatus;
     }
 
+    // Courier assignment dimension: UNASSIGNED isolates the dispatch queue
+    // (active orders with no rider, across every lifecycle stage) while
+    // ASSIGNED keeps only secured orders. An explicit status filter still
+    // wins over the default terminal exclusion.
+    if (pagination.assignment === 'UNASSIGNED') {
+      where.riderId = null;
+      if (!where.status) {
+        where.status = { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] };
+      }
+    } else if (pagination.assignment === 'ASSIGNED') {
+      where.riderId = { not: null };
+    }
+
     // ISO-8601 validity is guaranteed by the DTO validator, so both bounds
     // parse safely; either bound may arrive alone for open-ended ranges.
     const dateFrom = pagination.dateFrom ? new Date(pagination.dateFrom) : undefined;

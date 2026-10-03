@@ -101,12 +101,14 @@ export const ordersApi = {
     search?: string,
     dateFrom?: string,
     dateTo?: string,
+    assignment?: 'UNASSIGNED' | 'ASSIGNED',
   ): Promise<PaginatedOrders> {
     const params = {
       ...(status && status !== 'ALL' ? { status } : {}),
       ...(search?.trim() ? { search: search.trim() } : {}),
       ...(dateFrom ? { dateFrom } : {}),
       ...(dateTo ? { dateTo } : {}),
+      ...(assignment ? { assignment } : {}),
       page,
       limit,
     };

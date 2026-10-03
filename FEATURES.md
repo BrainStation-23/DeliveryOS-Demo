@@ -287,6 +287,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Order Number URL Query Deep Linking**: Navigating to `/orders?orderNumber=ORD-XXXX` automatically filters the table, highlights the order, and pre-opens the assignment or details modal (`AdminOrdersPage`).
 - **Status Glance Cards Row**: `GET /admin/analytics/orders-summary` returns per-status counts honoring the active date window + search; each card is a one-click shortcut applying the matching lifecycle filter (`OrderStatusCards`), and the lifecycle tabs now include the terminal **Cancelled** stage.
 - **Single Source of Search**: the debounced search box drives the server-side `search` param only (the old duplicate client-side filter was removed).
+- **Unassigned Dispatch Queue Filter**: amber "Unassigned Only" toggle (badged with the live `unassignedCount` from the summary endpoint) narrows the list to active orders with no courier across every lifecycle stage via the `assignment=UNASSIGNED` query — one click surfaces exactly the orders needing manual dispatch, and it composes with the status tabs, date window, and search.
 - **Active Filter Banner**: Amber banner indicating active direct link filter with 1-click `"Clear Filter & View All"` button.
 - **Itemized Order Details Modal**:
   - Store outlet and customer details.
@@ -296,11 +297,12 @@ This document provides a line-level, granular breakdown of every operational fea
   - Financial summary.
 
 ### 5.3. Administrative Overrides (Force-Assign & Force-Cancel)
-- **Force-Assign Courier Modal**:
-  - Line items summary with quantities and dish names.
-  - Customer notes display.
-  - Courier selection radio list displaying online status, active delivery state, and current cash balance.
-  - Bypasses automated dispatch algorithm via `adminApi.forceAssignRider(orderId, riderId)`.
+- **Force-Assign Courier Modal** (production assignment console):
+  - Unified dialog layout (title + outlet/drop-off description, order summary card with line items and customer notes, confirm-gated footer).
+  - **Distance-ranked courier list**: candidates sort by live outlet → courier GPS haversine distance (nearest first; no-fix couriers last), with a distance chip per courier — mirrors the backend haversine ranking.
+  - **Courier search** (name / phone / vehicle) over the live fleet radar feed.
+  - Guard parity with the API: pending-approval, off-duty, and mid-trip couriers render unselectable with reasons; cash-in-hand surfaces with a warning tone near the safety limit.
+  - Nearest assignable courier preselected on open; confirm button names the selected courier; empty states distinguish "no couriers on duty" from "no search match".
 - **Force-Cancel Order Modal**:
   - Reversal warning alert: audit trail logging, courier release, and ledger reversal.
   - Itemized list of dishes to be cancelled.
