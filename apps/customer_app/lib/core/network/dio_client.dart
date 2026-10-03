@@ -9,6 +9,7 @@ class DioClient {
   final LocalStorage? _storage;
   Completer<String?>? _refreshCompleter;
   final List<void Function(String)> _refreshListeners = [];
+  final List<void Function(String?)> _sessionExpiredListeners = [];
 
   DioClient({LocalStorage? storage, Dio? dio})
       : _storage = storage,
@@ -44,8 +45,13 @@ class DioClient {
                 final response = await _dio.fetch(requestOptions);
                 return handler.resolve(response);
               } on DioException catch (retryError) {
+                if (retryError.response?.statusCode == 401) {
+                  await _notifySessionExpired(retryError);
+                }
                 return handler.next(retryError);
               }
+            } else if (error.response?.statusCode == 401) {
+              await _notifySessionExpired(error);
             }
             return handler.next(error);
           },
@@ -84,6 +90,7 @@ class DioClient {
       final newAccess = data['accessToken'] as String?;
       final newRefresh = data['refreshToken'] as String?;
       if (newAccess == null || newAccess.isEmpty) {
+        await _notifySessionExpired(error);
         completer.complete(null);
         return null;
       }
@@ -97,14 +104,31 @@ class DioClient {
       }
       completer.complete(newAccess);
       return newAccess;
-    } catch (_) {
-      // Refresh failed — session is unrecoverable
-      await _storage.clearSession();
+    } catch (e) {
+      // Refresh failed — session is unrecoverable (e.g. account suspended or token revoked)
+      await _notifySessionExpired(e is DioException ? e : error);
       completer.complete(null);
       return null;
     } finally {
       _refreshCompleter = null;
     }
+  }
+
+  Future<void> _notifySessionExpired(Object? error) async {
+    String? message;
+    if (error is DioException && error.response?.data is Map) {
+      final data = error.response!.data as Map;
+      message = data['message'] as String?;
+    }
+    await _storage?.clearSession();
+    for (final listener in _sessionExpiredListeners) {
+      listener(message);
+    }
+  }
+
+  /// Subscribe to session expiration events (e.g. 401 unrecoverable, account suspended).
+  void onSessionExpired(void Function(String?) listener) {
+    _sessionExpiredListeners.add(listener);
   }
 
   /// Subscribe to token rotations (e.g. to re-handshake the realtime socket).

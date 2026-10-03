@@ -6,6 +6,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../providers/auth_provider.dart';
 import '../domain/user_model.dart';
 import 'otp_verification_screen.dart';
+import 'widgets/account_suspended_card.dart';
 import '../../home/presentation/home_screen.dart';
 
 class PhoneInputScreen extends ConsumerStatefulWidget {
@@ -97,6 +98,50 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
                         l10n.translate('login_subtitle'),
                         style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                       ),
+                      if (authState.errorMessage != null && authState.errorMessage!.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        if (authState.isSuspended || authState.errorMessage!.toLowerCase().contains('suspend'))
+                          AccountSuspendedCard(
+                            reason: authState.suspensionReason,
+                            message: authState.errorMessage,
+                            onDismiss: () => ref.read(authProvider.notifier).clearError(),
+                          )
+                        else
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.sm + 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.error.withValues(alpha: 0.1),
+                              borderRadius: AppRadius.borderMd,
+                              border: Border.all(
+                                color: AppColors.error.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.error_outline_rounded,
+                                  size: 18,
+                                  color: AppColors.error,
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Expanded(
+                                  child: Text(
+                                    authState.errorMessage!,
+                                    style: AppTypography.bodySmall.copyWith(
+                                      color: AppColors.error,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                       const SizedBox(height: AppSpacing.xxxl),
                       Container(
                         decoration: BoxDecoration(

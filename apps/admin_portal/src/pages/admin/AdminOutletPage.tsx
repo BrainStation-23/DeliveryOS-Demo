@@ -8,6 +8,11 @@ import {
   Power,
   Plus,
   UserRound,
+  Flame,
+  PauseCircle,
+  PlayCircle,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 import adminApi, { AdminCatalogProduct, AdminStaffAssignment } from '../../services/adminApi';
 import { Badge } from '../../components/ui/Badge';
@@ -18,6 +23,7 @@ import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { resolveMediaUrl } from '../../utils/mediaUrl';
 import { extractApiError } from '../../utils/apiError';
+import { useSocketQueryInvalidation } from '../../hooks/useSocketSubscription';
 import { StaffProfileDialog } from './components/staff/StaffProfileDialog';
 import { ProductDialog } from './components/products/ProductDialog';
 import { OperatingHoursEditor } from './components/outlets/OperatingHoursEditor';
@@ -58,6 +64,11 @@ export const AdminOutletPage: React.FC = () => {
     enabled: !!outletId,
   });
 
+  useSocketQueryInvalidation(
+    ['vendor:status:changed', 'order:new', 'order:status:changed'],
+    [['admin-outlet-detail', outletId], ['admin-vendors']],
+  );
+
   const toggleStatusMutation = useMutation({
     mutationFn: (isActive: boolean) => adminApi.toggleVendorStatus(outletId as string, isActive),
     onSuccess: () => {
@@ -66,6 +77,16 @@ export const AdminOutletPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
     },
     onError: (err) => setActionError(extractApiError(err, 'Failed to update outlet status.')),
+  });
+
+  const togglePauseMutation = useMutation({
+    mutationFn: (isBusy: boolean) => adminApi.toggleVendorPause(outletId as string, isBusy),
+    onSuccess: () => {
+      setActionError(null);
+      queryClient.invalidateQueries({ queryKey: ['admin-outlet-detail', outletId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
+    },
+    onError: (err) => setActionError(extractApiError(err, 'Failed to update order intake status.')),
   });
 
   const updateOutletMutation = useMutation({
@@ -148,10 +169,27 @@ export const AdminOutletPage: React.FC = () => {
           </Button>
         }
         badge={
-          vendor.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Suspended</Badge>
+          <div className="flex items-center gap-2 flex-wrap">
+            {vendor.isActive ? (
+              <Badge variant="success">Operational</Badge>
+            ) : (
+              <Badge variant="danger" className="font-bold">Suspended</Badge>
+            )}
+            {vendor.isBusy ? (
+              <Badge variant="warning" className="font-bold animate-pulse">
+                <AlertTriangle className="h-3 w-3 mr-1 inline text-amber-700 dark:text-amber-300" />
+                Intake: Inactive
+              </Badge>
+            ) : (
+              <Badge variant="default" className="text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800">
+                <CheckCircle2 className="h-3 w-3 mr-1 inline" />
+                Intake: Active
+              </Badge>
+            )}
+          </div>
         }
         actions={
-          <>
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               variant="outline"
               size="sm"
@@ -160,29 +198,113 @@ export const AdminOutletPage: React.FC = () => {
             >
               Edit Info
             </Button>
+
+            {/* Mode 2: Order Intake Active / Inactive Toggle — Synchronized with Vendor Portal */}
+            {vendor.isBusy ? (
+              <Button
+                variant="success"
+                size="sm"
+                isLoading={togglePauseMutation.isPending}
+                onClick={() => togglePauseMutation.mutate(false)}
+                leftIcon={<PlayCircle className="h-3.5 w-3.5" />}
+                title="Set order intake to Active (accept incoming orders)"
+              >
+                Set Active
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-amber-300 text-amber-800 hover:bg-amber-50 hover:text-amber-900 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/50"
+                isLoading={togglePauseMutation.isPending}
+                onClick={() => togglePauseMutation.mutate(true)}
+                leftIcon={<PauseCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />}
+                title="Set order intake to Inactive (halt incoming orders)"
+              >
+                Set Inactive
+              </Button>
+            )}
+
+            {/* Mode 1: Platform Suspension Governance */}
             {vendor.isActive ? (
               <Button
                 variant="danger"
                 size="sm"
                 onClick={() => setIsSuspendConfirmOpen(true)}
                 leftIcon={<Power className="h-3.5 w-3.5" />}
+                title="Suspend outlet from platform"
               >
-                Suspend
+                Suspend Outlet
               </Button>
             ) : (
               <Button
-                variant="primary"
+                variant="success"
                 size="sm"
                 isLoading={toggleStatusMutation.isPending}
                 onClick={() => toggleStatusMutation.mutate(true)}
                 leftIcon={<Power className="h-3.5 w-3.5" />}
+                title="Withdraw outlet suspension"
               >
-                Activate
+                Withdraw Suspension
               </Button>
             )}
-          </>
+          </div>
         }
       />
+
+      {/* Mode 1: Platform Suspension Banner */}
+      {!vendor.isActive && (
+        <div className="rounded-xl border border-rose-300 bg-rose-50/80 p-3.5 dark:border-rose-900/60 dark:bg-rose-950/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold text-rose-950 dark:text-rose-200">
+                Outlet Suspended by Platform Administration
+              </p>
+              <p className="text-[11px] text-rose-800 dark:text-rose-300/90 mt-0.5">
+                This outlet is suspended. Vendor portal access is locked, and no kitchen operations or orders can be processed until suspension is withdrawn.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="success"
+            size="sm"
+            className="shrink-0"
+            isLoading={toggleStatusMutation.isPending}
+            onClick={() => toggleStatusMutation.mutate(true)}
+            leftIcon={<Power className="h-3.5 w-3.5" />}
+          >
+            Withdraw Suspension
+          </Button>
+        </div>
+      )}
+
+      {/* Mode 2: Order Intake Inactive Banner */}
+      {vendor.isActive && vendor.isBusy && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-3.5 dark:border-amber-900/60 dark:bg-amber-950/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+            <div>
+              <p className="text-xs font-bold text-amber-950 dark:text-amber-200">
+                Order Intake is Inactive
+              </p>
+              <p className="text-[11px] text-amber-800 dark:text-amber-300/90 mt-0.5">
+                New customer orders will not proceed for {vendor.name}. Kitchen staff can fulfill existing orders. Click 'Set Active' to reopen intake.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="success"
+            size="sm"
+            className="shrink-0"
+            isLoading={togglePauseMutation.isPending}
+            onClick={() => togglePauseMutation.mutate(false)}
+            leftIcon={<PlayCircle className="h-3.5 w-3.5" />}
+          >
+            Set Active
+          </Button>
+        </div>
+      )}
 
       {actionError && <QueryErrorBanner error={{ message: actionError } as never} onRetry={() => setActionError(null)} />}
 
@@ -322,8 +444,7 @@ export const AdminOutletPage: React.FC = () => {
               Suspend <strong className="text-slate-900 dark:text-slate-100">{vendor.name}</strong>?
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              The outlet disappears from customer discovery immediately — new orders stop, in-flight orders continue.
-              Reactivate any time from this page.
+              Suspending this outlet makes it completely inaccessible in the vendor portal and system. Staff cannot process orders, catalog, or settings until suspension is withdrawn. New incoming orders will be blocked immediately.
             </p>
           </>
         }

@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -61,10 +62,10 @@ export class GetCustomersQueryDto extends PaginationQueryDto {
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ enum: ['ACTIVE', 'PENDING_APPROVAL', 'SUSPENDED', 'ALL'], description: 'Account status filter' })
+  @ApiPropertyOptional({ enum: ['ACTIVE', 'SUSPENDED', 'ALL'], description: 'Account status filter' })
   @IsOptional()
-  @IsIn(['ACTIVE', 'PENDING_APPROVAL', 'SUSPENDED', 'ALL'])
-  status?: 'ACTIVE' | 'PENDING_APPROVAL' | 'SUSPENDED' | 'ALL';
+  @IsIn(['ACTIVE', 'SUSPENDED', 'ALL'])
+  status?: 'ACTIVE' | 'SUSPENDED' | 'ALL';
 
   @ApiPropertyOptional({ description: 'ISO-8601 lower bound on account registration date' })
   @IsOptional()
@@ -75,6 +76,18 @@ export class GetCustomersQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsISO8601()
   dateTo?: string;
+}
+
+export class UpdateCustomerStatusDto {
+  @ApiProperty({ enum: ['ACTIVE', 'SUSPENDED'], description: 'Target account status for the customer' })
+  @IsIn(['ACTIVE', 'SUSPENDED'])
+  status!: 'ACTIVE' | 'SUSPENDED';
+
+  @ApiPropertyOptional({ description: 'Optional explanation / reason for account suspension' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
 }
 
 export class GetFinanceLedgerQueryDto extends PaginationQueryDto {

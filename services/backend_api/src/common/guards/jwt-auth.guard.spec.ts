@@ -110,17 +110,37 @@ describe('JwtAuthGuard', () => {
     expect(prisma.user.findUnique).toHaveBeenCalled();
   });
 
-  it('rejects users whose account is no longer ACTIVE', async () => {
+  it('rejects users whose account is SUSPENDED with a clear message', async () => {
     const { guard, prisma, makeContext } = buildGuard();
     prisma.user.findUnique.mockResolvedValue({ ...activeUser, status: 'SUSPENDED' });
     const token = jwt.sign({ sub: 'user-1', role: 'CUSTOMER', type: 'access' }, TEST_JWT_SECRET);
 
-    // The guard collapses every failure into one generic message to avoid
-    // leaking account-state details to unauthenticated callers.
     await expect(
       guard.canActivate(makeContext({ authorization: `Bearer ${token}` })),
-    ).rejects.toThrow('Invalid or expired token');
+    ).rejects.toThrow('Your account has been suspended');
     expect(prisma.user.findUnique).toHaveBeenCalled();
+  });
+
+  it('rejects cached users whose account is SUSPENDED', async () => {
+    const { guard, prisma, makeContext } = buildGuard({
+      cachedUser: JSON.stringify({ ...activeUser, status: 'SUSPENDED' }),
+    });
+    const token = jwt.sign({ sub: 'user-1', role: 'CUSTOMER', type: 'access' }, TEST_JWT_SECRET);
+
+    await expect(
+      guard.canActivate(makeContext({ authorization: `Bearer ${token}` })),
+    ).rejects.toThrow('Your account has been suspended');
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('rejects users whose account is inactive', async () => {
+    const { guard, prisma, makeContext } = buildGuard();
+    prisma.user.findUnique.mockResolvedValue({ ...activeUser, status: 'PENDING_APPROVAL' });
+    const token = jwt.sign({ sub: 'user-1', role: 'CUSTOMER', type: 'access' }, TEST_JWT_SECRET);
+
+    await expect(
+      guard.canActivate(makeContext({ authorization: `Bearer ${token}` })),
+    ).rejects.toThrow('User account not found or inactive');
   });
 
   it('rejects tokens signed with the wrong secret as generic invalid', async () => {

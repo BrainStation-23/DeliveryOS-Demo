@@ -50,6 +50,7 @@ import {
   SaveProductDto,
   SetBrandOwnerDto,
   SetRiderApprovalDto,
+  ToggleVendorPauseDto,
   ToggleVendorStatusDto,
   UpdateBannerDto,
   UpdateBrandDto,
@@ -370,11 +371,25 @@ export class AdminController {
   }
 
   @Patch('vendors/:id/status')
-  @ApiOperation({ summary: 'Toggle vendor outlet active/suspended status' })
+  @ApiOperation({ summary: 'Toggle vendor outlet suspension status (suspend / withdraw suspension)' })
   async toggleVendorStatus(@Param('id') vendorId: string, @Body() dto: ToggleVendorStatusDto) {
     const updated = await this.adminService.toggleVendorStatus(vendorId, dto.isActive);
     return {
-      message: `Vendor outlet ${dto.isActive ? 'activated' : 'suspended'} successfully`,
+      message: dto.isActive
+        ? 'Outlet suspension withdrawn successfully'
+        : 'Outlet suspended successfully',
+      data: updated,
+    };
+  }
+
+  @Patch('vendors/:id/pause')
+  @ApiOperation({ summary: 'Toggle vendor outlet order intake status (active / inactive)' })
+  async toggleVendorPause(@Param('id') vendorId: string, @Body() dto: ToggleVendorPauseDto) {
+    const updated = await this.adminService.toggleVendorPause(vendorId, dto.isBusy);
+    return {
+      message: dto.isBusy
+        ? 'Outlet intake marked inactive (new orders halted)'
+        : 'Outlet intake marked active (orders accepted)',
       data: updated,
     };
   }

@@ -34,11 +34,19 @@ class BannerNotifier extends Notifier<BannerState> {
     return BannerState(banners: const [], isLoading: true);
   }
 
-  Future<void> fetchBanners() async {
+  Future<void> fetchBanners({double? lat, double? lng}) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final dio = ref.read(dioClientProvider);
-      final response = await dio.get(ApiConstants.activeBanners);
+      final queryParams = <String, dynamic>{};
+      if (lat != null && lng != null) {
+        queryParams['lat'] = lat;
+        queryParams['lng'] = lng;
+      }
+      final response = await dio.get(
+        ApiConstants.activeBanners,
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
       if (response.statusCode == 200) {
         final data = response.data['data'] as List<dynamic>? ?? [];
         final banners = data

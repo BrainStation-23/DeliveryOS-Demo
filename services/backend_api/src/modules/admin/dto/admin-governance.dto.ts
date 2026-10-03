@@ -348,6 +348,11 @@ class VendorFields {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ description: 'Rush hour emergency pause — halts incoming orders' })
+  @IsOptional()
+  @IsBoolean()
+  isBusy?: boolean;
 }
 
 export class CreateVendorDto extends VendorFields {
@@ -395,6 +400,12 @@ export class ToggleVendorStatusDto {
   @ApiProperty()
   @IsBoolean()
   isActive!: boolean;
+}
+
+export class ToggleVendorPauseDto {
+  @ApiProperty({ description: 'Rush hour emergency pause toggle (true to pause intake, false to resume)' })
+  @IsBoolean()
+  isBusy!: boolean;
 }
 
 export class AssignVendorStaffDto {

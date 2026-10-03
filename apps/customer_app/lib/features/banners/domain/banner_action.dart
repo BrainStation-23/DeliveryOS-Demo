@@ -19,6 +19,12 @@ class OpenCategory extends BannerAction {
   const OpenCategory(this.categoryId, this.categoryName);
 }
 
+/// Opens an internal deeplink route path (e.g. /search?q=..., /cart, /orders, /profile).
+class OpenInternalDeepLink extends BannerAction {
+  final String routePath;
+  const OpenInternalDeepLink(this.routePath);
+}
+
 /// Opens an absolute http(s) URL in the system browser.
 class OpenExternalUrl extends BannerAction {
   final Uri uri;
@@ -32,9 +38,11 @@ class OpenSearch extends BannerAction {
 
 const _httpSchemes = {'http', 'https'};
 
-/// Pure deeplink resolver: mirrors the admin BannerFormModal validation rules
-/// so OUTLET/CATEGORY banners always carry a target and EXTERNAL banners
-/// always carry an absolute http(s) URL (anything else degrades to search).
+/// Pure deeplink resolver:
+/// - OUTLET: opens outlet detail screen if targetId is present.
+/// - INTERNAL: opens in-app deeplink path (e.g. /search?q=..., /cart).
+/// - EXTERNAL: opens system browser with valid http(s) URL.
+/// - CATEGORY: opens category search (legacy).
 BannerAction resolveBannerAction(BannerModel banner) {
   final type = banner.actionType?.toUpperCase();
   final targetId = banner.actionValue?.trim();
@@ -42,6 +50,14 @@ BannerAction resolveBannerAction(BannerModel banner) {
   if (type == 'OUTLET' || type == 'VENDOR') {
     if (targetId != null && targetId.isNotEmpty) {
       return OpenOutlet(targetId, banner.targetName ?? banner.title);
+    }
+    return const OpenSearch();
+  }
+
+  if (type == 'INTERNAL') {
+    final raw = (banner.targetUrl ?? banner.deepLink)?.trim();
+    if (raw != null && raw.isNotEmpty) {
+      return OpenInternalDeepLink(raw);
     }
     return const OpenSearch();
   }
@@ -62,6 +78,15 @@ BannerAction resolveBannerAction(BannerModel banner) {
       }
     }
     return const OpenSearch();
+  }
+
+  final rawUrl = banner.targetUrl?.trim();
+  if (rawUrl != null && rawUrl.isNotEmpty) {
+    final uri = Uri.tryParse(rawUrl);
+    if (uri != null && uri.hasScheme && _httpSchemes.contains(uri.scheme.toLowerCase())) {
+      return OpenExternalUrl(uri);
+    }
+    return OpenInternalDeepLink(rawUrl);
   }
 
   return const OpenSearch();

@@ -925,6 +925,32 @@ describe('AdminService - banner deeplink integrity', () => {
     );
   });
 
+  it('creates an INTERNAL banner when an internal targetUrl is provided', async () => {
+    await service.createBanner({
+      title: 'Search Burger Deal',
+      imageUrl: '/uploads/a.png',
+      linkType: 'INTERNAL' as never,
+      targetUrl: '/search?q=burger',
+    });
+
+    expect(prisma.banner.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ linkType: 'INTERNAL', targetUrl: '/search?q=burger' }),
+      }),
+    );
+  });
+
+  it('rejects INTERNAL banners without a targetUrl', async () => {
+    await expect(
+      service.createBanner({
+        title: 'Bad Internal',
+        imageUrl: '/uploads/a.png',
+        linkType: 'INTERNAL' as never,
+        targetUrl: '',
+      }),
+    ).rejects.toThrow('targetUrl');
+  });
+
   it('rejects EXTERNAL banners without an absolute http(s) URL', async () => {
     await expect(
       service.createBanner({

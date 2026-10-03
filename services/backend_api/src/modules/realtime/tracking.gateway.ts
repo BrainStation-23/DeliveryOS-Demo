@@ -541,5 +541,55 @@ export class TrackingGateway
       `Emitted [dispatch:escalated] (Tier ${escalationData.tier}) for order ${escalationData.orderNumber} (Aging: ${escalationData.agingSeconds}s, Radius: ${escalationData.searchRadiusKm}km)`,
     );
   }
+
+  /**
+   * Event: vendor:status:changed (Server -> Vendor Room & Admin HQ)
+   * Emitted when outlet governance status (isActive) or intake pause state (isBusy) changes
+   */
+  notifyVendorStatusChanged(
+    vendorId: string,
+    data: {
+      vendorId: string;
+      isActive?: boolean;
+      isBusy?: boolean;
+    },
+  ) {
+    if (!this.server) return;
+    const payload = {
+      event: 'vendor:status:changed',
+      data: {
+        ...data,
+        timestamp: new Date().toISOString(),
+      },
+    };
+    this.server.to(`vendor_${vendorId}`).to('admin_hq').emit('vendor:status:changed', payload);
+    this.logger.log(
+      `Emitted [vendor:status:changed] for vendor ${vendorId}: ${JSON.stringify(data)}`,
+    );
+  }
+
+  /**
+   * Event: user:status:changed (Server -> User/Customer Room)
+   * Emitted when user account status changes (e.g. SUSPENDED or ACTIVE)
+   */
+  notifyUserStatusChanged(
+    userId: string,
+    data: {
+      userId: string;
+      status: string;
+      reason?: string | null;
+    },
+  ) {
+    if (!this.server) return;
+    const payload = {
+      event: 'user:status:changed',
+      data: {
+        ...data,
+        timestamp: new Date().toISOString(),
+      },
+    };
+    this.server.to(`user_${userId}`).to(`customer_${userId}`).emit('user:status:changed', payload);
+    this.logger.log(`Emitted [user:status:changed] for user ${userId}: ${JSON.stringify(data)}`);
+  }
 }
 

@@ -46,6 +46,7 @@ describe('VendorStaffService - Step 1.5: Safe Live Orders Scoping', () => {
     devicePlatform: null,
     role: UserRole.VENDOR_ADMIN,
     status: 'ACTIVE',
+    suspensionReason: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -119,6 +120,7 @@ describe('VendorStaffService - accept/handover flow-mode guards', () => {
     devicePlatform: null,
     role: UserRole.VENDOR_ADMIN,
     status: 'ACTIVE',
+    suspensionReason: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

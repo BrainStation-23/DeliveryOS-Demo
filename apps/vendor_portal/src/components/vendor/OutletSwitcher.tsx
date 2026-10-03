@@ -57,7 +57,12 @@ export const OutletSwitcher: React.FC<{ className?: string }> = ({ className }) 
             value={outlet.id}
             className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 py-1"
           >
-            {outlet.name} {outlet.isBusy ? `(${t('outlet.paused')})` : `(${t('outlet.open')})`}
+            {outlet.name}{' '}
+            {outlet.isActive === false
+              ? `(${t('outlet.suspendedBadge', { defaultValue: 'Suspended' })})`
+              : outlet.isBusy
+              ? `(${t('outlet.intakeInactive', { defaultValue: 'Inactive' })})`
+              : `(${t('outlet.intakeActive', { defaultValue: 'Active' })})`}
           </option>
         ))}
       </select>

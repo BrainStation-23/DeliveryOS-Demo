@@ -13,8 +13,8 @@ export interface AdminVendor {
   commissionRate: number;
   deliveryRadiusKm?: number;
   defaultPrepTimeMinutes: number;
-  totalOrders: number;
-  totalProducts: number;
+  totalOrders?: number;
+  totalProducts?: number;
   staff: Array<{
     id: string;
     userId: string;
@@ -202,6 +202,7 @@ export const vendorsApi = {
       latitude?: number;
       longitude?: number;
       isActive?: boolean;
+      isBusy?: boolean;
     },
   ): Promise<AdminVendor> {
     const res = await apiClient.patch(`/api/v1/admin/vendors/${vendorId}`, data);
@@ -211,6 +212,12 @@ export const vendorsApi = {
 
   async toggleVendorStatus(vendorId: string, isActive: boolean): Promise<AdminVendor> {
     const res = await apiClient.patch(`/api/v1/admin/vendors/${vendorId}/status`, { isActive });
+    const payload = res.data?.data || res.data;
+    return payload?.data || payload;
+  },
+
+  async toggleVendorPause(vendorId: string, isBusy: boolean): Promise<AdminVendor> {
+    const res = await apiClient.patch(`/api/v1/admin/vendors/${vendorId}/pause`, { isBusy });
     const payload = res.data?.data || res.data;
     return payload?.data || payload;
   },

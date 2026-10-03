@@ -96,6 +96,28 @@ describe('AuthService - requestOtp', () => {
 
     expect(redis.set).toHaveBeenCalledWith('role_req:+8801700000009', 'RIDER', 300);
   });
+
+  it('blocks OTP request for suspended accounts', async () => {
+    const { service, smsService } = buildService({
+      user: { id: 'user-1', status: AccountStatus.SUSPENDED },
+    });
+
+    await expect(service.requestOtp({ phone: '+8801700000009' })).rejects.toThrow(
+      'Your account has been suspended',
+    );
+    expect(smsService.sendOtp).not.toHaveBeenCalled();
+  });
+
+  it('blocks OTP request for suspended accounts with custom reason', async () => {
+    const { service, smsService } = buildService({
+      user: { id: 'user-1', status: AccountStatus.SUSPENDED, suspensionReason: 'Payment chargeback investigation' },
+    });
+
+    await expect(service.requestOtp({ phone: '+8801700000009' })).rejects.toThrow(
+      'Payment chargeback investigation',
+    );
+    expect(smsService.sendOtp).not.toHaveBeenCalled();
+  });
 });
 
 describe('AuthService - verifyOtp', () => {
@@ -316,7 +338,7 @@ describe('AuthService - refreshTokens rotation', () => {
     })();
 
     await expect(service.refreshTokens(token)).rejects.toThrow(
-      'User account not found or inactive',
+      'Your account has been suspended',
     );
     expect(redis.del).toHaveBeenCalledWith(`auth:refresh:${presentedJti}`);
   });

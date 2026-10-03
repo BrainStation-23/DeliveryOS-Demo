@@ -35,22 +35,25 @@ export const RushHourPauseWidget: React.FC<RushHourPauseWidgetProps> = ({
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-              {t('settings.rushHourTitle')}
+              {t('settings.orderIntakeTitle', { defaultValue: 'Store Order Intake (Active / Inactive)' })}
             </h3>
             {isCurrentlyBusy ? (
               <Badge variant="warning" size="sm" className="font-bold animate-pulse">
-                <Flame className="h-3 w-3 mr-1 text-amber-700 dark:text-amber-300" />
-                {t('settings.paused')}
+                <AlertTriangle className="h-3 w-3 mr-1 text-amber-700 dark:text-amber-300" />
+                {t('settings.intakeInactive', { defaultValue: 'Inactive' })}
               </Badge>
             ) : (
               <Badge variant="success" size="sm" className="font-semibold">
                 <CheckCircle2 className="h-3 w-3 mr-1" />
-                {t('settings.operational')}
+                {t('settings.intakeActive', { defaultValue: 'Active' })}
               </Badge>
             )}
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {t('settings.rushHourSubtitle')}
+            {t('settings.orderIntakeSubtitle', {
+              defaultValue:
+                'Configure whether new customer orders proceed to this outlet. Set to Inactive during rush periods to halt incoming orders.',
+            })}
           </p>
         </div>
 
@@ -65,7 +68,7 @@ export const RushHourPauseWidget: React.FC<RushHourPauseWidgetProps> = ({
               isLoading={isTogglingRush}
               leftIcon={<PlayCircle className="h-4 w-4" />}
             >
-              {t('settings.resumeOrders')}
+              {t('settings.setActive', { defaultValue: 'Set Active' })}
             </Button>
           ) : (
             <Button
@@ -77,7 +80,7 @@ export const RushHourPauseWidget: React.FC<RushHourPauseWidgetProps> = ({
               isLoading={isTogglingRush}
               leftIcon={<PauseCircle className="h-4 w-4" />}
             >
-              {t('settings.pauseOrders')}
+              {t('settings.setInactive', { defaultValue: 'Set Inactive' })}
             </Button>
           )}
         </div>
@@ -88,10 +91,16 @@ export const RushHourPauseWidget: React.FC<RushHourPauseWidgetProps> = ({
           <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
           <div className="space-y-0.5">
             <p className="font-bold text-xs text-amber-950 dark:text-amber-100">
-              {t('outlet.rushHourBanner', { name: outletName })}
+              {t('outlet.orderIntakeInactiveBanner', {
+                name: outletName,
+                defaultValue: `Order Intake Inactive: New customer orders will not proceed for ${outletName}.`,
+              })}
             </p>
             <p className="text-[11px] text-amber-900/90 dark:text-amber-300">
-              {t('settings.rushHourWarning')}
+              {t('settings.intakeInactiveWarning', {
+                defaultValue:
+                  "Order intake is currently Inactive for this outlet. New customer orders will not proceed. Tap 'Set Active' to resume incoming orders.",
+              })}
             </p>
           </div>
         </div>
@@ -99,7 +108,9 @@ export const RushHourPauseWidget: React.FC<RushHourPauseWidgetProps> = ({
         <div className="mt-3 flex items-center text-xs text-slate-500 dark:text-slate-400">
           <span className="flex items-center gap-1.5 text-[11px]">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            Store receiving live orders normally
+            {t('settings.intakeActiveNotice', {
+              defaultValue: 'Store order intake is Active and receiving live orders normally.',
+            })}
           </span>
         </div>
       )}

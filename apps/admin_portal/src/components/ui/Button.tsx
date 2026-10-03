@@ -20,7 +20,7 @@ export const Button: React.FC<ButtonProps> = ({
   rightIcon,
   ...props
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-150 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none';
+  const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-150 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none whitespace-nowrap';
 
   const variants = {
     primary: 'bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800 focus:ring-primary-500 shadow-sm',
@@ -45,7 +45,7 @@ export const Button: React.FC<ButtonProps> = ({
     >
       {isLoading ? (
         <svg
-          className="animate-spin h-4 w-4 text-current"
+          className="animate-spin h-4 w-4 text-current shrink-0"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -65,10 +65,10 @@ export const Button: React.FC<ButtonProps> = ({
           />
         </svg>
       ) : (
-        leftIcon
+        leftIcon && <span className="inline-flex shrink-0 items-center justify-center">{leftIcon}</span>
       )}
-      {children && <span>{children}</span>}
-      {!isLoading && rightIcon}
+      {children && <span className="inline-flex items-center whitespace-nowrap">{children}</span>}
+      {!isLoading && rightIcon && <span className="inline-flex shrink-0 items-center justify-center">{rightIcon}</span>}
     </button>
   );
 };

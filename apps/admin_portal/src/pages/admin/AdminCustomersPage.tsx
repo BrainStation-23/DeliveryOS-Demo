@@ -11,11 +11,12 @@ import { CustomerDetailsDrawer } from './components/customers/CustomerDetailsDra
 import { CustomerRow } from '../../services/adminApi';
 import { DatePreset, resolveDateRange } from '../../utils/dateRange';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { extractApiError } from '../../utils/apiError';
 
 const CURRENCY = '৳';
 const PAGE_SIZE = 20;
 
-type CustomerStatusFilter = 'ALL' | 'ACTIVE' | 'PENDING_APPROVAL' | 'SUSPENDED';
+type CustomerStatusFilter = 'ALL' | 'ACTIVE' | 'SUSPENDED';
 
 function formatDateTime(iso: string | null): string {
   if (!iso) return '—';
@@ -29,7 +30,7 @@ function formatDateTime(iso: string | null): string {
 }
 
 /** Customer directory: search, account-status filter, registration date window,
- *  and lifetime order aggregates per row. Row click opens the unified profile. */
+ *  lifetime order aggregates per row, and suspend/unsuspend controls. */
 export const AdminCustomersPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<CustomerStatusFilter>('ALL');
@@ -112,7 +113,7 @@ export const AdminCustomersPage: React.FC = () => {
           placeholder="Search customers by name or phone..."
         />
         <div className="flex flex-wrap items-center gap-1.5">
-          {(['ALL', 'ACTIVE', 'PENDING_APPROVAL', 'SUSPENDED'] as const).map((status) => (
+          {(['ALL', 'ACTIVE', 'SUSPENDED'] as const).map((status) => (
             <button
               key={status}
               type="button"
@@ -126,7 +127,7 @@ export const AdminCustomersPage: React.FC = () => {
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
               }`}
             >
-              {status === 'ALL' ? 'All' : status.replace('_', ' ')}
+              {status === 'ALL' ? 'All' : status === 'ACTIVE' ? 'Active' : 'Suspended'}
             </button>
           ))}
         </div>

@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/constants.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/language_provider.dart';
+import '../../../core/routing/deeplink_router.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/empty_state_view.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -11,6 +12,7 @@ import '../../auth/presentation/phone_input_screen.dart';
 import '../../banners/domain/banner_action.dart';
 import '../../banners/domain/banner_model.dart';
 import '../../banners/presentation/banner_carousel.dart';
+import '../../banners/providers/banner_provider.dart';
 import '../../cart/presentation/cart_screen.dart';
 import '../../cart/providers/cart_provider.dart';
 import '../../discovery/presentation/search_screen.dart';
@@ -18,7 +20,6 @@ import '../../location/providers/location_provider.dart';
 import '../../location/presentation/map_location_picker_screen.dart';
 import '../../orders/presentation/order_history_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
-import '../../store/presentation/outlet_detail_screen.dart';
 import 'widgets/category_chip.dart';
 import 'widgets/outlet_card.dart';
 
@@ -30,34 +31,40 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      final loc = ref.read(locationProvider).location;
+      ref.read(bannerProvider.notifier).fetchBanners(
+        lat: loc.latitude,
+        lng: loc.longitude,
+      );
+    });
+  }
 
-  /// Banner deeplink router: OUTLET → outlet page, CATEGORY → discovery seeded
-  /// with the category name, EXTERNAL → system browser (http/https only).
+  /// Banner deeplink router: OUTLET → outlet page, INTERNAL → deep link router,
+  /// CATEGORY → discovery search, EXTERNAL → system browser (http/https).
   void _handleBannerTap(BannerModel banner) {
     final action = resolveBannerAction(banner);
     switch (action) {
       case OpenOutlet(:final outletId, :final outletName):
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => OutletDetailScreen(
-              vendorId: outletId,
-              initialVendorName: outletName,
-            ),
-          ),
+        DeepLinkRouter.navigateTarget(
+          context,
+          OutletTarget(outletId: outletId, outletName: outletName),
         );
+      case OpenInternalDeepLink(:final routePath):
+        DeepLinkRouter.navigate(context, routePath);
       case OpenCategory(:final categoryName):
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => SearchScreen(initialQuery: categoryName),
-          ),
+        DeepLinkRouter.navigateTarget(
+          context,
+          SearchTarget(query: categoryName),
         );
       case OpenExternalUrl(:final uri):
         // Fire-and-forget: banner taps must never block the UI on the browser.
         launchUrl(uri, mode: LaunchMode.externalApplication);
       case OpenSearch():
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const SearchScreen()),
-        );
+        DeepLinkRouter.navigateTarget(context, const SearchTarget());
     }
   }
 
@@ -65,6 +72,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(locationProvider, (prev, next) {
+      if (prev?.location.latitude != next.location.latitude ||
+          prev?.location.longitude != next.location.longitude) {
+        ref.read(bannerProvider.notifier).fetchBanners(
+          lat: next.location.latitude,
+          lng: next.location.longitude,
+        );
+      }
+    });
     final l10n = AppLocalizations.of(context);
     final authState = ref.watch(authProvider);
     final locState = ref.watch(locationProvider);

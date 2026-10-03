@@ -20,9 +20,10 @@ interface BannerGridProps {
 }
 
 const LINK_BADGE_VARIANTS: Record<AdminBanner['linkType'], { label: string; icon: typeof Store }> = {
-  OUTLET: { label: 'Outlet', icon: Store },
-  CATEGORY: { label: 'Category', icon: Link2 },
-  EXTERNAL: { label: 'External', icon: ExternalLink },
+  OUTLET: { label: 'Outlet (Regional)', icon: Store },
+  INTERNAL: { label: 'Internal Deeplink', icon: Link2 },
+  EXTERNAL: { label: 'External URL', icon: ExternalLink },
+  CATEGORY: { label: 'Category (Legacy)', icon: Link2 },
 };
 
 export const BannerGrid: React.FC<BannerGridProps> = ({
@@ -99,8 +100,8 @@ export const BannerGrid: React.FC<BannerGridProps> = ({
                   </span>
                   <span>Rank #{banner.sortOrder}</span>
                 </div>
-                {banner.linkType === 'EXTERNAL' && banner.targetUrl && (
-                  <p className="mt-1 truncate text-[11px] text-slate-400" title={banner.targetUrl}>
+                {(banner.linkType === 'EXTERNAL' || banner.linkType === 'INTERNAL') && banner.targetUrl && (
+                  <p className="mt-1 truncate text-[11px] text-slate-400 font-mono" title={banner.targetUrl}>
                     {banner.targetUrl}
                   </p>
                 )}

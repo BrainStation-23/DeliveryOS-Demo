@@ -12,7 +12,32 @@ final dioClientProvider = Provider<DioClient>((ref) {
 class AuthNotifier extends Notifier<AuthState> {
   @override
   AuthState build() {
+    final dio = ref.watch(dioClientProvider);
+    dio.onSessionExpired((message) {
+      final msg = message ?? 'Session expired. Please log in again.';
+      final isSuspended = msg.toLowerCase().contains('suspend');
+      String? reason;
+      if (isSuspended && msg.contains('suspended:')) {
+        final start = msg.indexOf('suspended:') + 10;
+        final end = msg.indexOf('. Please contact');
+        reason = (end > start ? msg.substring(start, end) : msg.substring(start)).trim();
+      }
+      state = AuthState(
+        status: AuthStatus.unauthenticated,
+        errorMessage: msg,
+        isSuspended: isSuspended,
+        suspensionReason: reason,
+      );
+    });
     return AuthState.initial();
+  }
+
+  void clearError() {
+    state = state.copyWith(
+      errorMessage: null,
+      isSuspended: false,
+      suspensionReason: null,
+    );
   }
 
   Future<void> checkSession() async {
@@ -35,7 +60,12 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<bool> sendOtp(String phone) async {
-    state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
+    state = state.copyWith(
+      status: AuthStatus.loading,
+      errorMessage: null,
+      isSuspended: false,
+      suspensionReason: null,
+    );
     try {
       final dio = ref.read(dioClientProvider);
       final response = await dio.post(
@@ -53,6 +83,32 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(
         status: AuthStatus.error,
         errorMessage: 'Failed to send OTP code',
+      );
+      return false;
+    } on DioException catch (dioErr) {
+      final resData = dioErr.response?.data;
+      final isMap = resData is Map;
+      final msg = isMap && resData['message'] != null
+          ? resData['message'].toString()
+          : 'Could not send the OTP code. Please check your connection and try again.';
+      final isSuspended = dioErr.response?.statusCode == 403 ||
+          (isMap && resData['error'] == 'ACCOUNT_SUSPENDED') ||
+          msg.toLowerCase().contains('suspend');
+
+      String? reason;
+      if (isMap && resData['reason'] != null) {
+        reason = resData['reason'].toString();
+      } else if (msg.contains('suspended:')) {
+        final start = msg.indexOf('suspended:') + 10;
+        final end = msg.indexOf('. Please contact');
+        reason = (end > start ? msg.substring(start, end) : msg.substring(start)).trim();
+      }
+
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: msg,
+        isSuspended: isSuspended,
+        suspensionReason: reason,
       );
       return false;
     } catch (e) {
@@ -108,10 +164,28 @@ class AuthNotifier extends Notifier<AuthState> {
       return false;
     } on DioException catch (dioErr) {
       final resData = dioErr.response?.data;
-      final msg = resData is Map ? (resData['message'] ?? 'Invalid OTP code') : 'Invalid OTP code';
+      final isMap = resData is Map;
+      final msg = isMap && resData['message'] != null
+          ? resData['message'].toString()
+          : 'Invalid OTP code';
+      final isSuspended = dioErr.response?.statusCode == 403 ||
+          (isMap && resData['error'] == 'ACCOUNT_SUSPENDED') ||
+          msg.toLowerCase().contains('suspend');
+
+      String? reason;
+      if (isMap && resData['reason'] != null) {
+        reason = resData['reason'].toString();
+      } else if (msg.contains('suspended:')) {
+        final start = msg.indexOf('suspended:') + 10;
+        final end = msg.indexOf('. Please contact');
+        reason = (end > start ? msg.substring(start, end) : msg.substring(start)).trim();
+      }
+
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: msg.toString(),
+        errorMessage: msg,
+        isSuspended: isSuspended,
+        suspensionReason: reason,
       );
       return false;
     } catch (e) {

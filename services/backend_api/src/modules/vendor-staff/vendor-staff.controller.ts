@@ -93,7 +93,6 @@ export class VendorStaffController {
       defaultPrepTimeMinutes?: number;
       isBusy?: boolean;
       busyReason?: string;
-      isActive?: boolean;
     },
   ) {
     const targetVendorId = queryVendorId || dto.vendorId;

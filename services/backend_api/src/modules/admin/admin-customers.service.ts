@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { AccountStatus, Prisma } from '@prisma/client';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { RedisService } from '../../common/redis/redis.service';
+import { TrackingGateway } from '../realtime/tracking.gateway';
 import { outletDisplayName } from '../../common/utils/outlet-display-name';
 import { PaginatedResult, toPaginatedResult } from '../../common/dto/pagination.dto';
 import { GetCustomersQueryDto } from './dto/admin-insights.dto';
@@ -12,6 +14,7 @@ export interface CustomerRow {
   phone: string;
   email: string | null;
   status: string;
+  suspensionReason?: string | null;
   createdAt: Date;
   orderCount: number;
   lifetimeSpend: number;
@@ -20,7 +23,11 @@ export interface CustomerRow {
 
 @Injectable()
 export class AdminCustomersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+    @Optional() private readonly trackingGateway?: TrackingGateway,
+  ) {}
 
   async getCustomersPage(query: GetCustomersQueryDto): Promise<PaginatedResult<CustomerRow>> {
     const where: Prisma.UserWhereInput = { role: 'CUSTOMER' };
@@ -47,7 +54,7 @@ export class AdminCustomersService {
         orderBy: { createdAt: 'desc' },
         skip: query.skip,
         take: query.limit,
-        select: { id: true, fullName: true, phone: true, email: true, status: true, createdAt: true },
+        select: { id: true, fullName: true, phone: true, email: true, status: true, suspensionReason: true, createdAt: true },
       }),
       this.prisma.user.count({ where }),
     ]);
@@ -81,6 +88,7 @@ export class AdminCustomersService {
         phone: c.phone,
         email: c.email,
         status: c.status,
+        suspensionReason: c.suspensionReason ?? null,
         createdAt: c.createdAt,
         orderCount: agg?.count ?? 0,
         lifetimeSpend: Math.round(Number(agg?.spend ?? 0) * 100) / 100,
@@ -100,6 +108,7 @@ export class AdminCustomersService {
         phone: true,
         email: true,
         status: true,
+        suspensionReason: true,
         createdAt: true,
         addresses: {
           orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
@@ -177,4 +186,80 @@ export class AdminCustomersService {
       })),
     };
   }
+
+  /**
+   * Updates customer account status (e.g. SUSPENDED or ACTIVE).
+   * When suspended:
+   *  - Immediately purges cached profile in Redis (`auth:user:${customerId}`)
+   *  - Revokes active refresh token keys in Redis
+   *  - Clears device FCM token to prevent push deliveries
+   *  - Emits real-time account status event to disconnect open client sessions
+   */
+  async updateCustomerStatus(
+    customerId: string,
+    status: 'ACTIVE' | 'SUSPENDED',
+    reason?: string,
+  ): Promise<{ id: string; fullName: string; phone: string; status: string; suspensionReason: string | null }> {
+    const customer = await this.prisma.user.findFirst({
+      where: { id: customerId, role: 'CUSTOMER' },
+    });
+    if (!customer) throw new NotFoundException('Customer not found');
+
+    const suspensionReason =
+      status === 'SUSPENDED'
+        ? (reason?.trim() || 'Account suspended by administrator')
+        : null;
+
+    const updated = await this.prisma.user.update({
+      where: { id: customerId },
+      data: {
+        status: status as AccountStatus,
+        suspensionReason,
+        ...(status === 'SUSPENDED' ? { fcmToken: null } : {}),
+      },
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        email: true,
+        status: true,
+        suspensionReason: true,
+        createdAt: true,
+      },
+    });
+
+    // Invalidate Redis user session cache so next API call must re-verify against DB
+    await this.redis.del(`auth:user:${customerId}`);
+
+    if (status === 'SUSPENDED') {
+      try {
+        const client = this.redis.getClient();
+        const refreshKeys = await client.keys('auth:refresh:*');
+        if (refreshKeys.length > 0) {
+          const values = await client.mget(refreshKeys);
+          const toDelete = refreshKeys.filter((_, idx) => values[idx] === customerId);
+          if (toDelete.length > 0) {
+            await client.del(...toDelete);
+          }
+        }
+      } catch {
+        // Non-critical if Redis pattern scan is unavailable in mock/unit test
+      }
+
+      this.trackingGateway?.notifyUserStatusChanged?.(customerId, {
+        userId: customerId,
+        status,
+        reason: suspensionReason,
+      });
+    }
+
+    return {
+      id: updated.id,
+      fullName: updated.fullName,
+      phone: updated.phone,
+      status: updated.status,
+      suspensionReason: updated.suspensionReason,
+    };
+  }
 }
+

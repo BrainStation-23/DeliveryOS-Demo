@@ -1,11 +1,11 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { AdminCustomersService } from './admin-customers.service';
-import { GetCustomersQueryDto } from './dto/admin-insights.dto';
+import { GetCustomersQueryDto, UpdateCustomerStatusDto } from './dto/admin-insights.dto';
 
 @ApiTags('Super Admin Customer Governance')
 @Controller('admin/customers')
@@ -36,4 +36,19 @@ export class AdminCustomersController {
       data,
     };
   }
+
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Update customer status (ACTIVE or SUSPENDED)' })
+  @ApiResponse({ status: 200, description: 'Updated customer status' })
+  async updateCustomerStatus(
+    @Param('id') customerId: string,
+    @Body() dto: UpdateCustomerStatusDto,
+  ) {
+    const data = await this.customersService.updateCustomerStatus(customerId, dto.status, dto.reason);
+    return {
+      message: `Customer account status updated to ${dto.status}`,
+      data,
+    };
+  }
 }
+

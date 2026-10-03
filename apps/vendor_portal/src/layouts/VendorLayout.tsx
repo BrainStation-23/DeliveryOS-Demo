@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   ShoppingBag,
@@ -16,26 +17,44 @@ import {
   AlertTriangle,
   Flame,
   PauseCircle,
+  Ban,
+  CheckCircle2,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { VendorOutletProvider, useVendorOutlet } from '../contexts/VendorOutletContext';
 import { OutletSwitcher } from '../components/vendor/OutletSwitcher';
+import { OutletSuspendedScreen } from '../components/vendor/OutletSuspendedScreen';
 import { LanguageSelector } from '../components/LanguageSelector';
 import { SidebarNavList } from '../components/vendor/SidebarNavList';
 import { SidebarUserProfile } from '../components/vendor/SidebarUserProfile';
 import { soundEngine } from '../utils/sound';
 import { useRushPause } from '../hooks/useRushPause';
+import { getSocket } from '../services/socket';
 
 const VendorLayoutInner: React.FC = () => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { activeOutlet, outlets } = useVendorOutlet();
+  const queryClient = useQueryClient();
+  const { activeOutlet, outlets, refetchOutlets, setActiveOutletId } = useVendorOutlet();
   const [isMuted, setIsMuted] = useState(soundEngine.getIsMuted());
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { isTogglingRush, toggleRushPause } = useRushPause();
+
+  useEffect(() => {
+    const socket = getSocket();
+    const handleVendorStatus = () => {
+      refetchOutlets();
+      queryClient.invalidateQueries({ queryKey: ['vendor-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['vendor-outlets'] });
+    };
+    socket.on('vendor:status:changed', handleVendorStatus);
+    return () => {
+      socket.off('vendor:status:changed', handleVendorStatus);
+    };
+  }, [refetchOutlets, queryClient]);
 
   const handleLogout = () => {
     setIsMobileMenuOpen(false);
@@ -194,36 +213,47 @@ const VendorLayoutInner: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-            {/* Rush Hour Emergency Toggle */}
-            <button
-              type="button"
-              disabled={isTogglingRush}
-              onClick={() => void toggleRushPause()}
-              className={`inline-flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-lg text-xs font-bold transition-all border shadow-xs cursor-pointer ${
-                activeOutlet?.isBusy
-                  ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-300'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
-              } ${isTogglingRush ? 'opacity-60 cursor-not-allowed' : ''}`}
-              title={
-                activeOutlet?.isBusy
-                  ? t('kds.rushHourActiveTitle')
-                  : t('kds.pauseOrdersTitle')
-              }
-            >
-              {activeOutlet?.isBusy ? (
-                <>
-                  <PauseCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 animate-pulse" />
-                  <span className="hidden sm:inline">{t('kds.pausedOrders')}</span>
-                  <span className="sm:hidden">{t('kds.paused')}</span>
-                </>
-              ) : (
-                <>
-                  <Flame className="h-4 w-4 text-amber-500 shrink-0" />
-                  <span className="hidden sm:inline">{t('kds.rushPause')}</span>
-                  <span className="sm:hidden">{t('kds.pause')}</span>
-                </>
-              )}
-            </button>
+            {/* Store Order Intake Active / Inactive (Mode 2) & Platform Suspension (Mode 1) */}
+            {activeOutlet && activeOutlet.isActive === false ? (
+              <div
+                className="inline-flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-lg text-xs font-bold border border-rose-200 bg-rose-50/70 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-400 opacity-90 cursor-not-allowed select-none shadow-2xs"
+                title={t('kds.suspendedTitle', { defaultValue: 'Outlet is suspended by platform administration.' })}
+              >
+                <Ban className="h-4 w-4 text-rose-500 shrink-0" />
+                <span className="hidden sm:inline">{t('kds.suspended', { defaultValue: 'Suspended' })}</span>
+                <span className="sm:hidden">{t('kds.suspended', { defaultValue: 'Suspended' })}</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={isTogglingRush}
+                onClick={() => void toggleRushPause(!activeOutlet?.isBusy)}
+                className={`inline-flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-lg text-xs font-bold transition-all border shadow-xs cursor-pointer ${
+                  activeOutlet?.isBusy
+                    ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300'
+                } ${isTogglingRush ? 'opacity-60 cursor-not-allowed' : ''}`}
+                title={
+                  activeOutlet?.isBusy
+                    ? t('kds.intakeInactiveTitle', { defaultValue: 'Order intake is Inactive (orders blocked). Click to set Active.' })
+                    : t('kds.intakeActiveTitle', { defaultValue: 'Order intake is Active (accepting orders). Click to set Inactive.' })
+                }
+              >
+                {activeOutlet?.isBusy ? (
+                  <>
+                    <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 animate-pulse" />
+                    <span className="hidden sm:inline">{t('kds.intakeInactive', { defaultValue: 'Inactive' })}</span>
+                    <span className="sm:hidden">{t('kds.inactive', { defaultValue: 'Inactive' })}</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span className="hidden sm:inline">{t('kds.intakeActive', { defaultValue: 'Active' })}</span>
+                    <span className="sm:hidden">{t('kds.active', { defaultValue: 'Active' })}</span>
+                  </>
+                )}
+              </button>
+            )}
 
             {/* Sound Alarm Toggle Button */}
             <button
@@ -244,21 +274,43 @@ const VendorLayoutInner: React.FC = () => {
           </div>
         </header>
 
-        {/* Global Rush Hour Active Emergency Banner */}
-        {activeOutlet?.isBusy && (
-          <div className="bg-rose-500 text-white px-4 py-2 text-xs font-semibold flex items-center justify-between shadow-xs z-20">
+        {/* Global Outlet Suspended Banner (Mode 1: Platform Suspension Lock) */}
+        {activeOutlet && activeOutlet.isActive === false && (
+          <div className="bg-rose-600 text-white px-4 py-2 text-xs font-semibold flex items-center justify-between shadow-xs z-20">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0 animate-bounce" />
+              <Ban className="h-4 w-4 shrink-0 text-white" />
               <span>
-                {t('kds.rushHourActiveBanner', { name: activeOutlet.name })}
+                {t('outlet.suspendedBanner', {
+                  name: activeOutlet.name,
+                  defaultValue: `Outlet Suspended: ${activeOutlet.name} is suspended by platform administration. All operations are locked until suspension is withdrawn.`,
+                })}
+              </span>
+            </div>
+            <span className="text-[11px] font-normal text-rose-100 bg-rose-700/90 px-2 py-0.5 rounded border border-rose-500 shrink-0">
+              {t('outlet.contactAdmin', { defaultValue: 'Contact Support / Admin to Reactivate' })}
+            </span>
+          </div>
+        )}
+
+        {/* Global Order Intake Inactive Notice Banner (Mode 2: Intake Control) */}
+        {activeOutlet && activeOutlet.isActive !== false && activeOutlet.isBusy && (
+          <div className="bg-amber-500 text-amber-950 dark:bg-amber-600 dark:text-white px-4 py-2 text-xs font-semibold flex items-center justify-between shadow-xs z-20 border-b border-amber-600/30">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 animate-pulse text-amber-950 dark:text-white" />
+              <span>
+                {t('outlet.orderIntakeInactiveBanner', {
+                  name: activeOutlet.name,
+                  defaultValue: `Order Intake Inactive: New customer orders will not proceed for ${activeOutlet.name}. Kitchen staff can fulfill existing orders.`,
+                })}
               </span>
             </div>
             <button
-              onClick={() => void toggleRushPause()}
+              type="button"
+              onClick={() => void toggleRushPause(false)}
               disabled={isTogglingRush}
-              className="text-xs bg-white text-rose-700 px-2.5 py-0.5 rounded-md font-bold hover:bg-rose-50 transition-colors shrink-0 shadow-2xs cursor-pointer"
+              className="text-xs bg-white text-amber-900 font-bold px-2.5 py-0.5 rounded-md hover:bg-amber-50 transition-colors shrink-0 shadow-2xs cursor-pointer border border-amber-300 dark:border-transparent"
             >
-              {t('kds.resumeOrders')}
+              {t('kds.setActive', { defaultValue: 'Set Active' })}
             </button>
           </div>
         )}
@@ -327,9 +379,17 @@ const VendorLayoutInner: React.FC = () => {
           </div>
         )}
 
-        {/* Main Content Area */}
+        {/* Main Content Area — Locked with OutletSuspendedScreen when suspended */}
         <main className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-5 lg:p-6">
-          <Outlet />
+          {activeOutlet && activeOutlet.isActive === false ? (
+            <OutletSuspendedScreen
+              outlet={activeOutlet}
+              outlets={outlets}
+              onSelectOutlet={(targetId) => setActiveOutletId(targetId)}
+            />
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
     </div>

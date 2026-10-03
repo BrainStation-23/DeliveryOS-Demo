@@ -72,6 +72,21 @@ void main() {
       );
     });
 
+    test('INTERNAL banners with a route path open the in-app route', () {
+      final action = resolveBannerAction(
+        banner(actionType: 'INTERNAL', targetUrl: '/search?q=Burger'),
+      );
+      expect(action, isA<OpenInternalDeepLink>());
+      expect((action as OpenInternalDeepLink).routePath, '/search?q=Burger');
+    });
+
+    test('INTERNAL banners without a target degrade to search', () {
+      expect(
+        resolveBannerAction(banner(actionType: 'INTERNAL', targetUrl: '')),
+        isA<OpenSearch>(),
+      );
+    });
+
     test('unknown action types and missing targets degrade to search', () {
       expect(resolveBannerAction(banner()), isA<OpenSearch>());
       expect(resolveBannerAction(banner(actionType: 'OUTLET')), isA<OpenSearch>());

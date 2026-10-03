@@ -6,6 +6,7 @@ import '../../../core/constants/constants.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../providers/auth_provider.dart';
 import '../domain/user_model.dart';
+import 'widgets/account_suspended_card.dart';
 import '../../location/presentation/map_location_picker_screen.dart';
 
 class OtpVerificationScreen extends ConsumerStatefulWidget {
@@ -195,18 +196,25 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                             ),
                           ),
                         ),
-                      if (authState.errorMessage != null) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        Center(
-                          child: Text(
-                            authState.errorMessage!,
-                            style: AppTypography.bodySmall.copyWith(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.error,
+                      if (authState.errorMessage != null && authState.errorMessage!.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        if (authState.isSuspended || authState.errorMessage!.toLowerCase().contains('suspend'))
+                          AccountSuspendedCard(
+                            reason: authState.suspensionReason,
+                            message: authState.errorMessage,
+                            onDismiss: () => ref.read(authProvider.notifier).clearError(),
+                          )
+                        else
+                          Center(
+                            child: Text(
+                              authState.errorMessage!,
+                              style: AppTypography.bodySmall.copyWith(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.error,
+                              ),
                             ),
                           ),
-                        ),
                       ],
                       const Spacer(),
                       const SizedBox(height: AppSpacing.xxl),

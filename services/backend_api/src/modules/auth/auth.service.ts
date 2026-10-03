@@ -30,6 +30,21 @@ export class AuthService {
 
   async requestOtp(dto: RequestOtpDto): Promise<{ retryAfterSeconds: number }> {
     const { phone } = dto;
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { phone },
+      select: { id: true, status: true, suspensionReason: true },
+    });
+    if (existingUser && existingUser.status === AccountStatus.SUSPENDED) {
+      const reason = existingUser.suspensionReason || 'Violation of platform policies';
+      throw new ForbiddenException({
+        statusCode: 403,
+        error: 'ACCOUNT_SUSPENDED',
+        message: `Your account has been suspended: ${reason}. Please contact customer support.`,
+        reason,
+      });
+    }
+
     const rateLimitKey = `ratelimit:otp:${phone}`;
     const attempts = await this.redis.get(rateLimitKey);
 
@@ -141,7 +156,13 @@ export class AuthService {
     }
 
     if (user.status === AccountStatus.SUSPENDED) {
-      throw new ForbiddenException('Your account has been suspended. Please contact support.');
+      const reason = user.suspensionReason || 'Violation of platform policies';
+      throw new ForbiddenException({
+        statusCode: 403,
+        error: 'ACCOUNT_SUSPENDED',
+        message: `Your account has been suspended: ${reason}. Please contact customer support.`,
+        reason,
+      });
     }
 
     // Generate JWT Tokens (access: short-lived; refresh: rotating jti stored in Redis)
@@ -210,6 +231,15 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: decoded.sub } });
     if (!user || user.status !== 'ACTIVE') {
       await this.redis.del(storeKey);
+      if (user?.status === AccountStatus.SUSPENDED) {
+        const reason = user.suspensionReason || 'Violation of platform policies';
+        throw new UnauthorizedException({
+          statusCode: 401,
+          error: 'ACCOUNT_SUSPENDED',
+          message: `Your account has been suspended: ${reason}. Please contact customer support.`,
+          reason,
+        });
+      }
       throw new UnauthorizedException('User account not found or inactive');
     }
 

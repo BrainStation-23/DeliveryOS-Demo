@@ -4,7 +4,7 @@ export interface AdminBanner {
   id: string;
   title: string;
   imageUrl: string;
-  linkType: 'OUTLET' | 'CATEGORY' | 'EXTERNAL';
+  linkType: 'OUTLET' | 'INTERNAL' | 'EXTERNAL' | 'CATEGORY';
   targetId: string | null;
   targetUrl: string | null;
   sortOrder: number;

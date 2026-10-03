@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useVendorOutletStore, AccessibleOutlet } from '../stores/useVendorOutletStore';
 import { PermissionScope } from '../types/auth';
+import { getSocket } from '../services/socket';
 
 export type { AccessibleOutlet } from '../stores/useVendorOutletStore';
 
@@ -27,6 +28,18 @@ export const VendorOutletProvider: React.FC<{ children: React.ReactNode }> = ({ 
       reset();
     }
   }, [isAuthenticated, fetchOutlets, reset]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const socket = getSocket();
+    const handleStatusChanged = () => {
+      fetchOutlets();
+    };
+    socket.on('vendor:status:changed', handleStatusChanged);
+    return () => {
+      socket.off('vendor:status:changed', handleStatusChanged);
+    };
+  }, [isAuthenticated, fetchOutlets]);
 
   return <>{children}</>;
 };

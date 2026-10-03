@@ -29,9 +29,9 @@ interface BannerFormModalProps {
 }
 
 const LINK_TYPES: Array<{ id: AdminBanner['linkType']; label: string; hint: string }> = [
-  { id: 'OUTLET', label: 'Outlet', hint: 'Opens the outlet page in the customer app' },
-  { id: 'CATEGORY', label: 'Category', hint: 'Opens discovery filtered by a central category' },
-  { id: 'EXTERNAL', label: 'External URL', hint: 'Opens an absolute https link in the browser' },
+  { id: 'OUTLET', label: 'Outlet', hint: 'Opens the outlet detail page (shown only to customers in outlet region)' },
+  { id: 'INTERNAL', label: 'Internal Deeplink', hint: 'Routes inside the customer app (e.g. /search?q=..., /cart, /orders, /profile)' },
+  { id: 'EXTERNAL', label: 'External URL', hint: 'Opens an external web page in the system browser (http/https)' },
 ];
 
 /** Converts an ISO timestamp to the datetime-local input format (or ''). */
@@ -66,11 +66,6 @@ export const BannerFormModal: React.FC<BannerFormModalProps> = ({
     queryFn: adminApi.getVendors,
     enabled: isOpen,
   });
-  const { data: categories = [] } = useQuery({
-    queryKey: ['admin-central-categories'],
-    queryFn: adminApi.getCentralCategories,
-    enabled: isOpen,
-  });
 
   useEffect(() => {
     if (isOpen) {
@@ -87,15 +82,23 @@ export const BannerFormModal: React.FC<BannerFormModalProps> = ({
   }, [isOpen, editing]);
 
   const isValidLink =
-    linkType === 'EXTERNAL' ? /^https?:\/\/.+/i.test(targetUrl.trim()) : targetId !== '';
+    linkType === 'EXTERNAL'
+      ? /^https?:\/\/.+/i.test(targetUrl.trim())
+      : linkType === 'INTERNAL'
+        ? targetUrl.trim().length > 0
+        : targetId !== '';
 
   const submit = () => {
     if (linkType === 'EXTERNAL' && !/^https?:\/\/.+/i.test(targetUrl.trim())) {
       setValidationError('External banners require an absolute http(s) URL.');
       return;
     }
-    if (linkType !== 'EXTERNAL' && !targetId) {
-      setValidationError('Select the outlet or category the banner deeplinks to.');
+    if (linkType === 'INTERNAL' && !targetUrl.trim()) {
+      setValidationError('Internal deeplink banners require a destination route (e.g. /search?q=Burger or /cart).');
+      return;
+    }
+    if (linkType === 'OUTLET' && !targetId) {
+      setValidationError('Select the outlet the banner deeplinks to.');
       return;
     }
     setValidationError(null);
@@ -103,7 +106,7 @@ export const BannerFormModal: React.FC<BannerFormModalProps> = ({
       title: bannerTitle,
       imageUrl: bannerImageUrl,
       linkType,
-      ...(linkType === 'EXTERNAL' ? { targetUrl: targetUrl.trim() } : { targetId }),
+      ...(linkType === 'OUTLET' ? { targetId } : { targetUrl: targetUrl.trim() }),
       sortOrder: parseInt(bannerSortOrder, 10) || 0,
       ...(startsAt ? { startsAt: new Date(startsAt).toISOString() } : {}),
       ...(endsAt ? { endsAt: new Date(endsAt).toISOString() } : {}),
@@ -204,8 +207,8 @@ export const BannerFormModal: React.FC<BannerFormModalProps> = ({
             </div>
 
             {linkType === 'OUTLET' && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Target Outlet
                 </label>
                 <select
@@ -221,26 +224,41 @@ export const BannerFormModal: React.FC<BannerFormModalProps> = ({
                     </option>
                   ))}
                 </select>
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 rounded px-2 py-1">
+                  Region-scoped: This banner will only appear to customers within this outlet&apos;s delivery radius.
+                </p>
               </div>
             )}
 
-            {linkType === 'CATEGORY' && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Target Category
+            {linkType === 'INTERNAL' && (
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Internal Route Path
                 </label>
-                <select
-                  value={targetId}
-                  onChange={(e) => setTargetId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-primary-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                >
-                  <option value="">Select a category...</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
+                <Input
+                  value={targetUrl}
+                  onChange={(e) => setTargetUrl(e.target.value)}
+                  placeholder="e.g. /search?q=Burger or /cart"
+                />
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <span className="text-[10px] text-slate-500 self-center">Presets:</span>
+                  {[
+                    { label: 'Search Burgers', path: '/search?q=Burger' },
+                    { label: 'Cart Screen', path: '/cart' },
+                    { label: 'Order History', path: '/orders' },
+                    { label: 'Profile', path: '/profile' },
+                    { label: 'Address Book', path: '/addresses' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.path}
+                      type="button"
+                      onClick={() => setTargetUrl(preset.path)}
+                      className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 cursor-pointer"
+                    >
+                      {preset.label}
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
             )}
 

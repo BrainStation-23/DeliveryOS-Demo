@@ -175,6 +175,12 @@ export class VendorStaffService {
       throw new NotFoundException('Vendor outlet not found');
     }
 
+    if (targetVendor.isActive === false) {
+      throw new ForbiddenException(
+        'Outlet is suspended by platform administration. Outlet is inaccessible and operations are locked until suspension is withdrawn.',
+      );
+    }
+
     // Check permissions
     for (const record of staffRecords) {
       if (record.scope === PermissionScope.ALL_OUTLETS_MASTER) {
@@ -725,16 +731,25 @@ export class VendorStaffService {
 
     await this.validateStaffOutletAccess(user, targetVendorId);
 
-    return this.prisma.vendor.update({
+    const updated = await this.prisma.vendor.update({
       where: { id: targetVendorId },
       data: {
         ...(data.defaultPrepTimeMinutes !== undefined && {
           defaultPrepTimeMinutes: data.defaultPrepTimeMinutes,
         }),
         ...(data.isBusy !== undefined && { isBusy: data.isBusy }),
-        ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
     });
+
+    if (data.isBusy !== undefined) {
+      this.trackingGateway?.notifyVendorStatusChanged?.(targetVendorId, {
+        vendorId: targetVendorId,
+        isActive: updated.isActive,
+        isBusy: updated.isBusy,
+      });
+    }
+
+    return updated;
   }
 
   /**

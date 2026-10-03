@@ -50,6 +50,8 @@ class AuthState {
   final String? accessToken;
   final String? phoneNumber;
   final String? errorMessage;
+  final bool isSuspended;
+  final String? suspensionReason;
 
   AuthState({
     required this.status,
@@ -57,6 +59,8 @@ class AuthState {
     this.accessToken,
     this.phoneNumber,
     this.errorMessage,
+    this.isSuspended = false,
+    this.suspensionReason,
   });
 
   factory AuthState.initial() => AuthState(status: AuthStatus.initial);
@@ -67,6 +71,8 @@ class AuthState {
     String? accessToken,
     String? phoneNumber,
     String? errorMessage,
+    bool? isSuspended,
+    String? suspensionReason,
   }) {
     return AuthState(
       status: status ?? this.status,
@@ -74,6 +80,8 @@ class AuthState {
       accessToken: accessToken ?? this.accessToken,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       errorMessage: errorMessage ?? this.errorMessage,
+      isSuspended: isSuspended ?? this.isSuspended,
+      suspensionReason: suspensionReason ?? this.suspensionReason,
     );
   }
 

@@ -39,7 +39,7 @@ describe('AdminCustomersService.getCustomersPage', () => {
           $transaction: jest.fn(),
     };
     prisma.$transaction = jest.fn().mockImplementation((ops: unknown[]) => Promise.all(ops));
-    service = new AdminCustomersService(prisma as never);
+    service = new AdminCustomersService(prisma as never, {} as never);
   });
 
   it('returns customer rows enriched with order aggregates in one grouped query', async () => {
@@ -55,6 +55,7 @@ describe('AdminCustomersService.getCustomersPage', () => {
       phone: '+8801711111111',
       email: null,
       status: 'ACTIVE',
+      suspensionReason: null,
       createdAt: new Date('2026-09-01T00:00:00.000Z'),
       orderCount: 4,
       lifetimeSpend: 1250.75,
@@ -135,7 +136,7 @@ describe('AdminCustomersService.getCustomerDetail', () => {
         ]),
       },
     };
-    service = new AdminCustomersService(prisma as never);
+    service = new AdminCustomersService(prisma as never, {} as never);
   });
 
   it('returns profile, addresses, metrics, and recent orders', async () => {
@@ -161,5 +162,103 @@ describe('AdminCustomersService.getCustomerDetail', () => {
   it('never surfaces non-customer accounts even when the id exists', async () => {
     prisma.user.findFirst.mockResolvedValue(null);
     await expect(service.getCustomerDetail('super-admin-id')).rejects.toThrow(NotFoundException);
+  });
+});
+
+describe('AdminCustomersService.updateCustomerStatus', () => {
+  let service: AdminCustomersService;
+  let prisma: {
+    user: { findFirst: jest.Mock; update: jest.Mock };
+  };
+  let redis: {
+    del: jest.Mock;
+    getClient: jest.Mock;
+  };
+  let trackingGateway: {
+    notifyUserStatusChanged: jest.Mock;
+  };
+
+  beforeEach(() => {
+    prisma = {
+      user: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'customer-1',
+          role: 'CUSTOMER',
+          status: 'ACTIVE',
+        }),
+        update: jest.fn().mockImplementation(({ data }) =>
+          Promise.resolve({
+            id: 'customer-1',
+            fullName: 'Rahim Uddin',
+            phone: '+8801711111111',
+            email: null,
+            status: data.status,
+            suspensionReason: data.suspensionReason ?? null,
+            createdAt: new Date('2026-09-01T00:00:00.000Z'),
+          }),
+        ),
+      },
+    };
+    const mockRedisClient = {
+      keys: jest.fn().mockResolvedValue(['auth:refresh:token-1', 'auth:refresh:token-2']),
+      mget: jest.fn().mockResolvedValue(['customer-1', 'other-customer']),
+      del: jest.fn().mockResolvedValue(1),
+    };
+    redis = {
+      del: jest.fn().mockResolvedValue(1),
+      getClient: jest.fn().mockReturnValue(mockRedisClient),
+    };
+    trackingGateway = {
+      notifyUserStatusChanged: jest.fn(),
+    };
+    service = new AdminCustomersService(prisma as never, redis as never, trackingGateway as never);
+  });
+
+  it('suspends a customer with provided reason, invalidates Redis user cache and refresh tokens, and broadcasts status update', async () => {
+    const result = await service.updateCustomerStatus('customer-1', 'SUSPENDED', 'Fraudulent orders');
+
+    expect(result).toEqual({
+      id: 'customer-1',
+      fullName: 'Rahim Uddin',
+      phone: '+8801711111111',
+      status: 'SUSPENDED',
+      suspensionReason: 'Fraudulent orders',
+    });
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'customer-1' },
+      data: { status: 'SUSPENDED', suspensionReason: 'Fraudulent orders', fcmToken: null },
+      select: expect.any(Object),
+    });
+    expect(redis.del).toHaveBeenCalledWith('auth:user:customer-1');
+    const client = redis.getClient();
+    expect(client.keys).toHaveBeenCalledWith('auth:refresh:*');
+    expect(client.del).toHaveBeenCalledWith('auth:refresh:token-1');
+    expect(trackingGateway.notifyUserStatusChanged).toHaveBeenCalledWith('customer-1', {
+      userId: 'customer-1',
+      status: 'SUSPENDED',
+      reason: 'Fraudulent orders',
+    });
+  });
+
+  it('reactivates a customer and clears suspensionReason without token revocation scan', async () => {
+    const result = await service.updateCustomerStatus('customer-1', 'ACTIVE');
+
+    expect(result.status).toBe('ACTIVE');
+    expect(result.suspensionReason).toBeNull();
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'customer-1' },
+      data: { status: 'ACTIVE', suspensionReason: null },
+      select: expect.any(Object),
+    });
+    expect(redis.del).toHaveBeenCalledWith('auth:user:customer-1');
+    expect(trackingGateway.notifyUserStatusChanged).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundException when customer does not exist or has non-CUSTOMER role', async () => {
+    prisma.user.findFirst.mockResolvedValue(null);
+
+    await expect(service.updateCustomerStatus('non-existent', 'SUSPENDED')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });

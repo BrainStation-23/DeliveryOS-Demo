@@ -629,7 +629,8 @@ export class AdminService {
   }
 
   /** Deeplink integrity: an EXTERNAL banner must carry an absolute http(s)
-   *  URL; OUTLET/CATEGORY banners must reference an existing target so the
+   *  URL; an INTERNAL banner must carry an internal targetUrl (e.g. /search?q=pizza, /cart);
+   *  OUTLET/CATEGORY banners must reference an existing target so the
    *  customer app can never be deeplinked into a dead screen. */
   private async validateBannerTarget(
     data: { linkType?: BannerLinkType; targetId?: string; targetUrl?: string },
@@ -640,8 +641,15 @@ export class AdminService {
     const targetUrl = data.targetUrl ?? existing?.targetUrl ?? null;
 
     if (linkType === BannerLinkType.EXTERNAL) {
-      if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) {
+      if (!targetUrl || !/^https?:\/\//i.test(targetUrl.trim())) {
         throw new BadRequestException('EXTERNAL banners require a valid absolute http(s) targetUrl');
+      }
+      return;
+    }
+
+    if (linkType === BannerLinkType.INTERNAL) {
+      if (!targetUrl || !targetUrl.trim()) {
+        throw new BadRequestException('INTERNAL banners require a targetUrl (e.g. /search?q=pizza, /cart)');
       }
       return;
     }
@@ -755,7 +763,6 @@ export class AdminService {
             user: { select: { id: true, fullName: true, phone: true } },
           },
         },
-        _count: { select: { orders: true, products: true } },
       },
       orderBy: { name: 'asc' },
     });
@@ -775,8 +782,6 @@ export class AdminService {
       isActive: v.isActive,
       commissionRate: Number(v.commissionRate),
       defaultPrepTimeMinutes: v.defaultPrepTimeMinutes,
-      totalOrders: v._count.orders,
-      totalProducts: v._count.products,
       staff: v.staff.map((s) => ({
         id: s.id,
         userId: s.userId,
@@ -1130,12 +1135,13 @@ export class AdminService {
       latitude?: number;
       longitude?: number;
       isActive?: boolean;
+      isBusy?: boolean;
     },
   ) {
     const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
     if (!vendor) throw new NotFoundException('Vendor outlet not found');
 
-    return this.prisma.vendor.update({
+    const updated = await this.prisma.vendor.update({
       where: { id: vendorId },
       data: {
         ...(data.name !== undefined && { name: data.name }),
@@ -1150,18 +1156,55 @@ export class AdminService {
         ...(data.longitude !== undefined && { longitude: data.longitude }),
         ...(data.bannerUrl !== undefined && data.bannerUrl !== '' && { bannerUrl: data.bannerUrl || null }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(data.isBusy !== undefined && { isBusy: data.isBusy }),
       },
     });
+
+    if (data.isActive !== undefined || data.isBusy !== undefined) {
+      this.trackingGateway?.notifyVendorStatusChanged?.(vendorId, {
+        vendorId,
+        isActive: updated.isActive,
+        isBusy: updated.isBusy,
+      });
+    }
+
+    return updated;
   }
 
   async toggleVendorStatus(vendorId: string, isActive: boolean) {
     const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
     if (!vendor) throw new NotFoundException('Vendor outlet not found');
 
-    return this.prisma.vendor.update({
+    const updated = await this.prisma.vendor.update({
       where: { id: vendorId },
       data: { isActive },
     });
+
+    this.trackingGateway?.notifyVendorStatusChanged?.(vendorId, {
+      vendorId,
+      isActive: updated.isActive,
+      isBusy: updated.isBusy,
+    });
+
+    return updated;
+  }
+
+  async toggleVendorPause(vendorId: string, isBusy: boolean) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor outlet not found');
+
+    const updated = await this.prisma.vendor.update({
+      where: { id: vendorId },
+      data: { isBusy },
+    });
+
+    this.trackingGateway?.notifyVendorStatusChanged?.(vendorId, {
+      vendorId,
+      isActive: updated.isActive,
+      isBusy: updated.isBusy,
+    });
+
+    return updated;
   }
 
   async assignVendorStaff(

@@ -14,6 +14,7 @@ import { Tabs } from '../../components/ui/Tabs';
 import { SearchInput } from '../../components/common/SearchInput';
 import { extractApiError } from '../../utils/apiError';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { useSocketQueryInvalidation } from '../../hooks/useSocketSubscription';
 import { resolveMediaUrl } from '../../utils/mediaUrl';
 import { BrandFormModal } from './components/vendors/BrandFormModal';
 import { StaffAccountsTab } from './components/vendors/StaffAccountsTab';
@@ -62,6 +63,11 @@ export const AdminVendorsPage: React.FC = () => {
     queryKey: ['admin-vendors'],
     queryFn: adminApi.getVendors,
   });
+
+  useSocketQueryInvalidation(
+    ['vendor:status:changed', 'order:new'],
+    [['admin-vendors'], ['admin-brands']],
+  );
 
   const safeVendors = Array.isArray(vendors) ? vendors : [];
   const outletsOf = (brandId: string) => safeVendors.filter((v) => v.brandId === brandId);
@@ -430,10 +436,10 @@ const BrandCard: React.FC<{
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{outlet.name}</span>
                 {!outlet.isActive && <Badge variant="danger">Suspended</Badge>}
-                {outlet.isBusy && <Badge variant="warning">Rush</Badge>}
+                {outlet.isActive && outlet.isBusy && <Badge variant="warning">Intake: Inactive</Badge>}
               </div>
               <div className="text-[10px] text-slate-500 truncate mt-0.5">
-                {outlet.addressText} · {outlet.totalProducts} products · {outlet.totalOrders} orders
+                {outlet.addressText}
               </div>
             </div>
             <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />

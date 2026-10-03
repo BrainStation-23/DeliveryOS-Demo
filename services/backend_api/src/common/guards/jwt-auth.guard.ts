@@ -55,7 +55,7 @@ export class JwtAuthGuard implements CanActivate {
           },
         });
 
-        if (!user || user.status !== 'ACTIVE') {
+        if (!user) {
           throw new UnauthorizedException('User account not found or inactive');
         }
 
@@ -63,9 +63,29 @@ export class JwtAuthGuard implements CanActivate {
         await this.redis.set(cacheKey, JSON.stringify(user), USER_CACHE_TTL_SECONDS);
       }
 
+      if (user.status === 'SUSPENDED') {
+        const suspensionReason =
+          'suspensionReason' in user && typeof user.suspensionReason === 'string'
+            ? user.suspensionReason
+            : undefined;
+        const reason = suspensionReason || 'Violation of platform policies';
+        throw new UnauthorizedException({
+          statusCode: 401,
+          error: 'ACCOUNT_SUSPENDED',
+          message: `Your account has been suspended: ${reason}. Please contact customer support.`,
+          reason,
+        });
+      }
+      if (user.status !== 'ACTIVE') {
+        throw new UnauthorizedException('User account not found or inactive');
+      }
+
       request.user = user;
       return true;
-    } catch {
+    } catch (err) {
+      if (err instanceof UnauthorizedException) {
+        throw err;
+      }
       throw new UnauthorizedException('Invalid or expired token');
     }
   }

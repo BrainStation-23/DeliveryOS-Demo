@@ -6,6 +6,7 @@ export interface CustomerRow {
   phone: string;
   email: string | null;
   status: string;
+  suspensionReason?: string | null;
   createdAt: string;
   orderCount: number;
   lifetimeSpend: number;
@@ -19,6 +20,7 @@ export interface CustomerDetail {
     phone: string;
     email: string | null;
     status: string;
+    suspensionReason?: string | null;
     createdAt: string;
     addresses: Array<{
       id: string;
@@ -54,7 +56,7 @@ export interface CustomerListParams {
   page?: number;
   limit?: number;
   search?: string;
-  status?: 'ACTIVE' | 'PENDING_APPROVAL' | 'SUSPENDED' | 'ALL';
+  status?: 'ACTIVE' | 'SUSPENDED' | 'ALL';
   dateFrom?: string;
   dateTo?: string;
 }
@@ -77,5 +79,17 @@ export const customersApi = {
   async getCustomerDetail(customerId: string): Promise<CustomerDetail> {
     const res = await apiClient.get(`/api/v1/admin/customers/${customerId}`);
     return unwrapData<CustomerDetail>(res);
+  },
+
+  async updateCustomerStatus(
+    customerId: string,
+    status: 'ACTIVE' | 'SUSPENDED',
+    reason?: string,
+  ): Promise<{ id: string; fullName: string; phone: string; status: string; suspensionReason: string | null }> {
+    const res = await apiClient.patch(`/api/v1/admin/customers/${customerId}/status`, {
+      status,
+      ...(reason?.trim() ? { reason: reason.trim() } : {}),
+    });
+    return unwrapData<{ id: string; fullName: string; phone: string; status: string; suspensionReason: string | null }>(res);
   },
 };
