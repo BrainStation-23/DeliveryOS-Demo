@@ -49,6 +49,9 @@ export interface CustomerDetail {
     paymentMethod: string;
     paymentStatus: string;
     placedAt: string;
+    deliveryAddress?: string | null;
+    deliveryLatitude?: number | null;
+    deliveryLongitude?: number | null;
   }>;
 }
 

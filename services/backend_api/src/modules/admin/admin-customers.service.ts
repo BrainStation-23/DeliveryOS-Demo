@@ -148,6 +148,7 @@ export class AdminCustomersService {
           paymentMethod: true,
           paymentStatus: true,
           placedAt: true,
+          deliveryAddressSnapshot: true,
           vendor: { select: { name: true, brand: { select: { name: true } } } },
         },
       }),
@@ -174,16 +175,26 @@ export class AdminCustomersService {
         totalCouponSavings: Math.round(Number(spendAggregate._sum.couponDiscount ?? 0) * 100) / 100,
         avgOrderValue: orderCount > 0 ? Math.round((lifetimeSpend / orderCount) * 100) / 100 : 0,
       },
-      recentOrders: recentOrders.map((o) => ({
-        id: o.id,
-        orderNumber: o.orderNumber,
-        status: o.status,
-        vendorName: outletDisplayName(o.vendor?.brand?.name, o.vendor?.name),
-        totalAmount: Number(o.totalAmount),
-        paymentMethod: o.paymentMethod,
-        paymentStatus: o.paymentStatus,
-        placedAt: o.placedAt,
-      })),
+      recentOrders: recentOrders.map((o) => {
+        const snap = o.deliveryAddressSnapshot as {
+          addressLine?: string;
+          latitude?: number;
+          longitude?: number;
+        } | null;
+        return {
+          id: o.id,
+          orderNumber: o.orderNumber,
+          status: o.status,
+          vendorName: outletDisplayName(o.vendor?.brand?.name, o.vendor?.name),
+          totalAmount: Number(o.totalAmount),
+          paymentMethod: o.paymentMethod,
+          paymentStatus: o.paymentStatus,
+          placedAt: o.placedAt,
+          deliveryAddress: snap?.addressLine || null,
+          deliveryLatitude: snap?.latitude ?? null,
+          deliveryLongitude: snap?.longitude ?? null,
+        };
+      }),
     };
   }
 

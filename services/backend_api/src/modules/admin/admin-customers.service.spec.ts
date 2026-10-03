@@ -132,6 +132,7 @@ describe('AdminCustomersService.getCustomerDetail', () => {
             paymentStatus: 'PAID',
             placedAt: new Date('2026-10-01T12:00:00.000Z'),
             vendor: { name: 'Kacchi Bhai' },
+            deliveryAddressSnapshot: { addressLine: 'Dhanmondi 27', latitude: 23.75, longitude: 90.37 },
           },
         ]),
       },

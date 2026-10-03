@@ -43,6 +43,8 @@ export interface LiveOrderView {
   rejectionReason: string | null;
   items: Array<{ id: string; name: string; quantity: number; unitPrice: number }>;
   deliveryAddress: string;
+  deliveryLatitude: number | null;
+  deliveryLongitude: number | null;
 }
 import {
   AccountStatus,
@@ -397,6 +399,8 @@ export class AdminService {
         unitPrice: Number(i.unitPrice),
       })),
       deliveryAddress: (o.deliveryAddressSnapshot as { addressLine?: string } | null)?.addressLine || 'Address',
+      deliveryLatitude: (o.deliveryAddressSnapshot as { latitude?: number } | null)?.latitude ?? null,
+      deliveryLongitude: (o.deliveryAddressSnapshot as { longitude?: number } | null)?.longitude ?? null,
     };
   }
 

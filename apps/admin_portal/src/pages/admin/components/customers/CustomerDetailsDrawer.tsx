@@ -31,6 +31,7 @@ import { ConfirmDialog } from '../../../../components/ui/ConfirmDialog';
 import { Drawer } from '../../../../components/ui/Drawer';
 import { Modal } from '../../../../components/ui/Modal';
 import { OrderDetailsModal } from '../../../../components/orders/OrderDetailsModal';
+import { GoogleMapsLink } from '../../../../components/common/GoogleMapsLink';
 import { extractApiError } from '../../../../utils/apiError';
 import { cn } from '../../../../utils/cn';
 
@@ -459,27 +460,43 @@ export const CustomerDetailsDrawer: React.FC<CustomerDetailsDrawerProps> = ({ cu
                               )}
                             </button>
 
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${address.latitude},${address.longitude}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 px-2 py-0.5 rounded border border-primary-200 dark:border-primary-800/80 hover:bg-primary-50 dark:hover:bg-primary-950/40 transition-colors cursor-pointer"
-                            >
-                              <span>Maps</span>
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
+                            <GoogleMapsLink
+                              variant="button"
+                              latitude={address.latitude}
+                              longitude={address.longitude}
+                              addressFallback={address.addressLine}
+                              label="Google Maps"
+                            />
                           </div>
                         </div>
 
-                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                          {address.addressLine}
-                        </p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed flex-1">
+                            {address.addressLine}
+                          </p>
+                          <GoogleMapsLink
+                            variant="icon"
+                            latitude={address.latitude}
+                            longitude={address.longitude}
+                            addressFallback={address.addressLine}
+                            title="Open exact customer location on Google Maps"
+                          />
+                        </div>
 
-                        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
-                          <Navigation className="h-3 w-3 text-slate-400 shrink-0" />
-                          <span>
-                            {address.latitude.toFixed(5)}, {address.longitude.toFixed(5)}
-                          </span>
+                        <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                          <div className="flex items-center gap-1.5">
+                            <Navigation className="h-3 w-3 text-slate-400 shrink-0" />
+                            <span>
+                              {address.latitude.toFixed(5)}, {address.longitude.toFixed(5)}
+                            </span>
+                          </div>
+                          <GoogleMapsLink
+                            variant="badge"
+                            latitude={address.latitude}
+                            longitude={address.longitude}
+                            addressFallback={address.addressLine}
+                            label="Open GPS"
+                          />
                         </div>
                       </div>
                     ))
@@ -566,6 +583,21 @@ export const CustomerDetailsDrawer: React.FC<CustomerDetailsDrawerProps> = ({ cu
                             <span>·</span>
                             <span>{formatPaymentMethod(order.paymentMethod)}</span>
                           </div>
+                          {order.deliveryAddress && (
+                            <div className="mt-1 flex items-center justify-between gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+                              <span className="truncate flex items-center gap-1 min-w-0">
+                                <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
+                                <span className="truncate">{order.deliveryAddress}</span>
+                              </span>
+                              <GoogleMapsLink
+                                variant="icon"
+                                latitude={order.deliveryLatitude}
+                                longitude={order.deliveryLongitude}
+                                addressFallback={order.deliveryAddress}
+                                title="Open order delivery location on Google Maps"
+                              />
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">

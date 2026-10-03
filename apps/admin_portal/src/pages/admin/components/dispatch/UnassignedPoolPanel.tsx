@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { CheckCircle2, ArrowRight, Clock } from 'lucide-react';
 import { AdminOrder } from '../../../../services/adminApi';
 import { Badge } from '../../../../components/ui/Badge';
+import { GoogleMapsLink } from '../../../../components/common/GoogleMapsLink';
 import { EmptyState } from '../../../../components/common/EmptyState';
 import { computeUnassignedPoolSummary } from './unassignedPool';
 
@@ -47,7 +48,16 @@ export const UnassignedPoolPanel: React.FC<UnassignedPoolPanelProps> = ({
                   <span className="text-primary-600 dark:text-primary-400">৳{order.totalAmount}</span>
                 </div>
                 <div className="text-slate-600 dark:text-slate-400 truncate mb-1">{order.vendorName}</div>
-                <div className="text-[11px] text-slate-500 truncate mb-2">To: {order.deliveryAddress}</div>
+                <div className="flex items-center justify-between gap-1 text-[11px] text-slate-500 mb-2">
+                  <span className="truncate">To: {order.deliveryAddress}</span>
+                  <GoogleMapsLink
+                    variant="icon"
+                    latitude={order.deliveryLatitude}
+                    longitude={order.deliveryLongitude}
+                    addressFallback={order.deliveryAddress}
+                    title="Open delivery location on Google Maps"
+                  />
+                </div>
                 <Link
                   to={`/orders?orderNumber=${encodeURIComponent(order.orderNumber)}`}
                   className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 hover:text-amber-800 dark:text-amber-400"

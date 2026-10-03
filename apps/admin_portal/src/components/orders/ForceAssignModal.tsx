@@ -6,6 +6,7 @@ import { Badge } from '../ui/Badge';
 import { Alert } from '../ui/Alert';
 import { SearchInput } from '../common/SearchInput';
 import { AdminOrder, FleetRider } from '../../services/adminApi';
+import { GoogleMapsLink } from '../common/GoogleMapsLink';
 import { formatCurrency } from '../../utils/formatters';
 import {
   buildAssignmentCandidates,
@@ -165,13 +166,31 @@ export const ForceAssignModal: React.FC<ForceAssignModalProps> = ({
         />
 
         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs space-y-1.5 dark:border-slate-800 dark:bg-slate-800/50">
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <span className="text-slate-500">Store Outlet:</span>
-            <span className="font-semibold text-slate-900 dark:text-slate-100">{order.vendorName}</span>
+            <div className="flex items-center gap-1.5 justify-end">
+              <span className="font-semibold text-slate-900 dark:text-slate-100">{order.vendorName}</span>
+              <GoogleMapsLink
+                variant="icon"
+                latitude={order.vendorLatitude}
+                longitude={order.vendorLongitude}
+                addressFallback={order.vendorAddress}
+                title={`Open ${order.vendorName} on Google Maps`}
+              />
+            </div>
           </div>
-          <div className="flex justify-between gap-4">
+          <div className="flex justify-between gap-4 items-center">
             <span className="text-slate-500 shrink-0">Customer Drop-off:</span>
-            <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{order.deliveryAddress}</span>
+            <div className="flex items-center gap-1.5 justify-end">
+              <span className="font-medium text-slate-700 dark:text-slate-300 text-right">{order.deliveryAddress}</span>
+              <GoogleMapsLink
+                variant="icon"
+                latitude={order.deliveryLatitude}
+                longitude={order.deliveryLongitude}
+                addressFallback={order.deliveryAddress}
+                title="Open drop-off location on Google Maps"
+              />
+            </div>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Gross Total:</span>

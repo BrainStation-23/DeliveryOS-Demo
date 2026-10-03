@@ -63,6 +63,8 @@ export interface AdminOrder {
     unitPrice: number;
   }>;
   deliveryAddress: string;
+  deliveryLatitude?: number | null;
+  deliveryLongitude?: number | null;
 }
 
 export interface PaginatedOrders {

@@ -1,9 +1,10 @@
-import React from 'react';
-import { Bike, Check, Clock, MessageSquare, ShoppingBag, Store, User, UserCheck, XCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Bike, Check, Clock, Copy, MapPin, MessageSquare, Navigation, ShoppingBag, Store, User, UserCheck, XCircle } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Badge, OrderStatusBadge } from '../ui/Badge';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { GoogleMapsLink } from '../common/GoogleMapsLink';
 import { AdminOrder } from '../../services/adminApi';
 import { formatCurrency, formatDateTime } from '../../utils/formatters';
 import { buildOrderTimeline } from '../../utils/orderTimeline';
@@ -24,11 +25,15 @@ const SectionCard: React.FC<{
   title: string;
   children: React.ReactNode;
   className?: string;
-}> = ({ icon, title, children, className }) => (
+  action?: React.ReactNode;
+}> = ({ icon, title, children, className, action }) => (
   <div className={cn('rounded-xl border border-slate-200 p-3.5 dark:border-slate-800', className)}>
-    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-slate-100 mb-2.5">
-      {icon}
-      {title}
+    <div className="flex items-center justify-between gap-2 mb-2.5">
+      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-slate-100">
+        {icon}
+        {title}
+      </div>
+      {action}
     </div>
     {children}
   </div>
@@ -69,6 +74,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
   const couponDiscount = order.couponDiscount || 0;
   const timeline = buildOrderTimeline(order);
   const isActive = order.status !== 'DELIVERED' && order.status !== 'CANCELLED';
+  const [copiedCoords, setCopiedCoords] = useState(false);
 
   return (
     <Modal
@@ -123,10 +129,32 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
       <div className="space-y-3.5">
         {/* Parties */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <SectionCard icon={<Store className="h-3.5 w-3.5 text-primary-600" />} title="Outlet">
+          <SectionCard
+            icon={<Store className="h-3.5 w-3.5 text-primary-600" />}
+            title="Outlet"
+            action={
+              <GoogleMapsLink
+                variant="icon"
+                latitude={order.vendorLatitude}
+                longitude={order.vendorLongitude}
+                addressFallback={order.vendorAddress}
+                title={`Open ${order.vendorName} on Google Maps`}
+              />
+            }
+          >
             <DetailLine label="Store">{order.vendorName}</DetailLine>
             <div className="mt-2">
-              <DetailLine label="Address">{order.vendorAddress}</DetailLine>
+              <DetailLine label="Address">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="truncate">{order.vendorAddress}</span>
+                  <GoogleMapsLink
+                    variant="icon"
+                    latitude={order.vendorLatitude}
+                    longitude={order.vendorLongitude}
+                    addressFallback={order.vendorAddress}
+                  />
+                </div>
+              </DetailLine>
             </div>
           </SectionCard>
           <SectionCard icon={<User className="h-3.5 w-3.5 text-primary-600" />} title="Customer">
@@ -277,10 +305,73 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
 
         {/* Delivery destination + notes */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <SectionCard icon={<Store className="h-3.5 w-3.5 text-primary-600" />} title="Delivery Address">
-            <p className="text-xs font-medium text-slate-700 dark:text-slate-300 leading-relaxed">
-              {order.deliveryAddress}
-            </p>
+          <SectionCard
+            icon={<MapPin className="h-3.5 w-3.5 text-primary-600" />}
+            title="Delivery Address"
+            action={
+              <GoogleMapsLink
+                variant="button"
+                latitude={order.deliveryLatitude}
+                longitude={order.deliveryLongitude}
+                addressFallback={order.deliveryAddress}
+                label="Google Maps"
+              />
+            }
+          >
+            <div className="space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-300 leading-relaxed flex-1">
+                  {order.deliveryAddress}
+                </p>
+                <GoogleMapsLink
+                  variant="icon"
+                  latitude={order.deliveryLatitude}
+                  longitude={order.deliveryLongitude}
+                  addressFallback={order.deliveryAddress}
+                  title="Open exact pinned delivery location on Google Maps"
+                />
+              </div>
+
+              {order.deliveryLatitude != null && order.deliveryLongitude != null && (
+                <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400 font-mono pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-1.5">
+                    <Navigation className="h-3 w-3 text-slate-400 shrink-0" />
+                    <span>
+                      {order.deliveryLatitude.toFixed(5)}, {order.deliveryLongitude.toFixed(5)}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (order.deliveryLatitude != null && order.deliveryLongitude != null) {
+                        navigator.clipboard.writeText(
+                          `${order.deliveryLatitude}, ${order.deliveryLongitude}`
+                        );
+                        setCopiedCoords(true);
+                        setTimeout(() => setCopiedCoords(false), 2000);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 text-[10px] font-sans font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    title="Copy GPS coordinates"
+                  >
+                    {copiedCoords ? (
+                      <>
+                        <Check className="h-2.5 w-2.5 text-emerald-500" />
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                          Copied
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-2.5 w-2.5" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
           </SectionCard>
           <SectionCard
             icon={<MessageSquare className="h-3.5 w-3.5 text-amber-500" />}
