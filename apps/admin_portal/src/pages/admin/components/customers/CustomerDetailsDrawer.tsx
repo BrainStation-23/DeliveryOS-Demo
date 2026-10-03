@@ -16,7 +16,6 @@ import {
   Home,
   Mail,
   MapPin,
-  Navigation,
   Phone,
   Receipt,
   ShoppingBag,
@@ -118,7 +117,6 @@ export const CustomerDetailsDrawer: React.FC<CustomerDetailsDrawerProps> = ({ cu
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   // Copy feedback states
-  const [copiedAddressId, setCopiedAddressId] = useState<string | null>(null);
   const [copiedPhone, setCopiedPhone] = useState(false);
 
   const { data: detail, isLoading } = useQuery({
@@ -159,13 +157,6 @@ export const CustomerDetailsDrawer: React.FC<CustomerDetailsDrawerProps> = ({ cu
     navigator.clipboard.writeText(phone);
     setCopiedPhone(true);
     setTimeout(() => setCopiedPhone(false), 2000);
-  };
-
-  const handleCopyCoords = (e: React.MouseEvent, addressId: string, lat: number, lng: number) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(`${lat}, ${lng}`);
-    setCopiedAddressId(addressId);
-    setTimeout(() => setCopiedAddressId(null), 2000);
   };
 
   return (
@@ -436,38 +427,13 @@ export const CustomerDetailsDrawer: React.FC<CustomerDetailsDrawerProps> = ({ cu
                             )}
                           </div>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              type="button"
-                              onClick={(e) =>
-                                handleCopyCoords(e, address.id, address.latitude, address.longitude)
-                              }
-                              className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                              title="Copy GPS coordinates"
-                            >
-                              {copiedAddressId === address.id ? (
-                                <>
-                                  <Check className="h-3 w-3 text-emerald-500" />
-                                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                                    Copied
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="h-3 w-3" />
-                                  <span>Copy</span>
-                                </>
-                              )}
-                            </button>
-
-                            <GoogleMapsLink
-                              variant="button"
-                              latitude={address.latitude}
-                              longitude={address.longitude}
-                              addressFallback={address.addressLine}
-                              label="Google Maps"
-                            />
-                          </div>
+                          <GoogleMapsLink
+                            variant="button"
+                            latitude={address.latitude}
+                            longitude={address.longitude}
+                            addressFallback={address.addressLine}
+                            label="Google Maps"
+                          />
                         </div>
 
                         <div className="flex items-start justify-between gap-2">
@@ -479,23 +445,7 @@ export const CustomerDetailsDrawer: React.FC<CustomerDetailsDrawerProps> = ({ cu
                             latitude={address.latitude}
                             longitude={address.longitude}
                             addressFallback={address.addressLine}
-                            title="Open exact customer location on Google Maps"
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                          <div className="flex items-center gap-1.5">
-                            <Navigation className="h-3 w-3 text-slate-400 shrink-0" />
-                            <span>
-                              {address.latitude.toFixed(5)}, {address.longitude.toFixed(5)}
-                            </span>
-                          </div>
-                          <GoogleMapsLink
-                            variant="badge"
-                            latitude={address.latitude}
-                            longitude={address.longitude}
-                            addressFallback={address.addressLine}
-                            label="Open GPS"
+                            title="Open on Google Maps"
                           />
                         </div>
                       </div>

@@ -28,6 +28,7 @@ import { StaffProfileDialog } from './components/staff/StaffProfileDialog';
 import { ProductDialog } from './components/products/ProductDialog';
 import { OperatingHoursEditor } from './components/outlets/OperatingHoursEditor';
 import { OutletInfoDialog } from './components/outlets/OutletInfoDialog';
+import { GoogleMapsLink } from '../../components/common/GoogleMapsLink';
 import { OutletCatalogSection } from './components/outlets/OutletCatalogSection';
 import { CategoryDialog } from './components/outlets/CategoryDialog';
 
@@ -319,8 +320,31 @@ export const AdminOutletPage: React.FC = () => {
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center text-xs">
           <InfoCell label="Phone" value={vendor.contactPhone} />
-          <InfoCell label="Street Address" value={vendor.addressText} truncate />
-          <InfoCell label="GPS" value={`${Number(vendor.latitude).toFixed(4)}, ${Number(vendor.longitude).toFixed(4)}`} />
+          <div className="min-w-0">
+            <span className="text-slate-400 block text-[10px] mb-0.5">Street Address</span>
+            <div className="flex items-center justify-center gap-1 font-bold text-slate-900 dark:text-slate-100">
+              <span className="truncate" title={vendor.addressText}>{vendor.addressText}</span>
+              <GoogleMapsLink
+                variant="icon"
+                latitude={vendor.latitude}
+                longitude={vendor.longitude}
+                addressFallback={vendor.addressText}
+                title="Open on Google Maps"
+              />
+            </div>
+          </div>
+          <InfoCell
+            label="Location"
+            value={
+              <GoogleMapsLink
+                variant="badge"
+                latitude={vendor.latitude}
+                longitude={vendor.longitude}
+                addressFallback={vendor.addressText}
+                label="Google Maps"
+              />
+            }
+          />
           <InfoCell label="Commission" value={`${vendor.commissionRate}%`} />
           <InfoCell label="Prep Time" value={`${vendor.defaultPrepTimeMinutes} min`} />
           <InfoCell label="Radius" value={`${vendor.deliveryRadiusKm} km`} />
@@ -575,15 +599,15 @@ export const AdminOutletPage: React.FC = () => {
   );
 };
 
-const InfoCell: React.FC<{ label: string; value: string; truncate?: boolean }> = ({ label, value, truncate }) => (
+const InfoCell: React.FC<{ label: string; value: React.ReactNode; truncate?: boolean }> = ({ label, value, truncate }) => (
   <div className="min-w-0">
     <span className="text-slate-400 block text-[10px] mb-0.5">{label}</span>
-    <span
-      className={`font-bold text-slate-900 dark:text-slate-100 ${truncate ? 'block truncate' : ''}`}
-      title={truncate ? value : undefined}
+    <div
+      className={`font-bold text-slate-900 dark:text-slate-100 flex items-center justify-center ${truncate ? 'truncate' : ''}`}
+      title={typeof value === 'string' && truncate ? value : undefined}
     >
       {value}
-    </span>
+    </div>
   </div>
 );
 

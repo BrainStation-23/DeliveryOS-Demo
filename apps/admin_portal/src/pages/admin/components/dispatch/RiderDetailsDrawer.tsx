@@ -7,6 +7,7 @@ import { Badge, OrderStatusBadge } from '../../../../components/ui/Badge';
 import { Button } from '../../../../components/ui/Button';
 import { Drawer } from '../../../../components/ui/Drawer';
 import { ConfirmDialog } from '../../../../components/ui/ConfirmDialog';
+import { GoogleMapsLink } from '../../../../components/common/GoogleMapsLink';
 import { CashLimitModal } from './CashLimitModal';
 
 export interface RiderDetailsDrawerProps {
@@ -113,10 +114,15 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
                 </div>
               </div>
               {rider && (
-                <p className="mt-3 text-xs text-slate-500">
-                  Last seen {formatDateTime(rider.lastSeenAt)}
+                <p className="mt-3 text-xs text-slate-500 flex items-center gap-1.5 flex-wrap">
+                  <span>Last seen {formatDateTime(rider.lastSeenAt)}</span>
                   {rider.latitude != null && rider.longitude != null && (
-                    <> · GPS {rider.latitude.toFixed(4)}, {rider.longitude.toFixed(4)}</>
+                    <GoogleMapsLink
+                      variant="badge"
+                      latitude={rider.latitude}
+                      longitude={rider.longitude}
+                      label="Google Maps"
+                    />
                   )}
                 </p>
               )}

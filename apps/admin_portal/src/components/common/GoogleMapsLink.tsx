@@ -59,7 +59,7 @@ export const GoogleMapsLink: React.FC<GoogleMapsLinkProps> = ({
     (latitude !== 0 || longitude !== 0);
 
   const defaultTitle = hasCoords
-    ? `Open exact location on Google Maps (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`
+    ? 'Open exact location on Google Maps'
     : 'Open address on Google Maps';
 
   if (variant === 'icon') {
