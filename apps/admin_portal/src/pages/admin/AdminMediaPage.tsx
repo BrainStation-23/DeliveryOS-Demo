@@ -44,6 +44,7 @@ export const AdminMediaPage: React.FC = () => {
   const { data: mediaData, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-media', page, debouncedSearch],
     queryFn: () => adminApi.getMedia(page, 24, debouncedSearch),
+    placeholderData: (previous) => previous,
   });
 
   // A new search term always restarts from the first page.
@@ -84,7 +85,7 @@ export const AdminMediaPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Media Library & Asset Control"
+        title="Media Library"
         subtitle="Central home for every platform image: crop and resize before upload, then reuse the URLs across banners and future modules"
         icon={Images}
         actions={

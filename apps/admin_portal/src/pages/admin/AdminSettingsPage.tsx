@@ -68,7 +68,7 @@ export const AdminSettingsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="System Settings & Dispatch Configuration"
+        title="System Settings"
         subtitle="Configure real-time dispatch state machines, delivery fee and payout economics, and pipeline timing"
         icon={Settings}
       />

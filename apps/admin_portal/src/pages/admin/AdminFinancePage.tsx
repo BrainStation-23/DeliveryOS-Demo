@@ -112,7 +112,7 @@ export const AdminFinancePage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Financial Governance & Settlements"
+        title="Financial Governance"
         subtitle="Reconcile platform commission ledgers (15%), execute automated vendor payout cycles, and manage physical courier cash drops"
         icon={Landmark}
       />

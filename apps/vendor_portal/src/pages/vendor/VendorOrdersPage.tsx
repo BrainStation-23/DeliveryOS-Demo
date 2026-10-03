@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Search, RefreshCw, Receipt } from 'lucide-react';
@@ -28,7 +28,10 @@ export const VendorOrdersPage: React.FC = () => {
   const [datePreset, setDatePreset] = useState<DatePreset>('TODAY');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [page, setPage] = useState(1);
   const [selectedOrderForModal, setSelectedOrderForModal] = useState<LedgerItem | null>(null);
+
+  const PAGE_SIZE = 15;
 
   const { dateFromIso, dateToIso } = useMemo(() => {
     const now = new Date();
@@ -116,6 +119,22 @@ export const VendorOrdersPage: React.FC = () => {
       statusFilter === 'ALL' || l.settlementStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredLedgers.length / PAGE_SIZE));
+  const paginatedLedgers = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredLedgers.slice(start, start + PAGE_SIZE);
+  }, [filteredLedgers, page, PAGE_SIZE]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeOutletId]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(1);
+    }
+  }, [page, totalPages]);
 
   const getOrderStatusBadge = (status: string) => {
     switch (status) {
@@ -247,14 +266,24 @@ export const VendorOrdersPage: React.FC = () => {
       {/* Date Filtering Toolbar (Modular) */}
       <OrderDateFilterToolbar
         datePreset={datePreset}
-        onDatePresetChange={setDatePreset}
+        onDatePresetChange={(preset) => {
+          setDatePreset(preset);
+          setPage(1);
+        }}
         customStartDate={customStartDate}
-        onCustomStartDateChange={setCustomStartDate}
+        onCustomStartDateChange={(val) => {
+          setCustomStartDate(val);
+          setPage(1);
+        }}
         customEndDate={customEndDate}
-        onCustomEndDateChange={setCustomEndDate}
+        onCustomEndDateChange={(val) => {
+          setCustomEndDate(val);
+          setPage(1);
+        }}
         onClearCustomDates={() => {
           setCustomStartDate('');
           setCustomEndDate('');
+          setPage(1);
         }}
       />
 
@@ -266,7 +295,10 @@ export const VendorOrdersPage: React.FC = () => {
           <Input
             placeholder={t('orders.searchPlaceholder')}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
             leftIcon={<Search className="h-3.5 w-3.5" />}
           />
         </div>
@@ -276,7 +308,10 @@ export const VendorOrdersPage: React.FC = () => {
             <button
               key={st}
               type="button"
-              onClick={() => setStatusFilter(st)}
+              onClick={() => {
+                setStatusFilter(st);
+                setPage(1);
+              }}
               className={`inline-flex items-center justify-center rounded-lg px-3 text-xs font-semibold transition-all h-8 select-none cursor-pointer ${
                 statusFilter === st
                   ? 'bg-amber-500 text-white shadow-xs'
@@ -304,10 +339,14 @@ export const VendorOrdersPage: React.FC = () => {
       ) : (
         <Table
           columns={columns}
-          data={filteredLedgers}
+          data={paginatedLedgers}
           keyExtractor={(item) => item.id}
           onRowClick={(item) => setSelectedOrderForModal(item)}
           emptyMessage={t('orders.empty')}
+          page={page}
+          totalPages={totalPages}
+          totalItems={filteredLedgers.length}
+          onPageChange={setPage}
         />
       )}
 

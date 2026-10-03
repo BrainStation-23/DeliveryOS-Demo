@@ -41,12 +41,14 @@ Governed by `vendor_staff.scope` ([ADR-005](../architecture-decision-records/ADR
 
 ## 3. Route & Module Architecture
 
+Single source of truth: `apps/vendor_portal/src/config/vendorNavigation.ts`. Sidebar navigation, page headers, document titles (`${pageTitle} · DeliveryOS Vendor`), and multi-language translations (`en`, `bn`, `ar`) are strictly bound to this contract.
+
 ```
 /vendor
-├── / & /kds           # 3-Lane Kitchen Display System (KDS)
-├── /catalog           # Merchant Menu Catalog, Sold-Out Retention & Stock Toggles
-├── /orders            # Itemized Sales Ledger, Today vs All Time, Payout Statements
-└── /settings          # Operating Hours, Default Prep Duration & Rush Pause
+├── / & /kds           # ClipboardList: 3-Lane Kitchen Display System (KDS) (aliases /kds)
+├── /catalog           # UtensilsCrossed: Merchant Menu Catalog, Sold-Out Retention & Stock Toggles
+├── /orders            # Receipt: Sales Ledger & Orders, Itemized Receipts, Payout Statements
+└── /settings          # Store: Store Settings, Operating Hours, Default Prep Duration & Rush Pause
 ```
 
 ---
@@ -108,8 +110,12 @@ Governed by `vendor_staff.scope` ([ADR-005](../architecture-decision-records/ADR
 
 ## 7. Module 4: Sales Ledger & Financial Statements (`/orders`)
 
-- **Timeframe Filters**: Segmented control switching between `Today` (default) and `All Time`.
+- **Timeframe Filters**: Segmented control switching between `Today` (default) and `All Time`, plus custom date ranges.
 - **Dynamic KPI Summary**: Recalculates Completed Orders, Gross Volume, Commission Deducted (15%), and Net Vendor Payable based on active filter.
+- **Client-Side Pagination & Table Controls**:
+  - Built-in pagination (`PAGE_SIZE = 15`) with accessible previous/next buttons and page jump indicators.
+  - Standardized `<Table>` footer displaying `Total {totalItems} entries` even for single-page results.
+  - Active search queries (order number, customer name, dish items) and date preset switches automatically reset the page to 1.
 - **Itemized Order Details Modal**:
   - Customer contact snapshot and delivery address.
   - Special cooking instructions note.

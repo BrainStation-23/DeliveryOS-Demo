@@ -9,11 +9,38 @@ import '../../tracking/presentation/order_tracking_screen.dart';
 import '../domain/order_history_model.dart';
 import '../providers/order_history_provider.dart';
 
-class OrderHistoryScreen extends ConsumerWidget {
+class OrderHistoryScreen extends ConsumerStatefulWidget {
   const OrderHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OrderHistoryScreen> createState() => _OrderHistoryScreenState();
+}
+
+class _OrderHistoryScreenState extends ConsumerState<OrderHistoryScreen> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController()..addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients &&
+        _scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      ref.read(orderHistoryProvider.notifier).loadMore();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final historyState = ref.watch(orderHistoryProvider);
     final orders = historyState.orders;
 
@@ -40,14 +67,44 @@ class OrderHistoryScreen extends ConsumerWidget {
       body: historyState.isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : orders.isEmpty
-              ? _buildEmptyState(context)
-              : ListView.builder(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  itemCount: orders.length,
-                  itemBuilder: (context, index) {
-                    final order = orders[index];
-                    return _buildOrderCard(context, ref, order);
-                  },
+              ? RefreshIndicator(
+                  color: AppColors.primary,
+                  onRefresh: () => ref.read(orderHistoryProvider.notifier).fetchHistory(),
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.7,
+                        child: _buildEmptyState(context),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  color: AppColors.primary,
+                  onRefresh: () => ref.read(orderHistoryProvider.notifier).fetchHistory(),
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    itemCount: orders.length + (historyState.isLoadingMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index >= orders.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.primary),
+                            ),
+                          ),
+                        );
+                      }
+                      final order = orders[index];
+                      return _buildOrderCard(context, ref, order);
+                    },
+                  ),
                 ),
     );
   }

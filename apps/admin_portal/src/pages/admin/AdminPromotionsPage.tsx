@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Image as ImageIcon, Tag, Plus } from 'lucide-react';
+import { Image as ImageIcon, Megaphone, Tag, Plus } from 'lucide-react';
 import adminApi, { AdminBanner, AdminCoupon } from '../../services/adminApi';
 import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
@@ -150,9 +150,9 @@ export const AdminPromotionsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Promotions & Coupon Engine"
+        title="Promotions & Coupons"
         subtitle="Manage home screen hero banners with tap deeplinks and checkout discount coupon campaigns"
-        icon={Tag}
+        icon={Megaphone}
         actions={
           activeTab === 'BANNERS' ? (
             <Button

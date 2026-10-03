@@ -101,30 +101,34 @@ export function Table<T>({
         </table>
       </div>
 
-      {totalPages !== undefined && totalPages > 1 && (
+      {totalPages !== undefined && (totalPages >= 1 || totalItems !== undefined) && (
         <div className="flex flex-col sm:flex-row items-center justify-between border-t border-slate-100 bg-slate-50/50 px-4 sm:px-6 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-800/40 gap-2">
           <div>
             {totalItems !== undefined && <span>{t('common.showing')} {totalItems} {t('common.results')}</span>}
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onPageChange && onPageChange((page || 1) - 1)}
-              disabled={(page || 1) <= 1}
-              className="h-8 px-3 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-xs cursor-pointer"
-            >
-              {t('common.previous')}
-            </button>
-            <span className="font-semibold text-slate-700 dark:text-slate-200 px-1">
-              {page} / {totalPages}
-            </span>
-            <button
-              onClick={() => onPageChange && onPageChange((page || 1) + 1)}
-              disabled={(page || 1) >= totalPages}
-              className="h-8 px-3 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-xs cursor-pointer"
-            >
-              {t('common.next')}
-            </button>
-          </div>
+          {totalPages >= 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onPageChange && onPageChange((page || 1) - 1)}
+                disabled={(page || 1) <= 1}
+                className="h-8 px-3 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-xs cursor-pointer"
+              >
+                {t('common.previous')}
+              </button>
+              <span className="font-semibold text-slate-700 dark:text-slate-200 px-1">
+                {page} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => onPageChange && onPageChange((page || 1) + 1)}
+                disabled={(page || 1) >= totalPages}
+                className="h-8 px-3 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-xs cursor-pointer"
+              >
+                {t('common.next')}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

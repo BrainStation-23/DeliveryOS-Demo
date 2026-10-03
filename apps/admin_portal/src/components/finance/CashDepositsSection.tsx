@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, XCircle, Clock, ShieldCheck, Banknote } from 'lucide-react';
 import adminApi, { CashDepositItem } from '../../services/adminApi';
@@ -7,11 +7,16 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Alert } from '../ui/Alert';
 import { Modal } from '../ui/Modal';
+import { Table, Column } from '../ui/Table';
+import { formatCurrency, formatDateTime } from '../../utils/formatters';
 import { extractApiError } from '../../utils/apiError';
+
+const PAGE_SIZE = 15;
 
 export const CashDepositsSection: React.FC = () => {
   const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState<string>('PENDING_APPROVAL');
+  const [page, setPage] = useState(1);
   const [selectedDeposit, setSelectedDeposit] = useState<CashDepositItem | null>(null);
   const [actionType, setActionType] = useState<'APPROVE' | 'REJECT'>('APPROVE');
   const [verificationNotes, setVerificationNotes] = useState<string>('');
@@ -94,8 +99,11 @@ export const CashDepositsSection: React.FC = () => {
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-800 p-0.5 bg-slate-50 dark:bg-slate-800/50">
             <button
               type="button"
-              onClick={() => setFilterStatus('PENDING_APPROVAL')}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+              onClick={() => {
+                setFilterStatus('PENDING_APPROVAL');
+                setPage(1);
+              }}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
                 filterStatus === 'PENDING_APPROVAL'
                   ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
                   : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-100'
@@ -105,8 +113,11 @@ export const CashDepositsSection: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => setFilterStatus('ALL')}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+              onClick={() => {
+                setFilterStatus('ALL');
+                setPage(1);
+              }}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
                 filterStatus === 'ALL'
                   ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
                   : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-100'
@@ -137,107 +148,139 @@ export const CashDepositsSection: React.FC = () => {
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs text-left">
-          <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 border-b border-slate-200 dark:border-slate-800">
-            <tr>
-              <th className="py-2.5 px-4 font-semibold">Courier</th>
-              <th className="py-2.5 px-3 font-semibold text-right">Amount</th>
-              <th className="py-2.5 px-3 font-semibold text-center">Payment Method</th>
-              <th className="py-2.5 px-3 font-semibold">Reference</th>
-              <th className="py-2.5 px-3 font-semibold text-right">Cash-in-Hand</th>
-              <th className="py-2.5 px-3 font-semibold text-center">Status</th>
-              <th className="py-2.5 px-3 font-semibold text-right">Deposited At</th>
-              <th className="py-2.5 px-4 font-semibold text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-            {isLoading ? (
-              <tr>
-                <td colSpan={8} className="py-8 text-center text-slate-400">
-                  Loading courier deposits...
-                </td>
-              </tr>
-            ) : safeDeposits.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="py-8 text-center text-slate-400">
-                  {filterStatus === 'PENDING_APPROVAL'
-                    ? 'No pending deposits awaiting verification.'
-                    : 'No deposit records found.'}
-                </td>
-              </tr>
-            ) : (
-              safeDeposits.map((deposit) => {
-                const isPending = deposit.status === 'PENDING_APPROVAL';
-                const isVerified = deposit.status === 'VERIFIED';
-                const isRejected = deposit.status === 'REJECTED';
+      {(() => {
+        const totalPages = Math.max(1, Math.ceil(safeDeposits.length / PAGE_SIZE));
+        const paginatedDeposits = safeDeposits.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-                return (
-                  <tr
-                    key={deposit.id}
-                    className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+        const columns: Column<CashDepositItem>[] = [
+          {
+            key: 'courier',
+            header: 'Courier',
+            render: (deposit) => (
+              <div>
+                <div className="font-medium text-slate-900 dark:text-slate-100">{deposit.rider?.user?.fullName || 'Courier'}</div>
+                <div className="text-[11px] text-slate-400">{deposit.rider?.user?.phone || '—'}</div>
+              </div>
+            ),
+          },
+          {
+            key: 'amount',
+            header: 'Amount',
+            render: (deposit) => (
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                {formatCurrency(deposit.amount, { decimals: true })}
+              </span>
+            ),
+          },
+          {
+            key: 'paymentMethod',
+            header: 'Payment Method',
+            render: (deposit) => (
+              <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                {deposit.paymentMethod}
+              </span>
+            ),
+          },
+          {
+            key: 'reference',
+            header: 'Reference',
+            render: (deposit) => (
+              <span className="text-slate-600 dark:text-slate-300 font-mono text-[11px]">
+                {deposit.transactionReference || '—'}
+              </span>
+            ),
+          },
+          {
+            key: 'cashInHand',
+            header: 'Cash-in-Hand',
+            render: (deposit) => (
+              <div>
+                <span className="font-medium text-amber-600 dark:text-amber-400">
+                  {formatCurrency(deposit.rider?.cashInHand || 0)}
+                </span>
+                <span className="text-slate-400 text-[11px]"> / {formatCurrency(deposit.rider?.maxCashLimit || 0)}</span>
+              </div>
+            ),
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            render: (deposit) => (
+              deposit.status === 'PENDING_APPROVAL' ? (
+                <Badge variant="warning">Pending Approval</Badge>
+              ) : deposit.status === 'VERIFIED' ? (
+                <Badge variant="success">Verified</Badge>
+              ) : (
+                <Badge variant="danger">Rejected</Badge>
+              )
+            ),
+          },
+          {
+            key: 'depositedAt',
+            header: 'Deposited At',
+            render: (deposit) => (
+              <span className="text-slate-500 text-xs">
+                {formatDateTime(deposit.depositedAt)}
+              </span>
+            ),
+          },
+          {
+            key: 'action',
+            header: 'Action',
+            headerClassName: 'text-right',
+            className: 'text-right',
+            render: (deposit) => (
+              deposit.status === 'PENDING_APPROVAL' ? (
+                <div className="flex items-center justify-end gap-1.5">
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-7 px-2.5"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenVerify(deposit, 'APPROVE');
+                    }}
                   >
-                    <td className="py-3 px-4 font-medium text-slate-900 dark:text-slate-100">
-                      <div>{deposit.rider?.user?.fullName || 'Courier'}</div>
-                      <div className="text-[11px] text-slate-400 font-normal">{deposit.rider?.user?.phone || '—'}</div>
-                    </td>
-                    <td className="py-3 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
-                      ৳{Number(deposit.amount).toFixed(2)}
-                    </td>
-                    <td className="py-3 px-3 text-center whitespace-nowrap">
-                      <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                        {deposit.paymentMethod}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-slate-600 dark:text-slate-300 whitespace-nowrap font-mono text-[11px]">
-                      {deposit.transactionReference}
-                    </td>
-                    <td className="py-3 px-3 text-right whitespace-nowrap">
-                      <span className="font-medium text-amber-600 dark:text-amber-400">
-                        ৳{Number(deposit.rider?.cashInHand || 0).toFixed(0)}
-                      </span>
-                      <span className="text-slate-400 text-[11px]"> / ৳{deposit.rider?.maxCashLimit || 0}</span>
-                    </td>
-                    <td className="py-3 px-3 text-center whitespace-nowrap">
-                      {isPending && <Badge variant="warning">Pending Approval</Badge>}
-                      {isVerified && <Badge variant="success">Verified</Badge>}
-                      {isRejected && <Badge variant="danger">Rejected</Badge>}
-                    </td>
-                    <td className="py-3 px-3 text-right text-slate-500 whitespace-nowrap">
-                      {new Date(deposit.depositedAt).toLocaleString()}
-                    </td>
-                    <td className="py-3 px-4 text-right whitespace-nowrap">
-                      {isPending ? (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-7 px-2.5"
-                            onClick={() => handleOpenVerify(deposit, 'APPROVE')}
-                          >
-                            Verify
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-rose-600 hover:text-rose-700 border-rose-200 text-xs h-7 px-2.5"
-                            onClick={() => handleOpenVerify(deposit, 'REJECT')}
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-slate-400">
-                          {deposit.verifiedAt ? `Verified ${new Date(deposit.verifiedAt).toLocaleDateString()}` : '—'}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                    Verify
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-rose-600 hover:text-rose-700 border-rose-200 text-xs h-7 px-2.5"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenVerify(deposit, 'REJECT');
+                    }}
+                  >
+                    Reject
+                  </Button>
+                </div>
+              ) : (
+                <span className="text-[11px] text-slate-400">
+                  {deposit.verifiedAt ? `Verified ${formatDateTime(deposit.verifiedAt, 'date')}` : '—'}
+                </span>
+              )
+            ),
+          },
+        ];
+
+        return (
+          <Table
+            columns={columns}
+            data={paginatedDeposits}
+            keyExtractor={(d) => d.id}
+            isLoading={isLoading}
+            emptyMessage={
+              filterStatus === 'PENDING_APPROVAL'
+                ? 'No pending deposits awaiting verification.'
+                : 'No deposit records found.'
+            }
+            page={page}
+            totalPages={totalPages}
+            totalItems={safeDeposits.length}
+            onPageChange={setPage}
+          />
+        );
+      })()}
 
       <Modal
         isOpen={selectedDeposit !== null}

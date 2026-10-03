@@ -11,21 +11,11 @@ import { DateRangeFilterToolbar } from '../common/DateRangeFilterToolbar';
 import { DatePreset, resolveDateRange } from '../../utils/dateRange';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { extractApiError } from '../../utils/apiError';
+import { formatCurrency, formatDateTime } from '../../utils/formatters';
 
-const CURRENCY = '৳';
 const PAGE_SIZE = 20;
 
 type LedgerStatusFilter = 'ALL' | 'PENDING' | 'PROCESSING' | 'SETTLED';
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 /** Unified per-order financial ledger: commission + rider payout entries joined
  *  per order, with window/status filters and CSV export of the filtered set. */
@@ -104,7 +94,7 @@ export const FinanceLedgerSection: React.FC<{ onError: (message: string) => void
     {
       key: 'gross',
       header: 'Gross',
-      render: (row) => <span className="font-semibold">{CURRENCY} {row.grossAmount.toLocaleString()}</span>,
+      render: (row) => <span className="font-semibold">{formatCurrency(row.grossAmount)}</span>,
     },
     {
       key: 'commission',
@@ -112,7 +102,7 @@ export const FinanceLedgerSection: React.FC<{ onError: (message: string) => void
       render: (row) => (
         <div>
           <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-            {CURRENCY} {row.commissionAmount.toLocaleString()}
+            {formatCurrency(row.commissionAmount)}
           </span>
           <div className="text-[11px] text-slate-500">{row.commissionRate}%</div>
         </div>
@@ -121,7 +111,7 @@ export const FinanceLedgerSection: React.FC<{ onError: (message: string) => void
     {
       key: 'netVendor',
       header: 'Net Vendor',
-      render: (row) => <span>{CURRENCY} {row.netVendorPayable.toLocaleString()}</span>,
+      render: (row) => <span>{formatCurrency(row.netVendorPayable)}</span>,
     },
     {
       key: 'riderEarnings',
@@ -129,9 +119,9 @@ export const FinanceLedgerSection: React.FC<{ onError: (message: string) => void
       render: (row) =>
         row.riderEarnings !== null ? (
           <div>
-            <span>{CURRENCY} {row.riderEarnings.toLocaleString()}</span>
+            <span>{formatCurrency(row.riderEarnings)}</span>
             {row.codCollected ? (
-              <div className="text-[11px] text-slate-500">COD {CURRENCY} {row.codCollected.toLocaleString()}</div>
+              <div className="text-[11px] text-slate-500">COD {formatCurrency(row.codCollected)}</div>
             ) : null}
           </div>
         ) : (
@@ -161,11 +151,11 @@ export const FinanceLedgerSection: React.FC<{ onError: (message: string) => void
       {/* Summary cards span the whole filtered window */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         <StatCard title="Ledger Orders" value={(summary?.orders ?? 0).toLocaleString()} isLoading={isLoading} />
-        <StatCard title="Gross Sales" value={`${CURRENCY} ${(summary?.grossSales ?? 0).toLocaleString()}`} isLoading={isLoading} />
-        <StatCard title="Commission" value={`${CURRENCY} ${(summary?.platformCommission ?? 0).toLocaleString()}`} isLoading={isLoading} />
-        <StatCard title="Net Vendor Payable" value={`${CURRENCY} ${(summary?.netVendorPayable ?? 0).toLocaleString()}`} isLoading={isLoading} />
-        <StatCard title="Rider Payouts" value={`${CURRENCY} ${(summary?.riderPayouts ?? 0).toLocaleString()}`} isLoading={isLoading} />
-        <StatCard title="COD Collected" value={`${CURRENCY} ${(summary?.codCollected ?? 0).toLocaleString()}`} isLoading={isLoading} />
+        <StatCard title="Gross Sales" value={formatCurrency(summary?.grossSales ?? 0)} isLoading={isLoading} />
+        <StatCard title="Commission" value={formatCurrency(summary?.platformCommission ?? 0)} isLoading={isLoading} />
+        <StatCard title="Net Vendor Payable" value={formatCurrency(summary?.netVendorPayable ?? 0)} isLoading={isLoading} />
+        <StatCard title="Rider Payouts" value={formatCurrency(summary?.riderPayouts ?? 0)} isLoading={isLoading} />
+        <StatCard title="COD Collected" value={formatCurrency(summary?.codCollected ?? 0)} isLoading={isLoading} />
       </div>
 
       <DateRangeFilterToolbar

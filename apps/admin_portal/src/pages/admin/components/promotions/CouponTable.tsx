@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pencil, Tag, Plus, Trash2 } from 'lucide-react';
 import { AdminCoupon } from '../../../../services/adminApi';
 import { Badge } from '../../../../components/ui/Badge';
 import { Button } from '../../../../components/ui/Button';
-import { LoadingSpinner } from '../../../../components/ui/LoadingSpinner';
+import { Table, Column } from '../../../../components/ui/Table';
 import { EmptyState } from '../../../../components/common/EmptyState';
 import { QueryErrorBanner } from '../../../../components/common/QueryErrorBanner';
+import { formatCurrency } from '../../../../utils/formatters';
 
 interface CouponTableProps {
   coupons: AdminCoupon[];
@@ -18,6 +19,8 @@ interface CouponTableProps {
   onAdd: () => void;
 }
 
+const PAGE_SIZE = 10;
+
 export const CouponTable: React.FC<CouponTableProps> = ({
   coupons,
   isLoading,
@@ -28,18 +31,20 @@ export const CouponTable: React.FC<CouponTableProps> = ({
   onDelete,
   onAdd,
 }) => {
-  let content: React.ReactNode;
+  const [page, setPage] = useState(1);
 
-  if (isLoading) {
-    content = (
-      <div className="py-16 text-center">
-        <LoadingSpinner size="lg" label="Loading coupons..." />
-      </div>
-    );
-  } else if (error) {
-    content = <QueryErrorBanner error={error} onRetry={onRetry} />;
-  } else if (coupons.length === 0) {
-    content = (
+  const safeCoupons = Array.isArray(coupons) ? coupons : [];
+  const totalPages = Math.max(1, Math.ceil(safeCoupons.length / PAGE_SIZE));
+  const paginatedCoupons = useMemo(() => {
+    return safeCoupons.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  }, [safeCoupons, page]);
+
+  if (error) {
+    return <QueryErrorBanner error={error} onRetry={onRetry} />;
+  }
+
+  if (!isLoading && safeCoupons.length === 0) {
+    return (
       <EmptyState
         icon={Tag}
         title="No coupon codes"
@@ -52,95 +57,115 @@ export const CouponTable: React.FC<CouponTableProps> = ({
         className="m-4"
       />
     );
-  } else {
-    content = (
-      <div className="overflow-x-auto">
-        <table className="min-w-[640px] w-full text-left text-xs">
-          <thead className="border-b border-slate-100 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
-            <tr>
-              <th className="py-3 px-4 font-semibold whitespace-nowrap">Promo Code</th>
-              <th className="py-3 px-4 font-semibold whitespace-nowrap">Discount Rule</th>
-              <th className="py-3 px-4 font-semibold whitespace-nowrap">Min Spend</th>
-              <th className="py-3 px-4 font-semibold whitespace-nowrap">Max Cap</th>
-              <th className="py-3 px-4 font-semibold whitespace-nowrap">Usage</th>
-              <th className="py-3 px-4 font-semibold whitespace-nowrap">Status</th>
-              <th className="py-3 px-4 font-semibold text-right whitespace-nowrap">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {coupons.map((coupon) => (
-              <tr key={coupon.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
-                <td className="py-3.5 px-4 font-bold tracking-wider text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                  {coupon.code}
-                  {coupon.description && (
-                    <div className="text-[11px] font-normal text-slate-500">{coupon.description}</div>
-                  )}
-                </td>
-                <td className="py-3.5 px-4 whitespace-nowrap">
-                  <span className="font-semibold text-primary-600 dark:text-primary-400">
-                    {coupon.discountType === 'PERCENTAGE'
-                      ? `${coupon.discountValue}% OFF`
-                      : `৳${coupon.discountValue} FLAT`}
-                  </span>
-                </td>
-                <td className="py-3.5 px-4 text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                  ৳{coupon.minOrderAmount}
-                </td>
-                <td className="py-3.5 px-4 text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                  {coupon.maxDiscountAmount ? `৳${coupon.maxDiscountAmount}` : 'No Cap'}
-                </td>
-                <td className="py-3.5 px-4 whitespace-nowrap">
-                  <span className="font-medium text-slate-900 dark:text-slate-100">{coupon.currentUses}</span>
-                  <span className="text-slate-400"> / {coupon.usageLimit}</span>
-                </td>
-                <td className="py-3.5 px-4 whitespace-nowrap">
-                  {coupon.isActive ? (
-                    <Badge variant="success">Active</Badge>
-                  ) : (
-                    <Badge variant="default">Paused</Badge>
-                  )}
-                </td>
-                <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                  <div className="inline-flex items-center justify-end gap-1.5">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs h-7 px-2"
-                      onClick={() => onToggle(coupon)}
-                    >
-                      {coupon.isActive ? 'Pause' : 'Activate'}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs h-7 px-2 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-950/40"
-                      onClick={() => onEdit(coupon)}
-                      leftIcon={<Pencil className="h-3.5 w-3.5" />}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs h-7 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
-                      onClick={() => onDelete(coupon)}
-                      leftIcon={<Trash2 className="h-3.5 w-3.5" />}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
   }
 
+  const columns: Column<AdminCoupon>[] = [
+    {
+      key: 'code',
+      header: 'Promo Code',
+      render: (coupon) => (
+        <div>
+          <span className="font-bold tracking-wider text-slate-900 dark:text-slate-100">
+            {coupon.code}
+          </span>
+          {coupon.description && (
+            <div className="text-[11px] font-normal text-slate-500">{coupon.description}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'discount',
+      header: 'Discount Rule',
+      render: (coupon) => (
+        <span className="font-semibold text-primary-600 dark:text-primary-400">
+          {coupon.discountType === 'PERCENTAGE'
+            ? `${coupon.discountValue}% OFF`
+            : `${formatCurrency(coupon.discountValue)} FLAT`}
+        </span>
+      ),
+    },
+    {
+      key: 'minOrderAmount',
+      header: 'Min Spend',
+      render: (coupon) => formatCurrency(coupon.minOrderAmount),
+    },
+    {
+      key: 'maxDiscountAmount',
+      header: 'Max Cap',
+      render: (coupon) =>
+        coupon.maxDiscountAmount ? formatCurrency(coupon.maxDiscountAmount) : 'No Cap',
+    },
+    {
+      key: 'usage',
+      header: 'Usage',
+      render: (coupon) => (
+        <span>
+          <span className="font-medium text-slate-900 dark:text-slate-100">{coupon.currentUses}</span>
+          <span className="text-slate-400"> / {coupon.usageLimit}</span>
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (coupon) => (
+        coupon.isActive ? (
+          <Badge variant="success">Active</Badge>
+        ) : (
+          <Badge variant="default">Paused</Badge>
+        )
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (coupon) => (
+        <div className="inline-flex items-center justify-end gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7 px-2"
+            onClick={() => onToggle(coupon)}
+          >
+            {coupon.isActive ? 'Pause' : 'Activate'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7 px-2 text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-950/40"
+            onClick={() => onEdit(coupon)}
+            leftIcon={<Pencil className="h-3.5 w-3.5" />}
+          >
+            Edit
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
+            onClick={() => onDelete(coupon)}
+            leftIcon={<Trash2 className="h-3.5 w-3.5" />}
+          >
+            Delete
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
-      {content}
-    </div>
+    <Table
+      columns={columns}
+      data={paginatedCoupons}
+      keyExtractor={(c) => c.id}
+      isLoading={isLoading}
+      emptyMessage="No coupons match the search query."
+      page={page}
+      totalPages={totalPages}
+      totalItems={safeCoupons.length}
+      onPageChange={setPage}
+    />
   );
 };

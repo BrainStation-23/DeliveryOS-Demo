@@ -100,4 +100,4 @@ Governed by the `order_flow_config` system setting ([ADR-002](../architecture-de
   - Shifts color: Green ➔ Amber (80%) ➔ Red (100%).
   - Invariant: Couriers reaching 100% limit are excluded from new COD broadcasts until cash is deposited.
 - **Hub Cash Deposit Flow**: Courier records physical cash handover at logistics hub (`POST /rider/cash/deposit`) with reference number and deposit amount for administrative audit.
-- **Trip Receipts**: Itemized history of completed deliveries with order numbers, addresses, and earnings.
+- **Trip Receipts & Lazy List Virtualization**: Itemized history of completed deliveries with order numbers, addresses, and earnings. Rendered via `CustomScrollView` with lazy `SliverList.builder` to ensure smooth 60/120fps scrolling and eliminate memory leaks over extended multi-hour shifts.

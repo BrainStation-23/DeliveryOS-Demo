@@ -12,22 +12,11 @@ import { CustomerRow } from '../../services/adminApi';
 import { DatePreset, resolveDateRange } from '../../utils/dateRange';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { extractApiError } from '../../utils/apiError';
+import { formatCurrency, formatDateTime } from '../../utils/formatters';
 
-const CURRENCY = '৳';
 const PAGE_SIZE = 20;
 
 type CustomerStatusFilter = 'ALL' | 'ACTIVE' | 'SUSPENDED';
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 /** Customer directory: search, account-status filter, registration date window,
  *  lifetime order aggregates per row, and suspend/unsuspend controls. */
@@ -89,7 +78,7 @@ export const AdminCustomersPage: React.FC = () => {
     {
       key: 'spend',
       header: 'Lifetime Spend',
-      render: (row) => <span className="font-semibold">{CURRENCY} {row.lifetimeSpend.toLocaleString()}</span>,
+      render: (row) => <span className="font-semibold">{formatCurrency(row.lifetimeSpend)}</span>,
     },
     { key: 'lastOrderAt', header: 'Last Order', render: (row) => formatDateTime(row.lastOrderAt) },
     { key: 'createdAt', header: 'Joined', render: (row) => formatDateTime(row.createdAt) },

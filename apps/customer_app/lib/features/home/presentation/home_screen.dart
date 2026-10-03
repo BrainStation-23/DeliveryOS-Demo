@@ -459,33 +459,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
             SliverPadding(
               padding: AppSpacing.edgeInsetsHorizontalLg,
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  if (locState.isLoading)
-                    const Padding(
-                      padding: EdgeInsets.all(40.0),
-                      child: Center(
-                        child: CircularProgressIndicator(color: AppColors.primary),
+              sliver: locState.isLoading
+                  ? const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.all(40.0),
+                        child: Center(
+                          child: CircularProgressIndicator(color: AppColors.primary),
+                        ),
                       ),
                     )
-                  else if (displayedVendors.isEmpty)
-                    EmptyStateView(
-                      icon: Icons.storefront_outlined,
-                      title: 'No outlets found in this area',
-                      message: _selectedCategory == null
-                          ? 'We could not find any active stores delivering to your current location.'
-                          : 'No stores available in this category nearby.',
-                    )
-                  else
-                    ...displayedVendors.map((vendor) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                        child: OutletCard(vendor: vendor),
-                      );
-                    }),
-                  const SizedBox(height: AppSpacing.xxl),
-                ]),
-              ),
+                  : displayedVendors.isEmpty
+                      ? SliverToBoxAdapter(
+                          child: EmptyStateView(
+                            icon: Icons.storefront_outlined,
+                            title: 'No outlets found in this area',
+                            message: _selectedCategory == null
+                                ? 'We could not find any active stores delivering to your current location.'
+                                : 'No stores available in this category nearby.',
+                          ),
+                        )
+                      : SliverList.builder(
+                          itemCount: displayedVendors.length + 1,
+                          itemBuilder: (context, index) {
+                            if (index == displayedVendors.length) {
+                              return const SizedBox(height: AppSpacing.xxl);
+                            }
+                            final vendor = displayedVendors[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                              child: OutletCard(vendor: vendor),
+                            );
+                          },
+                        ),
             ),
           ],
         ),

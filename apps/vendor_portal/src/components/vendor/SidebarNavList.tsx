@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { VENDOR_NAV_ITEMS, isVendorNavItemActive } from '../../config/vendorNavigation';
 
 export interface NavItem {
   label: string;
@@ -21,7 +22,10 @@ export const SidebarNavList: React.FC<SidebarNavListProps> = ({
   const location = useLocation();
 
   const isActive = (href: string) => {
-    if (href === '/') return location.pathname === '/' || location.pathname === '/kds';
+    const matched = VENDOR_NAV_ITEMS.find((n) => n.href === href);
+    if (matched) {
+      return isVendorNavItemActive(matched, location.pathname);
+    }
     return location.pathname === href || location.pathname.startsWith(`${href}/`);
   };
 

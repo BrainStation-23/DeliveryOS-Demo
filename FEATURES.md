@@ -96,7 +96,7 @@ This document provides a line-level, granular breakdown of every operational fea
 ### 2.3. Home Discovery & Promotions
 - **Dynamic Hero Banners**: Auto-scrolling banner carousel displaying active platform promotions, linked to vendors or promo codes (`BannerCarousel`). Relative media-library URLs (`/uploads/...`, ADR-016) are joined onto the API origin at parse time via `resolveImageUrl` — banners created in the central Media Library render without app-side changes.
 - **Category Filter Grid**: Quick vertical category selector (`All`, `FOOD`, `GROCERY`, `PHARMACY`) filtering nearby outlets in real-time (`HomeScreen`).
-- **Hyperlocal Vendor Feed**: Distance-sorted merchant cards showing delivery fee, ETA in minutes, rating, open status badge, and rush-hour pause indicators.
+- **Hyperlocal Vendor Feed & List Virtualization**: Distance-sorted merchant cards showing delivery fee, ETA in minutes, rating, open status badge, and rush-hour pause indicators. Feed uses lazy `SliverList.builder` virtualization to eliminate memory pressure and maintain 60/120fps scroll smoothness.
 
 ### 2.4. Smart Search & Direct Add-to-Cart
 - **Debounced Instant Search**: Queries product titles and merchant names simultaneously via `GET /vendors/search?q=...` (`SearchScreen`).
@@ -131,7 +131,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Self-Service Order Cancellation**: Customer can cancel their order during `PLACED` and `RIDER_ASSIGNED` stages with automatic coupon quota restoration and refund accounting (`POST /orders/:id/cancel`).
 
 ### 2.8. Order History & Smart Re-Order
-- **Completed Receipts Feed**: Itemized past order cards with status badges, date, items summary, and total amount (`OrderHistoryScreen`).
+- **Infinite Scrolling Receipts Feed**: Paginated past order cards (`GET /orders/history?page=&limit=15`) with status badges, date, items summary, and total amount (`OrderHistoryScreen`). `ScrollController` listener initiates automatic `loadMore()` requests on threshold, paired with a pull-to-refresh `RefreshIndicator` and live tracking CTA button on active orders.
 - **Smart Re-Order Validation**:
   - Sends `POST /orders/validate-reorder` verifying current store operational status and product stock.
   - Automatically identifies discontinued or out-of-stock items, alerts customer with modal dialog, and repopulates cart with remaining items at updated prices.
@@ -192,6 +192,7 @@ This document provides a line-level, granular breakdown of every operational fea
   - Progress meter shifts green ➔ amber (80%) ➔ red (100%).
 - **Hub Cash Deposit Flow**: Courier records physical cash handover to central hub (`POST /rider/cash/deposit`) for admin verification.
 - **Deposit Tracking Feed**: Couriers track status of submitted deposits (`PENDING_APPROVAL`, `APPROVED`, `REJECTED`) via `GET /rider/cash/deposits`.
+- **Trip Receipts & Lazy List Virtualization**: Itemized history of completed deliveries rendered via `CustomScrollView` and lazy `SliverList.builder`, preventing frame drops and memory spikes during heavy shifts.
 
 ---
 
@@ -256,6 +257,8 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Tablet & Mobile Ergonomics**: Horizontally scrollable snap-track for tablet displays (768px-1024px) plus mobile lane selector tabs.
 - **Touch-Friendly Buttons**: Action buttons, timers, and prep-time pills optimized with `>= 44px` minimum hit areas.
 - **Reusable Component Suite**: Shared `PageHeader`, `StatCard`, and accessible `StockToggleSwitch`.
+- **Canonical Navigation Architecture & Page Title Sync**: Single source of truth in `vendorNavigation.ts` matching canonical Lucide icons (`ClipboardList`, `UtensilsCrossed`, `Receipt`, `Store`), aliases (`/kds` to `/`), synchronized document titles (`${pageTitle} · DeliveryOS Vendor`), and trilingual localized strings (`en`, `bn`, `ar`).
+- **Sales Ledger & Orders Table Pagination**: `<Table>` component pagination (`PAGE_SIZE = 15`) with persistent entry count readout (`Total {totalItems} entries`), automatic page resets on date preset and search changes.
 
 ---
 
@@ -365,6 +368,8 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Table Column Protection**: Tables wrapped in `overflow-x-auto` to prevent data clipping.
 - **Non-Clipped Modals**: Scrolling internal modal body with fixed headers/actions preventing viewport cutoff.
 - **Reusable Component Primitives**: `PageHeader`, `StatCard`, and `EmptyState`.
+- **Single Source of Truth Navigation Architecture**: `adminNavigation.ts` single source of truth defining all 9 routes with canonical Lucide icons, route aliases (`/outlets` $\rightarrow$ `/vendors`), active path matching (`isNavItemActive`), and automatic document title updates (`${pageTitle} · DeliveryOS Admin`).
+- **Standardized Table Pagination & Entry Counters**: Universal `<Table>` footer rendering total item counts (`Total {totalItems} entries`) even on single-page results, with client-side and server-side pagination across Cash Deposits (`CashDepositsSection`, `PAGE_SIZE = 15`), Staff Accounts (`StaffAccountsTab`, `PAGE_SIZE = 10`), and Coupons (`CouponTable`, `PAGE_SIZE = 10`), resetting to page 1 on search or filter adjustments.
 
 ### 5.10. Central Media Library & Asset Control (ADR-016)
 - **Client-Side Crop & Resize Before Upload**: `UploadEditorModal` (react-image-crop) with free-form + 16:9 / 4:3 / 1:1 aspect presets, longest-edge caps (original / 1920 / 1280 / 800 px), live output-dimension readout, canvas re-encode (GIF → static frame), and a pre-upload 5 MB guard; re-edit as many times as desired before confirming. A **Media Name** field renames the asset at upload time (defaults to the file name sans extension; normalized and 255-capped).

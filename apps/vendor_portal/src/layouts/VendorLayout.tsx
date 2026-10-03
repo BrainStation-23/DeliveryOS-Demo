@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
+import { VENDOR_NAV_ITEMS, findActiveVendorNavItem } from '../config/vendorNavigation';
 import {
   Building2,
   ShoppingBag,
@@ -81,12 +82,20 @@ const VendorLayoutInner: React.FC = () => {
     });
   };
 
-  const navItems = [
-    { label: t('nav.vendor.kds'), href: '/', icon: ClipboardList },
-    { label: t('nav.vendor.catalog'), href: '/catalog', icon: Package },
-    { label: t('nav.vendor.orders'), href: '/orders', icon: Receipt },
-    { label: t('nav.vendor.settings'), href: '/settings', icon: Store },
-  ];
+  const location = useLocation();
+
+  useEffect(() => {
+    const active = findActiveVendorNavItem(location.pathname);
+    const pageTitle = active ? t(`nav.vendor.${active.key}`) : 'Vendor Portal';
+    document.title = `${pageTitle} · DeliveryOS Vendor`;
+  }, [location.pathname, t]);
+
+  const navItems = VENDOR_NAV_ITEMS.map((item) => ({
+    key: item.key,
+    label: t(`nav.vendor.${item.key}`),
+    href: item.href,
+    icon: item.icon,
+  }));
 
   const parseUserIdentity = () => {
     const rawName = user?.fullName || 'Vendor Staff';

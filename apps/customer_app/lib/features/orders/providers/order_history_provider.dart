@@ -8,28 +8,42 @@ import '../domain/order_history_model.dart';
 class OrderHistoryState {
   final List<PastOrder> orders;
   final bool isLoading;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final int page;
   final String? error;
 
   OrderHistoryState({
     this.orders = const [],
     this.isLoading = false,
+    this.isLoadingMore = false,
+    this.hasMore = true,
+    this.page = 1,
     this.error,
   });
 
   OrderHistoryState copyWith({
     List<PastOrder>? orders,
     bool? isLoading,
+    bool? isLoadingMore,
+    bool? hasMore,
+    int? page,
     String? error,
   }) {
     return OrderHistoryState(
       orders: orders ?? this.orders,
       isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMore: hasMore ?? this.hasMore,
+      page: page ?? this.page,
       error: error,
     );
   }
 }
 
 class OrderHistoryNotifier extends Notifier<OrderHistoryState> {
+  static const int _pageSize = 15;
+
   @override
   OrderHistoryState build() {
     final auth = ref.watch(authProvider);
@@ -46,18 +60,21 @@ class OrderHistoryNotifier extends Notifier<OrderHistoryState> {
       return;
     }
 
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, error: null, page: 1);
     try {
       final dio = ref.read(dioClientProvider);
       final response = await dio.get(
         ApiConstants.orderHistory,
-        queryParameters: {'page': 1, 'limit': 50},
+        queryParameters: {'page': 1, 'limit': _pageSize},
       );
       if (response.statusCode == 200) {
         final data = response.data['data'];
         final items = data is Map<String, dynamic>
             ? (data['items'] as List<dynamic>? ?? [])
             : (data is List<dynamic> ? data : []);
+        final hasNextPage = data is Map<String, dynamic>
+            ? (data['hasNextPage'] as bool? ?? (items.length >= _pageSize))
+            : (items.length >= _pageSize);
         final parsed = items
             .whereType<Map<String, dynamic>>()
             .map((json) => PastOrder.fromJson(json))
@@ -65,6 +82,9 @@ class OrderHistoryNotifier extends Notifier<OrderHistoryState> {
         state = state.copyWith(
           orders: parsed,
           isLoading: false,
+          isLoadingMore: false,
+          page: 1,
+          hasMore: hasNextPage,
           error: null,
         );
         return;
@@ -73,12 +93,57 @@ class OrderHistoryNotifier extends Notifier<OrderHistoryState> {
       state = state.copyWith(
         orders: const [],
         isLoading: false,
+        isLoadingMore: false,
         error: 'Failed to load order history',
       );
       return;
     }
 
     state = state.copyWith(orders: const [], isLoading: false);
+  }
+
+  Future<void> loadMore() async {
+    if (state.isLoading || state.isLoadingMore || !state.hasMore) {
+      return;
+    }
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated) return;
+
+    final nextPage = state.page + 1;
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final dio = ref.read(dioClientProvider);
+      final response = await dio.get(
+        ApiConstants.orderHistory,
+        queryParameters: {'page': nextPage, 'limit': _pageSize},
+      );
+      if (response.statusCode == 200) {
+        final data = response.data['data'];
+        final items = data is Map<String, dynamic>
+            ? (data['items'] as List<dynamic>? ?? [])
+            : (data is List<dynamic> ? data : []);
+        final hasNextPage = data is Map<String, dynamic>
+            ? (data['hasNextPage'] as bool? ?? (items.length >= _pageSize))
+            : (items.length >= _pageSize);
+        final parsed = items
+            .whereType<Map<String, dynamic>>()
+            .map((json) => PastOrder.fromJson(json))
+            .toList();
+
+        state = state.copyWith(
+          orders: [...state.orders, ...parsed],
+          isLoadingMore: false,
+          page: nextPage,
+          hasMore: hasNextPage,
+        );
+        return;
+      }
+    } catch (_) {
+      state = state.copyWith(isLoadingMore: false);
+      return;
+    }
+
+    state = state.copyWith(isLoadingMore: false);
   }
 
   Future<ReorderValidationResult> validateAndReorder(PastOrder pastOrder) async {

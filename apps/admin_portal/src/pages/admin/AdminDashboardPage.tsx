@@ -6,6 +6,7 @@ import {
   Bike,
   CheckCircle2,
   Clock,
+  LayoutDashboard,
   Percent,
   ShoppingBag,
   Store,
@@ -16,6 +17,7 @@ import {
 import adminApi, { AnalyticsOverview } from '../../services/adminApi';
 import { useSocketQueryInvalidation } from '../../hooks/useSocketSubscription';
 import { DatePreset, resolveDateRange } from '../../utils/dateRange';
+import { PageHeader } from '../../components/common/PageHeader';
 import { DateRangeFilterToolbar } from '../../components/common/DateRangeFilterToolbar';
 import { TrendStatCard } from '../../components/common/TrendStatCard';
 import { StatCard } from '../../components/common/StatCard';
@@ -99,12 +101,11 @@ export const AdminDashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">{t('admin.title')}</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('admin.subtitle')}</p>
-        </div>
-      </div>
+      <PageHeader
+        title={t('nav.admin.dashboard')}
+        subtitle={t('admin.subtitle')}
+        icon={LayoutDashboard}
+      />
 
       <DateRangeFilterToolbar
         datePreset={datePreset}

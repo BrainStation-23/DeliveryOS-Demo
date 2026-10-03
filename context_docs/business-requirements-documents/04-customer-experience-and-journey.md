@@ -35,7 +35,7 @@ Functional specifications, screen states, user inputs, business guards, outputs,
 - **Outputs**: Persistent address record; active customer coordinate state updated in Riverpod `LocationNotifier`.
 - **Edge Cases**: Geocoding failure falls back to manual street address entry.
 
-### Screen 3: Home Feed, Categorized Discovery & Instant Search (`SearchScreen`)
+### Screen 3: Home Feed, Categorized Discovery & Instant Search (`HomeScreen`, `SearchScreen`)
 - **Components**: Promotional banner carousel, vertical category filter pills (`All`, `FOOD`, `GROCERY`, `PHARMACY`), outlet cards, search bar.
 - **Inputs**: Search query text `q`, vertical category selection.
 - **Business Rules**:
@@ -43,6 +43,7 @@ Functional specifications, screen states, user inputs, business guards, outputs,
   - Search queries both outlet names and item titles simultaneously (`GET /vendors/search?q=...`).
   - **Direct Add Action**: Item cards in search results feature an `ADD +` button launching the `ItemCustomizerSheet` directly without loading the store page.
   - **Single-Vendor Cart Conflict**: Adding an item from Store B while Store A items exist in cart triggers a confirmation modal: *"Clear Cart & Add New?"*.
+  - **List Virtualization Invariant**: The home feed utilizes lazy `SliverList.builder` rendering, preventing eager widget instantiation and ensuring constant 60/120fps scrolling even with dozens of nearby outlets.
 - **Outputs**: Filtered merchant list; navigation to `OutletDetailScreen` or instant item addition.
 - **Edge Cases**: Zero search results shows empty state with suggestions to clear filters.
 
@@ -93,9 +94,11 @@ Functional specifications, screen states, user inputs, business guards, outputs,
 - **Outputs**: State updates reflected in UI; direct telephone handoff.
 
 ### Screen 9: Smart Re-Order from Order History (`OrderHistoryScreen`)
-- **Components**: Past orders receipt feed, 1-tap "Re-Order" button.
-- **Inputs**: Order ID selection.
+- **Components**: Past orders receipt feed, infinite scroll loading indicator, pull-to-refresh `RefreshIndicator`, 1-tap "Track Order" button (active orders), and 1-tap "Re-Order" button.
+- **Inputs**: Order ID selection, scroll pagination threshold.
 - **Business Rules**:
-  - Backend validation pipeline checks: store open status, geofence radius, item in-stock status, and price changes.
+  - **Infinite Scroll Pagination**: Calls `GET /orders/history` with `page` and `limit = 15`. A `ScrollController` listener detects when the viewport is within 200px of max scroll extent and invokes `loadMore()`.
+  - **Pull-To-Refresh**: Enabled across both empty state and populated orders list.
+  - **Smart Re-Order Validation**: Backend validation pipeline checks: store open status, geofence radius, item in-stock status, and price changes.
   - If items are out of stock, displays alert dialog itemizing omitted items and loads available items into cart at current prices.
-- **Outputs**: Cart populated with active items and navigation to `CartScreen`.
+- **Outputs**: Cart populated with active items and navigation to `CartScreen`, or active order navigation to `OrderTrackingScreen`.

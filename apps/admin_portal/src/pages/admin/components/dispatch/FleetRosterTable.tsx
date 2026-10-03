@@ -108,22 +108,6 @@ export const FleetRosterTable: React.FC<FleetRosterTableProps> = ({
           <span className="text-slate-400">—</span>
         ),
     },
-    {
-      key: 'actions',
-      header: '',
-      render: (row) => (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenDetails(row.id);
-          }}
-          className="text-xs font-semibold text-primary-600 hover:underline cursor-pointer dark:text-primary-400"
-        >
-          View Details
-        </button>
-      ),
-    },
   ];
 
   return (

@@ -19,7 +19,7 @@ import {
 } from './components/dispatch/FleetRosterTable';
 import { RiderDetailsDrawer } from './components/dispatch/RiderDetailsDrawer';
 
-const ROSTER_PAGE_SIZE = 20;
+const ROSTER_PAGE_SIZE = 15;
 
 /**
  * Unified Rider Fleet command centre: live reflection cards, geographic radar,

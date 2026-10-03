@@ -98,30 +98,34 @@ export function Table<T>({
         </table>
       </div>
 
-      {totalPages !== undefined && totalPages > 1 && (
+      {totalPages !== undefined && (totalPages >= 1 || totalItems !== undefined) && (
         <div className="flex flex-col sm:flex-row items-center justify-between border-t border-slate-100 bg-slate-50/50 px-4 sm:px-6 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-800/40 gap-2">
           <div>
             {totalItems !== undefined && <span>Total {totalItems} entries</span>}
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onPageChange && onPageChange((page || 1) - 1)}
-              disabled={(page || 1) <= 1}
-              className="rounded-lg px-2.5 py-1 font-medium hover:bg-slate-200 disabled:opacity-40 dark:hover:bg-slate-700 transition-colors"
-            >
-              Previous
-            </button>
-            <span className="font-semibold text-slate-700 dark:text-slate-200">
-              {page} / {totalPages}
-            </span>
-            <button
-              onClick={() => onPageChange && onPageChange((page || 1) + 1)}
-              disabled={(page || 1) >= totalPages}
-              className="rounded-lg px-2.5 py-1 font-medium hover:bg-slate-200 disabled:opacity-40 dark:hover:bg-slate-700 transition-colors"
-            >
-              Next
-            </button>
-          </div>
+          {totalPages >= 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onPageChange && onPageChange((page || 1) - 1)}
+                disabled={(page || 1) <= 1}
+                className="rounded-lg px-2.5 py-1 font-medium hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                Previous
+              </button>
+              <span className="font-semibold text-slate-700 dark:text-slate-200">
+                {page} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => onPageChange && onPageChange((page || 1) + 1)}
+                disabled={(page || 1) >= totalPages}
+                className="rounded-lg px-2.5 py-1 font-medium hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

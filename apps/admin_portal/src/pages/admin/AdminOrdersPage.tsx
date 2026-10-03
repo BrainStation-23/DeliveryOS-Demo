@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileText, Search, RefreshCw, X } from 'lucide-react';
+import { ClipboardList, Search, RefreshCw, X } from 'lucide-react';
 import adminApi, { AdminOrder } from '../../services/adminApi';
 import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
@@ -162,7 +162,7 @@ export const AdminOrdersPage: React.FC = () => {
       <PageHeader
         title="Order History"
         subtitle="Complete order records with live status updates, stage and date filters, and manual dispatch overrides"
-        icon={FileText}
+        icon={ClipboardList}
         actions={
           <Button
             variant="outline"

@@ -1,27 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  LayoutDashboard,
-  Building2,
-  Bike,
-  FileText,
-  Tag,
-  Settings,
   Menu,
   X,
   ShieldCheck,
   PanelLeftClose,
   PanelLeftOpen,
-  Landmark,
-  Images,
-  Users,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { LanguageSelector } from '../components/LanguageSelector';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { LogoutButton } from '../components/common/LogoutButton';
 import { Badge } from '../components/ui/Badge';
+import { ADMIN_NAV_ITEMS, findActiveNavItem, isNavItemActive } from '../config/adminNavigation';
 
 export const AdminLayout: React.FC = () => {
   const { t } = useTranslation();
@@ -36,6 +28,12 @@ export const AdminLayout: React.FC = () => {
     }
   });
 
+  useEffect(() => {
+    const activeItem = findActiveNavItem(location.pathname);
+    const pageTitle = activeItem ? t(`nav.admin.${activeItem.key}`) : 'Admin';
+    document.title = `${pageTitle} · DeliveryOS Admin`;
+  }, [location.pathname, t]);
+
   const toggleCollapse = () => {
     setIsCollapsed((prev) => {
       const next = !prev;
@@ -46,23 +44,6 @@ export const AdminLayout: React.FC = () => {
       }
       return next;
     });
-  };
-
-  const navItems = [
-    { label: t('nav.admin.dashboard'), href: '/', icon: LayoutDashboard },
-    { label: t('nav.admin.orders'), href: '/orders', icon: FileText },
-    { label: t('nav.admin.fleet'), href: '/fleet', icon: Bike },
-    { label: t('nav.admin.vendors'), href: '/vendors', icon: Building2 },
-    { label: t('nav.admin.promotions'), href: '/promotions', icon: Tag },
-    { label: t('nav.admin.customers'), href: '/customers', icon: Users },
-    { label: t('nav.admin.media'), href: '/media', icon: Images },
-    { label: t('nav.admin.finance'), href: '/finance', icon: Landmark },
-    { label: t('nav.admin.settings'), href: '/settings', icon: Settings },
-  ];
-
-  const isActive = (href: string) => {
-    if (href === '/') return location.pathname === '/' || location.pathname === '/admin' || location.pathname === '/dashboard';
-    return location.pathname === href || location.pathname.startsWith(`${href}/`) || location.pathname.startsWith(`/admin${href}`);
   };
 
   return (
@@ -112,14 +93,15 @@ export const AdminLayout: React.FC = () => {
         </div>
 
         <nav className="flex-1 min-h-0 space-y-1 p-3 overflow-y-auto overscroll-contain">
-          {navItems.map((item) => {
+          {ADMIN_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
-            const active = isActive(item.href);
+            const label = t(`nav.admin.${item.key}`);
+            const active = isNavItemActive(item, location.pathname);
             return (
               <Link
                 key={item.href}
                 to={item.href}
-                title={isCollapsed ? item.label : undefined}
+                title={isCollapsed ? label : undefined}
                 className={`flex items-center rounded-xl transition-all ${
                   isCollapsed ? 'h-10 w-10 mx-auto justify-center' : 'gap-3 px-3 py-2 text-sm font-medium'
                 } ${
@@ -129,8 +111,8 @@ export const AdminLayout: React.FC = () => {
                 }`}
               >
                 <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400'}`} />
-                {!isCollapsed && <span className="truncate">{item.label}</span>}
-                {isCollapsed && <span className="sr-only">{item.label}</span>}
+                {!isCollapsed && <span className="truncate">{label}</span>}
+                {isCollapsed && <span className="sr-only">{label}</span>}
               </Link>
             );
           })}
@@ -218,9 +200,10 @@ export const AdminLayout: React.FC = () => {
               </div>
 
               <nav className="flex-1 min-h-0 space-y-1 p-3 overflow-y-auto overscroll-contain">
-                {navItems.map((item) => {
+                {ADMIN_NAV_ITEMS.map((item) => {
                   const Icon = item.icon;
-                  const active = isActive(item.href);
+                  const label = t(`nav.admin.${item.key}`);
+                  const active = isNavItemActive(item, location.pathname);
                   return (
                     <Link
                       key={item.href}
@@ -233,7 +216,7 @@ export const AdminLayout: React.FC = () => {
                       }`}
                     >
                       <Icon className="h-4 w-4 shrink-0" />
-                      <span>{item.label}</span>
+                      <span>{label}</span>
                     </Link>
                   );
                 })}

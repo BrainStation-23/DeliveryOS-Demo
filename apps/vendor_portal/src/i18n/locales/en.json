@@ -63,7 +63,7 @@
     "vendor": {
       "kds": "Live Orders",
       "catalog": "Menu & Stock",
-      "orders": "Order History",
+      "orders": "Sales Ledger & Orders",
       "settings": "Outlet Settings"
     }
   },

@@ -20,10 +20,10 @@
   "nav": {
     "admin": {
       "dashboard": "Overview",
-      "vendors": "Merchants & Outlets",
+      "vendors": "Brands & Outlets",
       "dispatch": "Rider Fleet",
       "orders": "Order History",
-      "promotions": "Coupons & Banners",
+      "promotions": "Promotions & Coupons",
       "media": "Media Library",
       "finance": "Financial Governance",
       "settings": "System Settings",

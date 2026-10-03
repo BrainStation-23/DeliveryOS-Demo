@@ -6,18 +6,26 @@ Operational specifications, master console controls, dispatch overrides, financi
 
 ## 1. Master Console Modules & Route Architecture
 
+Single source of truth: `apps/admin_portal/src/config/adminNavigation.ts`. Sidebar navigation, mobile drawer, page headers, document titles, and multi-language translations (`en`, `bn`, `ar`) are strictly bound to this contract.
+
 ```
 /admin
-├── / & /dashboard    # Date-Ranged Analytics Overview: KPI Cards w/ Trends, Charts, Top Outlets & Couriers, Order Feed
-├── /orders           # Order History: Status Glance Cards, Lifecycle Tabs, Date Filter, Search & Overrides
-├── /fleet            # Rider Fleet: Reflection Cards, Live Leaflet Radar, Unassigned Pool, Paginated Roster & Courier Details (/dispatch redirects here)
-├── /vendors          # Brands & Outlets Governance + Staff Accounts Registry; /outlets/:id Outlet Page (catalog, staff, schedule)
-├── /promotions       # Hero Carousel Banners (w/ Tap Deeplinks) & Discount Coupon Engine
-├── /customers        # Customer Directory: Filters, Lifetime Value & Delivery Profiles
-├── /media            # Central Media Library (ADR-016)
-├── /finance          # Financial Governance: Unified Per-Order Ledger, Vendor Settlements & Courier Cash Drops
-└── /settings         # Order Flow FSM (incl. Stale-Order TTL), Delivery Fee & Payout Economics
+├── / & /dashboard    # LayoutDashboard: Analytics & Overview (KPI Cards w/ Trends, Charts, Top Outlets & Couriers, Order Feed)
+├── /orders           # ClipboardList: Order History (Status Glance Cards, Lifecycle Tabs, Date Filter, Search & Overrides)
+├── /fleet            # Bike: Rider Fleet & Dispatch (Live Leaflet Radar, Unassigned Pool, Paginated Roster & Courier Details; /dispatch redirects here)
+├── /vendors          # Building2: Brands & Outlets Governance + Staff Accounts Registry; /outlets/:id Outlet Page (aliases /outlets)
+├── /customers        # Users: Customer Directory (Filters, Lifetime Value, Delivery Profiles & LTV Analytics)
+├── /promotions       # Megaphone: Promotions & Banners (Hero Carousel Banners w/ Tap Deeplinks & Discount Coupon Engine)
+├── /media            # Images: Media Library (Central Media Asset Management w/ Client-Side Crop & Aspect Presets)
+├── /finance          # Landmark: Finance & Settlements (Unified Per-Order Ledger, Vendor Settlements & Courier Cash Deposits)
+└── /settings         # Settings: System Settings (Order Flow FSM, Delivery Fee & Economics, Stale-Order TTL)
 ```
+
+All table datasets across the console adhere to unified pagination standards:
+- `<Table>` components render explicit entry counters (`Total {totalItems} entries`), accessible page buttons, and smooth transition states.
+- Client and server-side datasets (Rider Roster, Brands Grid, Per-Order Ledger, Cash Deposits, Staff Accounts, Coupons) integrate clean page controls (`PAGE_SIZE = 10` or `15`) that automatically reset to page 1 upon query, filter, or date range adjustments.
+- All monetary and timestamp renderings consume centralized formatting primitives (`formatCurrency`, `formatDateTime`).
+
 
 ---
 

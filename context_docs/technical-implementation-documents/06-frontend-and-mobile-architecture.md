@@ -92,29 +92,36 @@ Two independent Single Page Applications built with **Vite**, **React 18**, **Ta
 ```
 apps/
 ├── admin_portal/src/
+│   ├── config/adminNavigation.ts     # Canonical nav contract: 9 routes, Lucide icons, titles, aliases
 │   ├── components/
 │   │   ├── dispatch/LiveFleetMap.tsx # Leaflet OpenStreetMap interactive radar
-│   │   └── ui/                       # Button, Modal, Table, Badge, Alert, Input
+│   │   ├── finance/                  # FinanceLedgerSection, CashDepositsSection
+│   │   └── ui/                       # Table (paginated), Modal, Drawer, StatCard, Badge, Button
 │   ├── pages/admin/
 │   │   ├── AdminDashboardPage.tsx    # Live operational KPIs & recent orders feed
-│   │   ├── AdminDispatchPage.tsx     # Fleet Radar, Applicant Couriers queue, Cash Limits
+│   │   ├── AdminFleetPage.tsx        # Fleet Radar, Applicant Couriers queue, Cash Limits (/fleet)
 │   │   ├── AdminOrdersPage.tsx       # Order monitor, ?orderNumber deep link, override modals
+│   │   ├── AdminVendorsPage.tsx      # Brands & Outlets Governance, Brand cards, Staff Registry
+│   │   ├── AdminOutletPage.tsx       # Outlet details, category/product catalog, hours grid
+│   │   ├── AdminCustomersPage.tsx    # Customer directory, lifetime value metrics, address drawer
 │   │   ├── AdminPromotionsPage.tsx   # Hero banner scheduler & promo coupon engine
-│   │   ├── AdminSettingsPage.tsx     # Order flow FSM, delivery fee mode, CSV/JSON settlements
-│   │   └── AdminVendorsPage.tsx      # Vendor onboarding, commission rates, staff assignment
-│   ├── routes/AppRoutes.tsx          # RBAC RouteGuard enforcing SUPER_ADMIN
+│   │   ├── AdminMediaPage.tsx        # Central Media Library, client-side cropper & presets
+│   │   ├── AdminFinancePage.tsx      # Per-order ledger, vendor settlement cycles, CSV export
+│   │   └── AdminSettingsPage.tsx     # Order flow FSM, delivery fee mode, economics, cash deposits
+│   ├── routes/AppRoutes.tsx          # RBAC RouteGuard enforcing SUPER_ADMIN with lazy code splitting
 │   ├── stores/useAuthStore.ts        # Zustand auth session store
 │   └── services/adminApi.ts          # Axios client for /api/v1/admin/*
 │
 └── vendor_portal/src/
+    ├── config/vendorNavigation.ts    # Canonical nav contract: 4 routes, Lucide icons, titles, aliases
     ├── components/
     │   ├── kds/                      # KDSOrderCard, CountdownTimer (amber->red overdue)
     │   ├── vendor/OutletSwitcher.tsx # Multi-branch Brand Owner vs Single-Store staff switch
-    │   └── ui/                       # High-contrast culinary UI components
+    │   └── ui/                       # Table (paginated), high-contrast culinary UI components
     ├── pages/vendor/
     │   ├── VendorDashboardPage.tsx   # 3-lane KDS Kanban board with audio chime
     │   ├── VendorCatalogPage.tsx     # Merchant catalog retaining sold-out items with stock toggles
-    │   ├── VendorOrdersPage.tsx      # Itemized sales ledger, Today vs All Time, details modal
+    │   ├── VendorOrdersPage.tsx      # Itemized sales ledger, paginated receipts, details modal
     │   └── VendorSettingsPage.tsx    # Emergency pause (30m, 1h, Day), prep time, 7-day schedule
     ├── hooks/useKDSOrders.ts         # TanStack Query + Socket.IO invalidation + persistent chime
     ├── utils/sound.ts                # Web Audio API in-memory oscillator chime (ADR-007)
@@ -128,10 +135,16 @@ apps/
 // admin_portal/src/routes/AppRoutes.tsx:
 <Route element={<RoleGuard allowedRoles={[UserRole.SUPER_ADMIN]}><AdminLayout /></RoleGuard>}>
   <Route path="/" element={<AdminDashboardPage />} />
-  <Route path="/dispatch" element={<AdminDispatchPage />} />
-  <Route path="/orders" element={<AdminOrdersPage />} />
-  <Route path="/promotions" element={<AdminPromotionsPage />} />
+  <Route path="/dashboard" element={<AdminDashboardPage />} />
   <Route path="/vendors" element={<AdminVendorsPage />} />
+  <Route path="/outlets/:outletId" element={<AdminOutletPage />} />
+  <Route path="/fleet" element={<AdminFleetPage />} />
+  <Route path="/dispatch" element={<Navigate to="/fleet" replace />} />
+  <Route path="/orders" element={<AdminOrdersPage />} />
+  <Route path="/customers" element={<AdminCustomersPage />} />
+  <Route path="/promotions" element={<AdminPromotionsPage />} />
+  <Route path="/media" element={<AdminMediaPage />} />
+  <Route path="/finance" element={<AdminFinancePage />} />
   <Route path="/settings" element={<AdminSettingsPage />} />
 </Route>
 
