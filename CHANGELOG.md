@@ -29,6 +29,8 @@ Capability detail: [`FEATURES.md`](FEATURES.md) • Architectural rationale: [AD
 ### [Unreleased]
 
 #### Fixed
+- **Rider Fleet filter alignment** (`/fleet`): the applicant queue and duty-status filters no longer compose — `GET /admin/riders` ignores duty-status filters while `approvalStatus=PENDING` (applicants can never hold duty, so "Applicants" now always shows every applicant), and entering the applicant queue clears/resets the status chips which render disabled. The status chips also gained real server-side semantics: "On Trip" previously sent no filter at all (behaved like All) — `status=ONLINE | ON_TRIP | OFFLINE` now filters on the derived duty state (ONLINE = on duty without an in-flight order).
+
 - **Customer app renders media-library banner images**: `BannerModel` now resolves relative `/uploads/...` URLs onto the API origin at parse time (`core/utils/image_url_resolver.dart`) — banners created from the central Media Library previously rendered as broken images because the app consumed `imageUrl` as-is (only absolute seed URLs worked). The resolver strips the `/api/v1` base to the origin since static media is served at the root; covered by 6 new Flutter unit tests (55 total).
 - **Local Docker stack now persists uploaded media across rebuilds**: the backend service in `deploy/docker-compose.yml` mounts the named `deliveryos_uploads` volume at `/app/uploads` (mirroring the production compose) — images no longer vanish when `start-local.sh --docker` recreates the container; existing files were migrated into the volume.
 - **Full-system production audit remediation (backend, portals, mobile, docs)**:

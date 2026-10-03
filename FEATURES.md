@@ -310,7 +310,7 @@ This document provides a line-level, granular breakdown of every operational fea
   - Reverses commission ledger, restores coupon quota, and broadcasts cancellation to all parties (`adminApi.cancelOrder(orderId, reason)`).
 
 ### 5.4. Courier Fleet Governance & Applicant Queue
-- **Server-Paginated Roster** (`FleetRosterTable`): `GET /admin/riders` with `page`/`limit`, courier name/phone/vehicle search, derived status filter (All/Online/On Trip/Offline), and the applicant queue toggle — rows carry cash-safety warnings, lifetime deliveries, 30-day earnings, and the active order (batched aggregates).
+- **Server-Paginated Roster** (`FleetRosterTable`): `GET /admin/riders` with `page`/`limit`, courier name/phone/vehicle search, derived duty-status filter (All/Online/On Trip/Offline — server-side over the derived duty state), and the applicant queue toggle. The two dimensions never compose: entering the applicant queue resets and disables the status chips (applicants can never hold duty), so Applicants always shows every applicant — rows carry cash-safety warnings, lifetime deliveries, and the active order (batched aggregates; 30-day earnings live in the details drawer).
 - **Unified Courier Details Drawer** (`RiderDetailsDrawer` → `GET /admin/riders/:id`): profile + account status, cash-in-hand vs limit, lifetime and 30-day stats, active trip, recent orders (deep-link into Order History details), latest COD deposits, and inline governance actions — cash-limit modal, approve, and confirm-gated suspension.
 - **Dedicated Applicant Couriers Queue**: Applicant filter with real-time pending counter.
 - **1-Click Approval & Suspension**: Instant toggle approving applicant credentials (`adminApi.setRiderApproval(id, true)`) or suspending problematic couriers.

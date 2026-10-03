@@ -58,11 +58,7 @@ export const AdminFleetPage: React.FC = () => {
         limit: ROSTER_PAGE_SIZE,
         search: debouncedSearch,
         approvalStatus: approvalFilter,
-        ...(statusFilter === 'ONLINE'
-          ? { isOnline: 'true' as const }
-          : statusFilter === 'OFFLINE'
-            ? { isOnline: 'false' as const }
-            : {}),
+        ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
       }),
     refetchInterval: 30000,
     placeholderData: (previous) => previous,
@@ -176,6 +172,9 @@ export const AdminFleetPage: React.FC = () => {
         applicantsFilterActive={approvalFilter === 'PENDING'}
         onToggleApplicantsFilter={() => {
           setRosterPage(1);
+          // Entering the applicant queue clears the duty-status dimension —
+          // applicants can never hold duty, so the two filters never compose.
+          setStatusFilter('ALL');
           setApprovalFilter(approvalFilter === 'PENDING' ? 'ALL' : 'PENDING');
         }}
       />
@@ -211,6 +210,7 @@ export const AdminFleetPage: React.FC = () => {
               setRosterPage(1);
             }}
             onApprovalFilterChange={(approval) => {
+              setStatusFilter('ALL');
               setApprovalFilter(approval);
               setRosterPage(1);
             }}

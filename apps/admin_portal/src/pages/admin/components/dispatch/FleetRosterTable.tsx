@@ -96,11 +96,6 @@ export const FleetRosterTable: React.FC<FleetRosterTableProps> = ({
       render: (row) => <span className="font-semibold">{row.totalDeliveries.toLocaleString()}</span>,
     },
     {
-      key: 'earnings30d',
-      header: 'Earnings (30d)',
-      render: (row) => <span>৳ {row.earnings30d.toLocaleString()}</span>,
-    },
-    {
       key: 'activeOrder',
       header: 'Active Order',
       render: (row) =>
@@ -140,13 +135,23 @@ export const FleetRosterTable: React.FC<FleetRosterTableProps> = ({
           placeholder="Search couriers by name, phone, or vehicle..."
           className="sm:w-72"
         />
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5" aria-disabled={approvalFilter === 'PENDING'}>
           {STATUS_FILTERS.map((filter) => (
             <button
               key={filter.id}
               type="button"
+              disabled={approvalFilter === 'PENDING'}
               onClick={() => onStatusFilterChange(filter.id)}
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+              title={
+                approvalFilter === 'PENDING'
+                  ? 'Duty status does not apply to the applicant queue — applicants always show in full'
+                  : undefined
+              }
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all ${
+                approvalFilter === 'PENDING'
+                  ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-600 cursor-not-allowed'
+                  : 'cursor-pointer'
+              } ${
                 statusFilter === filter.id
                   ? 'bg-primary-600 text-white shadow-xs'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'

@@ -633,6 +633,14 @@ export class GetRidersQueryDto extends PaginationQueryDto {
   @IsIn(['PENDING', 'APPROVED', 'ALL'])
   approvalStatus?: 'PENDING' | 'APPROVED' | 'ALL';
 
+  @ApiPropertyOptional({
+    enum: ['ONLINE', 'ON_TRIP', 'OFFLINE'],
+    description: 'Derived duty status filter — ignored while the applicant (PENDING) queue is active',
+  })
+  @IsOptional()
+  @IsIn(['ONLINE', 'ON_TRIP', 'OFFLINE'])
+  status?: 'ONLINE' | 'ON_TRIP' | 'OFFLINE';
+
   @ApiPropertyOptional({ enum: ['true', 'false'] })
   @IsOptional()
   @IsIn(['true', 'false'])

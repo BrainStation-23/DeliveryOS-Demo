@@ -115,6 +115,58 @@ describe('AdminFleetService.getRidersPage', () => {
     );
   });
 
+  it('ignores duty-status filters while the applicant queue is active', async () => {
+    const query = new GetRidersQueryDto();
+    query.approvalStatus = 'PENDING';
+    query.status = 'OFFLINE';
+    await service.getRidersPage(query);
+
+    const where = prisma.rider.findMany.mock.calls[0][0].where;
+    expect(where.isApproved).toBe(false);
+    expect(where.isOnline).toBeUndefined();
+    expect(where.orders).toBeUndefined();
+  });
+
+  it('ONLINE narrows to on-duty couriers without an in-flight order', async () => {
+    const query = new GetRidersQueryDto();
+    query.status = 'ONLINE';
+    await service.getRidersPage(query);
+
+    expect(prisma.rider.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          isOnline: true,
+          orders: { none: { status: { in: expect.any(Array) } } },
+        }),
+      }),
+    );
+  });
+
+  it('ON_TRIP keeps only couriers currently holding an in-flight order', async () => {
+    const query = new GetRidersQueryDto();
+    query.status = 'ON_TRIP';
+    await service.getRidersPage(query);
+
+    expect(prisma.rider.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          isOnline: true,
+          orders: { some: { status: { in: expect.any(Array) } } },
+        }),
+      }),
+    );
+  });
+
+  it('OFFLINE keeps couriers off duty', async () => {
+    const query = new GetRidersQueryDto();
+    query.status = 'OFFLINE';
+    await service.getRidersPage(query);
+
+    expect(prisma.rider.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ isOnline: false }) }),
+    );
+  });
+
   it('leaves riders without a GPS fix unpositioned instead of defaulting', async () => {
     prisma.rider.findMany.mockResolvedValue([{ ...riderRow, latitude: null, longitude: null }]);
     const page = await service.getRidersPage(new GetRidersQueryDto());

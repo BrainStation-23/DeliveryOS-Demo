@@ -97,6 +97,8 @@ export interface RiderRosterParams {
   limit?: number;
   search?: string;
   approvalStatus?: 'ALL' | 'PENDING' | 'APPROVED';
+  /** Derived duty status — ignored server-side while the applicant queue is active. */
+  status?: 'ONLINE' | 'ON_TRIP' | 'OFFLINE';
   isOnline?: 'true' | 'false';
 }
 
@@ -116,6 +118,7 @@ export const fleetApi = {
         limit: params.limit ?? 20,
         ...(params.search?.trim() ? { search: params.search.trim() } : {}),
         ...(params.approvalStatus ? { approvalStatus: params.approvalStatus } : {}),
+        ...(params.status ? { status: params.status } : {}),
         ...(params.isOnline ? { isOnline: params.isOnline } : {}),
       },
     });

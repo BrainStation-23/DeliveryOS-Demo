@@ -52,14 +52,33 @@ export class AdminFleetService {
 
   async getRidersPage(query: GetRidersQueryDto): Promise<PaginatedResult<RiderRow>> {
     const where: Prisma.RiderWhereInput = {};
+
+    // The applicant queue is its own dimension: pending couriers can never
+    // hold duty, so any duty-status filter is meaningless there and is
+    // deliberately ignored — Applicants always shows every applicant.
     if (query.approvalStatus === 'PENDING') {
       where.isApproved = false;
-    } else if (query.approvalStatus === 'APPROVED') {
-      where.isApproved = true;
+    } else {
+      if (query.approvalStatus === 'APPROVED') {
+        where.isApproved = true;
+      }
+
+      // Derived duty status: ONLINE = on duty without an in-flight order,
+      // ON_TRIP = on duty with one, OFFLINE = not on duty. Falls back to the
+      // legacy isOnline boolean when no derived status is requested.
+      if (query.status === 'OFFLINE') {
+        where.isOnline = false;
+      } else if (query.status === 'ONLINE') {
+        where.isOnline = true;
+        where.orders = { none: { status: { in: [...IN_FLIGHT_STATUSES] } } };
+      } else if (query.status === 'ON_TRIP') {
+        where.isOnline = true;
+        where.orders = { some: { status: { in: [...IN_FLIGHT_STATUSES] } } };
+      } else if (query.isOnlineParsed !== undefined) {
+        where.isOnline = query.isOnlineParsed;
+      }
     }
-    if (query.isOnlineParsed !== undefined) {
-      where.isOnline = query.isOnlineParsed;
-    }
+
     if (query.search?.trim()) {
       const term = query.search.trim();
       where.OR = [
