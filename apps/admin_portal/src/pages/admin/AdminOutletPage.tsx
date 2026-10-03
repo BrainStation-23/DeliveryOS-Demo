@@ -13,6 +13,7 @@ import {
   PlayCircle,
   AlertTriangle,
   CheckCircle2,
+  Trash2,
 } from 'lucide-react';
 import adminApi, { AdminCatalogProduct, AdminStaffAssignment } from '../../services/adminApi';
 import { Badge } from '../../components/ui/Badge';
@@ -23,6 +24,7 @@ import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { resolveMediaUrl } from '../../utils/mediaUrl';
 import { extractApiError } from '../../utils/apiError';
+import { canDeleteOutlet } from '../../utils/outletDeletionGuard';
 import { useSocketQueryInvalidation } from '../../hooks/useSocketSubscription';
 import { StaffProfileDialog } from './components/staff/StaffProfileDialog';
 import { ProductDialog } from './components/products/ProductDialog';
@@ -49,6 +51,7 @@ export const AdminOutletPage: React.FC = () => {
   const [isHoursEditorOpen, setIsHoursEditorOpen] = useState(false);
   const [deleteProductTarget, setDeleteProductTarget] = useState<AdminCatalogProduct | null>(null);
   const [isSuspendConfirmOpen, setIsSuspendConfirmOpen] = useState(false);
+  const [isDeleteOutletConfirmOpen, setIsDeleteOutletConfirmOpen] = useState(false);
   const [categoryDialogTarget, setCategoryDialogTarget] = useState<{ id: string; name: string } | null>(null);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [deleteCategoryTarget, setDeleteCategoryTarget] = useState<{ id: string; name: string } | null>(null);
@@ -124,6 +127,18 @@ export const AdminOutletPage: React.FC = () => {
     onError: (err) => setActionError(extractApiError(err, 'Failed to delete the product.')),
   });
 
+  const deleteOutletMutation = useMutation({
+    mutationFn: (id: string) => adminApi.deleteVendor(id),
+    onSuccess: () => {
+      setActionError(null);
+      setIsDeleteOutletConfirmOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-brands'] });
+      navigate('/vendors');
+    },
+    onError: (err) => setActionError(extractApiError(err, 'Failed to delete the outlet.')),
+  });
+
   if (isLoading) {
     return (
       <div className="py-24 text-center">
@@ -152,6 +167,18 @@ export const AdminOutletPage: React.FC = () => {
     setProductCreateCategory(categoryId);
     setIsProductDialogOpen(true);
   };
+
+  const taggedStaffCount = vendor.totalStaff ?? outlet.staff.length;
+  const categoryCount = vendor.totalCategories ?? outlet.categories.length;
+  const itemCount =
+    vendor.totalProducts ??
+    outlet.categories.reduce((acc, cat) => acc + (cat.products?.length || 0), 0);
+
+  const isOutletDeletable = canDeleteOutlet({
+    staffCount: taggedStaffCount,
+    categoryCount,
+    itemCount,
+  });
 
   return (
     <div className="space-y-6">
@@ -247,6 +274,19 @@ export const AdminOutletPage: React.FC = () => {
                 title="Withdraw outlet suspension"
               >
                 Withdraw Suspension
+              </Button>
+            )}
+
+            {/* Permanent Outlet Deletion — strictly invisible until tagged staff, categories, and items are all 0 */}
+            {isOutletDeletable && (
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setIsDeleteOutletConfirmOpen(true)}
+                leftIcon={<Trash2 className="h-3.5 w-3.5" />}
+                title="Permanently delete outlet (0 staff, 0 categories, 0 items)"
+              >
+                Delete Outlet
               </Button>
             )}
           </div>
@@ -466,6 +506,33 @@ export const AdminOutletPage: React.FC = () => {
           setIsSuspendConfirmOpen(false);
         }}
         onCancel={() => setIsSuspendConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
+        isOpen={isDeleteOutletConfirmOpen}
+        title="Delete Outlet?"
+        variant="danger"
+        confirmLabel="Delete Outlet"
+        message={
+          <>
+            <p>
+              Permanently delete outlet <strong className="text-slate-900 dark:text-slate-100">{vendor.name}</strong>?
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              This action is permanent and cannot be undone. All operating hours and outlet configurations will be removed.
+            </p>
+          </>
+        }
+        isPending={deleteOutletMutation.isPending}
+        onConfirm={() => {
+          if (!isOutletDeletable) {
+            setActionError('Cannot delete outlet: tagged staff, categories, and items must all be zero first.');
+            setIsDeleteOutletConfirmOpen(false);
+            return;
+          }
+          deleteOutletMutation.mutate(vendor.id);
+        }}
+        onCancel={() => setIsDeleteOutletConfirmOpen(false)}
       />
 
       <CategoryDialog

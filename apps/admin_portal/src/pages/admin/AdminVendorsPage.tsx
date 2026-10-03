@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Building2, ChevronRight, Plus, UserRound } from 'lucide-react';
+import { Building2, ChevronRight, Plus, Trash2, UserRound } from 'lucide-react';
 import adminApi, { AdminBrand, AdminStaffAssignment, AdminVendor } from '../../services/adminApi';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -13,6 +13,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Tabs } from '../../components/ui/Tabs';
 import { SearchInput } from '../../components/common/SearchInput';
 import { extractApiError } from '../../utils/apiError';
+import { canDeleteOutlet } from '../../utils/outletDeletionGuard';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useSocketQueryInvalidation } from '../../hooks/useSocketSubscription';
 import { resolveMediaUrl } from '../../utils/mediaUrl';
@@ -39,6 +40,7 @@ export const AdminVendorsPage: React.FC = () => {
   const [isBrandFormOpen, setIsBrandFormOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<AdminBrand | null>(null);
   const [deleteBrandTarget, setDeleteBrandTarget] = useState<AdminBrand | null>(null);
+  const [deleteOutletTarget, setDeleteOutletTarget] = useState<AdminVendor | null>(null);
 
   const [ownerDialogAssignment, setOwnerDialogAssignment] = useState<AdminStaffAssignment | null>(null);
   const [isOwnerDialogOpen, setIsOwnerDialogOpen] = useState(false);
@@ -124,6 +126,17 @@ export const AdminVendorsPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-brands'] });
     },
     onError: (err) => setActionError(extractApiError(err, 'Failed to delete brand.')),
+  });
+
+  const deleteOutletMutation = useMutation({
+    mutationFn: (outletId: string) => adminApi.deleteVendor(outletId),
+    onSuccess: () => {
+      setActionError(null);
+      setDeleteOutletTarget(null);
+      queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-brands'] });
+    },
+    onError: (err) => setActionError(extractApiError(err, 'Failed to delete outlet.')),
   });
 
   const createOutletMutation = useMutation({
@@ -219,11 +232,13 @@ export const AdminVendorsPage: React.FC = () => {
                   brand={brand}
                   outlets={outlets}
                   isDeleting={deleteBrandMutation.isPending}
+                  isDeletingOutlet={deleteOutletMutation.isPending}
                   onEdit={() => {
                     setEditingBrand(brand);
                     setIsBrandFormOpen(true);
                   }}
                   onRequestDelete={() => setDeleteBrandTarget(brand)}
+                  onRequestDeleteOutlet={(outlet) => setDeleteOutletTarget(outlet)}
                   onOpenOwner={(owner) => {
                     setOwnerDialogAssignment(owner);
                     setIsOwnerDialogOpen(true);
@@ -323,10 +338,49 @@ export const AdminVendorsPage: React.FC = () => {
         isPending={deleteBrandMutation.isPending}
         onConfirm={() => {
           if (deleteBrandTarget) {
+            if ((deleteBrandTarget.totalOutlets ?? 0) > 0) {
+              setDeleteBrandTarget(null);
+              return;
+            }
             deleteBrandMutation.mutate(deleteBrandTarget.id);
           }
         }}
         onCancel={() => setDeleteBrandTarget(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deleteOutletTarget}
+        title="Delete Outlet?"
+        variant="danger"
+        confirmLabel="Delete Outlet"
+        message={
+          deleteOutletTarget && (
+            <>
+              <p>
+                Permanently delete outlet{' '}
+                <strong className="text-slate-900 dark:text-slate-100">{deleteOutletTarget.name}</strong>?
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                This action is permanent and cannot be undone. All operating hours and outlet configurations will be removed.
+              </p>
+            </>
+          )
+        }
+        isPending={deleteOutletMutation.isPending}
+        onConfirm={() => {
+          if (deleteOutletTarget) {
+            const staffCount = deleteOutletTarget.totalStaff ?? deleteOutletTarget.staff.length;
+            const categoryCount = deleteOutletTarget.totalCategories ?? 0;
+            const itemCount = deleteOutletTarget.totalProducts ?? 0;
+            if (staffCount > 0 || categoryCount > 0 || itemCount > 0) {
+              setActionError('Cannot delete outlet: tagged staff, categories, and items must all be zero first.');
+              setDeleteOutletTarget(null);
+              return;
+            }
+            deleteOutletMutation.mutate(deleteOutletTarget.id);
+          }
+        }}
+        onCancel={() => setDeleteOutletTarget(null)}
       />
     </div>
   );
@@ -336,12 +390,25 @@ const BrandCard: React.FC<{
   brand: AdminBrand;
   outlets: AdminVendor[];
   isDeleting: boolean;
+  isDeletingOutlet?: boolean;
   onEdit: () => void;
   onRequestDelete: () => void;
+  onRequestDeleteOutlet: (outlet: AdminVendor) => void;
   onOpenOwner: (owner: AdminStaffAssignment) => void;
   onOpenOutlet: (outletId: string) => void;
   onCreateOutlet: () => void;
-}> = ({ brand, outlets, isDeleting, onEdit, onRequestDelete, onOpenOwner, onOpenOutlet, onCreateOutlet }) => (
+}> = ({
+  brand,
+  outlets,
+  isDeleting,
+  isDeletingOutlet = false,
+  onEdit,
+  onRequestDelete,
+  onRequestDeleteOutlet,
+  onOpenOwner,
+  onOpenOutlet,
+  onCreateOutlet,
+}) => (
   <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden flex flex-col">
     {/* Brand header */}
     <div className="p-5 pb-4 flex items-start gap-4">
@@ -383,15 +450,17 @@ const BrandCard: React.FC<{
             <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={onEdit}>
               Edit
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs h-7 px-2 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
-              onClick={onRequestDelete}
-              disabled={isDeleting}
-            >
-              Delete
-            </Button>
+            {brand.totalOutlets === 0 && outlets.length === 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7 px-2 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                onClick={onRequestDelete}
+                disabled={isDeleting}
+              >
+                Delete
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -425,26 +494,63 @@ const BrandCard: React.FC<{
             : 'No outlets match the search in this brand'}
         </button>
       ) : (
-        outlets.map((outlet) => (
-          <button
-            key={outlet.id}
-            type="button"
-            onClick={() => onOpenOutlet(outlet.id)}
-            className="w-full text-left rounded-xl border border-slate-200 bg-white px-3 py-2.5 flex items-center gap-3 hover:border-primary-400 hover:ring-2 hover:ring-primary-500/20 transition-all cursor-pointer dark:border-slate-800 dark:bg-slate-900"
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{outlet.name}</span>
-                {!outlet.isActive && <Badge variant="danger">Suspended</Badge>}
-                {outlet.isActive && outlet.isBusy && <Badge variant="warning">Intake: Inactive</Badge>}
-              </div>
-              <div className="text-[10px] text-slate-500 truncate mt-0.5">
-                {outlet.addressText}
+        outlets.map((outlet) => {
+          const staffCount = outlet.totalStaff ?? outlet.staff.length;
+          const categoryCount = outlet.totalCategories ?? 0;
+          const itemCount = outlet.totalProducts ?? 0;
+          const isDeletable = canDeleteOutlet({
+            staffCount,
+            categoryCount,
+            itemCount,
+          });
+
+          return (
+            <div
+              key={outlet.id}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 flex items-center gap-2 hover:border-primary-400 hover:ring-2 hover:ring-primary-500/20 transition-all dark:border-slate-800 dark:bg-slate-900"
+            >
+              <button
+                type="button"
+                onClick={() => onOpenOutlet(outlet.id)}
+                className="min-w-0 flex-1 text-left cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{outlet.name}</span>
+                  {!outlet.isActive && <Badge variant="danger">Suspended</Badge>}
+                  {outlet.isActive && outlet.isBusy && <Badge variant="warning">Intake: Inactive</Badge>}
+                </div>
+                <div className="text-[10px] text-slate-500 truncate mt-0.5">
+                  {outlet.addressText}
+                </div>
+              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                {isDeletable && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRequestDeleteOutlet(outlet);
+                    }}
+                    disabled={isDeletingOutlet}
+                    className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                    title={`Delete empty outlet ${outlet.name}`}
+                    aria-label={`Delete outlet ${outlet.name}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onOpenOutlet(outlet.id)}
+                  className="p-0.5 text-slate-400 hover:text-primary-600 transition-colors cursor-pointer"
+                  aria-label={`Open outlet ${outlet.name}`}
+                >
+                  <ChevronRight className="h-4 w-4 shrink-0" />
+                </button>
               </div>
             </div>
-            <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
-          </button>
-        ))
+          );
+        })
       )}
     </div>
   </div>

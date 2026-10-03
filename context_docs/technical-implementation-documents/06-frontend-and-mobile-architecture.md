@@ -94,6 +94,7 @@ apps/
 ├── admin_portal/src/
 │   ├── config/adminNavigation.ts     # Canonical nav contract: 9 routes, Lucide icons, titles, aliases
 │   ├── components/
+│   │   ├── common/LocationPickerModal.tsx # Leaflet interactive map picker with geocoding & presets
 │   │   ├── dispatch/LiveFleetMap.tsx # Leaflet OpenStreetMap interactive radar
 │   │   ├── finance/                  # FinanceLedgerSection, CashDepositsSection
 │   │   └── ui/                       # Table (paginated), Modal, Drawer, StatCard, Badge, Button
@@ -110,6 +111,7 @@ apps/
 │   │   └── AdminSettingsPage.tsx     # Order flow FSM, delivery fee mode, economics, cash deposits
 │   ├── routes/AppRoutes.tsx          # RBAC RouteGuard enforcing SUPER_ADMIN with lazy code splitting
 │   ├── stores/useAuthStore.ts        # Zustand auth session store
+│   ├── utils/outletDeletionGuard.ts  # Guard utility enforcing 0 staff, 0 categories, 0 items for outlet delete
 │   └── services/adminApi.ts          # Axios client for /api/v1/admin/*
 │
 └── vendor_portal/src/

@@ -15,6 +15,8 @@ export interface AdminVendor {
   defaultPrepTimeMinutes: number;
   totalOrders?: number;
   totalProducts?: number;
+  totalCategories?: number;
+  totalStaff?: number;
   staff: Array<{
     id: string;
     userId: string;
@@ -144,6 +146,10 @@ export interface OutletDetail {
     defaultPrepTimeMinutes: number;
     isActive: boolean;
     isBusy: boolean;
+    totalStaff?: number;
+    totalCategories?: number;
+    totalProducts?: number;
+    totalOrders?: number;
   };
   operatingHours: AdminOperatingHour[];
   staff: AdminStaffAssignment[];
@@ -257,6 +263,15 @@ export const vendorsApi = {
 
   async deleteBrand(brandId: string): Promise<void> {
     await apiClient.delete(`/api/v1/admin/brands/${brandId}`);
+  },
+
+  async deleteVendor(vendorId: string): Promise<{ id: string; name: string }> {
+    const res = await apiClient.delete(`/api/v1/admin/vendors/${vendorId}`);
+    return unwrapData<{ id: string; name: string }>(res);
+  },
+
+  async deleteOutlet(vendorId: string): Promise<{ id: string; name: string }> {
+    return this.deleteVendor(vendorId);
   },
 
   async setBrandOwner(brandId: string, userId: string | null): Promise<{ owner: AdminBrand['owner']; demotedCount: number }> {

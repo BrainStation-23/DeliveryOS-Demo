@@ -437,7 +437,7 @@ describe('AdminService - brand & staff account governance', () => {
       delete: jest.Mock;
       count: jest.Mock;
     };
-    vendor: { findUnique: jest.Mock };
+    vendor: { findUnique: jest.Mock; delete: jest.Mock };
     redis: { del: jest.Mock };
   };
 
@@ -466,7 +466,7 @@ describe('AdminService - brand & staff account governance', () => {
         delete: jest.fn().mockResolvedValue({ id: 'staff-1' }),
         count: jest.fn().mockResolvedValue(0),
       },
-      vendor: { findUnique: jest.fn().mockResolvedValue(null) },
+      vendor: { findUnique: jest.fn().mockResolvedValue(null), delete: jest.fn().mockResolvedValue({ id: 'vendor-1' }) },
       redis: { del: jest.fn().mockResolvedValue(1) },
     };
 
@@ -511,6 +511,59 @@ describe('AdminService - brand & staff account governance', () => {
     });
     await expect(service.deleteBrand('brand-1')).resolves.toBeUndefined();
     expect(prisma.vendorBrand.delete).toHaveBeenCalledWith({ where: { id: 'brand-1' } });
+  });
+
+  it('blocks outlet deletion while tagged staff remain assigned', async () => {
+    prisma.vendor.findUnique.mockResolvedValue({
+      id: 'vendor-1',
+      name: 'Burger Point Gulshan',
+      _count: { staff: 2, categories: 0, products: 0, orders: 0 },
+    });
+    await expect(service.deleteVendor('vendor-1')).rejects.toThrow('still has 2 tagged staff');
+    expect(prisma.vendor.delete).not.toHaveBeenCalled();
+  });
+
+  it('blocks outlet deletion while categories remain attached', async () => {
+    prisma.vendor.findUnique.mockResolvedValue({
+      id: 'vendor-1',
+      name: 'Burger Point Gulshan',
+      _count: { staff: 0, categories: 3, products: 0, orders: 0 },
+    });
+    await expect(service.deleteVendor('vendor-1')).rejects.toThrow('still has 3 category/categories');
+    expect(prisma.vendor.delete).not.toHaveBeenCalled();
+  });
+
+  it('blocks outlet deletion while items/products remain attached', async () => {
+    prisma.vendor.findUnique.mockResolvedValue({
+      id: 'vendor-1',
+      name: 'Burger Point Gulshan',
+      _count: { staff: 0, categories: 0, products: 5, orders: 0 },
+    });
+    await expect(service.deleteVendor('vendor-1')).rejects.toThrow('still has 5 item/product(s)');
+    expect(prisma.vendor.delete).not.toHaveBeenCalled();
+  });
+
+  it('blocks outlet deletion while historical orders exist', async () => {
+    prisma.vendor.findUnique.mockResolvedValue({
+      id: 'vendor-1',
+      name: 'Burger Point Gulshan',
+      _count: { staff: 0, categories: 0, products: 0, orders: 12 },
+    });
+    await expect(service.deleteVendor('vendor-1')).rejects.toThrow('has 12 order(s)');
+    expect(prisma.vendor.delete).not.toHaveBeenCalled();
+  });
+
+  it('deletes an empty outlet successfully', async () => {
+    prisma.vendor.findUnique.mockResolvedValue({
+      id: 'vendor-1',
+      name: 'Empty Gulshan Outlet',
+      _count: { staff: 0, categories: 0, products: 0, orders: 0 },
+    });
+    await expect(service.deleteVendor('vendor-1')).resolves.toEqual({
+      id: 'vendor-1',
+      name: 'Empty Gulshan Outlet',
+    });
+    expect(prisma.vendor.delete).toHaveBeenCalledWith({ where: { id: 'vendor-1' } });
   });
 
   it('searches users only for phone fragments of meaningful length', async () => {

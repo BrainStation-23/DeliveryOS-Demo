@@ -65,7 +65,8 @@ All table datasets across the console adhere to unified pagination standards:
   - 1-click active/inactive toggle and deletion.
 
 ### 2.5 Restaurant & Outlet Management (`/vendors`)
-- **Outlet Onboarding**: Review self-registered vendor applications or directly create new outlets and staff logins (`POST /admin/vendors`).
+- **Outlet Onboarding & Geolocation**: Review self-registered vendor applications or directly onboard new outlets and staff logins (`POST /admin/vendors`). Outlet coordinates are set via interactive `LocationPickerModal` with draggable map pin, OpenStreetMap tiles, geocoding search, area presets, and HTML5 GPS detection, eliminating manual coordinate errors.
+- **Brand & Outlet Deletion Invariants**: Brands with active outlets or staff cannot be deleted (Delete button is hidden). Outlets tagged with any staff, menu categories, catalog items, or historical orders cannot be deleted; the Delete Outlet action button remains strictly invisible on both the brand outlet roster and outlet detail header until all three prerequisites (staff, categories, items) reach zero.
 - **Permission Assignment**: Assign `PARTICULAR_OUTLET` (single-branch staff) or `ALL_OUTLETS_MASTER` (multi-outlet brand owner).
 - **Store Configuration**: Commission rate (e.g. 15%), delivery radius (km), operational hours, and default prep time.
 

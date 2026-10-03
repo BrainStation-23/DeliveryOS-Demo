@@ -370,6 +370,25 @@ export class AdminController {
     };
   }
 
+  @Delete('vendors/:id')
+  @ApiOperation({ summary: 'Delete an outlet if it has no staff, categories, products, or orders' })
+  @ApiResponse({ status: 200, description: 'Vendor outlet deleted successfully' })
+  @ApiResponse({ status: 409, description: 'Conflict: Outlet still has tagged staff, categories, products, or orders' })
+  @ApiResponse({ status: 404, description: 'Vendor outlet not found' })
+  async deleteVendor(@Param('id') vendorId: string) {
+    const result = await this.adminService.deleteVendor(vendorId);
+    return {
+      message: `Outlet "${result.name}" deleted successfully`,
+      data: result,
+    };
+  }
+
+  @Delete('outlets/:id')
+  @ApiOperation({ summary: 'Delete an outlet if it has no staff, categories, products, or orders (alias)' })
+  async deleteOutletAlias(@Param('id') vendorId: string) {
+    return this.deleteVendor(vendorId);
+  }
+
   @Patch('vendors/:id/status')
   @ApiOperation({ summary: 'Toggle vendor outlet suspension status (suspend / withdraw suspension)' })
   async toggleVendorStatus(@Param('id') vendorId: string, @Body() dto: ToggleVendorStatusDto) {

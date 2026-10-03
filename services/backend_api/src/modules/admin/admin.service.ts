@@ -767,6 +767,14 @@ export class AdminService {
             user: { select: { id: true, fullName: true, phone: true } },
           },
         },
+        _count: {
+          select: {
+            staff: true,
+            categories: true,
+            products: true,
+            orders: true,
+          },
+        },
       },
       orderBy: { name: 'asc' },
     });
@@ -786,6 +794,10 @@ export class AdminService {
       isActive: v.isActive,
       commissionRate: Number(v.commissionRate),
       defaultPrepTimeMinutes: v.defaultPrepTimeMinutes,
+      totalStaff: v.staff.length,
+      totalCategories: v._count?.categories ?? 0,
+      totalProducts: v._count?.products ?? 0,
+      totalOrders: v._count?.orders ?? 0,
       staff: v.staff.map((s) => ({
         id: s.id,
         userId: s.userId,
@@ -1173,6 +1185,47 @@ export class AdminService {
     }
 
     return updated;
+  }
+
+  async deleteVendor(vendorId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      include: {
+        _count: {
+          select: {
+            staff: true,
+            categories: true,
+            products: true,
+            orders: true,
+          },
+        },
+      },
+    });
+    if (!vendor) throw new NotFoundException('Vendor outlet not found');
+
+    if (vendor._count.staff > 0) {
+      throw new ConflictException(
+        `Outlet "${vendor.name}" still has ${vendor._count.staff} tagged staff assignment(s) — remove them first`,
+      );
+    }
+    if (vendor._count.categories > 0) {
+      throw new ConflictException(
+        `Outlet "${vendor.name}" still has ${vendor._count.categories} category/categories — remove or delete them first`,
+      );
+    }
+    if (vendor._count.products > 0) {
+      throw new ConflictException(
+        `Outlet "${vendor.name}" still has ${vendor._count.products} item/product(s) — remove or delete them first`,
+      );
+    }
+    if (vendor._count.orders > 0) {
+      throw new ConflictException(
+        `Outlet "${vendor.name}" has ${vendor._count.orders} order(s) — cannot delete an outlet with historical orders`,
+      );
+    }
+
+    await this.prisma.vendor.delete({ where: { id: vendorId } });
+    return { id: vendorId, name: vendor.name };
   }
 
   async toggleVendorStatus(vendorId: string, isActive: boolean) {
@@ -1582,6 +1635,14 @@ export class AdminService {
             },
           },
         },
+        _count: {
+          select: {
+            staff: true,
+            categories: true,
+            products: true,
+            orders: true,
+          },
+        },
       },
     });
     if (!vendor) throw new NotFoundException('Vendor outlet not found');
@@ -1603,6 +1664,10 @@ export class AdminService {
         defaultPrepTimeMinutes: vendor.defaultPrepTimeMinutes,
         isActive: vendor.isActive,
         isBusy: vendor.isBusy,
+        totalStaff: vendor.staff.length,
+        totalCategories: vendor._count?.categories ?? vendor.categories.length,
+        totalProducts: vendor._count?.products ?? 0,
+        totalOrders: vendor._count?.orders ?? 0,
       },
       operatingHours: vendor.operatingHours,
       staff: vendor.staff.map((s) => ({

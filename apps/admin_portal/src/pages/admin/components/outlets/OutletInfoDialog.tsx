@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Images } from 'lucide-react';
+import { Images, MapPin } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import { Input } from '../../../../components/ui/Input';
 import { Modal } from '../../../../components/ui/Modal';
 import { MediaPickerModal } from '../../../../components/media/MediaPickerModal';
+import { LocationPickerModal } from '../../../../components/common/LocationPickerModal';
 import { resolveMediaUrl } from '../../../../utils/mediaUrl';
 
 export interface OutletInfoPayload {
@@ -47,6 +48,7 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
   const [address, setAddress] = useState('');
   const [bannerUrl, setBannerUrl] = useState('');
   const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [commission, setCommission] = useState('15');
   const [prep, setPrep] = useState('20');
   const [radius, setRadius] = useState('5');
@@ -126,18 +128,49 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
           </label>
           <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Sector 4, Road 7, House 12, Uttara, Dhaka" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              GPS Latitude <span className="font-normal text-slate-400">(-90 to 90)</span>
-            </label>
-            <Input value={latitude} onChange={(e) => setLatitude(e.target.value)} placeholder="23.7925" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              GPS Longitude <span className="font-normal text-slate-400">(-180 to 180)</span>
-            </label>
-            <Input value={longitude} onChange={(e) => setLongitude(e.target.value)} placeholder="90.4078" />
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            Outlet Geolocation (Map Coordinates)
+          </label>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-800/50">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400 shrink-0">
+                <MapPin className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 flex-wrap">
+                  <span>
+                    {Number.isFinite(parseFloat(latitude)) && Number.isFinite(parseFloat(longitude))
+                      ? `${parseFloat(latitude).toFixed(5)}, ${parseFloat(longitude).toFixed(5)}`
+                      : 'No location selected'}
+                  </span>
+                  {Number.isFinite(parseFloat(latitude)) && Number.isFinite(parseFloat(longitude)) && (
+                    <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
+                      Pointed
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-500 truncate">
+                  {Number.isFinite(parseFloat(latitude)) && Number.isFinite(parseFloat(longitude))
+                    ? `Lat: ${parseFloat(latitude).toFixed(6)} · Lng: ${parseFloat(longitude).toFixed(6)}`
+                    : 'Point the exact outlet entrance on the map'}
+                </div>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsLocationPickerOpen(true)}
+              leftIcon={<MapPin className="h-4 w-4 text-primary-600 dark:text-primary-400" />}
+              className="shrink-0 cursor-pointer"
+            >
+              {Number.isFinite(parseFloat(latitude)) && Number.isFinite(parseFloat(longitude))
+                ? 'Change on Map'
+                : 'Select on Map'}
+            </Button>
           </div>
         </div>
 
@@ -181,6 +214,18 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
       onSelect={(url) => {
         setBannerUrl(url);
         setIsMediaPickerOpen(false);
+      }}
+    />
+
+    <LocationPickerModal
+      isOpen={isLocationPickerOpen}
+      initialLat={Number.isFinite(parseFloat(latitude)) ? parseFloat(latitude) : undefined}
+      initialLng={Number.isFinite(parseFloat(longitude)) ? parseFloat(longitude) : undefined}
+      outletName={name.trim() || undefined}
+      onClose={() => setIsLocationPickerOpen(false)}
+      onConfirm={({ latitude: pickedLat, longitude: pickedLng }) => {
+        setLatitude(String(pickedLat));
+        setLongitude(String(pickedLng));
       }}
     />
     </>
