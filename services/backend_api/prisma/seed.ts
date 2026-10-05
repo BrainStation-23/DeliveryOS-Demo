@@ -372,7 +372,7 @@ async function main() {
   console.log('   ✅ Brands, 3 Outlets, Operating Hours, and 2-Tier Permissions seeded.\n');
 
   // ---------------------------------------------------------------------------
-  // 4. Catalog: Categories, Products, Variants & Addons
+  // 4. Catalog: Categories, Products, Variants
   // ---------------------------------------------------------------------------
   console.log('🍔 Seeding Menus & Products...');
   // Categories for Gulshan Burger Point
@@ -394,7 +394,7 @@ async function main() {
     }
   });
 
-  // Product 1: Classic Smoky Beef Burger (With Variants & Addons)
+  // Product 1: Classic Smoky Beef Burger (With Variants)
   const beefBurger = await prisma.product.create({
     data: {
       vendorId: gulshanOutlet.id,

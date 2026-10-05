@@ -67,20 +67,6 @@ export class OrderController {
     };
   }
 
-  @Get(':id/live-tracking')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get live location, ETA, and route waypoints for order tracking fallback' })
-  @ApiResponse({ status: 200, description: 'Live tracking telemetry and route snapshot' })
-  @ApiResponse({ status: 403, description: 'Forbidden if not customer or staff' })
-  @ApiResponse({ status: 404, description: 'Order not found' })
-  async getLiveTracking(@Param('id') id: string, @CurrentUser() user: User) {
-    const tracking = await this.orderService.getLiveTracking(id, user.id, user.role);
-    return {
-      message: 'Live tracking retrieved successfully',
-      data: tracking,
-    };
-  }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)

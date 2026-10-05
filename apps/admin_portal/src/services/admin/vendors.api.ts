@@ -164,21 +164,7 @@ export interface OutletDetail {
   categories: AdminCatalog['categories'];
 }
 
-export interface CentralCategory {
-  id: string;
-  name: string;
-  imageUrl: string | null;
-  sortOrder: number;
-  isActive: boolean;
-  _count?: { products: number };
-}
-
 export const vendorsApi = {
-  async getCentralCategories(): Promise<CentralCategory[]> {
-    const res = await apiClient.get('/api/v1/admin/catalog/categories');
-    return unwrapData<CentralCategory[]>(res);
-  },
-
   async getVendors(): Promise<AdminVendor[]> {
     const res = await apiClient.get('/api/v1/admin/vendors');
     const payload = res.data?.data || res.data;

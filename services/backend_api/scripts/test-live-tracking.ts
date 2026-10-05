@@ -197,49 +197,44 @@ async function runLiveTrackingTest() {
     console.log('   ✅ Realtime rider GPS coordinates and ETA streamed to customer room!\n');
 
     // -------------------------------------------------------------------------
-    // Test 2: Fallback Polling Endpoint (GET /orders/:id/live-tracking)
+    // Test 2: Order-Detail Polling Fallback (GET /orders/:id)
+    // The customer app tracks via socket + order-detail polling; the dedicated
+    // live-tracking endpoint was removed as dead code.
     // -------------------------------------------------------------------------
-    console.log('🛰️  2. Testing Fallback Polling Endpoint (GET /orders/:id/live-tracking)...');
-    const trackingRes = await fetch(`${baseUrl}/orders/${testOrderId}/live-tracking`, {
+    console.log('🛰️  2. Testing Order-Detail Polling Fallback (GET /orders/:id)...');
+    const trackingRes = await fetch(`${baseUrl}/orders/${testOrderId}`, {
       headers: { Authorization: `Bearer ${customer.token}` },
     });
     const trackingJson = await trackingRes.json();
     console.log(`   Response Status: ${trackingRes.status}`);
 
     if (trackingRes.status !== 200 || !trackingJson.data) {
-      throw new Error(`Failed to retrieve live tracking: ${JSON.stringify(trackingJson)}`);
+      throw new Error(`Failed to retrieve order detail fallback: ${JSON.stringify(trackingJson)}`);
     }
 
     const tData = trackingJson.data;
     console.log(`   Order Status: ${tData.status}`);
-    console.log(`   Store Location: "${tData.storeLocation.name}" (${tData.storeLocation.latitude}, ${tData.storeLocation.longitude})`);
-    console.log(`   Destination: "${tData.destinationLocation.addressLine}" (${tData.destinationLocation.latitude}, ${tData.destinationLocation.longitude})`);
-    console.log(`   Rider: "${tData.riderLocation.fullName}" (${tData.riderLocation.latitude}, ${tData.riderLocation.longitude}, bearing: ${tData.riderLocation.bearing}°)`);
-    console.log(`   Dynamic ETA: ${tData.estimatedMinutesRemaining} minutes`);
-    console.log(`   Route Snapshot Points: Origin -> Rider (${Boolean(tData.routeSnapshot.rider)}) -> Destination`);
+    console.log(`   Rider Assigned: ${tData.rider ? tData.rider.user?.fullName || 'yes' : 'no'}`);
 
-    if (
-      tData.riderLocation.latitude !== 23.7930 ||
-      tData.riderLocation.longitude !== 90.4080 ||
-      tData.status !== 'DISPATCHED' ||
-      !tData.routeSnapshot.rider
-    ) {
-      throw new Error('Live tracking polling returned incorrect telemetry data');
+    if (tData.status !== 'DISPATCHED' || !tData.rider?.id) {
+      throw new Error(
+        `Order-detail fallback returned incomplete tracking state: status=${tData.status}, riderId=${tData.rider?.id ?? 'none'}, payload=${JSON.stringify(trackingJson).slice(0, 300)}`,
+      );
     }
-    console.log('   ✅ Fallback live tracking endpoint returned complete telemetry snapshot!\n');
+    console.log('   ✅ Order-detail polling fallback returned complete tracking state!\n');
 
     // -------------------------------------------------------------------------
     // Test 3: Unauthorized Access Guard
     // -------------------------------------------------------------------------
-    console.log('🛡️  3. Testing Access Isolation on Live Tracking...');
-    const unauthorizedRes = await fetch(`${baseUrl}/orders/${testOrderId}/live-tracking`, {
+    console.log('🛡️  3. Testing Access Isolation on Order Detail...');
+    const unauthorizedRes = await fetch(`${baseUrl}/orders/${testOrderId}`, {
       headers: { Authorization: `Bearer ${otherCustomer.token}` },
     });
     console.log(`   Unrelated Customer Access: status=${unauthorizedRes.status}`);
     if (unauthorizedRes.status !== 403) {
-      throw new Error('Expected 403 Forbidden for customer accessing another user order tracking');
+      throw new Error('Expected 403 Forbidden for customer accessing another user order');
     }
-    console.log('   ✅ Live tracking data strictly isolated to order owner!\n');
+    console.log('   ✅ Order data strictly isolated to order owner!\n');
 
     console.log('====================================================');
     console.log(' 🎉 All Live Rider Location & Tracking Tests Passed!');

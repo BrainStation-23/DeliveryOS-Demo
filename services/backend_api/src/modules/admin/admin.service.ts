@@ -960,55 +960,6 @@ export class AdminService {
   }
 
   // ===========================================================================
-  // 6c. Outlet Catalog Governance View
-  // ===========================================================================
-  async getVendorCatalog(vendorId: string) {
-    const vendor = await this.prisma.vendor.findUnique({
-      where: { id: vendorId },
-      include: {
-        categories: {
-          where: { isActive: true },
-          orderBy: { sortOrder: 'asc' },
-          include: {
-            products: {
-              orderBy: { sortOrder: 'asc' },
-              include: {
-                variants: { orderBy: { sortOrder: 'asc' } },
-              },
-            },
-          },
-        },
-      },
-    });
-    if (!vendor) throw new NotFoundException('Vendor outlet not found');
-
-    return {
-      vendorId: vendor.id,
-      vendorName: vendor.name,
-      categories: vendor.categories.map((c) => ({
-        id: c.id,
-        name: c.name,
-        sortOrder: c.sortOrder,
-        products: c.products.map((p) => ({
-          id: p.id,
-          name: p.name,
-          description: p.description,
-          basePrice: Number(p.basePrice),
-          imageUrl: p.imageUrl,
-          isInStock: p.isInStock,
-          variants: p.variants.map((v) => ({
-            id: v.id,
-            name: v.name,
-            price: Number(v.price),
-            sortOrder: v.sortOrder,
-            isInStock: v.isInStock,
-          })),
-        })),
-      })),
-    };
-  }
-
-  // ===========================================================================
   // 6d. Owner / Staff Account Governance
   // ===========================================================================
   async searchUsersByPhone(phone: string) {
@@ -1787,26 +1738,6 @@ export class AdminService {
 
     await this.prisma.category.delete({ where: { id: categoryId } });
     return { id: categoryId, name: category.name };
-  }
-
-  async getCentralCategories() {
-    return this.prisma.category.findMany({
-      orderBy: { sortOrder: 'asc' },
-      include: {
-        _count: { select: { products: true } },
-      },
-    });
-  }
-
-  async createCentralCategory(data: { name: string; imageUrl?: string; sortOrder?: number; isActive?: boolean }) {
-    return this.prisma.category.create({
-      data: {
-        name: data.name,
-        imageUrl: data.imageUrl || null,
-        sortOrder: data.sortOrder || 0,
-        isActive: data.isActive !== undefined ? data.isActive : true,
-      },
-    });
   }
 
   // ===========================================================================

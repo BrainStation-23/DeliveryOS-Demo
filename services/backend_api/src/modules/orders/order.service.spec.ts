@@ -245,18 +245,6 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
       const result = await orderService.getOrderById('order-100', 'admin-1', UserRole.SUPER_ADMIN);
       expect(result.id).toBe('order-100');
     });
-
-    it('denies unauthorized users from viewing live tracking', async () => {
-      prisma.order.findUnique.mockResolvedValue(mockOrder);
-
-      await expect(
-        orderService.getLiveTracking('order-100', 'customer-other', UserRole.CUSTOMER),
-      ).rejects.toThrow(ForbiddenException);
-
-      await expect(
-        orderService.getLiveTracking('order-100', 'rider-other-user', UserRole.RIDER),
-      ).rejects.toThrow(ForbiddenException);
-    });
   });
 
   describe('Step 1.1: performCancellation (State Claim Precedes Gateway Refund)', () => {

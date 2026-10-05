@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canDeleteOutlet, getOutletDeletionBlockingReasons } from './outletDeletionGuard';
+import { canDeleteOutlet } from './outletDeletionGuard';
 
 describe('outletDeletionGuard', () => {
   describe('canDeleteOutlet', () => {
@@ -86,30 +86,4 @@ describe('outletDeletionGuard', () => {
     });
   });
 
-  describe('getOutletDeletionBlockingReasons', () => {
-    it('returns empty array when outlet is completely empty', () => {
-      expect(
-        getOutletDeletionBlockingReasons({
-          staffCount: 0,
-          categoryCount: 0,
-          itemCount: 0,
-        }),
-      ).toEqual([]);
-    });
-
-    it('includes tagged staff, category, and item counts when blocked', () => {
-      const reasons = getOutletDeletionBlockingReasons({
-        staffCount: 3,
-        categoryCount: 2,
-        itemCount: 8,
-        orderCount: 1,
-      });
-
-      expect(reasons).toHaveLength(4);
-      expect(reasons).toContain('3 tagged staff assignment(s)');
-      expect(reasons).toContain('2 category/categories');
-      expect(reasons).toContain('8 item(s)');
-      expect(reasons).toContain('1 historical order(s)');
-    });
-  });
 });

@@ -32,7 +32,6 @@ class ApiConstants {
   static const String requestOtp = '/auth/otp/request';
   static const String verifyOtp = '/auth/otp/verify';
   static const String refreshAuth = '/auth/refresh';
-  static const String me = '/auth/me';
   static const String registerDeviceToken = '/auth/device-token';
 
   static const String riderProfile = '/rider/profile';

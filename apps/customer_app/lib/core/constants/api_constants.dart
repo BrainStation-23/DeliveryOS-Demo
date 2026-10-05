@@ -15,10 +15,6 @@ class ApiConstants {
     return kDebugMode ? 'SANDBOX' : 'SSLCOMMERZ';
   }
 
-  /// Google Maps SDK key (required for release map rendering):
-  /// --dart-define=GOOGLE_MAPS_API_KEY=AIza...
-  static const String googleMapsApiKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY');
-
   static String get baseUrl {
     if (_definedBaseUrl.isNotEmpty) return _definedBaseUrl;
     if (kIsWeb) {
@@ -48,7 +44,6 @@ class ApiConstants {
 
   static const String nearbyVendors = '/vendors/nearby';
   static const String outletTypes = '/vendors/outlet-types';
-  static const String vendorDetails = '/vendors';
   static const String searchVendors = '/vendors/search';
   static String vendorCatalog(String id) => '/vendors/$id/catalog';
   static const String activeBanners = '/banners/active';

@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/constants/constants.dart';
+import '../../../core/widgets/error_retry_view.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../domain/user_location.dart';
 import '../providers/location_provider.dart';
@@ -27,6 +30,7 @@ class _MapLocationPickerScreenState
   late double _currentLat;
   late double _currentLng;
   late String _currentAddress;
+  bool _mapInitFailed = false;
   late AddressType _selectedType;
   final TextEditingController _detailsController = TextEditingController();
 
@@ -421,6 +425,10 @@ class _MapLocationPickerScreenState
       return _buildStyledMapPlaceholder();
     }
 
+    if (_mapInitFailed) {
+      return _buildMapErrorView();
+    }
+
     try {
       return GoogleMap(
         initialCameraPosition: CameraPosition(
@@ -446,9 +454,24 @@ class _MapLocationPickerScreenState
         myLocationEnabled: false,
         zoomControlsEnabled: false,
       );
-    } catch (_) {
+    } catch (e) {
+      // Surface the failure instead of silently faking a live map; the user
+      // can retry initialization explicitly.
+      _mapInitFailed = true;
+      scheduleMicrotask(() {
+        if (mounted) setState(() {});
+      });
       return _buildStyledMapPlaceholder();
     }
+  }
+
+  Widget _buildMapErrorView() {
+    final l10n = AppLocalizations.of(context);
+    return ErrorRetryView(
+      message: 'The map could not be loaded. Check your connection and try again.',
+      onRetry: () => setState(() => _mapInitFailed = false),
+      retryButtonText: l10n.translate('retry'),
+    );
   }
 
   Widget _buildStyledMapPlaceholder() {

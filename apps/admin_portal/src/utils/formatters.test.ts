@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCurrency, formatDateTime, formatPhoneNumber } from './formatters';
+import { formatCurrency, formatDateTime } from './formatters';
 
 describe('formatCurrency', () => {
   it('renders whole amounts with the ৳ symbol and thousands separators', () => {
@@ -40,16 +40,5 @@ describe('formatDateTime', () => {
   it('accepts ISO strings from the API', () => {
     const result = formatDateTime('2026-09-15T14:30:00Z');
     expect(result).not.toBe('');
-  });
-});
-
-describe('formatPhoneNumber', () => {
-  it('trims whitespace and preserves E.164 format', () => {
-    expect(formatPhoneNumber('  +8801700000001  ')).toBe('+8801700000001');
-  });
-
-  it('returns empty string for nullish input', () => {
-    expect(formatPhoneNumber(null)).toBe('');
-    expect(formatPhoneNumber(undefined)).toBe('');
   });
 });

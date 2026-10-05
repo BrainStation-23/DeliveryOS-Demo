@@ -139,7 +139,7 @@ CREATE TABLE "vendor_operating_hours" (
 -- CreateTable
 CREATE TABLE "categories" (
     "id" UUID NOT NULL,
-    "vendor_id" UUID,
+    "vendor_id" UUID NOT NULL,
     "name" VARCHAR(100) NOT NULL,
     "image_url" TEXT,
     "sort_order" INTEGER NOT NULL DEFAULT 0,

@@ -22,23 +22,3 @@ export function canDeleteOutlet(counts: OutletDeletionCounts): boolean {
     Number(counts.itemCount) === 0
   );
 }
-
-/**
- * Summarizes human-readable reasons why an outlet cannot be deleted.
- */
-export function getOutletDeletionBlockingReasons(counts: OutletDeletionCounts): string[] {
-  const reasons: string[] = [];
-  if (Number(counts.staffCount) > 0) {
-    reasons.push(`${counts.staffCount} tagged staff assignment(s)`);
-  }
-  if (Number(counts.categoryCount) > 0) {
-    reasons.push(`${counts.categoryCount} category/categories`);
-  }
-  if (Number(counts.itemCount) > 0) {
-    reasons.push(`${counts.itemCount} item(s)`);
-  }
-  if (Number(counts.orderCount ?? 0) > 0) {
-    reasons.push(`${counts.orderCount} historical order(s)`);
-  }
-  return reasons;
-}

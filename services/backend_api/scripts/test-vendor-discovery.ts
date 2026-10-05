@@ -120,11 +120,11 @@ async function runVendorDiscoveryTest() {
     // -------------------------------------------------------------------------
     // Test 4: Cart Address Geofence Guard (Inside Coverage - Banani)
     // -------------------------------------------------------------------------
-    console.log('🛡️  4. Testing POST /cart/validate-address-coverage (Inside Coverage - Banani)...');
+    console.log('🛡️  4. Testing POST /vendors/validate-address-coverage (Inside Coverage - Banani)...');
 
     // Security invariant: the coverage oracle is authenticated — anonymous
     // probes must be rejected with 401 before any coordinate math runs.
-    const anonRes = await fetch(`${baseUrl}/cart/validate-address-coverage`, {
+    const anonRes = await fetch(`${baseUrl}/vendors/validate-address-coverage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ vendorId: gulshanStore.id, latitude: 23.7937, longitude: 90.4043 }),
@@ -134,7 +134,7 @@ async function runVendorDiscoveryTest() {
     }
     console.log('   ✅ Anonymous probe correctly rejected with 401 (authenticated oracle)!');
 
-    const validCoordRes = await fetch(`${baseUrl}/cart/validate-address-coverage`, {
+    const validCoordRes = await fetch(`${baseUrl}/vendors/validate-address-coverage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
       body: JSON.stringify({
@@ -153,8 +153,8 @@ async function runVendorDiscoveryTest() {
     // -------------------------------------------------------------------------
     // Test 5: Cart Address Geofence Guard (Outside Coverage - Uttara ~9.7km away)
     // -------------------------------------------------------------------------
-    console.log('🚫 5. Testing POST /cart/validate-address-coverage (Outside Coverage - Uttara)...');
-    const invalidCoordRes = await fetch(`${baseUrl}/cart/validate-address-coverage`, {
+    console.log('🚫 5. Testing POST /vendors/validate-address-coverage (Outside Coverage - Uttara)...');
+    const invalidCoordRes = await fetch(`${baseUrl}/vendors/validate-address-coverage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
       body: JSON.stringify({

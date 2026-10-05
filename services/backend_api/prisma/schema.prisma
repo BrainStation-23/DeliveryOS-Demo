@@ -237,13 +237,13 @@ model VendorOperatingHour {
 
 model Category {
   id        String  @id @default(uuid()) @db.Uuid
-  vendorId  String? @map("vendor_id") @db.Uuid // NULL = Global Central Category
+  vendorId  String  @map("vendor_id") @db.Uuid
   name      String  @db.VarChar(100)
   imageUrl  String? @map("image_url") @db.Text
   sortOrder Int     @default(0) @map("sort_order")
   isActive  Boolean @default(true) @map("is_active")
 
-  vendor   Vendor?   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor   Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   products Product[]
 
   @@index([vendorId])

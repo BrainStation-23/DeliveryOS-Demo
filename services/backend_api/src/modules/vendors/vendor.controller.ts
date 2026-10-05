@@ -54,7 +54,7 @@ export class VendorController {
   }
 
   @Get(':id/catalog')
-  @ApiOperation({ summary: 'Get outlet details, categories, items, variants, and toppings' })
+  @ApiOperation({ summary: 'Get outlet details, categories, items, and variants' })
   @ApiResponse({ status: 200, description: 'Full categorized outlet menu catalog' })
   async getCatalog(@Param('id') id: string) {
     const catalog = await this.vendorService.getCatalog(id);
@@ -73,30 +73,6 @@ export class VendorController {
   @ApiResponse({ status: 200, description: 'Address is strictly within coverage radius' })
   @ApiResponse({ status: 422, description: 'Address is outside outlet coverage radius' })
   async validateCoverage(
-    @CurrentUser('id') userId: string | undefined,
-    @Body() dto: ValidateAddressCoverageDto,
-  ) {
-    const result = await this.vendorService.validateAddressCoverage(dto, userId);
-    return {
-      message: 'Address is within outlet delivery coverage',
-      data: result,
-    };
-  }
-}
-
-@ApiTags('Cart & Checkout')
-@Controller('cart')
-export class CartController {
-  constructor(private readonly vendorService: VendorService) {}
-
-  @Post('validate-address-coverage')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Cart Address Geofence Guard: Verify delivery address coverage' })
-  @ApiResponse({ status: 200, description: 'Address is strictly within coverage radius' })
-  @ApiResponse({ status: 422, description: 'Address is outside outlet coverage radius' })
-  async validateCartCoverage(
     @CurrentUser('id') userId: string | undefined,
     @Body() dto: ValidateAddressCoverageDto,
   ) {

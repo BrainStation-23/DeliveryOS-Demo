@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -15,19 +14,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { ApiBearerAuth, ApiOperation, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { UploadedFile, UseInterceptors } from '@nestjs/common/decorators';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { IMAGE_UPLOAD_INTERCEPTOR_OPTIONS } from '../../common/storage/image-upload.options';
 import { UserRole } from '@prisma/client';
 import { AdminService } from './admin.service';
 import { AdminFleetService } from './admin-fleet.service';
 import { AdminFinanceService, FinanceLedgerRow } from './admin-finance.service';
-import { MediaService } from '../media/media.service';
 import { AdminCancelOrderDto } from './dto/admin-cancel-order.dto';
 import { ListCashDepositsQueryDto } from './dto/list-cash-deposits.query.dto';
 import { VerifyCashDepositDto } from './dto/verify-cash-deposit.dto';
@@ -40,7 +35,6 @@ import {
   AssignVendorStaffDto,
   CreateBannerDto,
   CreateBrandDto,
-  CreateCategoryDto,
   CreateCouponDto,
   CreateOutletCategoryDto,
   CreateStaffUserDto,
@@ -75,29 +69,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly adminFleetService: AdminFleetService,
     private readonly adminFinanceService: AdminFinanceService,
-    private readonly mediaService: MediaService,
   ) {}
-
-  // 0. Media Uploads (legacy alias — every upload is registered in the media library)
-  @Post('uploads')
-  @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(FileInterceptor('file', IMAGE_UPLOAD_INTERCEPTOR_OPTIONS))
-  @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Upload an image (JPEG/PNG/WebP/GIF, max 5 MB); registers a media library asset' })
-  @ApiResponse({ status: 201, description: 'Registered media asset with its public URL' })
-  async uploadImage(
-    @UploadedFile() file?: Express.Multer.File,
-    @CurrentUser() user?: { id: string },
-  ) {
-    if (!file) {
-      throw new BadRequestException('Multipart field "file" is required');
-    }
-    const data = await this.mediaService.uploadImage(file, { uploadedById: user?.id });
-    return {
-      message: 'Image uploaded successfully',
-      data,
-    };
-  }
 
   // 1. Dashboard Overview
   @Get('overview')
@@ -250,17 +222,6 @@ export class AdminController {
     const data = await this.adminService.getAllVendors();
     return {
       message: `Retrieved ${data.length} vendor outlets`,
-      data,
-    };
-  }
-
-  @Get('vendors/:id/catalog')
-  @ApiOperation({ summary: 'Full catalog governance view for one outlet (categories, products, variants, add-ons)' })
-  @ApiResponse({ status: 404, description: 'Vendor outlet not found' })
-  async getVendorCatalog(@Param('id') vendorId: string) {
-    const data = await this.adminService.getVendorCatalog(vendorId);
-    return {
-      message: `Retrieved catalog for ${data.vendorName}`,
       data,
     };
   }
@@ -544,27 +505,6 @@ export class AdminController {
         ? 'Staff assignment removed and the account demoted to CUSTOMER'
         : 'Staff assignment removed',
       data,
-    };
-  }
-
-  // 7. Master Catalog Authority
-  @Get('catalog/categories')
-  @ApiOperation({ summary: 'List master central categories' })
-  async getCategories() {
-    const data = await this.adminService.getCentralCategories();
-    return {
-      message: `Retrieved ${data.length} central categories`,
-      data,
-    };
-  }
-
-  @Post('catalog/categories')
-  @ApiOperation({ summary: 'Create new central category' })
-  async createCategory(@Body() dto: CreateCategoryDto) {
-    const category = await this.adminService.createCentralCategory(dto);
-    return {
-      message: 'Central category created successfully',
-      data: category,
     };
   }
 

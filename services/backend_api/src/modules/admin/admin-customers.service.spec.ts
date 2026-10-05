@@ -175,9 +175,6 @@ describe('AdminCustomersService.updateCustomerStatus', () => {
     del: jest.Mock;
     getClient: jest.Mock;
   };
-  let trackingGateway: {
-    notifyUserStatusChanged: jest.Mock;
-  };
 
   beforeEach(() => {
     prisma = {
@@ -209,13 +206,10 @@ describe('AdminCustomersService.updateCustomerStatus', () => {
       del: jest.fn().mockResolvedValue(1),
       getClient: jest.fn().mockReturnValue(mockRedisClient),
     };
-    trackingGateway = {
-      notifyUserStatusChanged: jest.fn(),
-    };
-    service = new AdminCustomersService(prisma as never, redis as never, trackingGateway as never);
+    service = new AdminCustomersService(prisma as never, redis as never);
   });
 
-  it('suspends a customer with provided reason, invalidates Redis user cache and refresh tokens, and broadcasts status update', async () => {
+  it('suspends a customer with provided reason, invalidates Redis user cache and refresh tokens, and revokes refresh tokens', async () => {
     const result = await service.updateCustomerStatus('customer-1', 'SUSPENDED', 'Fraudulent orders');
 
     expect(result).toEqual({
@@ -234,11 +228,6 @@ describe('AdminCustomersService.updateCustomerStatus', () => {
     const client = redis.getClient();
     expect(client.keys).toHaveBeenCalledWith('auth:refresh:*');
     expect(client.del).toHaveBeenCalledWith('auth:refresh:token-1');
-    expect(trackingGateway.notifyUserStatusChanged).toHaveBeenCalledWith('customer-1', {
-      userId: 'customer-1',
-      status: 'SUSPENDED',
-      reason: 'Fraudulent orders',
-    });
   });
 
   it('reactivates a customer and clears suspensionReason without token revocation scan', async () => {
@@ -252,7 +241,6 @@ describe('AdminCustomersService.updateCustomerStatus', () => {
       select: expect.any(Object),
     });
     expect(redis.del).toHaveBeenCalledWith('auth:user:customer-1');
-    expect(trackingGateway.notifyUserStatusChanged).not.toHaveBeenCalled();
   });
 
   it('throws NotFoundException when customer does not exist or has non-CUSTOMER role', async () => {

@@ -34,12 +34,6 @@ export function formatDateTime(
   });
 }
 
-export function formatPhoneNumber(phone: string | null | undefined): string {
-  if (!phone) return '';
-  // Clean representation
-  return phone.trim();
-}
-
 export function formatBytes(bytes: number | null | undefined): string {
   const num = Number(bytes) || 0;
   if (num < 1024) return `${num} B`;

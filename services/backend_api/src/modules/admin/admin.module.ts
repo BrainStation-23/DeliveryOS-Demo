@@ -10,10 +10,9 @@ import { AdminFinanceService } from './admin-finance.service';
 import { OrderModule } from '../orders/order.module';
 import { PromotionsModule } from '../promotions/promotions.module';
 import { NotificationsModule } from '../notifications/notifications.module';
-import { MediaModule } from '../media/media.module';
 
 @Module({
-  imports: [OrderModule, PromotionsModule, NotificationsModule, MediaModule],
+  imports: [OrderModule, PromotionsModule, NotificationsModule],
   controllers: [AdminController, AdminAnalyticsController, AdminCustomersController],
   providers: [AdminService, AdminAnalyticsService, AdminCustomersService, AdminFleetService, AdminFinanceService],
   exports: [AdminService],

@@ -586,7 +586,7 @@ export const AdminOutletPage: React.FC = () => {
               <p>
                 Permanently delete{' '}
                 <strong className="text-slate-900 dark:text-slate-100">{deleteProductTarget.name}</strong> and all its
-                variations and add-ons?
+                variations?
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Products that already appear on customer orders cannot be deleted — mark them out of stock instead.

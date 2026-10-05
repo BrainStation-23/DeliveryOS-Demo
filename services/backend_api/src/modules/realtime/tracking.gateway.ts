@@ -263,7 +263,6 @@ export class TrackingGateway
   }
 
   @SubscribeMessage('rider:location:update')
-  @SubscribeMessage('rider:location_update')
   async handleRiderLocationUpdate(
     client: Socket,
     payload: {
@@ -568,28 +567,5 @@ export class TrackingGateway
     );
   }
 
-  /**
-   * Event: user:status:changed (Server -> User/Customer Room)
-   * Emitted when user account status changes (e.g. SUSPENDED or ACTIVE)
-   */
-  notifyUserStatusChanged(
-    userId: string,
-    data: {
-      userId: string;
-      status: string;
-      reason?: string | null;
-    },
-  ) {
-    if (!this.server) return;
-    const payload = {
-      event: 'user:status:changed',
-      data: {
-        ...data,
-        timestamp: new Date().toISOString(),
-      },
-    };
-    this.server.to(`user_${userId}`).to(`customer_${userId}`).emit('user:status:changed', payload);
-    this.logger.log(`Emitted [user:status:changed] for user ${userId}: ${JSON.stringify(data)}`);
-  }
 }
 

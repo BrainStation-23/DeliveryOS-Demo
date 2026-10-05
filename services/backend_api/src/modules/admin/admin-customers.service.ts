@@ -1,9 +1,8 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { AccountStatus, Prisma } from '@prisma/client';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
-import { TrackingGateway } from '../realtime/tracking.gateway';
 import { outletDisplayName } from '../../common/utils/outlet-display-name';
 import { PaginatedResult, toPaginatedResult } from '../../common/dto/pagination.dto';
 import { GetCustomersQueryDto } from './dto/admin-insights.dto';
@@ -26,7 +25,6 @@ export class AdminCustomersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    @Optional() private readonly trackingGateway?: TrackingGateway,
   ) {}
 
   async getCustomersPage(query: GetCustomersQueryDto): Promise<PaginatedResult<CustomerRow>> {
@@ -256,12 +254,6 @@ export class AdminCustomersService {
       } catch {
         // Non-critical if Redis pattern scan is unavailable in mock/unit test
       }
-
-      this.trackingGateway?.notifyUserStatusChanged?.(customerId, {
-        userId: customerId,
-        status,
-        reason: suspensionReason,
-      });
     }
 
     return {

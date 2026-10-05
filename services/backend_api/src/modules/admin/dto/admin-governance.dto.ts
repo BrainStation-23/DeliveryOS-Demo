@@ -448,32 +448,6 @@ export class AssignVendorStaffDto {
   brandId?: string;
 }
 
-export class CreateCategoryDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(120)
-  declare name: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  @MaxLength(2000)
-  imageUrl?: string;
-
-  @ApiPropertyOptional({ minimum: 0 })
-  @Type(() => Number)
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  sortOrder?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
-}
-
 export class SaveProductVariationDto {
   @ApiPropertyOptional({ description: 'Existing variation id (omit to create); absent ids are deleted' })
   @IsOptional()
