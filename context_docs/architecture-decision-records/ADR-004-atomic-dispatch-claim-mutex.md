@@ -142,18 +142,17 @@ To prevent unassigned orders from starving when nearby couriers do not claim the
 
 ---
 
-## Compliance & Verification
-- **Distributed Mutex Test**: Verified via `npm run test:dispatch` (`scripts/test-dispatch-fsm.ts`) asserting 6 concurrent rider claims result in exactly 1 winner (200 OK) and 5 rejections (409 Conflict).
-- **Escalation & FCM Test**: Verified via `npm run test:escalation` (`scripts/test-fcm-notifications.ts`) asserting Tier 1 radius expansion and Tier 2 `admin_hq` room escalation.
-- **Courier UI error handling**: Handled via Riverpod exception interception in [`trip_provider.dart`](../../apps/rider_app/lib/features/trips/providers/trip_provider.dart).
-- **Admin Fleet Map Radar**: Verified in [`LiveFleetMap.tsx`](../../apps/admin_portal/src/components/dispatch/LiveFleetMap.tsx) showing real-time rider pins and escalation badges.
+## Fleet Invariants & Push Rings
+
+1. **Database In-Flight Backstop**: In addition to Redis busy locks, the claim transaction verifies that the courier holds zero active orders in PostgreSQL (`[RIDER_ASSIGNED, ACCEPTED, PREPARING, READY_FOR_PICKUP, DISPATCHED]`), preventing double-assignment if Redis markers expire or flush.
+2. **Assignment-Guarded Pickup**: `pickupOrder` strictly verifies caller assignment (`order.riderId === rider.id`) with status-conditional updates, preventing unassigned order adoption.
+3. **Admin Force-Assignment Validation**: Admin manual assignment validates that the target courier is approved, active, on duty, has zero concurrent trips, and that online orders are verified `PAID`.
+4. **Geo-Targeted Push Rings**: Socket dispatch broadcasts pool-wide, while high-priority FCM notifications target couriers within proximity rings: 5 km (Tier 0), 6 km (Tier 1), and 10 km (Tier 2) using Redis geospatial queries (`GEOSEARCH`).
 
 ---
 
-## Amendments
-
-### 2026-09-30 — DB busy backstop, pickup assignment guard & admin-override validation
-- **DB in-flight backstop in `claimOrder`**: the transaction now rejects the claim if the courier already holds any open order (`RIDER_ASSIGNED`…`DISPATCHED`) in the database. The Redis `rider:active_order` marker alone was the busy signal — it can be lost to eviction, flush, or a crash between commit and `SET`, which previously allowed a courier to hold two concurrent trips.
-- **`pickupOrder` is assignment-guarded**: a null `riderId` is rejected (403) instead of being adopted by the caller. The old behavior let any rider scoop an unassigned order directly, bypassing the mutex, the dispatch-mode check, and the COD cash-limit projection. The update is also status-conditional.
-- **`forceAssignRider` validates the fleet**: admin override now rejects unapproved/suspended couriers, offline couriers, couriers already mid-trip (DB backstop), and unverified `ONLINE_GATEWAY` orders (payment invariant), and its write is status-conditional.
-- **Geo-targeted push rings**: the socket broadcast remains pool-wide, while FCM push targets riders within 5 km (Tier 0), 6 km (Tier 1), and 10 km (Tier 2) of the pickup outlet from the Redis GEO index, falling back to a role-wide push on a cold index. This replaces the previous push-to-every-courier blast on every order.
+## Compliance & Verification
+- **Distributed Mutex Test**: Verified via `npm run test:dispatch` (`scripts/test-dispatch-fsm.ts`) asserting concurrent rider claims result in exactly 1 winner (200 OK) and rejections (409 Conflict).
+- **Escalation & FCM Test**: Verified via `npm run test:escalation` (`scripts/test-fcm-notifications.ts`) asserting Tier 1 radius expansion and Tier 2 `admin_hq` room escalation.
+- **Courier UI error handling**: Handled via Riverpod exception interception in [`trip_provider.dart`](../../apps/rider_app/lib/features/trips/providers/trip_provider.dart).
+- **Admin Fleet Map Radar**: Verified in [`LiveFleetMap.tsx`](../../apps/admin_portal/src/components/dispatch/LiveFleetMap.tsx) showing real-time rider pins and escalation badges.

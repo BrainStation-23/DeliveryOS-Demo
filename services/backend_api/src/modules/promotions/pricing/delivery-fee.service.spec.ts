@@ -38,8 +38,8 @@ describe('DeliveryFeeService', () => {
       });
     });
 
-    it('gracefully normalizes legacy snake_case database records into canonical schema', () => {
-      const legacyRaw = {
+    it('gracefully normalizes snake_case database records into canonical schema', () => {
+      const rawConfig = {
         mode: 'DISTANCE_TIERED',
         flat_rate: 55.0,
         base_fee: 35.0,
@@ -47,7 +47,7 @@ describe('DeliveryFeeService', () => {
         per_km_rate: 12.0,
       };
 
-      const result = normalizeDeliveryFeeConfig(legacyRaw, fallbackConfig);
+      const result = normalizeDeliveryFeeConfig(rawConfig, fallbackConfig);
       expect(result).toEqual({
         mode: 'DISTANCE_TIERED',
         flatFee: 55.0,

@@ -205,7 +205,7 @@
       "netPayable": "Net Vendor Payable",
       "settlement": "Settlement:",
       "each": "each",
-      "noLineItems": "Line items breakdown not recorded for legacy order",
+      "noLineItems": "Line items breakdown not recorded for this order",
       "orderStatus": "Order Status",
       "prepTime": "Prep Time",
       "cancellationReason": "Cancellation Reason:",

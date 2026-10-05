@@ -23,7 +23,7 @@ const LINK_BADGE_VARIANTS: Record<AdminBanner['linkType'], { label: string; icon
   OUTLET: { label: 'Outlet (Regional)', icon: Store },
   INTERNAL: { label: 'Internal Deeplink', icon: Link2 },
   EXTERNAL: { label: 'External URL', icon: ExternalLink },
-  CATEGORY: { label: 'Category (Legacy)', icon: Link2 },
+  CATEGORY: { label: 'Category', icon: Link2 },
 };
 
 export const BannerGrid: React.FC<BannerGridProps> = ({

@@ -12,7 +12,7 @@ export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
     OrderStatus.READY_FOR_PICKUP,
     OrderStatus.CANCELLED,
   ],
-  ACCEPTED: [OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED], // Deprecated, preserved for safety
+  ACCEPTED: [OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED],
   PREPARING: [OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED],
   READY_FOR_PICKUP: [OrderStatus.DISPATCHED, OrderStatus.CANCELLED],
   // No CANCELLED edge by policy: an on-the-road courier either reports a

@@ -54,13 +54,15 @@ export interface PaymentGateway {
   verifyWebhook(payload: unknown, headers: Record<string, string>): Promise<WebhookVerificationResult>;
 }
 ```
-- **`SslCommerzGateway`**: Primary production gateway aggregator handling bKash, Nagad, Upay, Visa, and Mastercard via hosted checkout with SHA-256 IPN verification and server-to-server validation. (*Note: Standalone direct bKash adapter was superseded by this multi-channel aggregator to simplify compliance and reconciliation*).
+- **`SslCommerzGateway`**: Primary production gateway aggregator handling bKash, Nagad, Upay, Visa, and Mastercard via hosted checkout with SHA-256 IPN verification and server-to-server Order Validation API.
 - **`SandboxGateway`**: In-memory and local development simulator utilizing HMAC-SHA256 signatures (`x-webhook-signature`).
 
 ### 3. Cryptographic Webhook Security & Idempotency
-1. **Signature Verification**: Every incoming webhook must validate its cryptographic signature (`HMAC-SHA256` or gateway secret) before parsing payload. Unsigned or tampered requests return `401 Unauthorized`.
+1. **Signature Verification & Server Validation**: Every incoming webhook validates its cryptographic signature (`HMAC-SHA256` or gateway secret) and executes server-to-server Order Validation before parsing payloads. Unsigned or tampered requests return HTTP 401 Unauthorized.
 2. **Database-Enforced Idempotency**: The `Payment` entity stores unique `transactionId`. If a webhook arrives for a payment that is already `PAID`, the service returns `201 OK` immediately without re-triggering ledger transactions or duplicate dispatches.
 3. **Cancelled and Switched-to-COD Guard**: If a delayed webhook arrives after an order has been cancelled or transitioned to `CASH_ON_DELIVERY`, the payment is prevented from reviving the order to `PAID`, dispatch broadcasts are strictly withheld, and an operational alert is logged for refund reconciliation.
+4. **Gateway Confirmation for Refunds**: `REFUNDED` status is recorded only after the gateway confirms. Cancellation executes the gateway refund; only on confirmation does the payment update to `REFUNDED`. If a gateway refund fails, the payment remains `PAID` with an operational reconciliation flag.
+5. **Per-Order Refund Mutex**: Concurrent refund executions are serialized per order behind Redis mutex `lock:refund:order:{orderId}`.
 
 ### 4. 15-Minute Unpaid Order Expiration
 A scheduled cron routine cleans up abandoned online orders:
@@ -85,12 +87,3 @@ To ensure clean merchant and courier ledger payouts:
 ### Negative / Trade-Offs
 - Customers who take time to complete payment on external gateway apps experience a brief pause before hearing order acceptance confirmation.
 - Requires reliable clock synchronization and secure gateway credential management across production environments.
-
----
-
-## Amendments
-
-### 2026-09-30 — Refund honesty, failed-IPN handling & refund mutex
-- **`REFUNDED` is recorded only after the gateway confirms**: cancellation no longer flips payment rows to `REFUNDED` inside the DB transaction. The gateway refund runs after the claim commits; only on its success do the payment row and order payment status become `REFUNDED`. A failed refund leaves the order honestly `PAID` and logs a reconciliation-flagged error instead of silently claiming the money was returned.
-- **Gateway-verified failed payments are accepted**: SSLCommerz `verifyWebhook` now trusts any status returned by a successful server-to-server validation query (marking the payment `FAILED`), while transport/config errors (`VALIDATION_ERROR`, `UNCONFIGURED`) and missing statuses remain fail-closed as tamper-suspected. Genuine FAIL/CANCEL IPNs previously bounced as `401` and left rows `PENDING` until the 15-minute sweep.
-- **Per-order refund mutex**: `refundForOrder` serializes concurrent refund attempts (cancellation + webhook reconciliation) behind `lock:refund:order:{orderId}` so the gateway can never be asked to refund the same charge twice; a concurrent attempt reports not-done rather than riding another caller's in-flight result.

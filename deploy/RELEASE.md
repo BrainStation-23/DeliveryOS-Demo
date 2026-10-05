@@ -18,16 +18,33 @@ Before deploying any version to production, verify each gate:
 
 ## 2. Database Migration & Schema Evolution
 
-### Zero-Downtime Migration Policy
-- **Additive Only**: Never drop columns or rename existing active fields during an active deployment. Add new columns as optional or with non-breaking defaults.
-- **Foreign Key Immutability**: Financial ledgers (`vendor_settlement_ledgers`, `rider_trip_ledgers`, `commission_ledgers`) use `RESTRICT` on delete to prevent cascading data loss.
+### Fresh Production System Launch (Initial Boot)
+DeliveryOS launches as a clean, modern production system with zero legacy baggage or deprecated compatibility layers. To initialize the brand-new production environment:
+
+```bash
+# 1. Boot core datastores
+docker compose -f deploy/docker-compose.prod.yml up -d postgres redis
+
+# 2. Apply the clean baseline schema migration (0_init)
+docker compose -f deploy/docker-compose.prod.yml exec -T backend npx prisma migrate deploy
+
+# 3. Seed canonical reference and operational dataset
+docker compose -f deploy/docker-compose.prod.yml exec -T backend npm run prisma:seed
+
+# 4. Verify system health
+curl -s http://localhost:4000/api/v1/health | jq .
+```
+
+### Zero-Downtime Schema Evolution Policy
+- **Additive Only**: When modifying schema post-launch, never drop columns or rename existing active fields during an active deployment. Add new columns as optional or with non-breaking defaults.
+- **Foreign Key Immutability**: Financial ledgers (`vendor_settlement_ledgers`, `rider_trip_ledgers`, `commission_ledgers`) enforce `RESTRICT` on delete to guarantee immutable accounting trails (ADR-022).
 
 ### Migration Execution
 ```bash
-# 1. Apply Prisma migrations without schema recreation
+# Apply pending Prisma migrations
 docker compose -f deploy/docker-compose.prod.yml exec -T backend npx prisma migrate deploy
 
-# 2. Verify migration status
+# Verify migration status
 docker compose -f deploy/docker-compose.prod.yml exec -T backend npx prisma migrate status
 ```
 

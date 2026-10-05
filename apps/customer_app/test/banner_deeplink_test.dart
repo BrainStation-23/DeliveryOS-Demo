@@ -30,9 +30,10 @@ void main() {
       expect(action.outletName, 'Kacchi Bhai');
     });
 
-    test('legacy VENDOR action type still routes to the outlet page', () {
-      final action = resolveBannerAction(banner(actionType: 'VENDOR', actionValue: 'vendor-1'));
+    test('OUTLET banner without targetName falls back to title', () {
+      final action = resolveBannerAction(banner(actionType: 'OUTLET', actionValue: 'vendor-1'));
       expect(action, isA<OpenOutlet>());
+      expect((action as OpenOutlet).outletName, 'Weekend Feast');
     });
 
     test('CATEGORY banners open discovery seeded with the resolved category name', () {

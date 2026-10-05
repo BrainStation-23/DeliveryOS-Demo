@@ -77,7 +77,7 @@ Future<void> openNativeTurnByTurnNavigation(double lat, double lng) async {
 - **Foreground Telemetry Service**: Configured in `AndroidManifest.xml` via `FOREGROUND_SERVICE_LOCATION`, streaming 10-meter GPS updates via WebSockets when in the background.
 
 ### 1.4 Secure Token Storage & Mobile Release Engineering (ADR-013, ADR-015)
-- **Token Security**: JWT tokens are persisted via `flutter_secure_storage` (Android Keystore / iOS Keychain) with automatic transparent migration from legacy SharedPreferences.
+- **Token Security**: JWT tokens are persisted securely via `flutter_secure_storage` (Android Keystore / iOS Keychain).
 - **Single-Flight Refresh Interceptor**: Intercepts 401s, executes single-flight token rotation via `POST /auth/refresh`, and replays failed queries or triggers logout.
 - **Release Signing & ProGuard**: Configured via `android/key.properties` (gitignored; debug keystore fallback for contributors) with ProGuard rules referenced.
 - **Release Packaging**: `scripts/build-android.sh` produces release Android App Bundles (AAB) with dart-define injected base URLs, Maps keys, and payment gateways (`TID-07 § 6`).

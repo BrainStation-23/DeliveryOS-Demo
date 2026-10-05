@@ -24,14 +24,6 @@ export class GetNearbyVendorsDto {
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, { message: 'typeSlug must be lowercase kebab-case' })
   typeSlug?: string;
 
-  @ApiPropertyOptional({
-    deprecated: true,
-    description: 'Legacy vertical filter from the pre-outlet-types app build — accepted and ignored',
-  })
-  @IsOptional()
-  @IsString()
-  vertical?: string;
-
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 50, description: 'Maximum outlets returned' })
   @IsOptional()
   @Type(() => Number)

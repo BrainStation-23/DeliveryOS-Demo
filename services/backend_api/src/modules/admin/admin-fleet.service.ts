@@ -61,7 +61,7 @@ export class AdminFleetService {
 
       // Derived duty status: ONLINE = on duty without an in-flight order,
       // ON_TRIP = on duty with one, OFFLINE = not on duty. Falls back to the
-      // legacy isOnline boolean when no derived status is requested.
+      // boolean isOnline filter when no derived status is requested.
       if (query.status === 'OFFLINE') {
         where.isOnline = false;
       } else if (query.status === 'ONLINE') {

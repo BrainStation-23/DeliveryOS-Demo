@@ -70,7 +70,7 @@ erDiagram
 
 ## 3. Production PostgreSQL DDL & Spatial Schema
 
-> **Source of truth**: `services/backend_api/prisma/schema.prisma` + the single baseline migration `prisma/migrations/0_init/migration.sql` (migration history squashed at the 2026-10-05 system reset — see ADR-012). The DDL below is the logical reference model. Coordinates persist as `DOUBLE PRECISION` lat/lng pairs; PostGIS geography is expressed at query time over `GIST` expression indexes.
+> **Source of truth**: `services/backend_api/prisma/schema.prisma` + the baseline migration `prisma/migrations/0_init/migration.sql` (ADR-012). The DDL below is the logical reference model. Coordinates persist as `DOUBLE PRECISION` lat/lng pairs; PostGIS geography is expressed at query time over `GIST` expression indexes.
 
 ```sql
 -- 1. Initialize Extensions
@@ -86,7 +86,7 @@ CREATE TYPE order_flow_mode AS ENUM ('RIDER_FIRST', 'VENDOR_FIRST');
 CREATE TYPE order_status AS ENUM (
   'PLACED',
   'RIDER_ASSIGNED',
-  'ACCEPTED', -- Deprecated runtime legacy state: transitions directly to PREPARING (ADR-002)
+  'ACCEPTED', -- Schema enum value: runtime engine transitions directly to PREPARING (ADR-002)
   'PREPARING',
   'READY_FOR_PICKUP',
   'DISPATCHED',

@@ -36,10 +36,10 @@ Functional specifications, screen states, user inputs, business guards, outputs,
 - **Edge Cases**: Geocoding failure falls back to manual street address entry.
 
 ### Screen 3: Home Feed, Categorized Discovery & Instant Search (`HomeScreen`, `SearchScreen`)
-- **Components**: Promotional banner carousel, vertical category filter pills (`All`, `FOOD`, `GROCERY`, `PHARMACY`), outlet cards, search bar.
-- **Inputs**: Search query text `q`, vertical category selection.
+- **Components**: Promotional banner carousel, outlet category filter pills (`All`, and active types loaded dynamically from `GET /vendors/outlet-types`), outlet cards, search bar.
+- **Inputs**: Search query text `q`, outlet category selection.
 - **Business Rules**:
-  - Store card shows outlet name, vertical tag, ETA, delivery fee, distance (km), and operational badges (`OPEN`, `CLOSED`, `BUSY`).
+  - Store card shows outlet name, outlet category badge, ETA, delivery fee, distance (km), and operational badges (`OPEN`, `CLOSED`, `BUSY`).
   - Search queries both outlet names and item titles simultaneously (`GET /vendors/search?q=...`).
   - **Direct Add Action**: Item cards in search results feature an `ADD +` button launching the `ItemCustomizerSheet` directly without loading the store page.
   - **Single-Vendor Cart Conflict**: Adding an item from Store B while Store A items exist in cart triggers a confirmation modal: *"Clear Cart & Add New?"*.

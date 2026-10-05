@@ -237,7 +237,7 @@ describe('VendorStaffService - accept/handover flow-mode guards', () => {
       ...baseOrder,
       status: OrderStatus.READY_FOR_PICKUP,
       riderId: null,
-      deliveryAddressSnapshot: { type: 'TAKEAWAY', deliveryMethod: 'TAKEAWAY' },
+      deliveryAddressSnapshot: { deliveryMethod: 'TAKEAWAY' },
       vendor: { defaultPrepTimeMinutes: 20 },
     });
 

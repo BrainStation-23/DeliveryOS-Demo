@@ -8,7 +8,7 @@ Operational guidelines, permission hierarchies, KDS mechanics, stock management,
 
 ### 1.1 Onboarding Pathways
 1. **Self-Registration Pathway (`/vendor/register`)**:
-   - Merchant submits business name, vertical (`FOOD`, `GROCERY`, `SUPER_SHOP`, `PHARMACY`), contact phone, and store coordinates.
+   - Merchant submits business name, outlet category (e.g. Restaurant, Super Shop, Grocery, Pharmacy from admin-managed outlet types), contact phone, and store coordinates.
    - Initial state: `PENDING_APPROVAL`.
    - Requires Super Admin review before store appears in customer discovery.
 2. **Direct Super Admin Creation (`/admin/vendors`)**:

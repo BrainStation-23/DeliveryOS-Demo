@@ -464,9 +464,8 @@ export class VendorStaffService {
     // Delivery orders require an assigned courier: dispatching a riderless
     // delivery order leaves it in DISPATCHED, a status no rider can claim.
     // Takeaway hands over to the customer and legitimately carries no rider.
-    const snapshot = order.deliveryAddressSnapshot as { deliveryMethod?: string; type?: string } | null;
-    const deliveryMethod = snapshot?.deliveryMethod ?? snapshot?.type;
-    const isTakeaway = deliveryMethod === 'TAKEAWAY';
+    const snapshot = order.deliveryAddressSnapshot as { deliveryMethod?: string } | null;
+    const isTakeaway = snapshot?.deliveryMethod === 'TAKEAWAY';
     if (!isTakeaway && !order.riderId) {
       throw new BadRequestException(
         'Cannot hand over a delivery order before a courier has claimed it. Wait for a rider to secure the order first.',

@@ -1,6 +1,6 @@
 /**
  * Canonical outlet representation: "Brand <sep> Outlet". When the outlet
- * name already carries the brand (single-branch brands or legacy seeded
+ * name already carries the brand (single-branch brands or pre-composed seeded
  * names), the name is shown once instead of doubled ("X — X").
  */
 export function outletDisplayName(

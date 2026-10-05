@@ -42,12 +42,12 @@ const _httpSchemes = {'http', 'https'};
 /// - OUTLET: opens outlet detail screen if targetId is present.
 /// - INTERNAL: opens in-app deeplink path (e.g. /search?q=..., /cart).
 /// - EXTERNAL: opens system browser with valid http(s) URL.
-/// - CATEGORY: opens category search (legacy).
+/// - CATEGORY: opens category search.
 BannerAction resolveBannerAction(BannerModel banner) {
   final type = banner.actionType?.toUpperCase();
   final targetId = banner.actionValue?.trim();
 
-  if (type == 'OUTLET' || type == 'VENDOR') {
+  if (type == 'OUTLET') {
     if (targetId != null && targetId.isNotEmpty) {
       return OpenOutlet(targetId, banner.targetName ?? banner.title);
     }

@@ -67,7 +67,7 @@ DeliveryOS connects merchants, customers, and delivery couriers through 4 unifie
 
 ### 3.1 Customer Experience
 - **Authentication**: Phone OTP verification with guest browsing enabled until checkout.
-- **Discovery**: Real-time nearby merchant feed filtered by geofence, vertical tags, and active operational status (`OPEN`, `CLOSED`, `BUSY`).
+- **Discovery**: Real-time nearby merchant feed filtered by geofence, dynamic outlet type categories, and active operational status (`OPEN`, `CLOSED`, `BUSY`).
 - **Instant Search**: Search results allow direct `ADD +` into cart with item customizer modal.
 - **Discounts**: Dynamic promo banners and coupon engine (percentage or flat discount with minimum spend limits).
 - **Payment Choice**: Cash on Delivery (COD) or Online Payment Gateway (SSLCommerz / Sandbox).

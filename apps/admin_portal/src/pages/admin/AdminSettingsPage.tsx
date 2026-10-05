@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useSearchParams, Navigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Settings } from 'lucide-react';
 import adminApi from '../../services/adminApi';
@@ -14,8 +13,6 @@ import { DeliveryEconomicsSettingsCard } from '../../components/settings/Deliver
 
 export const AdminSettingsPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [searchParams] = useSearchParams();
-  const legacyTab = searchParams.get('tab');
   const [actionError, setActionError] = useState<string | null>(null);
 
   // Settings query (dispatch timing, delivery fee, delivery economics)
@@ -62,11 +59,6 @@ export const AdminSettingsPage: React.FC = () => {
         staleOrderTtlMinutes: settings.dispatch.stale_order_ttl_minutes ?? 60,
       }
     : null;
-
-  // Seamless redirect if user hits legacy financial tabs on settings URL
-  if (legacyTab === 'settlements' || legacyTab === 'deposits') {
-    return <Navigate to={`/finance?tab=${legacyTab}`} replace />;
-  }
 
   return (
     <div className="space-y-6">

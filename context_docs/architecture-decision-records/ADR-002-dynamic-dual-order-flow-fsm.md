@@ -72,7 +72,7 @@ flowchart TD
 - Mode claimability rules: `RIDER_FIRST` claims from `PLACED`; `VENDOR_FIRST` claims from `READY_FOR_PICKUP`.
 - Invariant A3 Security Guard: Rider claiming and delivery strictly requires `order.riderId === rider.id`, completely eliminating unassigned order cash collection holes.
 - Rider trip ledger records exact `delivery_economics.rider_share_percent` (80%) of delivery fee, maintaining 100% financial consistency across ledger entries and WebSocket broadcasts.
-- **Per-outlet configuration (amended 2026-10-05)**: the mode lives on `vendors.order_flow_mode` (set at outlet create/edit in the admin console; default `RIDER_FIRST`) and is **snapshotted onto `orders.order_flow_mode` at checkout** — dispatch, claim rules, and the vendor accept-invariant all read the order's immutable snapshot, so flipping an outlet's mode never re-routes an in-flight order.
+- **Per-outlet configuration**: The mode lives on `vendors.order_flow_mode` (configured per outlet in the admin console; default `RIDER_FIRST`) and is **snapshotted onto `orders.order_flow_mode` at checkout** — dispatch, claim rules, and the vendor accept-invariant all read the order's immutable snapshot, so flipping an outlet's mode never re-routes an in-flight order.
 - Shared dispatch timing stays platform-wide in `system_settings` under `dispatch_config`:
   ```json
   {
@@ -119,21 +119,16 @@ When an order is cancelled:
 - Orders with `deliveryAddressSnapshot.deliveryMethod === 'TAKEAWAY'` represent self-pickup orders.
 - Upon placement (`handleOrderPlaced`) or ready status (`handleOrderReady`), the KDS kitchen console is notified immediately, while courier pool broadcasting and dispatch escalation sweeps are completely bypassed.
 
+### 4. Concurrency Guard & Fulfillment Invariants
+- **`PLACED → PREPARING` mode enforcement**: `acceptOrder` returns HTTP 409 Conflict for a `PLACED` order while `RIDER_FIRST` is active. In `RIDER_FIRST`, a courier must claim the order first (`RIDER_ASSIGNED`) before the kitchen prepares it.
+- **Terminal safety**: `DISPATCHED` orders can only transition to `DELIVERED` or recover via `READY_FOR_PICKUP` on reported issues. Once dispatched, direct cancellation is blocked by policy.
+- **Status-conditional writes**: `markOrderReady`, `handoverOrder`, `pickupOrder`, and `reportDeliveryIssue` update with `WHERE id AND status = observed` (Prisma P2025 ➔ 409), preventing race conditions with concurrent cancellations.
+- **Handover courier requirement**: Delivery orders require an assigned courier to enter `DISPATCHED` (takeaway orders to customer are exempt).
+- **Stale-order reaper**: Leader-locked `OrderService.sweepStaleOrders()` runs every 60 seconds to auto-cancel kitchen-unaccepted orders exceeding `stale_order_ttl_minutes` via the central cancellation engine.
+
 ---
 
 ## Compliance & Verification
 - Integration verification: [`test-order-dispatch-fsm.ts`](../../services/backend_api/scripts/test-order-dispatch-fsm.ts) validates runtime switching and concurrent claims.
 - Fulfillment verification: [`test-vendor-rider.ts`](../../services/backend_api/scripts/test-vendor-rider.ts) and [`test-e2e-lifecycle.ts`](../../services/backend_api/scripts/test-e2e-lifecycle.ts) validate full lifecycle progression and penny-perfect financial balancing.
 - Cancellation verification: [`test-order-cancellation.ts`](../../services/backend_api/scripts/test-order-cancellation.ts) validates all 4 boundary conditions: customer cancel, pre-prep boundary guard, vendor rejection, and admin force-cancel with refund.
-
----
-
-## Amendments
-
-### 2026-09-30 — Hardened mode scoping, dead-edge removal & stale-order reaper
-- **`PLACED → PREPARING` is now mode-enforced**: `acceptOrder` returns `409` for a `PLACED` order while `RIDER_FIRST` is active. Previously the FSM permitted the transition in both modes; a kitchen accepting a riderless order in `RIDER_FIRST` moved it to `PREPARING`, where `assertClaimable()` rejects every claim — stranding the order with no courier and no customer-cancellation path. The KDS board's New lane still shows the order, but Accept is server-blocked until a rider secures it.
-- **`DISPATCHED → CANCELLED` removed from the transition graph**: no code path could legally execute it (admin cancel blocks `DISPATCHED` by policy — the rider reports a delivery issue or completes the trip). The dead edge is deleted from `ORDER_TRANSITIONS` so the machine matches enforced behavior.
-- **Status-conditional writes on all fulfillment mutations**: `markOrderReady`, `handoverOrder`, `pickupOrder`, and `reportDeliveryIssue` now update `WHERE id AND status = observed` (P2025 → `409`), matching `acceptOrder`. A concurrent cancellation can never be silently resurrected.
-- **Handover requires an assigned courier for delivery orders** (takeaway excepted): dispatching a riderless delivery order left it in `DISPATCHED`, a status no rider can claim.
-- **Stale-order reaper**: `OrderService.sweepStaleOrders()` (leader-locked, 60s tick) auto-cancels kitchen-unaccepted orders older than `dispatch_config.stale_order_ttl_minutes` (default 60) via the central cancellation engine; the escalation scanner caps its window at the same TTL so forgotten orders stop re-broadcasting hourly.
-- **Takeaway snapshot field**: checkout now stamps the canonical `deliveryMethod` field (legacy `type`-only snapshots are honored). Section 3's bypass previously read a field checkout never wrote and was dead in production — unit tests now pin the exact checkout-produced snapshot shape.

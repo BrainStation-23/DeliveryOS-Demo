@@ -13,7 +13,7 @@ The system supports two sequence flows governed by the `order_flow_config` JSON 
   `PLACED` ➔ `PREPARING` ➔ `READY_FOR_PICKUP` ➔ `DISPATCHED` ➔ `DELIVERED`.
 
 ### Critical Invariants:
-- **Direct Preparation Transition Invariant**: When a vendor accepts an order, the runtime engine transitions the order directly to **`PREPARING`** with `accepted_at = NOW()` and `prep_time_minutes` populated. The legacy status `ACCEPTED` is deprecated in runtime execution.
+- **Direct Preparation Transition Invariant**: When a vendor accepts an order, the runtime engine transitions the order directly to **`PREPARING`** with `accepted_at = NOW()` and `prep_time_minutes` populated (ADR-002).
 - **Payment-Gated Invariant (ADR-011)**: When `paymentMethod === ONLINE_GATEWAY`, an order in `PLACED` with `paymentStatus === PENDING` will **NOT** broadcast to couriers or alert the store. Broadcast is held until cryptographic webhook verification confirms `paymentStatus === PAID`. Unpaid orders are cancelled after 15 minutes.
 
 ```mermaid
@@ -207,7 +207,7 @@ When the geo index has no candidates (cold start), the push falls back to a role
 Orders that never reached kitchen acceptance (`PLACED` / `RIDER_ASSIGNED`, COD or verified-paid online) older than `order_flow_config.stale_order_ttl_minutes` (default **60**) are auto-cancelled by `OrderService.sweepStaleOrders()` through the central cancellation engine (refund reconciliation, coupon restoration, ledger cleanup, courier release, realtime events). Unpaid online orders are excluded — the payment expiry sweep owns those. The escalation scanner caps its scan window at the same TTL, so a forgotten order can never re-broadcast or re-alert admins indefinitely.
 
 ### 5.4 Takeaway Routing
-Takeaway detection reads the address snapshot's canonical `deliveryMethod` field (written by checkout; legacy snapshots carrying only `type` are honored). Takeaway orders notify the kitchen immediately, never enter the courier pool, and are excluded from escalation scans and the stale-order reaper is capped to unaccepted orders.
+Takeaway detection reads the address snapshot's canonical `deliveryMethod` field (`TAKEAWAY` stamped at checkout). Takeaway orders notify the kitchen immediately, never enter the courier pool, and are excluded from escalation scans and the stale-order reaper is capped to unaccepted orders.
 
 ---
 

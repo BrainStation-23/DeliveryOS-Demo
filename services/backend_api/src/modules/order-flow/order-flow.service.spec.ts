@@ -485,12 +485,10 @@ describe('OrderFlowService - handleOrderPlaced dispatch routing', () => {
     expect(built.trackingGateway.broadcastDispatch).not.toHaveBeenCalled();
   });
 
-  it('recognizes legacy takeaway snapshots that only carry the `type` field', async () => {
-    // Regression: snapshots written before `deliveryMethod` existed only set
-    // `type: 'TAKEAWAY'` — the dispatch engine must still honor them.
+  it('recognizes takeaway snapshots that carry deliveryMethod field', async () => {
     const built = buildDispatchService({
       order: {
-        deliveryAddressSnapshot: { type: 'TAKEAWAY', vendorAddress: 'Road 12' },
+        deliveryAddressSnapshot: { deliveryMethod: 'TAKEAWAY', vendorAddress: 'Road 12' },
       },
     });
     track(built.service);
@@ -501,11 +499,10 @@ describe('OrderFlowService - handleOrderPlaced dispatch routing', () => {
     expect(built.trackingGateway.broadcastDispatch).not.toHaveBeenCalled();
   });
 
-  it('recognizes the exact snapshot shape checkout writes (type + deliveryMethod)', async () => {
+  it('recognizes the exact snapshot shape checkout writes (canonical deliveryMethod)', async () => {
     const built = buildDispatchService({
       order: {
         deliveryAddressSnapshot: {
-          type: 'TAKEAWAY',
           deliveryMethod: 'TAKEAWAY',
           vendorAddress: 'House 5, Road 12',
         },

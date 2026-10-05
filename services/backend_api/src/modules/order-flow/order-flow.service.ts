@@ -26,19 +26,15 @@ interface DispatchSettingValue {
 interface AddressSnapshot {
   addressLine?: string;
   deliveryMethod?: string;
-  type?: string;
   [key: string]: unknown;
 }
 
 /**
- * Takeaway detection must read the same field checkout writes. Checkout stamps
- * `deliveryMethod` (canonical); `type` is honored for legacy snapshots — a
- * hard-coded single key here previously disabled the entire takeaway bypass.
+ * Takeaway detection reads the canonical `deliveryMethod` field stamped at checkout.
  */
 function isTakeawayOrder(snapshot: AddressSnapshot | null | undefined): boolean {
   if (!snapshot) return false;
-  const method = snapshot.deliveryMethod ?? snapshot.type;
-  return method === 'TAKEAWAY';
+  return snapshot.deliveryMethod === 'TAKEAWAY';
 }
 
 @Injectable()

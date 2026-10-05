@@ -34,8 +34,6 @@
     "cancel:test": "ts-node scripts/test-order-cancellation.ts",
     "business-integrity:test": "ts-node scripts/test-business-financial-integrity.ts",
     "vendor-kds-resilience:test": "ts-node scripts/test-vendor-kds-resilience.ts",
-    "track1:test": "ts-node scripts/test-business-financial-integrity.ts",
-    "track3:test": "ts-node scripts/test-vendor-kds-resilience.ts",
     "test:db": "ts-node scripts/test-db.ts",
     "test:auth": "ts-node scripts/test-auth-rbac.ts",
     "test:vendor": "ts-node scripts/test-vendor-discovery.ts",
@@ -53,9 +51,7 @@
     "test:settlement": "ts-node scripts/test-settlement-cycles.ts",
     "test:cancel": "ts-node scripts/test-order-cancellation.ts",
     "test:business-integrity": "ts-node scripts/test-business-financial-integrity.ts",
-    "test:vendor-kds-resilience": "ts-node scripts/test-vendor-kds-resilience.ts",
-    "test:track1": "ts-node scripts/test-business-financial-integrity.ts",
-    "test:track3": "ts-node scripts/test-vendor-kds-resilience.ts"
+    "test:vendor-kds-resilience": "ts-node scripts/test-vendor-kds-resilience.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

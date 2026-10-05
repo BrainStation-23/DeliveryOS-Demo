@@ -28,7 +28,7 @@ If orders reference only foreign keys (`product_id`, `customer_address_id`) and 
 ## Considered Options
 1. **Live Relational Joins**: Store only IDs and join against mutable entities. *(Rejected: Corrupts historical audit trails)*.
 2. **Duplicated Relational Snapshot Tables**: Create separate snapshot tables per entity. *(Rejected: Massive schema bloat and complex migrations)*.
-3. **Immutable JSONB Snapshots on Orders (Chosen)**: Store frozen JSON objects in `deliveryAddressSnapshot` and `variantSnapshot` at order creation (the former `addonsSnapshot` was retired with the add-ons feature removal).
+3. **Immutable JSONB Snapshots on Orders (Chosen)**: Store frozen JSON objects in `deliveryAddressSnapshot` and `variantSnapshot` at order creation.
 
 ---
 
@@ -48,8 +48,8 @@ Chosen option: **Immutable JSONB Snapshots**.
 - **Fast Historical Queries**: Order history lookups require zero joins.
 
 ### Negative Consequences & Mitigations
-- *Trade-off*: Snapshot evolution must maintain backwards compatibility.
-- *Mitigation*: Snapshot TypeScript interfaces define optional fields (`?`).
+- *Trade-off*: Snapshot evolution must maintain strict schema consistency.
+- *Mitigation*: Snapshot TypeScript interfaces define optional fields (`?`) and non-breaking extensions.
 
 ---
 
@@ -57,7 +57,7 @@ Chosen option: **Immutable JSONB Snapshots**.
 Implemented in [`order.service.ts`](../../services/backend_api/src/modules/orders/order.service.ts):
 ```typescript
 export interface OrderAddressSnapshot {
-  type: string;
+  deliveryMethod: 'DELIVERY' | 'TAKEAWAY';
   vendorAddress?: string;
   addressId?: string;
   addressLine?: string;
@@ -66,18 +66,15 @@ export interface OrderAddressSnapshot {
   latitude?: number;
   longitude?: number;
   deliveryNote?: string | null;
-  [key: string]: Prisma.InputJsonValue | undefined;
+  [key: string]: Prisma.InputJsonValue | null | undefined;
 }
 
 export interface OrderVariantSnapshot {
   id: string;
   name: string;
-  priceModifier: number;
+  price: number;
   [key: string]: Prisma.InputJsonValue | undefined;
 }
-
-// Note: OrderAddonSnapshot and addonsSnapshot were removed across the ecosystem
-// as part of the platform simplification to streamline menu items and checkout.
 ```
 
 ---

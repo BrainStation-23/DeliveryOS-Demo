@@ -23,10 +23,10 @@ The production-readiness hardening effort (2026-09) found that the platform's th
 ### 2. Refresh Token Rotation with a Revocation Store
 - `POST /auth/refresh` validates the refresh JWT (`type: 'refresh'`, `jti`), checks the Redis revocation store (`auth:refresh:<jti>`), revokes the presented token, and issues a rotated pair. `POST /auth/logout` revokes server-side.
 - Access tokens default to **15 minutes**; refresh tokens to 30 days. The JWT guard rejects refresh tokens used as access tokens.
-- All four clients recover transparently: web portals run a single-flight 401 refresh-and-replay interceptor with an expiry check at boot; Flutter apps rotate inside the Dio `onError` interceptor and persist tokens in `flutter_secure_storage` (Keystore/Keychain), migrating away from plaintext.
+- All four clients recover transparently: web portals run a single-flight 401 refresh-and-replay interceptor with an expiry check at boot; Flutter apps rotate inside the Dio `onError` interceptor and persist tokens securely in `flutter_secure_storage` (Android Keystore / iOS Keychain).
 
 ### 3. Real SSLCommerz Integration (Single Gateway)
-- Per the anti-over-engineering ground rules the platform integrates **one** gateway: SSLCommerz Session/Validator APIs (bKash adapter removed; re-adding follows the ADR-011 adapter pattern).
+- Per the lean architecture ground rules, the platform integrates **one** multi-channel production gateway: SSLCommerz Session/Validator APIs (supporting bKash, Nagad, Upay, Visa, and Mastercard).
 - `initiatePayment` creates a real session and returns the hosted `GatewayPageURL`; webhooks are verified **server-to-server** via the Order Validation API (`val_id`) or TrxID API — fail-closed without credentials; refunds call the real Refund API using the gateway `bank_tran_id` captured during webhook validation.
 - The IPN handler claims the `PENDING → PAID/FAILED` transition with a guarded `updateMany` **inside** the transaction, so concurrent replays cannot double-process.
 - Cancellation of a PAID order executes the gateway refund **before** the DB reconciliation; a failed refund aborts the cancellation with a `REFUND_FAILED` (502) so operators see the gateway error. Refund references persist in `payments.refund_id` / `refunded_at`.
@@ -39,7 +39,7 @@ The production-readiness hardening effort (2026-09) found that the platform's th
 
 ### 5. Real Rider Telemetry
 - A foreground service (`flutter_background_service`) keeps GPS fixes flowing while the phone is pocketed; fixes are forwarded to the main isolate and follow the same socket + throttled (≥30s) HTTP path.
-- The synthetic-coordinate fallback was **deleted**: GPS failures now surface as a status message, never as fabricated telemetry.
+- GPS failures surface as an honest status message, never as fabricated telemetry.
 - App lifecycle handling reconnects the socket and resumes beaconing on foreground.
 
 ### 6. Environment Injection for Mobile Builds

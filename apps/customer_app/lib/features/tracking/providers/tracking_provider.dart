@@ -46,9 +46,7 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
         final newStatusStr = data['newStatus'] as String? ?? '';
         final newStage = OrderStageExtension.fromString(newStatusStr);
         final reason = data['reason'] as String?;
-        // Backend cancels carry `paymentStatus`; `refundStatus` is a legacy alias.
-        final paymentStatusUpdate =
-            (data['paymentStatus'] ?? data['refundStatus']) as String?;
+        final paymentStatusUpdate = data['paymentStatus'] as String?;
 
         RiderMeta? updatedRider = state.rider;
         if (data['riderName'] != null) {
@@ -79,8 +77,7 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
             ? payload['data'] as Map<String, dynamic>
             : payload;
         final reason = data['reason'] as String?;
-        final paymentStatusUpdate =
-            (data['paymentStatus'] ?? data['refundStatus']) as String?;
+        final paymentStatusUpdate = data['paymentStatus'] as String?;
         state = state.copyWith(
           stage: OrderStage.cancelled,
           cancellationReason: reason ?? state.cancellationReason,
@@ -171,11 +168,11 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
       if (!ref.mounted) return false;
       if (response.statusCode == 200) {
         final resData = response.data['data'] as Map<String, dynamic>? ?? {};
-        final refundStatus = resData['refundStatus'] as String?;
+        final paymentStatus = resData['paymentStatus'] as String?;
         state = state.copyWith(
           stage: OrderStage.cancelled,
           cancellationReason: reason,
-          paymentStatus: refundStatus ?? state.paymentStatus,
+          paymentStatus: paymentStatus ?? state.paymentStatus,
           isLoading: false,
         );
         return true;

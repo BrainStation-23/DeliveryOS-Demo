@@ -29,8 +29,7 @@ import { getCurrentRegionTimeParts, isWithinOperatingHours } from '../../common/
 import { PaginatedResult, PaginationQueryDto, toPaginatedResult } from '../../common/dto/pagination.dto';
 
 export interface OrderAddressSnapshot {
-  type: string;
-  deliveryMethod?: DeliveryMethod;
+  deliveryMethod: DeliveryMethod;
   vendorAddress?: string;
   addressId?: string;
   addressLine?: string;
@@ -197,10 +196,8 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
 
     // 3. Validate Delivery Address & Spatial Geofence Guard
     let distanceKm = 0;
-    // Canonical dispatch-routing field for the order-flow takeaway bypass;
-    // `type` is kept for legacy readers.
+    // Canonical dispatch-routing field for the order-flow takeaway bypass
     let addressSnapshot: OrderAddressSnapshot = {
-      type: 'TAKEAWAY',
       deliveryMethod: DeliveryMethod.TAKEAWAY,
       vendorAddress: vendor.addressText,
     };
@@ -250,7 +247,6 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
       }
 
       addressSnapshot = {
-        type: 'HOME_DELIVERY',
         deliveryMethod: DeliveryMethod.HOME_DELIVERY,
         addressId: address.id,
         label: address.label,

@@ -45,7 +45,7 @@ void main() {
       expect(prefixed.displayName, 'Burger Point — Gulshan Branch');
     });
 
-    test('falls back to the outlet name when brand is absent (legacy payloads)', () {
+    test('falls back to the outlet name when brand is absent', () {
       final vendor = NearbyVendor.fromJson({
         'id': 'v1',
         'name': 'Solo Outlet',

@@ -198,7 +198,7 @@ flowchart LR
 - [ ] **2. Spec Verification**: Confirm intended behavior in BRD and TID documents; verify no invariant is violated.
 - [ ] **3. Surgical Fix**: Apply targeted code changes without broad, unnecessary rewrites.
 - [ ] **4. Type & Style Adherence**: Zero raw `any`, zero inline colors/styles, zero trivial comments.
-- [ ] **5. Regression Testing**: Run regression test suites (`npm run track1:test`, `flutter test`, etc.).
+- [ ] **5. Regression Testing**: Run regression test suites (`npm run test:business-integrity`, `flutter test`, etc.).
 - [ ] **6. Living Docs Sync**: Record fix in `CHANGELOG.md` under `### Fixed`, update `FEATURES.md` if behavior changed.
 - [ ] **7. Commit Protocol**: Await explicit user command before executing `git commit`.
 

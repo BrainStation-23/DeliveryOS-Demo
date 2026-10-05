@@ -26,7 +26,7 @@
 | Test-integrity guard alone | `npm run verify:tests` (root) — bans skip/only markers, tautologies, deleted/trivial tests |
 | Boot local infra | `./scripts/start-local.sh` (or `docker compose -f deploy/docker-compose.yml up -d postgres redis`) |
 | Rebuild + reseed DB | `npm run db:reset` in `services/backend_api` (drops, replays the single `0_init` baseline, runs the unified production-realistic seed) |
-| Backend integration suites (needs live stack) | `npm test` in `services/backend_api` (chains 18 `*:test` scripts: `auth:test`, `order:test`, `dispatch:test`, `payment:test`, `settlement:test`, `cancel:test`, `track1:test`, `track3:test`, …) |
+| Backend integration suites (needs live stack) | `npm test` in `services/backend_api` (chains 19 `*:test` scripts: `db:test`, `auth:test`, `vendor:test`, `promotions:test`, `order:test`, `dispatch:test`, `payment:test`, `settlement:test`, `cancel:test`, `business-integrity:test`, `vendor-kds-resilience:test`, …) |
 | Backend unit tests (no DB needed) | `npm run test:unit` in `services/backend_api` (Jest, `src/**/*.spec.ts`, per-file coverage floors in `jest.config.mjs`) |
 | Portal unit tests (no API needed) | `npm run test:unit` in each portal (Vitest, `src/**/*.test.ts`) |
 | Portal smoke tests (live API) | `npm test` in each portal (tsx assertion scripts) |
@@ -73,7 +73,7 @@
 | Mobile release engineering | `TID-07` §6 | `scripts/build-android.sh`, `apps/*/android/` |
 | Docker / DevOps / env setup | `TID-07` | `deploy/` + [`deploy/README.md`](../deploy/README.md) |
 | Business rules & journeys (non-technical) | `BRD-00`–`BRD-07` ([index](./business-requirements-documents/README.md)) | — |
-| All ADRs | [ADR index](./architecture-decision-records/README.md) (`ADR-001`–`018`) | — |
+| All ADRs | [ADR index](./architecture-decision-records/README.md) (`ADR-001`–`ADR-022`) | — |
 
 ---
 
@@ -81,24 +81,24 @@
 
 ```typescript
 // Prisma enums
-enum UserRole         { SUPER_ADMIN, VENDOR_ADMIN, RIDER, CUSTOMER }
-enum AccountStatus    { PENDING_APPROVAL, ACTIVE, SUSPENDED }
-enum VendorVertical   { FOOD, GROCERY, SUPER_SHOP, PHARMACY }
-enum PermissionScope  { PARTICULAR_OUTLET, ALL_OUTLETS_MASTER }
-enum OrderStatus      { PLACED, RIDER_ASSIGNED, ACCEPTED /*deprecated, unused at runtime*/, PREPARING, READY_FOR_PICKUP, DISPATCHED, DELIVERED, CANCELLED }
-enum PaymentMethod    { CASH_ON_DELIVERY, ONLINE_GATEWAY }
-enum PaymentStatus    { PENDING, PAID, REFUNDED, FAILED }
-enum SettlementStatus { PENDING, PROCESSING, SETTLED }
-enum DiscountType     { PERCENTAGE, FLAT }
-enum BannerLinkType   { OUTLET, CATEGORY, EXTERNAL }
+enum UserRole          { SUPER_ADMIN, VENDOR_ADMIN, RIDER, CUSTOMER }
+enum AccountStatus     { PENDING_APPROVAL, ACTIVE, SUSPENDED }
+enum PermissionScope   { PARTICULAR_OUTLET, ALL_OUTLETS_MASTER }
+enum OrderFlowMode     { RIDER_FIRST, VENDOR_FIRST }
+enum OrderStatus       { PLACED, RIDER_ASSIGNED, ACCEPTED, PREPARING, READY_FOR_PICKUP, DISPATCHED, DELIVERED, CANCELLED }
+enum PaymentMethod     { CASH_ON_DELIVERY, ONLINE_GATEWAY }
+enum PaymentStatus     { PENDING, PAID, REFUNDED, FAILED }
+enum SettlementStatus  { PENDING, PROCESSING, SETTLED }
+enum CashDepositStatus { PENDING_APPROVAL, APPROVED, REJECTED }
+enum DiscountType      { PERCENTAGE, FLAT }
+enum BannerLinkType    { OUTLET, CATEGORY, EXTERNAL, INTERNAL }
 
-// String conventions (not Prisma enums)
-CashDeposit.status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'   // written by code; schema default 'COMPLETED' is legacy
-Vendor/Order.orderFlowMode: 'RIDER_FIRST' | 'VENDOR_FIRST'         // per outlet, snapshotted on orders; timing in `dispatch_config`
-DeliveryFeeConfig.mode: 'FIXED_FLAT' | 'DISTANCE_TIERED'           // canonical camelCase; legacy snake_case normalized on read
+// Dynamic models & System Settings conventions
+OutletType             { id, name, slug, sortOrder, isActive }  // dynamic catalog categories (outlet_types)
+DeliveryFeeConfig.mode: 'FIXED_FLAT' | 'DISTANCE_TIERED'        // configured in system_settings
 ```
 
-**FSM transitions** (`ORDER_TRANSITIONS`, `order-state.machine.ts`): `PLACED→[RIDER_ASSIGNED, PREPARING, CANCELLED]` • `RIDER_ASSIGNED→[PREPARING, CANCELLED]` • `PREPARING→[READY_FOR_PICKUP, CANCELLED]` • `READY_FOR_PICKUP→[DISPATCHED, CANCELLED]` • `DISPATCHED→[DELIVERED]` • `DELIVERED|CANCELLED` terminal. Claimable: `RIDER_FIRST→PLACED`, `VENDOR_FIRST→READY_FOR_PICKUP`.
+**FSM transitions** (`ORDER_TRANSITIONS`, `order-state.machine.ts`): `PLACED→[RIDER_ASSIGNED, PREPARING, CANCELLED]` • `RIDER_ASSIGNED→[PREPARING, READY_FOR_PICKUP, CANCELLED]` • `PREPARING→[READY_FOR_PICKUP, CANCELLED]` • `READY_FOR_PICKUP→[DISPATCHED, CANCELLED]` • `DISPATCHED→[DELIVERED, READY_FOR_PICKUP]` • `DELIVERED|CANCELLED` terminal. Claimable: `RIDER_FIRST→PLACED`, `VENDOR_FIRST→READY_FOR_PICKUP`. Runtime accepts directly transition to `PREPARING` (ADR-002).
 
 **Redis key map** (never invent new keys without checking collisions):
 
@@ -145,4 +145,4 @@ if (!acquired) throw new ConflictException('Order already claimed');
 
 **Coordinates**: persisted as `Float` `latitude`/`longitude` columns; PostGIS geography is computed at query time (`ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography`) over expression GIST indexes (see `prisma/migrations/20260924065308_*`). Never store GPS ticks in PostgreSQL — Redis GEO only.
 
-**Delivery fee** (`delivery-fee.service.ts`): `FIXED_FLAT { flatFee }` or `DISTANCE_TIERED { baseFee, baseKm, perKmRate }` → `baseFee + (distanceKm − baseKm) × perKmRate`; `normalizeDeliveryFeeConfig()` accepts legacy snake_case keys on read.
+**Delivery fee** (`delivery-fee.service.ts`): `FIXED_FLAT { flatFee }` or `DISTANCE_TIERED { baseFee, baseKm, perKmRate }` → `baseFee + (distanceKm − baseKm) × perKmRate`; `normalizeDeliveryFeeConfig()` normalizes database keys into canonical camelCase on read.

@@ -20,31 +20,17 @@ class LocalStorage {
   static Future<LocalStorage> init() async {
     final prefs = await SharedPreferences.getInstance();
     final storage = LocalStorage(prefs);
-    await storage._migrateTokensToSecureStorage();
+    await storage._loadTokensFromSecureStorage();
     return storage;
   }
 
-  /// Loads tokens from Keystore/Keychain-backed storage, migrating any legacy
-  /// plaintext SharedPreferences values into secure storage and purging them.
-  Future<void> _migrateTokensToSecureStorage() async {
+  /// Loads tokens directly from Keystore/Keychain-backed secure storage into memory.
+  Future<void> _loadTokensFromSecureStorage() async {
     try {
       _accessTokenCache = await _secure.read(key: _keyAccessToken);
       _refreshTokenCache = await _secure.read(key: _keyRefreshToken);
-
-      final legacyAccess = _prefs.getString(_keyAccessToken);
-      final legacyRefresh = _prefs.getString(_keyRefreshToken);
-      if (_accessTokenCache == null && legacyAccess != null) {
-        await setAccessToken(legacyAccess);
-      }
-      if (_refreshTokenCache == null && legacyRefresh != null) {
-        await setRefreshToken(legacyRefresh);
-      }
-      if (legacyAccess != null || legacyRefresh != null) {
-        await _prefs.remove(_keyAccessToken);
-        await _prefs.remove(_keyRefreshToken);
-      }
     } catch (_) {
-      // Platform channel unavailable (unit tests) — keep prefs-backed fallback
+      // Platform channel unavailable (e.g. unit tests) — fallback to prefs if set
       _accessTokenCache ??= _prefs.getString(_keyAccessToken);
       _refreshTokenCache ??= _prefs.getString(_keyRefreshToken);
     }
