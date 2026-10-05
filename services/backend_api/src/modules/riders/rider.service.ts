@@ -12,7 +12,7 @@ import { RedisService } from '../../common/redis/redis.service';
 import { DeliverOrderDto } from './dto/deliver-order.dto';
 import { DepositCashDto } from './dto/deposit-cash.dto';
 import { ToggleDutyDto } from './dto/toggle-duty.dto';
-import { OrderStatus, PaymentMethod, PaymentStatus, Prisma, SettlementStatus } from '@prisma/client';
+import { CashDepositStatus, OrderStatus, PaymentMethod, PaymentStatus, Prisma, SettlementStatus } from '@prisma/client';
 import { TrackingGateway } from '../realtime/tracking.gateway';
 import { OrderFlowService } from '../order-flow/order-flow.service';
 import { assertTransition } from '../orders/order-state.machine';
@@ -328,7 +328,7 @@ export class RiderService {
         amount: depositAmount,
         referenceNo,
         note: dto.note || dto.notes,
-        status: 'PENDING_APPROVAL',
+        status: CashDepositStatus.PENDING_APPROVAL,
       },
     });
 
@@ -337,7 +337,7 @@ export class RiderService {
       deposit,
       cashInHand: currentCashInHand,
       remainingCashInHand: currentCashInHand,
-      status: 'PENDING_APPROVAL',
+      status: CashDepositStatus.PENDING_APPROVAL,
     };
   }
 

@@ -39,6 +39,11 @@ enum PermissionScope {
   ALL_OUTLETS_MASTER
 }
 
+enum OrderFlowMode {
+  RIDER_FIRST
+  VENDOR_FIRST
+}
+
 enum OrderStatus {
   PLACED
   RIDER_ASSIGNED
@@ -68,6 +73,12 @@ enum SettlementStatus {
   SETTLED
 }
 
+enum CashDepositStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
 enum DiscountType {
   PERCENTAGE
   FLAT
@@ -85,17 +96,17 @@ enum BannerLinkType {
 // -----------------------------------------------------------------------------
 
 model User {
-  id        String        @id @default(uuid()) @db.Uuid
-  phone     String        @unique @db.VarChar(20)
-  fullName  String        @map("full_name") @db.VarChar(100)
-  email     String?       @db.VarChar(100)
-  role      UserRole      @default(CUSTOMER)
-  status         AccountStatus @default(ACTIVE)
-  suspensionReason String?     @map("suspension_reason") @db.Text
-  fcmToken       String?       @map("fcm_token") @db.Text
-  devicePlatform String?       @map("device_platform") @db.VarChar(20)
-  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id               String        @id @default(uuid()) @db.Uuid
+  phone            String        @unique @db.VarChar(20)
+  fullName         String        @map("full_name") @db.VarChar(100)
+  email            String?       @db.VarChar(100)
+  role             UserRole      @default(CUSTOMER)
+  status           AccountStatus @default(ACTIVE)
+  suspensionReason String?       @map("suspension_reason") @db.Text
+  fcmToken         String?       @map("fcm_token") @db.Text
+  devicePlatform   String?       @map("device_platform") @db.VarChar(20)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   addresses   CustomerAddress[]
   rider       Rider?
@@ -103,6 +114,7 @@ model User {
   orders      Order[]
   mediaAssets MediaAsset[]
 
+  @@index([role, status])
   @@map("users")
 }
 
@@ -156,10 +168,11 @@ model Vendor {
   defaultPrepTimeMinutes Int            @default(20) @map("default_prep_time_minutes")
   isActive               Boolean        @default(true) @map("is_active")
   isBusy                 Boolean        @default(false) @map("is_busy")
+  orderFlowMode          OrderFlowMode  @default(RIDER_FIRST) @map("order_flow_mode")
   createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  brand          VendorBrand          @relation(fields: [brandId], references: [id])
+  brand          VendorBrand           @relation(fields: [brandId], references: [id])
   staff          VendorStaff[]
   operatingHours VendorOperatingHour[]
   categories     Category[]
@@ -168,6 +181,7 @@ model Vendor {
   commissions    CommissionLedger[]
 
   @@index([brandId])
+  @@index([isActive])
   @@map("vendors")
 }
 
@@ -190,12 +204,12 @@ model VendorStaff {
 }
 
 model VendorOperatingHour {
-  id        String   @id @default(uuid()) @db.Uuid
-  vendorId  String   @map("vendor_id") @db.Uuid
-  dayOfWeek Int      @map("day_of_week") @db.SmallInt
-  openTime  String   @map("open_time") @db.VarChar(8) // "09:00:00"
-  closeTime String   @map("close_time") @db.VarChar(8) // "22:00:00"
-  isClosed  Boolean  @default(false) @map("is_closed")
+  id        String  @id @default(uuid()) @db.Uuid
+  vendorId  String  @map("vendor_id") @db.Uuid
+  dayOfWeek Int     @map("day_of_week") @db.SmallInt
+  openTime  String  @map("open_time") @db.VarChar(8) // "09:00:00"
+  closeTime String  @map("close_time") @db.VarChar(8) // "22:00:00"
+  isClosed  Boolean @default(false) @map("is_closed")
 
   vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
@@ -204,16 +218,16 @@ model VendorOperatingHour {
 }
 
 // -----------------------------------------------------------------------------
-// 3. Catalog, Categories, Products, Variants & Addons
+// 3. Catalog: Categories, Products & Variants
 // -----------------------------------------------------------------------------
 
 model Category {
-  id        String   @id @default(uuid()) @db.Uuid
-  vendorId  String?  @map("vendor_id") @db.Uuid // NULL = Global Central Category
-  name      String   @db.VarChar(100)
-  imageUrl  String?  @map("image_url") @db.Text
-  sortOrder Int      @default(0) @map("sort_order")
-  isActive  Boolean  @default(true) @map("is_active")
+  id        String  @id @default(uuid()) @db.Uuid
+  vendorId  String? @map("vendor_id") @db.Uuid // NULL = Global Central Category
+  name      String  @db.VarChar(100)
+  imageUrl  String? @map("image_url") @db.Text
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(true) @map("is_active")
 
   vendor   Vendor?   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   products Product[]
@@ -236,24 +250,25 @@ model Product {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  vendor      Vendor               @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  category    Category?            @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  variants    ProductVariant[]
-  orderItems  OrderItem[]
+  vendor     Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  category   Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  variants   ProductVariant[]
+  orderItems OrderItem[]
 
   @@index([vendorId])
+  @@index([vendorId, isInStock])
   @@index([categoryId])
   @@map("products")
 }
 
 model ProductVariant {
-  id        String   @id @default(uuid()) @db.Uuid
-  productId String   @map("product_id") @db.Uuid
-  name      String   @db.VarChar(100)
+  id        String  @id @default(uuid()) @db.Uuid
+  productId String  @map("product_id") @db.Uuid
+  name      String  @db.VarChar(100)
   /// Absolute price of this variation; the first-ordered variation defines the product's display price (ADR-017).
-  price     Decimal  @db.Decimal(10, 2)
-  sortOrder Int      @default(0) @map("sort_order")
-  isInStock Boolean  @default(true) @map("is_in_stock")
+  price     Decimal @db.Decimal(10, 2)
+  sortOrder Int     @default(0) @map("sort_order")
+  isInStock Boolean @default(true) @map("is_in_stock")
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -307,16 +322,16 @@ model Coupon {
 // -----------------------------------------------------------------------------
 
 model Rider {
-  id           String    @id @default(uuid()) @db.Uuid
-  userId       String    @unique @map("user_id") @db.Uuid
-  vehicleType  String    @default("motorcycle") @map("vehicle_type") @db.VarChar(50)
-  isOnline     Boolean   @default(false) @map("is_online")
-  isApproved   Boolean   @default(true) @map("is_approved")
-  cashInHand   Decimal   @default(0.00) @map("cash_in_hand") @db.Decimal(10, 2)
-  maxCashLimit Decimal   @default(5000.00) @map("max_cash_limit") @db.Decimal(10, 2)
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @unique @map("user_id") @db.Uuid
+  vehicleType  String   @default("motorcycle") @map("vehicle_type") @db.VarChar(50)
+  isOnline     Boolean  @default(false) @map("is_online")
+  isApproved   Boolean  @default(true) @map("is_approved")
+  cashInHand   Decimal  @default(0.00) @map("cash_in_hand") @db.Decimal(10, 2)
+  maxCashLimit Decimal  @default(5000.00) @map("max_cash_limit") @db.Decimal(10, 2)
   latitude     Float?
   longitude    Float?
-  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders       Order[]
@@ -346,50 +361,57 @@ model SystemSetting {
 // -----------------------------------------------------------------------------
 
 model Order {
-  id                      String        @id @default(uuid()) @db.Uuid
-  orderNumber             String        @unique @map("order_number") @db.VarChar(20)
-  customerId              String        @map("customer_id") @db.Uuid
-  vendorId                String        @map("vendor_id") @db.Uuid
-  riderId                 String?       @map("rider_id") @db.Uuid
-  couponId                String?       @map("coupon_id") @db.Uuid
-  status                  OrderStatus   @default(PLACED)
+  id          String      @id @default(uuid()) @db.Uuid
+  orderNumber String      @unique @map("order_number") @db.VarChar(20)
+  customerId  String      @map("customer_id") @db.Uuid
+  vendorId    String      @map("vendor_id") @db.Uuid
+  riderId     String?     @map("rider_id") @db.Uuid
+  couponId    String?     @map("coupon_id") @db.Uuid
+  status      OrderStatus @default(PLACED)
 
-  subtotal                Decimal       @db.Decimal(10, 2)
-  couponDiscount          Decimal       @default(0.00) @map("coupon_discount") @db.Decimal(10, 2)
-  deliveryFee             Decimal       @map("delivery_fee") @db.Decimal(10, 2)
-  taxAmount               Decimal       @default(0.00) @map("tax_amount") @db.Decimal(10, 2)
-  totalAmount             Decimal       @map("total_amount") @db.Decimal(10, 2)
+  subtotal       Decimal @db.Decimal(10, 2)
+  couponDiscount Decimal @default(0.00) @map("coupon_discount") @db.Decimal(10, 2)
+  deliveryFee    Decimal @map("delivery_fee") @db.Decimal(10, 2)
+  taxAmount      Decimal @default(0.00) @map("tax_amount") @db.Decimal(10, 2)
+  totalAmount    Decimal @map("total_amount") @db.Decimal(10, 2)
 
-  paymentMethod           PaymentMethod @default(CASH_ON_DELIVERY) @map("payment_method")
-  paymentStatus           PaymentStatus @default(PENDING) @map("payment_status")
+  paymentMethod PaymentMethod @default(CASH_ON_DELIVERY) @map("payment_method")
+  paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
 
-  deliveryAddressSnapshot Json          @map("delivery_address_snapshot")
-  customerPhoneSnapshot   String        @map("customer_phone_snapshot") @db.VarChar(20)
+  /// Immutable snapshot of the outlet's flow mode at checkout; later outlet config
+  /// changes never re-route an in-flight order.
+  orderFlowMode OrderFlowMode @default(RIDER_FIRST) @map("order_flow_mode")
 
-  prepTimeMinutes         Int?          @map("prep_time_minutes")
-  customerNotes           String?       @map("customer_notes") @db.Text
-  rejectionReason         String?       @map("rejection_reason") @db.Text
+  deliveryAddressSnapshot Json   @map("delivery_address_snapshot")
+  customerPhoneSnapshot   String @map("customer_phone_snapshot") @db.VarChar(20)
 
-  placedAt                DateTime      @default(now()) @map("placed_at") @db.Timestamptz
-  acceptedAt              DateTime?     @map("accepted_at") @db.Timestamptz
-  pickedUpAt              DateTime?     @map("picked_up_at") @db.Timestamptz
-  deliveredAt             DateTime?     @map("delivered_at") @db.Timestamptz
-  cancelledAt             DateTime?     @map("cancelled_at") @db.Timestamptz
+  prepTimeMinutes Int?    @map("prep_time_minutes")
+  customerNotes   String? @map("customer_notes") @db.Text
+  rejectionReason String? @map("rejection_reason") @db.Text
 
-  customer   User               @relation(fields: [customerId], references: [id])
-  vendor     Vendor             @relation(fields: [vendorId], references: [id])
-  rider      Rider?             @relation(fields: [riderId], references: [id])
-  coupon     Coupon?            @relation(fields: [couponId], references: [id])
+  placedAt    DateTime  @default(now()) @map("placed_at") @db.Timestamptz
+  acceptedAt  DateTime? @map("accepted_at") @db.Timestamptz
+  pickedUpAt  DateTime? @map("picked_up_at") @db.Timestamptz
+  deliveredAt DateTime? @map("delivered_at") @db.Timestamptz
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz
+
+  customer   User              @relation(fields: [customerId], references: [id])
+  vendor     Vendor            @relation(fields: [vendorId], references: [id])
+  rider      Rider?            @relation(fields: [riderId], references: [id])
+  coupon     Coupon?           @relation(fields: [couponId], references: [id])
   orderItems OrderItem[]
   commission CommissionLedger?
   riderTrip  RiderTripLedger?
   payments   Payment[]
 
   @@index([customerId])
+  @@index([customerId, placedAt])
   @@index([vendorId])
   @@index([riderId])
+  @@index([riderId, status])
   @@index([status])
   @@index([vendorId, status])
+  @@index([paymentStatus])
   @@index([placedAt])
   @@map("orders")
 }
@@ -450,22 +472,24 @@ model RiderTripLedger {
   settlementBatch SettlementBatch? @relation(fields: [settlementBatchId], references: [id])
 
   @@index([riderId])
+  @@index([status])
   @@index([settlementBatchId])
   @@map("rider_trip_ledgers")
 }
 
 model CashDeposit {
-  id          String   @id @default(uuid()) @db.Uuid
-  riderId     String   @map("rider_id") @db.Uuid
-  amount      Decimal  @db.Decimal(10, 2)
-  depositedAt DateTime @default(now()) @map("deposited_at") @db.Timestamptz
-  status      String   @default("COMPLETED") @db.VarChar(20)
-  referenceNo String   @unique @map("reference_no") @db.VarChar(50)
-  note        String?  @db.Text
+  id          String            @id @default(uuid()) @db.Uuid
+  riderId     String            @map("rider_id") @db.Uuid
+  amount      Decimal           @db.Decimal(10, 2)
+  depositedAt DateTime          @default(now()) @map("deposited_at") @db.Timestamptz
+  status      CashDepositStatus @default(PENDING_APPROVAL)
+  referenceNo String            @unique @map("reference_no") @db.VarChar(50)
+  note        String?           @db.Text
 
   rider Rider @relation(fields: [riderId], references: [id], onDelete: Cascade)
 
   @@index([riderId])
+  @@index([status])
   @@map("cash_deposits")
 }
 

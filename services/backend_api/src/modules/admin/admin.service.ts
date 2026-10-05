@@ -49,6 +49,7 @@ export interface LiveOrderView {
 import {
   AccountStatus,
   BannerLinkType,
+  CashDepositStatus,
   DiscountType,
   OrderStatus,
   PermissionScope,
@@ -2191,7 +2192,7 @@ export class AdminService {
   /**
    * 13. Financial Cash Deposits Administration
    */
-  async getCashDeposits(status?: string) {
+  async getCashDeposits(status?: CashDepositStatus) {
     const where: Prisma.CashDepositWhereInput = {};
     if (status) {
       where.status = status;
@@ -2230,7 +2231,7 @@ export class AdminService {
         throw new NotFoundException(`Cash deposit with ID "${depositId}" not found`);
       }
 
-      if (deposit.status !== 'PENDING_APPROVAL') {
+      if (deposit.status !== CashDepositStatus.PENDING_APPROVAL) {
         throw new BadRequestException(
           `Cash deposit #${deposit.referenceNo} has already been processed with status: ${deposit.status}`,
         );
@@ -2241,9 +2242,9 @@ export class AdminService {
 
       if (action === 'APPROVE') {
         const claimed = await tx.cashDeposit.updateMany({
-          where: { id: depositId, status: 'PENDING_APPROVAL' },
+          where: { id: depositId, status: CashDepositStatus.PENDING_APPROVAL },
           data: {
-            status: 'APPROVED',
+            status: CashDepositStatus.APPROVED,
             note: finalNote,
           },
         });
@@ -2275,14 +2276,14 @@ export class AdminService {
 
         return {
           message: `Deposit #${deposit.referenceNo} approved successfully`,
-          deposit: { ...deposit, status: 'APPROVED', note: finalNote },
+          deposit: { ...deposit, status: CashDepositStatus.APPROVED, note: finalNote },
           riderCashInHand: Number(updatedRider.cashInHand),
         };
       } else {
         const claimed = await tx.cashDeposit.updateMany({
-          where: { id: depositId, status: 'PENDING_APPROVAL' },
+          where: { id: depositId, status: CashDepositStatus.PENDING_APPROVAL },
           data: {
-            status: 'REJECTED',
+            status: CashDepositStatus.REJECTED,
             note: finalNote,
           },
         });
@@ -2296,7 +2297,7 @@ export class AdminService {
 
         return {
           message: `Deposit #${deposit.referenceNo} rejected`,
-          deposit: { ...deposit, status: 'REJECTED', note: finalNote },
+          deposit: { ...deposit, status: CashDepositStatus.REJECTED, note: finalNote },
           riderCashInHand: Number(deposit.rider.cashInHand),
         };
       }

@@ -29,6 +29,7 @@ import { AdminFleetService } from './admin-fleet.service';
 import { AdminFinanceService, FinanceLedgerRow } from './admin-finance.service';
 import { MediaService } from '../media/media.service';
 import { AdminCancelOrderDto } from './dto/admin-cancel-order.dto';
+import { ListCashDepositsQueryDto } from './dto/list-cash-deposits.query.dto';
 import { VerifyCashDepositDto } from './dto/verify-cash-deposit.dto';
 import {
   GetBrandsQueryDto,
@@ -681,8 +682,8 @@ export class AdminController {
   @Get('finance/cash-deposits')
   @ApiOperation({ summary: 'List courier COD cash deposits awaiting verification or historical logs' })
   @ApiResponse({ status: 200, description: 'List of cash deposits' })
-  async getCashDeposits(@Query('status') status?: string) {
-    const data = await this.adminService.getCashDeposits(status);
+  async getCashDeposits(@Query() query: ListCashDepositsQueryDto = new ListCashDepositsQueryDto()) {
+    const data = await this.adminService.getCashDeposits(query.status);
     return {
       message: `Retrieved ${data.length} cash deposit records`,
       data,
