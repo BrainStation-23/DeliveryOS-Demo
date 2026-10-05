@@ -1,7 +1,7 @@
 # DeliveryOS Fresh-Start Reset & Production Hardening — Execution Plan
 
 - **Date:** 2026-10-05
-- **Status:** Steps 1–3 ✅ committed · Step 4 ✅ complete (dead-code purge + Category.vendorId tightening) — awaiting owner validation · Steps 5–6 on command
+- **Status:** Steps 1–4 ✅ committed · Step 5 ✅ complete (unified production seed + `db:reset`) — awaiting owner validation · Step 6 on command
 - **Authorization:** Full database wipe and migration-baseline replacement explicitly ordered by owner. No auto-commit / auto-push at any point.
 - **Per-step gates:** each step ends in a validated, compilable, suite-green state for owner inspection.
 
@@ -95,8 +95,11 @@ Outlet create/edit: Order Flow Mode selector + Outlet Type dropdown. Settings: d
 *Fixed:* map picker's bare `catch (_)` now surfaces a real `ErrorRetryView` error state with retry (trilingual `retry` key added); `Category.vendorId` → required (schema + `0_init` regenerated + reset + reseeded + zero-drift proven).
 *Updated:* `test-vendor-discovery.ts` repointed to `/vendors/validate-address-coverage`; `test-live-tracking.ts` Tests 2–3 rewritten to the order-detail polling fallback with diagnostic payloads.
 
-### STEP 5 — Unified production-realistic seed
-One canonical idempotent `seed.ts`; delete `seed-massive.ts` + `prisma:seed:massive` + `--massive`; add **`db:reset`** = `prisma migrate reset --force`. Coverage: all settings (new `dispatch_config`); 5 outlet types incl. 1 toggled-off with outlets; 6 brands / 12 outlets, mixed flow modes incl. deliberate swaps; documented logins `…001/002/003/004/005` (OTP `123456`); ~25 customers incl. 1 SUSPENDED; 15 riders incl. 2 PENDING_APPROVAL + 1 near cash limit; ~50 products/variants + out-of-stock; banners all 4 link types; coupons both types + exhausted/expired/inactive/min-spend; ~100 orders / 30 days across every live FSM status, both payment methods, PAID/PENDING/REFUNDED/FAILED, multi-stage cancellations with correct rollback, mode snapshots consistent; paired ledgers per DELIVERED order; 2 settlement batches; deposits in all 3 statuses; payments per gateway order; media assets. Ends with reconciliation assert (GMV = Σ commissions + Σ payouts).
+### STEP 5 — Unified production-realistic seed ✅
+One deterministic (LCG-seeded), re-runnable `seed.ts` replaces both old seeders; **`npm run db:reset`** in `services/backend_api` rebuilds + reseeds in one command.
+*Coverage delivered:* all 4 system settings · 5 outlet types (Cafe deactivated with 2 assigned outlets — customer-hiding demo) · 6 brands / 12 outlets with mixed flow modes incl. deliberate per-type swaps (a VENDOR_FIRST restaurant, a RIDER_FIRST grocery) · 1 suspended outlet + 1 weekly closed day · 2-tier vendor staff ×4 · 15 riders (2 PENDING_APPROVAL applicants, online/offline mix, 1 parked at ৳4,850/5,000) · 24 customers + 1 SUSPENDED w/ reason, all addressed · 62 products + 12 variants incl. out-of-stock · 6 banners (all 4 link types + future + expired) · 7 coupons (both discount types + inactive + expired + exhausted + capped) · 4 media assets.
+*Books:* 114 orders over 30 days (96 DELIVERED w/ weekend/diurnal curve, 8 CANCELLED across stages with PAID/REFUNDED/FAILED outcomes and coupon rollback, 10 live across every state — placed ≤12 min ago so the 60-min stale reaper keeps them demonstrable) · 106 commission + 96 trip ledgers · 47 PAID + 1 REFUNDED + 1 FAILED payments · 2 settlement batches (SETTLED 35 orders, PROCESSING 34) · 4 deposits in all 3 verification states · order-flow snapshots consistent with outlet config.
+*Reconciliation asserts (fail loudly on drift):* ledger pairing per status, prepaid-online invariant, claimable PLACED⇒RIDER_FIRST invariant, commission math (commission + payable = gross), rider earnings = deliveries × ৳40. Verified: reaper-stable pipeline, cafe absent from discovery, admin KPIs non-zero, applicant login locked (403 pending approval), suspended customer seeded.
 
 ### STEP 6 — Verification & living-docs sync
 `npm run verify` (floors re-checked) → integration `npm test` (19 tracks) on fresh seeded DB → stack restart + smoke (health, OTP logins, non-zero KPIs) → feature smokes (type toggle hides outlets; both flow modes dispatch correctly) → `EXPLAIN ANALYZE` proofs (GiST + compound indexes) → fix-and-reloop. Docs: TID-02/03/04/07, BRD-00..07, ADR-008/012/016 amendments, order-flow ADR amendment, new **ADR-019** (OutletType replaces VendorVertical), FEATURES/CHANGELOG/QUICK_REFERENCE/README.
