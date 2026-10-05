@@ -326,6 +326,7 @@ export const kdsApi = {
     isActive: boolean;
     commissionRate: number;
     defaultPrepTimeMinutes: number;
+    type?: { id: string; name: string; slug: string; isActive: boolean } | null;
     brand?: { id: string; name: string } | null;
     operatingHours: Array<{
       id: string;

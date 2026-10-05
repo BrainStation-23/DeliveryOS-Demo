@@ -1,7 +1,7 @@
 # DeliveryOS Fresh-Start Reset & Production Hardening — Execution Plan
 
 - **Date:** 2026-10-05
-- **Status:** Step 1 ✅ committed · Step 2 ✅ complete (backend: per-outlet flow mode + outlet-type system) — awaiting owner validation · Steps 3–6 on command
+- **Status:** Steps 1–2 ✅ committed · Step 3 ✅ complete (admin portal UI + customer/vendor apps) — awaiting owner validation · Steps 4–6 on command
 - **Authorization:** Full database wipe and migration-baseline replacement explicitly ordered by owner. No auto-commit / auto-push at any point.
 - **Per-step gates:** each step ends in a validated, compilable, suite-green state for owner inspection.
 
@@ -85,8 +85,9 @@ Neither seeder seeds `Payment`, `SettlementBatch`, `CashDeposit`, `MediaAsset`; 
 ### STEP 2 — Backend: flow-mode + outlet-type APIs
 Promote enum; per-order mode resolution everywhere; checkout snapshot; `dispatch_config` timing-only config; outlet-types controller/service (CRUD, guarded delete, toggle) + public active-types endpoint; outlet DTOs gain `typeId` + `orderFlowMode`; discovery SQL joins types + `is_active`; drop `VendorVertical`; spec rework (`order-flow.service.spec`) + new outlet-type specs + discovery spec updates. Zero raw `any`.
 
-### STEP 3 — Admin portal & app UI
+### STEP 3 — Admin portal & app UI ✅
 Outlet create/edit: Order Flow Mode selector + Outlet Type dropdown. Settings: drop global FSM card, add Outlet Types manager. Customer app: dynamic type chips, `typeSlug` filter, deep-link unavailable state, remove `VendorVertical` refs. Vendor portal: read-only type display. Design-system compliant, RTL-safe.
+*Delivered:* new `OutletTypesCard` (create/rename/toggle/guarded-delete manager) + `DispatchTimingCard` on Settings; `OutletInfoDialog` gains required Type dropdown (active-only on create) + Flow Mode selector; outlet info strip shows Type + Flow Mode; admin `vendors.api`/`settings.api`/new `outletTypes.api` wired through the barrel; backend `GET /admin/outlets/:id` and `/vendor/settings` now carry `typeId`/`type`/`orderFlowMode`; customer app fetches active types for chips (public endpoint), filters by `typeSlug`, and renders an unavailable banner on detail pages of hidden-type outlets; vendor portal profile shows the type read-only. Verified live through the nginx edge: settings manager CRUD+toggle render, create-dialog gating (submit disabled without type), edit-dialog pre-population, and a full save round-trip (mode flip persisted and restored).
 
 ### STEP 4 — Dead-code purge
 Full §1.3 inventory; repoint `test-vendor-discovery.ts` to canonical coverage path; rewrite `test-live-tracking.ts` Test 2 to order-detail fallback; fix map-picker bare `catch (_)` into surfaced error state; prune i18n ×3 (preserve dynamic `nav.vendor.*`, `settings.days.*`); tighten `Category.vendorId`. **Out of scope:** shared portal package (ADR-001), mega-service decomposition, wiring-up dead endpoints.

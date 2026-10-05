@@ -47,6 +47,7 @@ class ApiConstants {
   static const String registerDeviceToken = '/auth/device-token';
 
   static const String nearbyVendors = '/vendors/nearby';
+  static const String outletTypes = '/vendors/outlet-types';
   static const String vendorDetails = '/vendors';
   static const String searchVendors = '/vendors/search';
   static String vendorCatalog(String id) => '/vendors/$id/catalog';

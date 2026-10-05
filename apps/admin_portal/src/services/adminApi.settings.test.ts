@@ -27,9 +27,9 @@ describe('adminApi settings and settlements methods', () => {
   });
 
   describe('getSettings', () => {
-    it('fetches system dispatch mode and delivery fee rules', async () => {
+    it('fetches dispatch timing and delivery fee rules', async () => {
       const mockSettings = {
-        orderFlow: { mode: 'RIDER_FIRST', riderSearchTimeoutSeconds: 45 },
+        dispatch: { rider_search_timeout_seconds: 45, stale_order_ttl_minutes: 60 },
         deliveryFee: {
           mode: 'DISTANCE_TIERED',
           flatFee: 50,
@@ -47,19 +47,54 @@ describe('adminApi settings and settlements methods', () => {
     });
   });
 
-  describe('updateOrderFlow', () => {
-    it('sends updated order flow mode to the server', async () => {
+  describe('updateDispatchTiming', () => {
+    it('patches dispatch timing knobs', async () => {
       patchMock.mockResolvedValue({
-        data: { data: { mode: 'VENDOR_FIRST', riderSearchTimeoutSeconds: 60 } },
+        data: { data: { rider_search_timeout_seconds: 60, stale_order_ttl_minutes: 45 } },
       });
 
-      const result = await adminApi.updateOrderFlow({ mode: 'VENDOR_FIRST', riderSearchTimeoutSeconds: 60 });
+      const result = await adminApi.updateDispatchTiming({ riderSearchTimeoutSeconds: 60, staleOrderTtlMinutes: 45 });
 
-      expect(patchMock).toHaveBeenCalledWith('/api/v1/admin/settings/order-flow', {
-        mode: 'VENDOR_FIRST',
+      expect(patchMock).toHaveBeenCalledWith('/api/v1/admin/settings/dispatch', {
         riderSearchTimeoutSeconds: 60,
+        staleOrderTtlMinutes: 45,
       });
-      expect(result.mode).toBe('VENDOR_FIRST');
+      expect(result).toEqual({ rider_search_timeout_seconds: 60, stale_order_ttl_minutes: 45 });
+    });
+  });
+
+  describe('outlet types', () => {
+    const type = { id: 'type-1', name: 'Restaurant', slug: 'restaurant', isActive: true, sortOrder: 0 };
+
+    it('lists outlet types', async () => {
+      getMock.mockResolvedValue({ data: { data: [type] } });
+
+      const result = await adminApi.listOutletTypes();
+
+      expect(getMock).toHaveBeenCalledWith('/api/v1/admin/outlet-types');
+      expect(result).toEqual([type]);
+    });
+
+    it('creates an outlet type', async () => {
+      postMock.mockResolvedValue({ data: { data: type } });
+
+      const result = await adminApi.createOutletType({ name: 'Restaurant', slug: 'restaurant', sortOrder: 0 });
+
+      expect(postMock).toHaveBeenCalledWith('/api/v1/admin/outlet-types', {
+        name: 'Restaurant',
+        slug: 'restaurant',
+        sortOrder: 0,
+      });
+      expect(result.slug).toBe('restaurant');
+    });
+
+    it('toggles outlet type visibility', async () => {
+      patchMock.mockResolvedValue({ data: { data: { ...type, isActive: false } } });
+
+      const result = await adminApi.updateOutletType('type-1', { isActive: false });
+
+      expect(patchMock).toHaveBeenCalledWith('/api/v1/admin/outlet-types/type-1', { isActive: false });
+      expect(result.isActive).toBe(false);
     });
   });
 

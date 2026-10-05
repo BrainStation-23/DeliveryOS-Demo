@@ -1,10 +1,22 @@
 import apiClient, { Paginated, toPaginated, unwrapData } from './shared';
 
+export type OrderFlowModeValue = 'RIDER_FIRST' | 'VENDOR_FIRST';
+
+export interface VendorTypeRef {
+  id: string;
+  name: string;
+  slug: string;
+  isActive?: boolean;
+}
+
 export interface AdminVendor {
   id: string;
   name: string;
   brandId: string;
   brandName: string | null;
+  typeId: string;
+  type?: VendorTypeRef;
+  orderFlowMode: OrderFlowModeValue;
   addressText: string;
   contactPhone: string;
   bannerUrl: string | null;
@@ -130,6 +142,9 @@ export interface OutletDetail {
     brandName: string | null;
     brandLogoUrl: string | null;
     bannerUrl: string | null;
+    typeId: string;
+    type?: VendorTypeRef;
+    orderFlowMode: OrderFlowModeValue;
     addressText: string;
     contactPhone: string;
     latitude: number;
@@ -175,6 +190,7 @@ export const vendorsApi = {
   async createVendor(data: {
     name: string;
     brandId: string;
+    typeId: string;
     addressText: string;
     latitude?: number;
     longitude?: number;
@@ -183,6 +199,7 @@ export const vendorsApi = {
     commissionRate?: number;
     defaultPrepTimeMinutes?: number;
     deliveryRadiusKm?: number;
+    orderFlowMode?: OrderFlowModeValue;
   }): Promise<AdminVendor> {
     const res = await apiClient.post('/api/v1/admin/vendors', data);
     return unwrapData<AdminVendor>(res);
@@ -202,6 +219,8 @@ export const vendorsApi = {
       longitude?: number;
       isActive?: boolean;
       isBusy?: boolean;
+      typeId?: string;
+      orderFlowMode?: OrderFlowModeValue;
     },
   ): Promise<AdminVendor> {
     const res = await apiClient.patch(`/api/v1/admin/vendors/${vendorId}`, data);

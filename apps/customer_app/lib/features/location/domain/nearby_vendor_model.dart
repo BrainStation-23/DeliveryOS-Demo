@@ -15,7 +15,9 @@ class NearbyVendor {
     return '$brand - $name';
   }
 
-  final String vertical;
+  /// Admin-managed outlet business type (ADR-019); drives the home chips.
+  final String typeSlug;
+  final String? typeName;
   final String? contactPhone;
   final String? logoUrl;
   final String? bannerUrl;
@@ -33,7 +35,8 @@ class NearbyVendor {
     required this.id,
     required this.name,
     this.brandName,
-    required this.vertical,
+    this.typeSlug = 'store',
+    this.typeName,
     this.contactPhone,
     this.logoUrl,
     this.bannerUrl,
@@ -53,7 +56,8 @@ class NearbyVendor {
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       brandName: json['brandName'] as String? ?? json['brand_name'] as String?,
-      vertical: (json['vertical'] as String? ?? 'FOOD').toUpperCase(),
+      typeSlug: (json['typeSlug'] as String? ?? json['type_slug'] as String? ?? 'store'),
+      typeName: json['typeName'] as String? ?? json['type_name'] as String?,
       contactPhone: json['contactPhone'] as String? ?? json['contact_phone'] as String?,
       logoUrl: json['logoUrl'] as String? ?? json['logo_url'] as String?,
       bannerUrl: json['bannerUrl'] as String? ?? json['banner_url'] as String?,
@@ -82,7 +86,8 @@ class NearbyVendor {
       'id': id,
       'name': name,
       'brandName': brandName,
-      'vertical': vertical,
+      'typeSlug': typeSlug,
+      'typeName': typeName,
       'contactPhone': contactPhone,
       'logoUrl': logoUrl,
       'bannerUrl': bannerUrl,

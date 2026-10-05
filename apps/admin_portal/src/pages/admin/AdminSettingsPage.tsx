@@ -7,7 +7,8 @@ import { Alert } from '../../components/ui/Alert';
 import { PageHeader } from '../../components/common/PageHeader';
 import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { extractApiError } from '../../utils/apiError';
-import { OrderFlowSettingsCard, DispatchTimingConfig } from '../../components/settings/OrderFlowSettingsCard';
+import { DispatchTimingCard, DispatchTimingConfig } from '../../components/settings/DispatchTimingCard';
+import { OutletTypesCard } from '../../components/settings/OutletTypesCard';
 import { DeliveryFeeSettingsCard, DeliveryFeeConfig } from '../../components/settings/DeliveryFeeSettingsCard';
 import { DeliveryEconomicsSettingsCard } from '../../components/settings/DeliveryEconomicsSettingsCard';
 
@@ -23,7 +24,7 @@ export const AdminSettingsPage: React.FC = () => {
 
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Settings query (dispatch mode, delivery fee, delivery economics)
+  // Settings query (dispatch timing, delivery fee, delivery economics)
   const {
     data: settings,
     isError: isSettingsError,
@@ -38,10 +39,14 @@ export const AdminSettingsPage: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
   };
 
-  const updateOrderFlowMutation = useMutation({
-    mutationFn: (payload: Parameters<typeof adminApi.updateOrderFlow>[0]) => adminApi.updateOrderFlow(payload),
+  const updateDispatchTimingMutation = useMutation({
+    mutationFn: (data: DispatchTimingConfig) =>
+      adminApi.updateDispatchTiming({
+        riderSearchTimeoutSeconds: data.riderSearchTimeoutSeconds,
+        staleOrderTtlMinutes: data.staleOrderTtlMinutes,
+      }),
     onSuccess: invalidateSettings,
-    onError: (err) => setActionError(extractApiError(err, 'Failed to update order flow settings.')),
+    onError: (err) => setActionError(extractApiError(err, 'Failed to update dispatch timing.')),
   });
 
   const updateDeliveryFeeMutation = useMutation({
@@ -57,11 +62,10 @@ export const AdminSettingsPage: React.FC = () => {
     onError: (err) => setActionError(extractApiError(err, 'Failed to update delivery economics.')),
   });
 
-  const currentFlowMode = settings?.orderFlow?.mode || 'RIDER_FIRST';
-  const timing: DispatchTimingConfig | null = settings?.orderFlow
+  const timing: DispatchTimingConfig | null = settings?.dispatch
     ? {
-        riderSearchTimeoutSeconds: settings.orderFlow.rider_search_timeout_seconds ?? 90,
-        staleOrderTtlMinutes: settings.orderFlow.stale_order_ttl_minutes ?? 60,
+        riderSearchTimeoutSeconds: settings.dispatch.rider_search_timeout_seconds ?? 90,
+        staleOrderTtlMinutes: settings.dispatch.stale_order_ttl_minutes ?? 60,
       }
     : null;
 
@@ -69,7 +73,7 @@ export const AdminSettingsPage: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title="System Settings"
-        subtitle="Configure real-time dispatch state machines, delivery fee and payout economics, and pipeline timing"
+        subtitle="Configure outlet types, dispatch timing, delivery fees and payout economics"
         icon={Settings}
       />
 
@@ -82,12 +86,12 @@ export const AdminSettingsPage: React.FC = () => {
       )}
 
       <div className="space-y-6">
-        <OrderFlowSettingsCard
-          currentMode={currentFlowMode}
+        <OutletTypesCard />
+
+        <DispatchTimingCard
           timing={timing}
-          isUpdating={updateOrderFlowMutation.isPending}
-          onUpdateMode={(mode) => updateOrderFlowMutation.mutate({ mode })}
-          onUpdateTiming={(next) => updateOrderFlowMutation.mutate({ mode: currentFlowMode, ...next })}
+          isUpdating={updateDispatchTimingMutation.isPending}
+          onSaveTiming={(next) => updateDispatchTimingMutation.mutate(next)}
         />
 
         <DeliveryFeeSettingsCard

@@ -690,6 +690,7 @@ export class VendorStaffService {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: targetVendorId },
       include: {
+        type: true,
         operatingHours: {
           orderBy: { dayOfWeek: 'asc' },
         },

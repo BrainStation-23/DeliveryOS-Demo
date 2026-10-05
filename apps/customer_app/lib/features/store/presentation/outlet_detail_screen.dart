@@ -327,6 +327,30 @@ class _OutletDetailScreenState extends ConsumerState<OutletDetailScreen> {
                     ),
                   ],
                 ),
+                if (!catalog.typeIsActive) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Container(
+                    width: double.infinity,
+                    padding: AppSpacing.edgeInsetsMd,
+                    decoration: BoxDecoration(
+                      color: AppColors.errorContainer,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(color: AppColors.errorBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.visibility_off_outlined, size: 16, color: AppColors.error),
+                        const SizedBox(width: AppSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            'This store category is currently unavailable.',
+                            style: AppTypography.bodySmall.copyWith(color: AppColors.error),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 6),
                 Row(
                   children: [

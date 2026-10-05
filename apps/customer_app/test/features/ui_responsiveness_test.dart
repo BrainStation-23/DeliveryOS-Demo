@@ -184,7 +184,7 @@ void main() {
       const mockVendor = NearbyVendor(
         id: 'v-101',
         name: 'The Great Himalayan Kitchen and Premium Kacchi Ghor',
-        vertical: 'FOOD',
+        typeSlug: 'restaurant',
         addressText: 'Plot 45, Road 11, Block C, Banani Commercial Area, Dhaka',
         latitude: 23.7937,
         longitude: 90.4066,

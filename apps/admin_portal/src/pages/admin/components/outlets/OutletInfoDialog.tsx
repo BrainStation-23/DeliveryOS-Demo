@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Images, MapPin } from 'lucide-react';
+import adminApi from '../../../../services/adminApi';
+import { OrderFlowModeValue } from '../../../../services/admin/vendors.api';
 import { Button } from '../../../../components/ui/Button';
 import { Input } from '../../../../components/ui/Input';
 import { Modal } from '../../../../components/ui/Modal';
@@ -9,6 +12,8 @@ import { resolveMediaUrl } from '../../../../utils/mediaUrl';
 
 export interface OutletInfoPayload {
   name: string;
+  typeId: string;
+  orderFlowMode: OrderFlowModeValue;
   contactPhone: string;
   addressText?: string;
   bannerUrl?: string;
@@ -29,6 +34,11 @@ interface OutletInfoDialogProps {
   onClose: () => void;
   onSubmit: (payload: OutletInfoPayload) => void;
 }
+
+const FLOW_MODE_HELP: Record<OrderFlowModeValue, string> = {
+  RIDER_FIRST: 'Zero Food Waste — couriers secure the order before the kitchen starts prep.',
+  VENDOR_FIRST: 'Traditional Retail — the kitchen preps first; couriers are called when ready.',
+};
 
 /**
  * Unified outlet info dialog — create (brand pre-locked by the calling brand
@@ -54,6 +64,14 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
   const [radius, setRadius] = useState('5');
   const [latitude, setLatitude] = useState('23.7925');
   const [longitude, setLongitude] = useState('90.4078');
+  const [typeId, setTypeId] = useState('');
+  const [orderFlowMode, setOrderFlowMode] = useState<OrderFlowModeValue>('RIDER_FIRST');
+
+  const { data: outletTypes = [] } = useQuery({
+    queryKey: ['admin-outlet-types'],
+    queryFn: adminApi.listOutletTypes,
+    enabled: isOpen,
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -66,10 +84,14 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
       setRadius(String(initial?.deliveryRadiusKm ?? 5));
       setLatitude(String(initial?.latitude ?? 23.7925));
       setLongitude(String(initial?.longitude ?? 90.4078));
+      setTypeId(initial?.typeId || '');
+      setOrderFlowMode(initial?.orderFlowMode || 'RIDER_FIRST');
     }
   }, [isOpen, initial]);
 
   const isCreate = !editing;
+  // Creation is restricted to active types; editing may keep a hidden type selected.
+  const selectableTypes = isCreate ? outletTypes.filter((t) => t.isActive) : outletTypes;
 
   return (
     <>
@@ -86,10 +108,12 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
           <Button
             size="sm"
             isLoading={isSubmitting}
-            disabled={!name.trim() || !phone.trim() || (isCreate && !address.trim())}
+            disabled={!name.trim() || !phone.trim() || !typeId || (isCreate && !address.trim())}
             onClick={() =>
               onSubmit({
                 name: name.trim(),
+                typeId,
+                orderFlowMode,
                 contactPhone: phone.trim(),
                 addressText: address.trim() || undefined,
                 bannerUrl: bannerUrl || undefined,
@@ -119,6 +143,46 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
               Contact Phone
             </label>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+8801700000000" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Outlet Type <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={typeId}
+              onChange={(e) => setTypeId(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            >
+              <option value="" disabled>
+                Select a business type…
+              </option>
+              {selectableTypes.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                  {!t.isActive ? ' (hidden)' : ''}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              Types are managed in Settings → Outlet Types; hidden types keep existing outlets but exclude new ones.
+            </p>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Order Flow Mode
+            </label>
+            <select
+              value={orderFlowMode}
+              onChange={(e) => setOrderFlowMode(e.target.value as OrderFlowModeValue)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            >
+              <option value="RIDER_FIRST">RIDER_FIRST (Zero Food Waste)</option>
+              <option value="VENDOR_FIRST">VENDOR_FIRST (Traditional Retail)</option>
+            </select>
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{FLOW_MODE_HELP[orderFlowMode]}</p>
           </div>
         </div>
 

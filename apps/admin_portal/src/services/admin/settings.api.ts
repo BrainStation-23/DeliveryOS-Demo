@@ -1,10 +1,9 @@
 import apiClient, { unwrapData } from './shared';
 
 export interface SystemSettingsData {
-  orderFlow: {
-    mode: 'RIDER_FIRST' | 'VENDOR_FIRST';
+  dispatch: {
     rider_search_timeout_seconds: number;
-    stale_order_ttl_minutes?: number;
+    stale_order_ttl_minutes: number;
   };
   deliveryFee: {
     mode: 'FIXED_FLAT' | 'DISTANCE_TIERED';
@@ -20,8 +19,7 @@ export interface SystemSettingsData {
   };
 }
 
-export interface UpdateOrderFlowPayload {
-  mode: 'RIDER_FIRST' | 'VENDOR_FIRST';
+export interface DispatchTimingPayload {
   riderSearchTimeoutSeconds?: number;
   staleOrderTtlMinutes?: number;
 }
@@ -38,17 +36,9 @@ export const settingsApi = {
     return unwrapData<SystemSettingsData>(res);
   },
 
-  async updateOrderFlow(payload: UpdateOrderFlowPayload): Promise<{ mode: string; message?: string }> {
-    const res = await apiClient.patch('/api/v1/admin/settings/order-flow', {
-      mode: payload.mode,
-      ...(payload.riderSearchTimeoutSeconds !== undefined
-        ? { riderSearchTimeoutSeconds: payload.riderSearchTimeoutSeconds }
-        : {}),
-      ...(payload.staleOrderTtlMinutes !== undefined
-        ? { staleOrderTtlMinutes: payload.staleOrderTtlMinutes }
-        : {}),
-    });
-    return unwrapData<{ mode: string; message?: string }>(res);
+  async updateDispatchTiming(payload: DispatchTimingPayload): Promise<DispatchTimingPayload> {
+    const res = await apiClient.patch('/api/v1/admin/settings/dispatch', payload);
+    return unwrapData<DispatchTimingPayload>(res);
   },
 
   async updateDeliveryFeeMode(data: {

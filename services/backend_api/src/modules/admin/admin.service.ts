@@ -1625,6 +1625,7 @@ export class AdminService {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: vendorId },
       include: {
+        type: true,
         brand: { select: { id: true, name: true, logoUrl: true } },
         operatingHours: { orderBy: { dayOfWeek: 'asc' } },
         staff: {
@@ -1660,6 +1661,9 @@ export class AdminService {
         brandId: vendor.brandId,
         brandName: vendor.brand?.name || null,
         brandLogoUrl: vendor.brand?.logoUrl || null,
+        typeId: vendor.typeId,
+        type: vendor.type,
+        orderFlowMode: vendor.orderFlowMode,
         bannerUrl: vendor.bannerUrl,
         addressText: vendor.addressText,
         contactPhone: vendor.contactPhone,

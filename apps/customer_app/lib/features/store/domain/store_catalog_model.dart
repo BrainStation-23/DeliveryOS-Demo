@@ -94,6 +94,10 @@ class VendorCatalog {
   final double deliveryRadiusKm;
   final int estimatedPrepTimeMinutes;
   final bool isActive;
+  /// The outlet's business type; a deactivated type hides the outlet from
+  /// discovery and marks deep links unavailable (ADR-019).
+  final String? typeName;
+  final bool typeIsActive;
   final List<CategoryModel> categories;
 
   VendorCatalog({
@@ -106,6 +110,8 @@ class VendorCatalog {
     this.deliveryRadiusKm = 5.0,
     this.estimatedPrepTimeMinutes = 25,
     this.isActive = true,
+    this.typeName,
+    this.typeIsActive = true,
     this.categories = const [],
   });
 
@@ -121,6 +127,8 @@ class VendorCatalog {
       deliveryRadiusKm: parseDouble(json['deliveryRadiusKm'] ?? json['delivery_radius_km'], 5.0),
       estimatedPrepTimeMinutes: parseInt(json['estimatedPrepTimeMinutes'] ?? json['estimated_prep_time_minutes'], 25),
       isActive: json['isActive'] as bool? ?? json['is_active'] as bool? ?? true,
+      typeName: (json['type'] as Map<String, dynamic>?)?['name'] as String?,
+      typeIsActive: (json['type'] as Map<String, dynamic>?)?['isActive'] as bool? ?? true,
       categories: categoriesRaw.map((e) => CategoryModel.fromJson(e as Map<String, dynamic>)).toList(),
     );
   }

@@ -358,8 +358,10 @@ export const AdminOutletPage: React.FC = () => {
 
       {/* Compact info strip — the name lives in the page title only */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-center text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center text-xs">
           <InfoCell label="Phone" value={vendor.contactPhone} />
+          <InfoCell label="Outlet Type" value={vendor.type?.name || '—'} />
+          <InfoCell label="Flow Mode" value={vendor.orderFlowMode === 'VENDOR_FIRST' ? 'Vendor First' : 'Rider First'} />
           <div className="min-w-0">
             <span className="text-slate-400 block text-[10px] mb-0.5">Street Address</span>
             <div className="flex items-center justify-center gap-1 font-bold text-slate-900 dark:text-slate-100">
@@ -638,6 +640,8 @@ export const AdminOutletPage: React.FC = () => {
         brandName={vendor.brandName || undefined}
         initial={{
           name: vendor.name,
+          typeId: vendor.typeId,
+          orderFlowMode: vendor.orderFlowMode,
           contactPhone: vendor.contactPhone,
           addressText: vendor.addressText,
           bannerUrl: vendor.bannerUrl || undefined,

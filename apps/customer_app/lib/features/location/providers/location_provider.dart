@@ -4,6 +4,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/localization/language_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../domain/nearby_vendor_model.dart';
+import '../domain/outlet_type_model.dart';
 import '../domain/user_location.dart';
 
 class LocationState {
@@ -11,6 +12,7 @@ class LocationState {
   final bool isLoading;
   final int nearbyStoreCount;
   final List<NearbyVendor> nearbyVendors;
+  final List<OutletType> outletTypes;
   final String? error;
 
   LocationState({
@@ -18,6 +20,7 @@ class LocationState {
     this.isLoading = false,
     this.nearbyStoreCount = 0,
     this.nearbyVendors = const [],
+    this.outletTypes = const [],
     this.error,
   });
 
@@ -26,6 +29,7 @@ class LocationState {
     bool? isLoading,
     int? nearbyStoreCount,
     List<NearbyVendor>? nearbyVendors,
+    List<OutletType>? outletTypes,
     String? error,
   }) {
     return LocationState(
@@ -33,6 +37,7 @@ class LocationState {
       isLoading: isLoading ?? this.isLoading,
       nearbyStoreCount: nearbyStoreCount ?? this.nearbyStoreCount,
       nearbyVendors: nearbyVendors ?? this.nearbyVendors,
+      outletTypes: outletTypes ?? this.outletTypes,
       error: error,
     );
   }
@@ -45,11 +50,11 @@ class LocationNotifier extends Notifier<LocationState> {
     final saved = storage.getSavedLocation();
     if (saved != null) {
       final loc = UserLocation.fromJson(saved);
-      Future.microtask(() => fetchNearbyVendors(loc.latitude, loc.longitude));
+      Future.microtask(_bootstrapDiscovery);
       return LocationState(location: loc);
     }
     final initialLoc = UserLocation.defaultBanani();
-    Future.microtask(() => fetchNearbyVendors(initialLoc.latitude, initialLoc.longitude));
+    Future.microtask(_bootstrapDiscovery);
     return LocationState(location: initialLoc);
   }
 
@@ -118,7 +123,30 @@ class LocationNotifier extends Notifier<LocationState> {
     ref.read(localStorageProvider).setSavedLocation(updated.toJson());
   }
 
-  Future<void> fetchNearbyVendors(double lat, double lng, {String? vertical}) async {
+  Future<void> _bootstrapDiscovery() async {
+    await fetchOutletTypes();
+    await fetchNearbyVendors(state.location.latitude, state.location.longitude);
+  }
+
+  /// Active outlet business types for the home category chips (public endpoint).
+  Future<void> fetchOutletTypes() async {
+    try {
+      final dio = ref.read(dioClientProvider);
+      final response = await dio.get(ApiConstants.outletTypes);
+      final data = response.data['data'];
+      if (response.statusCode == 200 && data is List) {
+        final types = data
+            .whereType<Map<String, dynamic>>()
+            .map(OutletType.fromJson)
+            .toList();
+        state = state.copyWith(outletTypes: types);
+      }
+    } catch (_) {
+      // Chips stay hidden on failure; discovery itself is unaffected.
+    }
+  }
+
+  Future<void> fetchNearbyVendors(double lat, double lng, {String? typeSlug}) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final dio = ref.read(dioClientProvider);
@@ -127,7 +155,7 @@ class LocationNotifier extends Notifier<LocationState> {
         queryParameters: {
           'lat': lat,
           'lng': lng,
-          if (vertical != null && vertical.isNotEmpty) 'vertical': vertical,
+          if (typeSlug != null && typeSlug.isNotEmpty) 'typeSlug': typeSlug,
         },
       );
 

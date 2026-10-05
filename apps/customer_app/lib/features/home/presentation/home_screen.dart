@@ -89,7 +89,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final displayedVendors = locState.nearbyVendors.where((v) {
       if (_selectedCategory == null) return true;
-      return v.vertical.toUpperCase() == _selectedCategory;
+      return v.typeSlug == _selectedCategory;
     }).toList();
 
     return Scaffold(
@@ -436,20 +436,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         isSelected: _selectedCategory == null,
                         onTap: () => setState(() => _selectedCategory = null),
                       ),
-                      CategoryChip(
-                        label: l10n.translate('restaurants'),
-                        isSelected: _selectedCategory == 'FOOD',
-                        onTap: () => setState(() => _selectedCategory = 'FOOD'),
-                      ),
-                      CategoryChip(
-                        label: l10n.translate('groceries'),
-                        isSelected: _selectedCategory == 'GROCERY',
-                        onTap: () => setState(() => _selectedCategory = 'GROCERY'),
-                      ),
-                      CategoryChip(
-                        label: 'Pharmacy',
-                        isSelected: _selectedCategory == 'PHARMACY',
-                        onTap: () => setState(() => _selectedCategory = 'PHARMACY'),
+                      ...locState.outletTypes.map(
+                        (type) => CategoryChip(
+                          label: type.name,
+                          isSelected: _selectedCategory == type.slug,
+                          onTap: () => setState(() => _selectedCategory = type.slug),
+                        ),
                       ),
                     ],
                   ),

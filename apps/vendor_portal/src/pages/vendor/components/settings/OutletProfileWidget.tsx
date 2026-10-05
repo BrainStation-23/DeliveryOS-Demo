@@ -12,6 +12,7 @@ interface OutletProfileWidgetProps {
     contactPhone?: string | null;
     commissionRate?: number | null;
     isActive?: boolean;
+    type?: { id: string; name: string; slug: string; isActive: boolean } | null;
     brand?: { id: string; name: string } | null;
   };
   outlets?: AccessibleOutlet[];
@@ -41,9 +42,12 @@ export const OutletProfileWidget: React.FC<OutletProfileWidgetProps> = ({
                 {outlet.isActive !== false ? 'Active Store' : 'Inactive'}
               </Badge>
             </div>
-            {outlet.brand?.name && (
+            {(outlet.brand?.name || outlet.type?.name) && (
               <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
-                {outlet.brand.name}
+                {outlet.brand?.name}
+                {outlet.brand?.name && outlet.type?.name ? ' · ' : ''}
+                {outlet.type?.name}
+                {outlet.type && outlet.type.isActive === false ? ' (hidden from customers)' : ''}
               </p>
             )}
           </div>
