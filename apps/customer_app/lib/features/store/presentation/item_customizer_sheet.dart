@@ -10,7 +10,6 @@ class ItemCustomizerSheet extends StatefulWidget {
   final void Function({
     required ProductModel product,
     VariantModel? selectedVariant,
-    required List<AddonModel> selectedAddons,
     required int quantity,
     String? specialInstructions,
     required double totalPrice,
@@ -28,7 +27,6 @@ class ItemCustomizerSheet extends StatefulWidget {
     void Function({
       required ProductModel product,
       VariantModel? selectedVariant,
-      required List<AddonModel> selectedAddons,
       required int quantity,
       String? specialInstructions,
       required double totalPrice,
@@ -51,7 +49,6 @@ class ItemCustomizerSheet extends StatefulWidget {
 
 class _ItemCustomizerSheetState extends State<ItemCustomizerSheet> {
   VariantModel? _selectedVariant;
-  final Set<AddonModel> _selectedAddons = {};
   int _quantity = 1;
   final TextEditingController _notesController = TextEditingController();
 
@@ -73,9 +70,7 @@ class _ItemCustomizerSheetState extends State<ItemCustomizerSheet> {
   }
 
   double get _unitPrice {
-    final base = _selectedVariant?.price ?? widget.product.basePrice;
-    final addonsTotal = _selectedAddons.fold<double>(0.0, (sum, a) => sum + a.price);
-    return base + addonsTotal;
+    return _selectedVariant?.price ?? widget.product.basePrice;
   }
 
   double get _totalPrice => _unitPrice * _quantity;
@@ -91,7 +86,6 @@ class _ItemCustomizerSheetState extends State<ItemCustomizerSheet> {
     widget.onAddToCart?.call(
       product: widget.product,
       selectedVariant: _selectedVariant,
-      selectedAddons: _selectedAddons.toList(),
       quantity: _quantity,
       specialInstructions: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
       totalPrice: _totalPrice,
@@ -254,92 +248,6 @@ class _ItemCustomizerSheetState extends State<ItemCustomizerSheet> {
                     );
                   }),
                   const Divider(height: 24, color: AppColors.border),
-                ],
-
-                if (product.addonGroups.isNotEmpty) ...[
-                  ...product.addonGroups.map((group) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          group.name,
-                          style: AppTypography.titleSmall,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        ...group.addons.map((addon) {
-                          final isChecked = _selectedAddons.any((a) => a.id == addon.id);
-                          return InkWell(
-                            onTap: addon.isInStock
-                                ? () {
-                                    setState(() {
-                                      if (isChecked) {
-                                        _selectedAddons.removeWhere((a) => a.id == addon.id);
-                                      } else {
-                                        if (_selectedAddons.length < group.maxSelections) {
-                                          _selectedAddons.add(addon);
-                                        }
-                                      }
-                                    });
-                                  }
-                                : null,
-                            borderRadius: AppRadius.borderSm,
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 6),
-                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                              decoration: BoxDecoration(
-                                color: isChecked ? AppColors.primaryContainer.withValues(alpha: 0.3) : AppColors.background,
-                                borderRadius: AppRadius.borderSm,
-                                border: Border.all(
-                                  color: isChecked ? AppColors.primary : AppColors.border,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Checkbox(
-                                    value: isChecked,
-                                    activeColor: AppColors.primary,
-                                    onChanged: addon.isInStock
-                                        ? (val) {
-                                            setState(() {
-                                              if (val == true) {
-                                                if (_selectedAddons.length < group.maxSelections) {
-                                                  _selectedAddons.add(addon);
-                                                }
-                                              } else {
-                                                _selectedAddons.removeWhere((a) => a.id == addon.id);
-                                              }
-                                            });
-                                          }
-                                        : null,
-                                  ),
-                                  const SizedBox(width: AppSpacing.xs),
-                                  Expanded(
-                                    child: Text(
-                                      addon.name,
-                                      style: AppTypography.labelMedium.copyWith(
-                                        fontSize: 13,
-                                        color: addon.isInStock ? AppColors.textPrimary : AppColors.textMuted,
-                                        decoration: addon.isInStock ? null : TextDecoration.lineThrough,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    addon.isInStock ? '+${CurrencyFormatter.format(addon.price)}' : 'Unavailable',
-                                    style: AppTypography.labelMedium.copyWith(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: addon.isInStock ? AppColors.primary : AppColors.textMuted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
-                        const Divider(height: 24, color: AppColors.border),
-                      ],
-                    );
-                  }),
                 ],
 
                 Text(

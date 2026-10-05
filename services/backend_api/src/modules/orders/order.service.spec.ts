@@ -136,7 +136,7 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
       expect(result.vendorId).toBe('vendor-1');
     });
 
-    it('flags unavailable items when an add-on is out of stock', async () => {
+    it('flags unavailable items when a variant is out of stock', async () => {
       prisma.order.findUnique.mockResolvedValue({
         id: 'order-1',
         customerId: 'customer-a',
@@ -146,8 +146,7 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
             productId: 'p-1',
             productNameSnapshot: 'Burger',
             quantity: 1,
-            variantSnapshot: null,
-            addonsSnapshot: [{ id: 'addon-cheese', name: 'Extra Cheese', price: 30 }],
+            variantSnapshot: { id: 'v-cheese', name: 'Double Patty' },
           },
         ],
       });
@@ -156,18 +155,13 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
         name: 'Burger',
         basePrice: '150.00',
         isInStock: true,
-        variants: [],
-        addonGroups: [
-          {
-            addons: [{ id: 'addon-cheese', name: 'Extra Cheese', isInStock: false }],
-          },
-        ],
+        variants: [{ id: 'v-cheese', name: 'Double Patty', isInStock: false }],
       });
 
       const result = await orderService.validateReorder('customer-a', { previousOrderId: 'order-1' });
       expect(result.hasStockChanges).toBe(true);
       expect(result.unavailableItems).toHaveLength(1);
-      expect(result.unavailableItems[0].reason).toContain('Extra Cheese');
+      expect(result.unavailableItems[0].reason).toContain('Selected variant is currently sold out');
       expect(result.validItems).toHaveLength(0);
     });
 

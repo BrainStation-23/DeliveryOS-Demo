@@ -44,16 +44,6 @@ class CartItemCard extends StatelessWidget {
                     style: AppTypography.labelSmall.copyWith(color: AppColors.primary),
                   ),
                 ],
-                if (item.selectedAddons.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Extras: ${item.selectedAddons.map((a) => a.name).join(", ")}',
-                    style: AppTypography.labelSmall.copyWith(
-                      fontWeight: FontWeight.normal,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
                 if (item.specialInstructions != null) ...[
                   const SizedBox(height: 2),
                   Text(

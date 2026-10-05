@@ -55,7 +55,6 @@ const LEDGER_INCLUDE = {
           unitPrice: true,
           totalPrice: true,
           variantSnapshot: true,
-          addonsSnapshot: true,
         },
       },
     },
@@ -118,7 +117,6 @@ function toLedgerRow(l: LedgerRow) {
       unitPrice: Number(i.unitPrice),
       totalPrice: Number(i.totalPrice),
       variant: i.variantSnapshot,
-      addons: i.addonsSnapshot,
     })),
   };
 }
@@ -833,13 +831,6 @@ export class VendorStaffService {
                 variants: {
                   orderBy: { sortOrder: 'asc' },
                 },
-                addonGroups: {
-                  include: {
-                    addons: {
-                      orderBy: { name: 'asc' },
-                    },
-                  },
-                },
               },
             },
           },
@@ -873,19 +864,6 @@ export class VendorStaffService {
             price: Number(v.price),
             sortOrder: v.sortOrder,
             isInStock: v.isInStock,
-          })),
-          addonGroups: p.addonGroups.map((ag) => ({
-            id: ag.id,
-            name: ag.title,
-            title: ag.title,
-            minSelection: ag.minSelection,
-            maxSelection: ag.maxSelection,
-            addons: ag.addons.map((a) => ({
-              id: a.id,
-              name: a.name,
-              price: Number(a.price),
-              isInStock: a.isInStock,
-            })),
           })),
         })),
       })),
@@ -978,7 +956,6 @@ export class VendorStaffService {
         unitPrice: Number(i.unitPrice),
         totalPrice: Number(i.totalPrice),
         variant: i.variantSnapshot,
-        addons: i.addonsSnapshot,
       })),
     };
   }

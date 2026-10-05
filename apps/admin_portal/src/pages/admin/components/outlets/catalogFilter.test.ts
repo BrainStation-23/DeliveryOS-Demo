@@ -8,8 +8,8 @@ const categories: AdminCatalog['categories'] = [
     name: 'Signature Burgers',
     sortOrder: 1,
     products: [
-      { id: 'p1', name: 'Peri-Peri Chicken Burger', description: null, basePrice: 320, imageUrl: null, isInStock: true, sortOrder: 1, variants: [], addonGroups: [] },
-      { id: 'p2', name: 'Beef Smash Burger', description: null, basePrice: 380, imageUrl: null, isInStock: true, sortOrder: 2, variants: [], addonGroups: [] },
+      { id: 'p1', name: 'Peri-Peri Chicken Burger', description: null, basePrice: 320, imageUrl: null, isInStock: true, sortOrder: 1, variants: [] },
+      { id: 'p2', name: 'Beef Smash Burger', description: null, basePrice: 380, imageUrl: null, isInStock: true, sortOrder: 2, variants: [] },
     ],
   },
   {
@@ -17,7 +17,7 @@ const categories: AdminCatalog['categories'] = [
     name: 'Sides',
     sortOrder: 2,
     products: [
-      { id: 'p3', name: 'French Fries', description: null, basePrice: 120, imageUrl: null, isInStock: true, sortOrder: 1, variants: [], addonGroups: [] },
+      { id: 'p3', name: 'French Fries', description: null, basePrice: 120, imageUrl: null, isInStock: true, sortOrder: 1, variants: [] },
     ],
   },
 ];

@@ -48,7 +48,7 @@ async function runOrderCheckoutTest() {
       where: { name: { contains: 'Gulshan Branch' } },
       include: {
         products: {
-          include: { variants: true, addonGroups: { include: { addons: true } } },
+          include: { variants: true },
         },
       },
     });
@@ -159,7 +159,6 @@ async function runOrderCheckoutTest() {
     const initialCouponUses = initialCoupon?.currentUses || 0;
 
     const variant = gulshanProduct.variants[0];
-    const addon = gulshanProduct.addonGroups[0]?.addons[0];
 
     const checkoutRes = await fetch(`${baseUrl}/orders/checkout`, {
       method: 'POST',
@@ -178,7 +177,6 @@ async function runOrderCheckoutTest() {
           {
             productId: gulshanProduct.id,
             variantId: variant?.id,
-            addonIds: addon ? [addon.id] : [],
             quantity: 2,
           },
         ],

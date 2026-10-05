@@ -8,12 +8,6 @@ export type KDSOrderStatus =
   | 'DELIVERED'
   | 'CANCELLED';
 
-export interface KDSOrderItemTopping {
-  id: string;
-  name: string;
-  price: number;
-}
-
 export interface KDSOrderItemVariant {
   id: string;
   name: string;
@@ -33,8 +27,6 @@ export interface KDSOrderItem {
   specialInstructions?: string | null;
   variant?: KDSOrderItemVariant | null;
   variantSnapshot?: { id: string; name: string; price?: number; priceModifier?: number } | null;
-  toppings?: KDSOrderItemTopping[];
-  addonsSnapshot?: Array<{ id: string; name: string; price: number }>;
 }
 
 export interface KDSCustomer {

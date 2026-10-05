@@ -208,21 +208,11 @@ class OrderHistoryNotifier extends Notifier<OrderHistoryState> {
         );
       }
 
-      final selectedAddons = item.addons
-          .map((a) => AddonModel(
-                id: a.id,
-                name: a.name,
-                price: a.price,
-                isInStock: true,
-              ))
-          .toList();
-
       cartNotifier.addItem(
         vendorId: pastOrder.vendorId,
         vendorName: pastOrder.vendorName,
         product: product,
         selectedVariant: selectedVariant,
-        selectedAddons: selectedAddons,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         forceReplace: true,

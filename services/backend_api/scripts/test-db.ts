@@ -16,11 +16,11 @@ async function main() {
   const models = [
     'user', 'customerAddress', 'vendorBrand', 'vendor', 'vendorStaff',
     'vendorOperatingHour', 'category', 'product', 'productVariant',
-    'productAddonGroup', 'productAddon', 'banner', 'coupon', 'rider',
+    'banner', 'coupon', 'rider',
     'systemSetting', 'order', 'orderItem', 'commissionLedger', 'riderTripLedger'
   ];
 
-  console.log('🔍 1. Checking all 19 Prisma domain models...');
+  console.log('🔍 1. Checking all 17 Prisma domain models...');
   for (const model of models) {
     if (typeof (prisma as any)[model] === 'undefined') {
       throw new Error(`Missing model on Prisma Client: ${model}`);

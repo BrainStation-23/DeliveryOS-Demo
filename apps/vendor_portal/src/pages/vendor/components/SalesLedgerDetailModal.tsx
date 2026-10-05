@@ -217,19 +217,6 @@ export const SalesLedgerDetailModal: React.FC<SalesLedgerDetailModalProps> = ({
                       )}
                     </div>
 
-                    {item.addons && item.addons.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {item.addons.map((ad, aIdx) => (
-                          <span
-                            key={aIdx}
-                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                          >
-                            + {ad.name} ({formatCurrency(ad.price)})
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
                     {item.instructions && (
                       <p className="text-[11px] text-amber-700 dark:text-amber-400 italic">
                         {t('kds.specialRequest')} {item.instructions}

@@ -30,7 +30,6 @@ extension PaymentMethodExtension on PaymentMethod {
 class CartItem {
   final ProductModel product;
   final VariantModel? selectedVariant;
-  final List<AddonModel> selectedAddons;
   final int quantity;
   final String? specialInstructions;
   final double unitPrice;
@@ -38,7 +37,6 @@ class CartItem {
   CartItem({
     required this.product,
     this.selectedVariant,
-    this.selectedAddons = const [],
     required this.quantity,
     this.specialInstructions,
     required this.unitPrice,
@@ -49,7 +47,6 @@ class CartItem {
   CartItem copyWith({
     ProductModel? product,
     VariantModel? selectedVariant,
-    List<AddonModel>? selectedAddons,
     int? quantity,
     String? specialInstructions,
     double? unitPrice,
@@ -57,7 +54,6 @@ class CartItem {
     return CartItem(
       product: product ?? this.product,
       selectedVariant: selectedVariant ?? this.selectedVariant,
-      selectedAddons: selectedAddons ?? this.selectedAddons,
       quantity: quantity ?? this.quantity,
       specialInstructions: specialInstructions ?? this.specialInstructions,
       unitPrice: unitPrice ?? this.unitPrice,
@@ -69,8 +65,6 @@ class CartItem {
       'productId': product.id,
       'quantity': quantity,
       if (selectedVariant != null) 'variantId': selectedVariant!.id,
-      if (selectedAddons.isNotEmpty)
-        'addonIds': selectedAddons.map((a) => a.id).toList(),
     };
   }
 }

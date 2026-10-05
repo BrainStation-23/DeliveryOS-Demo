@@ -76,12 +76,8 @@ export interface OrderVariantSnapshot {
   [key: string]: Prisma.InputJsonValue | undefined;
 }
 
-export interface OrderAddonSnapshot {
-  id: string;
-  name: string;
-  price: number;
-  [key: string]: Prisma.InputJsonValue | undefined;
-}
+// Note: OrderAddonSnapshot and addonsSnapshot were removed across the ecosystem
+// as part of the platform simplification to streamline menu items and checkout.
 ```
 
 ---

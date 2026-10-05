@@ -49,13 +49,6 @@ export interface OrderVariantSnapshot {
   [key: string]: Prisma.InputJsonValue | undefined;
 }
 
-export interface OrderAddonSnapshot {
-  id: string;
-  name: string;
-  price: number;
-  [key: string]: Prisma.InputJsonValue | undefined;
-}
-
 export interface OrderItemCreatePayload {
   productId: string;
   productNameSnapshot: string;
@@ -64,7 +57,6 @@ export interface OrderItemCreatePayload {
   totalPrice: number;
   specialInstructions?: string;
   variantSnapshot?: OrderVariantSnapshot | null;
-  addonsSnapshot?: OrderAddonSnapshot[] | null;
 }
 
 export interface RiderTelemetryLocation {
@@ -287,9 +279,6 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
       where: { id: { in: productIds } },
       include: {
         variants: true,
-        addonGroups: {
-          include: { addons: true },
-        },
       },
     });
 
@@ -333,26 +322,6 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
         };
       }
 
-      const addonsSnapshot: OrderAddonSnapshot[] = [];
-      if (itemDto.addonIds && itemDto.addonIds.length > 0) {
-        const allAddons = product.addonGroups.flatMap((g) => g.addons);
-        for (const addonId of itemDto.addonIds) {
-          const addon = allAddons.find((a) => a.id === addonId);
-          if (!addon) {
-            throw new BadRequestException(`Addon not found for product "${product.name}"`);
-          }
-          if (!addon.isInStock) {
-            throw new BadRequestException(`Addon "${addon.name}" is currently sold out`);
-          }
-          unitPrice += Number(addon.price);
-          addonsSnapshot.push({
-            id: addon.id,
-            name: addon.name,
-            price: Number(addon.price),
-          });
-        }
-      }
-
       const itemTotal = unitPrice * itemDto.quantity;
       grossSubtotal += itemTotal;
 
@@ -363,7 +332,6 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
         quantity: itemDto.quantity,
         totalPrice: itemTotal,
         variantSnapshot,
-        addonsSnapshot: addonsSnapshot.length > 0 ? addonsSnapshot : null,
       });
     }
 
@@ -442,7 +410,6 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
                 quantity: item.quantity,
                 totalPrice: item.totalPrice,
                 variantSnapshot: item.variantSnapshot ? (item.variantSnapshot as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
-                addonsSnapshot: item.addonsSnapshot ? (item.addonsSnapshot as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
               },
             });
           }
@@ -546,7 +513,6 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
       currentBasePrice: number;
       quantity: number;
       variantId: string | null;
-      addons: Array<{ id: string; name: string; price: number }>;
       isAvailable: boolean;
     }> = [];
     const unavailableItems: Array<{ productId: string; name: string; reason: string }> = [];
@@ -554,7 +520,7 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
     for (const item of previousOrder.orderItems) {
       const product = await this.prisma.product.findUnique({
         where: { id: item.productId },
-        include: { variants: true, addonGroups: { include: { addons: true } } },
+        include: { variants: true },
       });
 
       if (!product || !product.isInStock) {
@@ -585,38 +551,12 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
-      // Check addons if applicable
-      let addonsOk = true;
-      let unavailableAddonName = '';
-      const addonsSnap = (item.addonsSnapshot as unknown as OrderAddonSnapshot[] | null) || [];
-      if (Array.isArray(addonsSnap) && addonsSnap.length > 0) {
-        const allAddons = product.addonGroups.flatMap((g) => g.addons);
-        for (const addonSnap of addonsSnap) {
-          const addon = allAddons.find((a) => a.id === addonSnap.id);
-          if (!addon || !addon.isInStock) {
-            addonsOk = false;
-            unavailableAddonName = addonSnap.name || 'Selected add-on';
-            break;
-          }
-        }
-      }
-
-      if (!addonsOk) {
-        unavailableItems.push({
-          productId: item.productId,
-          name: item.productNameSnapshot,
-          reason: `Add-on "${unavailableAddonName}" is currently sold out`,
-        });
-        continue;
-      }
-
       validItems.push({
         productId: product.id,
         name: product.name,
         currentBasePrice: Number(product.basePrice),
         quantity: item.quantity,
         variantId: variantSnap?.id || null,
-        addons: addonsSnap.map((a) => ({ id: a.id, name: a.name, price: Number(a.price) })),
         isAvailable: true,
       });
     }

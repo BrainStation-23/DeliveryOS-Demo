@@ -35,12 +35,6 @@ export class CheckoutItemDto {
   @IsOptional()
   @IsUUID()
   variantId?: string;
-
-  @ApiPropertyOptional({ example: ['a1a2c3d4-7777-4abc-8888-1234567890ab'], description: 'Array of selected ProductAddon UUIDs' })
-  @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  addonIds?: string[];
 }
 
 export class CheckoutDto {

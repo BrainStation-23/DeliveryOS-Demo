@@ -157,11 +157,6 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
           const productName = item.productName || item.productNameSnapshot || 'Item';
           const subtotal = item.subtotal ?? item.totalPrice ?? 0;
           const variantName = item.variant?.name || item.variantSnapshot?.name;
-          const toppings = Array.isArray(item.toppings)
-            ? item.toppings
-            : Array.isArray(item.addonsSnapshot)
-            ? item.addonsSnapshot
-            : [];
 
           return (
             <div key={item.id} className="text-xs space-y-1">
@@ -183,15 +178,6 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
                 <div className="ml-6 text-[11px] text-slate-500 dark:text-slate-400">
                   <span>{t('kds.option')}</span>{' '}
                   <span className="font-medium text-slate-700 dark:text-slate-200">{variantName}</span>
-                </div>
-              )}
-
-              {toppings.length > 0 && (
-                <div className="ml-6 text-[11px] text-slate-500 dark:text-slate-400">
-                  <span>{t('kds.extras')}</span>{' '}
-                  <span className="text-slate-700 dark:text-slate-300 font-medium">
-                    {toppings.map((t) => t.name).join(', ')}
-                  </span>
                 </div>
               )}
 

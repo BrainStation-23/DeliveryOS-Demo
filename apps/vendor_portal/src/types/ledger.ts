@@ -6,7 +6,6 @@ export interface LedgerOrderItem {
   totalPrice: number;
   instructions?: string | null;
   variant?: { name: string; price?: number; priceDelta?: number; priceModifier?: number } | null;
-  addons?: Array<{ name: string; price: number }>;
 }
 
 export interface LedgerRiderInfo {

@@ -1,55 +1,5 @@
 import '../../../../core/utils/numeric_parser.dart';
 
-class AddonModel {
-  final String id;
-  final String name;
-  final double price;
-  final bool isInStock;
-
-  AddonModel({
-    required this.id,
-    required this.name,
-    required this.price,
-    required this.isInStock,
-  });
-
-  factory AddonModel.fromJson(Map<String, dynamic> json) {
-    return AddonModel(
-      id: json['id'] as String? ?? '',
-      name: json['name'] as String? ?? '',
-      price: parseDouble(json['price'] ?? json['priceModifier'] ?? json['price_modifier']),
-      isInStock: json['isInStock'] as bool? ?? json['is_in_stock'] as bool? ?? true,
-    );
-  }
-}
-
-class AddonGroupModel {
-  final String id;
-  final String name;
-  final int minSelections;
-  final int maxSelections;
-  final List<AddonModel> addons;
-
-  AddonGroupModel({
-    required this.id,
-    required this.name,
-    this.minSelections = 0,
-    this.maxSelections = 5,
-    this.addons = const [],
-  });
-
-  factory AddonGroupModel.fromJson(Map<String, dynamic> json) {
-    final addonsRaw = json['addons'] as List<dynamic>? ?? [];
-    return AddonGroupModel(
-      id: json['id'] as String? ?? '',
-      name: json['title'] as String? ?? json['name'] as String? ?? '',
-      minSelections: parseInt(json['minSelection'] ?? json['minSelections'] ?? json['min_selection'], 0),
-      maxSelections: parseInt(json['maxSelection'] ?? json['maxSelections'] ?? json['max_selection'], 5),
-      addons: addonsRaw.map((e) => AddonModel.fromJson(e as Map<String, dynamic>)).toList(),
-    );
-  }
-}
-
 class VariantModel {
   final String id;
   final String name;
@@ -82,7 +32,6 @@ class ProductModel {
   final String? imageUrl;
   final bool isInStock;
   final List<VariantModel> variants;
-  final List<AddonGroupModel> addonGroups;
 
   ProductModel({
     required this.id,
@@ -93,12 +42,10 @@ class ProductModel {
     this.imageUrl,
     required this.isInStock,
     this.variants = const [],
-    this.addonGroups = const [],
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     final variantsRaw = json['variants'] as List<dynamic>? ?? [];
-    final addonsRaw = json['addonGroups'] as List<dynamic>? ?? json['addon_groups'] as List<dynamic>? ?? [];
 
     return ProductModel(
       id: json['id'] as String? ?? '',
@@ -109,7 +56,6 @@ class ProductModel {
       imageUrl: json['imageUrl'] as String? ?? json['image_url'] as String?,
       isInStock: json['isInStock'] as bool? ?? json['is_in_stock'] as bool? ?? true,
       variants: variantsRaw.map((e) => VariantModel.fromJson(e as Map<String, dynamic>)).toList(),
-      addonGroups: addonsRaw.map((e) => AddonGroupModel.fromJson(e as Map<String, dynamic>)).toList(),
     );
   }
 }

@@ -15,8 +15,6 @@ export interface RawBackendOrderItem {
   specialInstructions?: string | null;
   variant?: { id: string; name: string; priceDelta: number } | null;
   variantSnapshot?: { id: string; name: string; price?: number; priceModifier?: number } | null;
-  toppings?: Array<{ id: string; name: string; price: number }>;
-  addonsSnapshot?: Array<{ id: string; name: string; price: number }>;
 }
 
 export interface RawBackendOrder {
@@ -79,7 +77,6 @@ export function normalizeKDSOrder(raw: RawBackendOrder): KDSOrder {
       name: item.variantSnapshot.name,
       priceDelta: item.variantSnapshot.price ?? item.variantSnapshot.priceModifier ?? 0,
     } : null),
-    toppings: item.toppings || item.addonsSnapshot || [],
   }));
 
   const rider = raw.rider

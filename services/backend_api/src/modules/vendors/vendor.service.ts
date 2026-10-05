@@ -221,13 +221,6 @@ export class VendorService {
                   where: { isInStock: true },
                   orderBy: { sortOrder: 'asc' },
                 },
-                addonGroups: {
-                  include: {
-                    addons: {
-                      where: { isInStock: true },
-                    },
-                  },
-                },
               },
             },
           },

@@ -1,25 +1,5 @@
 import '../../../../core/utils/numeric_parser.dart';
 
-class AddonSnapshotItem {
-  final String id;
-  final String name;
-  final double price;
-
-  const AddonSnapshotItem({
-    required this.id,
-    required this.name,
-    required this.price,
-  });
-
-  factory AddonSnapshotItem.fromJson(Map<String, dynamic> json) {
-    return AddonSnapshotItem(
-      id: json['id']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
-      price: parseDouble(json['price']),
-    );
-  }
-}
-
 class OrderItemSummary {
   final String productId;
   final String name;
@@ -28,7 +8,6 @@ class OrderItemSummary {
   final String? variantId;
   final String? variantName;
   final double? variantPrice;
-  final List<AddonSnapshotItem> addons;
 
   OrderItemSummary({
     required this.productId,
@@ -38,7 +17,6 @@ class OrderItemSummary {
     this.variantId,
     this.variantName,
     this.variantPrice,
-    this.addons = const [],
   });
 
   double get totalPrice => unitPrice * quantity;
@@ -53,14 +31,6 @@ class OrderItemSummary {
         json['variant_name']?.toString();
     final variantPrice = variantSnap != null ? parseDouble(variantSnap['price']) : null;
 
-    final addonsRaw = json['addonsSnapshot'] as List<dynamic>? ??
-        json['addons'] as List<dynamic>? ??
-        [];
-    final addons = addonsRaw
-        .whereType<Map<String, dynamic>>()
-        .map((a) => AddonSnapshotItem.fromJson(a))
-        .toList();
-
     return OrderItemSummary(
       productId: json['productId'] as String? ?? json['product_id'] as String? ?? '',
       name: json['productNameSnapshot'] as String? ??
@@ -72,7 +42,6 @@ class OrderItemSummary {
       variantId: variantId,
       variantName: variantName,
       variantPrice: variantPrice,
-      addons: addons,
     );
   }
 }

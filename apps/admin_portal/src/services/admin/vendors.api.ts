@@ -68,13 +68,6 @@ export interface AdminCatalogProduct {
   isInStock: boolean;
   sortOrder: number;
   variants: AdminProductVariation[];
-  addonGroups: Array<{
-    id: string;
-    title: string;
-    minSelection: number;
-    maxSelection: number;
-    addons: Array<{ id: string; name: string; price: number; isInStock: boolean }>;
-  }>;
 }
 
 export interface AdminProductVariation {

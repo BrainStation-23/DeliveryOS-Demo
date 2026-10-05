@@ -29,7 +29,6 @@ class CartNotifier extends Notifier<CartState> {
     double? vendorLng,
     required ProductModel product,
     VariantModel? selectedVariant,
-    List<AddonModel> selectedAddons = const [],
     required int quantity,
     String? specialInstructions,
     required double unitPrice,
@@ -55,7 +54,6 @@ class CartNotifier extends Notifier<CartState> {
     final newItem = CartItem(
       product: product,
       selectedVariant: selectedVariant,
-      selectedAddons: selectedAddons,
       quantity: quantity,
       specialInstructions: specialInstructions,
       unitPrice: unitPrice,
@@ -65,10 +63,7 @@ class CartNotifier extends Notifier<CartState> {
     final existingIndex = state.items.indexWhere((item) {
       if (item.product.id != product.id) return false;
       if (item.selectedVariant?.id != selectedVariant?.id) return false;
-      if (item.selectedAddons.length != selectedAddons.length) return false;
-      final existingAddonIds = item.selectedAddons.map((a) => a.id).toSet();
-      final newAddonIds = selectedAddons.map((a) => a.id).toSet();
-      return existingAddonIds.containsAll(newAddonIds);
+      return true;
     });
 
     List<CartItem> updatedItems;

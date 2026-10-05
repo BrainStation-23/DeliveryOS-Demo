@@ -766,7 +766,6 @@ async function ensureBrandFor(name: string): Promise<string> {
       image: string;
       inStock?: boolean;
       variants?: { name: string; modifier: number; price?: number }[];
-      addonGroups?: { title: string; min: number; max: number; addons: { name: string; price: number }[] }[];
     }
   ) {
     let cat = await prisma.category.findFirst({ where: { vendorId, name: categoryName } });
@@ -803,26 +802,6 @@ async function ensureBrandFor(name: string): Promise<string> {
       });
     }
 
-    if (pData.addonGroups) {
-      for (const ag of pData.addonGroups) {
-        const group = await prisma.productAddonGroup.create({
-          data: {
-            productId: prod.id,
-            title: ag.title,
-            minSelection: ag.min,
-            maxSelection: ag.max,
-          },
-        });
-        await prisma.productAddon.createMany({
-          data: ag.addons.map((a) => ({
-            addonGroupId: group.id,
-            name: a.name,
-            price: a.price,
-            isInStock: true,
-          })),
-        });
-      }
-    }
     return prod;
   }
 
@@ -837,27 +816,6 @@ async function ensureBrandFor(name: string): Promise<string> {
       { name: 'Single Patty (150g)', modifier: 0.0 },
       { name: 'Double Patty (300g)', modifier: 120.0 },
       { name: 'Triple Monster (450g)', modifier: 220.0 },
-    ],
-    addonGroups: [
-      {
-        title: 'Extra Toppings',
-        min: 0,
-        max: 3,
-        addons: [
-          { name: 'Melted Cheddar Cheese Slice', price: 40.0 },
-          { name: 'Crispy Beef Bacon Strip', price: 60.0 },
-          { name: 'Spicy Pickled Jalapeños', price: 30.0 },
-        ],
-      },
-      {
-        title: 'Dip Sauces',
-        min: 0,
-        max: 2,
-        addons: [
-          { name: 'Smoky BBQ Dip', price: 25.0 },
-          { name: 'Garlic Mayo Aioli', price: 20.0 },
-        ],
-      },
     ],
   });
 
@@ -1525,7 +1483,7 @@ async function ensureBrandFor(name: string): Promise<string> {
   console.log(`👤 Total Users:             ${totalUsers} (Admins, Managers, Riders, Customers)`);
   console.log(`🛵 Total Active Riders:      ${totalRiders} across Dhaka`);
   console.log(`🏪 Outlets Active:          ${totalVendors} (Food, Grocery, Super Shop, Pharmacy)`);
-  console.log(`🍔 Products & Items:        ${totalProds} with variants & addon groups`);
+  console.log(`🍔 Products & Items:        ${totalProds} with variants`);
   console.log(`📦 Total Orders:            ${totalOrders} across all 8 lifecycle states`);
   console.log(`💰 Delivered GMV Volume:    ৳ ${totalGmvResult._sum.totalAmount?.toLocaleString()} BDT`);
   console.log(`📑 Commission Ledgers:      ${totalCommissions} double-entry balanced`);

@@ -396,40 +396,6 @@ async function main() {
     ]
   });
 
-  // Addon Groups & Addons for Beef Burger
-  const extraGroup = await prisma.productAddonGroup.create({
-    data: {
-      productId: beefBurger.id,
-      title: 'Extra Toppings',
-      minSelection: 0,
-      maxSelection: 3
-    }
-  });
-
-  await prisma.productAddon.createMany({
-    data: [
-      { addonGroupId: extraGroup.id, name: 'Melted Cheddar Cheese Slice', price: 40.00, isInStock: true },
-      { addonGroupId: extraGroup.id, name: 'Crispy Beef Bacon Strip', price: 60.00, isInStock: true },
-      { addonGroupId: extraGroup.id, name: 'Spicy Pickled Jalapeños', price: 30.00, isInStock: true }
-    ]
-  });
-
-  const sauceGroup = await prisma.productAddonGroup.create({
-    data: {
-      productId: beefBurger.id,
-      title: 'Choose Dip Sauce',
-      minSelection: 0,
-      maxSelection: 2
-    }
-  });
-
-  await prisma.productAddon.createMany({
-    data: [
-      { addonGroupId: sauceGroup.id, name: 'Smoky BBQ Dip', price: 25.00, isInStock: true },
-      { addonGroupId: sauceGroup.id, name: 'Garlic Mayo Aioli', price: 20.00, isInStock: true }
-    ]
-  });
-
   // Product 2: Peri-Peri Crispy Chicken Burger
   const chickenBurger = await prisma.product.create({
     data: {
@@ -504,7 +470,7 @@ async function main() {
       sortOrder: 2
     }
   });
-  console.log('   ✅ Categories, Products, Variants, and Addon groups seeded.\n');
+  console.log('   ✅ Categories, Products, and Variants seeded.\n');
 
   // ---------------------------------------------------------------------------
   // 5. Promotional Banners

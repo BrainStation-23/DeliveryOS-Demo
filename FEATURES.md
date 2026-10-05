@@ -107,8 +107,8 @@ This document provides a line-level, granular breakdown of every operational fea
 ### 2.5. Merchant Storefront & Product Customization
 - **Collapsing Sticky Header & Category Navigation**: `SliverPersistentHeader` pins menu category tabs under the collapsing store banner for quick section jumping (`OutletDetailScreen`).
 - **Mutually Exclusive Variants**: Radio button selection for single-choice variants (e.g. Size: Small / Medium / Large).
-- **Optional Add-ons & Toppings**: Multi-select toppings and condiments with real-time price delta recalculation.
 - **Special Cooking Instructions**: Textarea capturing custom preparation notes passed immutably to the kitchen.
+- **Simplified Item Ordering**: Streamlined menu items and checkout without add-on/topping complexity for maximum ordering efficiency.
 
 ### 2.6. Cart Validation & Guarded Checkout
 - **Store Status Protection**:
@@ -250,7 +250,7 @@ This document provides a line-level, granular breakdown of every operational fea
   - Customer contact snapshot with direct phone dialer shortcut.
   - Courier handover status, assigned rider name, phone dialer shortcut, and vehicle type.
   - Special cooking instructions note highlighted in amber.
-  - Full dish breakdown with variants, toppings, quantities, and line item subtotals.
+  - Full dish breakdown with variants, quantities, and line item subtotals.
   - Financial settlement breakdown: Gross total, platform commission cut (with rate percentage), highlighted net payable, and settlement status (`SETTLED` vs `PENDING`).
 
 ### 4.7. Responsive Touch Ergonomics & UI Components
@@ -327,7 +327,7 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Brand Owner Management on the Brand Form** (`PUT /admin/brands/:id/owner`): the create/edit brand dialog embeds a **Brand Owner picker** — attach an existing user by phone search, provision a fresh account inline, or clear ownership; replacing an owner atomically removes the previous master assignment (demoting last-tie accounts) and promotes the new one, with session caches purged. Create-mode chains the owner onto the freshly created brand.
 - **Brand & Outlet Deletion Guards & Conditional Visibility**:
   - **Brand Deletion**: Blocked while any outlet or staff assignment remains attached (`brand._count.outlets > 0 || brand._count.staff > 0`); the UI completely hides the "Delete Brand" button unless `brand.totalOutlets === 0 && outlets.length === 0`.
-  - **Outlet Deletion**: An outlet cannot be deleted if it has tagged staff, categories, or items (products), or historical orders. The "Delete Outlet" button remains strictly invisible on both the brand outlet roster (`AdminVendorsPage`) and the Outlet Page header (`AdminOutletPage`) until all three (staff, categories, and items) reach zero. Backend API (`DELETE /admin/vendors/:id` and `/admin/outlets/:id`) validates zero counts before deletion, throwing 409 `ConflictException` if violated.
+  - **Outlet Deletion**: An outlet cannot be deleted if it has tagged staff, categories, or items (products), or historical orders. The "Delete Outlet" action is positioned exclusively on the Outlet Page header (`AdminOutletPage`), remaining strictly invisible until all three (staff, categories, and items) reach zero. The brand card outlet roster (`AdminVendorsPage`) is kept clean as a direct navigation list. Backend API (`DELETE /admin/vendors/:id` and `/admin/outlets/:id`) validates zero counts before deletion, throwing 409 `ConflictException` if violated.
 - **Unified Product Dialog** (view → edit, or straight to create): name, description, Media-Library image, product-level **stock in/out** toggle, and the **ordered variations editor** — rows of (name · absolute price · availability), add/remove/reorder with the first row anchored as the product price (not removable, move-up into place only). Server-side wholesale save enforces ≥1 variation, deletes omitted variations (safe — JSONB snapshots), renumbers order, and syncs `basePrice` to the first variation in one transaction (ADR-017).
 
 ### 5.5. COD Cash Deposit Verification
@@ -475,7 +475,7 @@ This document provides a line-level, granular breakdown of every operational fea
 ### 7.1. PostgreSQL 16 & PostGIS 3.4
 - **Coordinate Storage**: Vendor, customer-address, and rider coordinates persist as `Float` `latitude`/`longitude` columns; PostGIS `geography(Point, 4326)` is computed at query time (`ST_DWithin`/`ST_Distance` raw SQL).
 - **Spatial Indexing**: Expression `GIST` indexes on `ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)` for vendors, customer addresses, and riders (migration `20260924065308`).
-- **Immutable Financial Snapshots**: `order_items.addons_snapshot` and address/variant JSONB snapshots preserve historical order data even if catalog items change later ([ADR-008](context_docs/architecture-decision-records/ADR-008-immutable-jsonb-historical-snapshots.md)).
+- **Immutable Financial Snapshots**: Address and variant JSONB snapshots preserve historical order data even if catalog items change later ([ADR-008](context_docs/architecture-decision-records/ADR-008-immutable-jsonb-historical-snapshots.md)).
 - **Relational Integrity**: 22 normalized entities with foreign key constraints, audit timestamps, and deterministic numeric columns (`DECIMAL(10, 2)`).
 
 ### 7.2. Redis 7.2 In-Memory Operations

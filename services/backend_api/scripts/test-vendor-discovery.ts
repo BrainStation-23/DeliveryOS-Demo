@@ -114,7 +114,7 @@ async function runVendorDiscoveryTest() {
       throw new Error('Catalog did not return categories with products');
     }
     const sampleProduct = categories[0].products[0];
-    console.log(`   Sample Product: "${sampleProduct.name}", Variants: ${sampleProduct.variants?.length}, Addon Groups: ${sampleProduct.addonGroups?.length}`);
+    console.log(`   Sample Product: "${sampleProduct.name}", Variants: ${sampleProduct.variants?.length}`);
     console.log('   ✅ Catalog endpoint successfully returned full nested menu hierarchy!\n');
 
     // -------------------------------------------------------------------------

@@ -973,7 +973,6 @@ export class AdminService {
               orderBy: { sortOrder: 'asc' },
               include: {
                 variants: { orderBy: { sortOrder: 'asc' } },
-                addonGroups: { include: { addons: { orderBy: { name: 'asc' } } } },
               },
             },
           },
@@ -1002,18 +1001,6 @@ export class AdminService {
             price: Number(v.price),
             sortOrder: v.sortOrder,
             isInStock: v.isInStock,
-          })),
-          addonGroups: p.addonGroups.map((ag) => ({
-            id: ag.id,
-            title: ag.title,
-            minSelection: ag.minSelection,
-            maxSelection: ag.maxSelection,
-            addons: ag.addons.map((a) => ({
-              id: a.id,
-              name: a.name,
-              price: Number(a.price),
-              isInStock: a.isInStock,
-            })),
           })),
         })),
       })),
@@ -1471,16 +1458,6 @@ export class AdminService {
         );
       }
 
-      const addonGroups = await tx.productAddonGroup.findMany({
-        where: { productId },
-        select: { id: true },
-      });
-      if (addonGroups.length > 0) {
-        await tx.productAddon.deleteMany({
-          where: { addonGroupId: { in: addonGroups.map((g) => g.id) } },
-        });
-      }
-      await tx.productAddonGroup.deleteMany({ where: { productId } });
       await tx.productVariant.deleteMany({ where: { productId } });
       await tx.product.delete({ where: { id: productId } });
 

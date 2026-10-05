@@ -130,16 +130,6 @@ void main() {
         VariantModel(id: 'v-full', name: 'Full (2 pcs)', price: 460.0, isInStock: true),
         VariantModel(id: 'v-out', name: 'Jumbo Platter', price: 680.0, isInStock: false),
       ],
-      addonGroups: [
-        AddonGroupModel(
-          id: 'grp-sides',
-          name: 'Sides & Drinks',
-          addons: [
-            AddonModel(id: 'add-borhani', name: 'Borhani', price: 60.0, isInStock: true),
-            AddonModel(id: 'add-firni', name: 'Firni', price: 80.0, isInStock: true),
-          ],
-        ),
-      ],
     );
 
     final soldOutProduct = ProductModel(
@@ -150,7 +140,7 @@ void main() {
       isInStock: false,
     );
 
-    testWidgets('Customizer dynamically calculates total price on variant, addon, and qty changes',
+    testWidgets('Customizer dynamically calculates total price on variant and qty changes',
         (WidgetTester tester) async {
       double calculatedPrice = 0.0;
       int calculatedQty = 0;
@@ -162,7 +152,6 @@ void main() {
             onAddToCart: ({
               required product,
               selectedVariant,
-              required selectedAddons,
               required quantity,
               specialInstructions,
               required totalPrice,
@@ -183,30 +172,16 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.descendant(of: find.byType(ElevatedButton), matching: find.text('৳460')), findsOneWidget);
 
-      // Scroll down to addons
-      await tester.drag(find.byType(ListView), const Offset(0, -250));
-      await tester.pumpAndSettle();
-
-      // Add Borhani (+60) -> 460 + 60 = 520
-      await tester.tap(find.text('Borhani'));
-      await tester.pumpAndSettle();
-      expect(find.descendant(of: find.byType(ElevatedButton), matching: find.text('৳520')), findsOneWidget);
-
-      // Add Firni (+80) -> 520 + 80 = 600
-      await tester.tap(find.text('Firni'));
-      await tester.pumpAndSettle();
-      expect(find.descendant(of: find.byType(ElevatedButton), matching: find.text('৳600')), findsOneWidget);
-
-      // Increment Quantity to 2 -> 600 * 2 = 1200
+      // Increment Quantity to 2 -> 460 * 2 = 920
       await tester.tap(find.byIcon(Icons.add_rounded));
       await tester.pumpAndSettle();
-      expect(find.descendant(of: find.byType(ElevatedButton), matching: find.text('৳1200')), findsOneWidget);
+      expect(find.descendant(of: find.byType(ElevatedButton), matching: find.text('৳920')), findsOneWidget);
 
       // Tap Add to Cart
       await tester.tap(find.text('Add to Cart'));
       await tester.pumpAndSettle();
 
-      expect(calculatedPrice, 1200.0);
+      expect(calculatedPrice, 920.0);
       expect(calculatedQty, 2);
     });
 

@@ -254,7 +254,6 @@ DioClient createTestMockDioClient() {
                           'unitType': 'portion',
                           'isInStock': true,
                           'variants': [],
-                          'addons': [],
                         },
                         {
                           'id': 'prod-2',
@@ -264,7 +263,6 @@ DioClient createTestMockDioClient() {
                           'unitType': 'portion',
                           'isInStock': false,
                           'variants': [],
-                          'addons': [],
                         },
                       ],
                     },
@@ -280,7 +278,6 @@ DioClient createTestMockDioClient() {
                           'unitType': 'pc',
                           'isInStock': true,
                           'variants': [],
-                          'addons': [],
                         },
                       ],
                     },

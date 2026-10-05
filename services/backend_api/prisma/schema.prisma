@@ -239,7 +239,6 @@ model Product {
   vendor      Vendor               @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   category    Category?            @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   variants    ProductVariant[]
-  addonGroups ProductAddonGroup[]
   orderItems  OrderItem[]
 
   @@index([vendorId])
@@ -260,33 +259,6 @@ model ProductVariant {
 
   @@index([productId])
   @@map("product_variants")
-}
-
-model ProductAddonGroup {
-  id           String   @id @default(uuid()) @db.Uuid
-  productId    String   @map("product_id") @db.Uuid
-  title        String   @db.VarChar(100)
-  minSelection Int      @default(0) @map("min_selection")
-  maxSelection Int      @default(5) @map("max_selection")
-
-  product Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  addons  ProductAddon[]
-
-  @@index([productId])
-  @@map("product_addon_groups")
-}
-
-model ProductAddon {
-  id           String   @id @default(uuid()) @db.Uuid
-  addonGroupId String   @map("addon_group_id") @db.Uuid
-  name         String   @db.VarChar(100)
-  price        Decimal  @default(0.00) @db.Decimal(10, 2)
-  isInStock    Boolean  @default(true) @map("is_in_stock")
-
-  group ProductAddonGroup @relation(fields: [addonGroupId], references: [id], onDelete: Cascade)
-
-  @@index([addonGroupId])
-  @@map("product_addons")
 }
 
 // -----------------------------------------------------------------------------
@@ -431,7 +403,6 @@ model OrderItem {
   quantity            Int
   totalPrice          Decimal @map("total_price") @db.Decimal(10, 2)
   variantSnapshot     Json?   @map("variant_snapshot")
-  addonsSnapshot      Json?   @map("addons_snapshot")
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])

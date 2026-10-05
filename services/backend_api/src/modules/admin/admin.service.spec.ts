@@ -886,8 +886,6 @@ describe('AdminService - catalog deletion guard', () => {
   beforeEach(() => {
     prisma = {
       product: { findUnique: jest.fn(), delete: jest.fn().mockResolvedValue({ id: 'product-1' }) },
-      productAddon: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
-      productAddonGroup: { findMany: jest.fn().mockResolvedValue([]), deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
       productVariant: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     // The transaction helper simply invokes the callback with the same mock.
@@ -915,20 +913,16 @@ describe('AdminService - catalog deletion guard', () => {
     expect(prisma.productVariant.deleteMany).not.toHaveBeenCalled();
   });
 
-  it('hard-deletes an unreferenced product together with its variants and add-ons', async () => {
+  it('hard-deletes an unreferenced product together with its variants', async () => {
     prisma.product.findUnique.mockResolvedValue({
       id: 'product-1',
       name: 'Burger',
       _count: { orderItems: 0 },
     });
-    prisma.productAddonGroup.findMany.mockResolvedValue([{ id: 'group-1' }]);
 
     const result = await service.deleteProduct('product-1');
 
     expect(result).toEqual({ id: 'product-1', name: 'Burger' });
-    expect(prisma.productAddon.deleteMany).toHaveBeenCalledWith({
-      where: { addonGroupId: { in: ['group-1'] } },
-    });
     expect(prisma.productVariant.deleteMany).toHaveBeenCalledWith({ where: { productId: 'product-1' } });
   });
 
