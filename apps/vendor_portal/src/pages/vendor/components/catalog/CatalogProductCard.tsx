@@ -27,7 +27,7 @@ export const CatalogProductCard: React.FC<CatalogProductCardProps> = ({
     <div
       className={`rounded-xl border p-3.5 sm:p-4 transition-all flex flex-col justify-between ${
         product.isInStock
-          ? 'border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900'
+          ? 'border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900'
           : 'border-rose-200 bg-rose-50/20 opacity-80 dark:border-rose-950 dark:bg-rose-950/10'
       }`}
     >

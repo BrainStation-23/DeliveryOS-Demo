@@ -16,12 +16,6 @@ export const AdminSettingsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const legacyTab = searchParams.get('tab');
-
-  // Seamless redirect if user hits legacy financial tabs on settings URL
-  if (legacyTab === 'settlements' || legacyTab === 'deposits') {
-    return <Navigate to={`/finance?tab=${legacyTab}`} replace />;
-  }
-
   const [actionError, setActionError] = useState<string | null>(null);
 
   // Settings query (dispatch timing, delivery fee, delivery economics)
@@ -68,6 +62,11 @@ export const AdminSettingsPage: React.FC = () => {
         staleOrderTtlMinutes: settings.dispatch.stale_order_ttl_minutes ?? 60,
       }
     : null;
+
+  // Seamless redirect if user hits legacy financial tabs on settings URL
+  if (legacyTab === 'settlements' || legacyTab === 'deposits') {
+    return <Navigate to={`/finance?tab=${legacyTab}`} replace />;
+  }
 
   return (
     <div className="space-y-6">

@@ -41,7 +41,7 @@ export const CashDepositsSection: React.FC = () => {
       adminApi.verifyCashDeposit(id, action, notes),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['admin-cash-deposits'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-fleet-assignable'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-fleet'] });
       setActionSuccess(data?.message || `Deposit successfully ${actionType === 'APPROVE' ? 'verified' : 'rejected'}.`);
       setTimeout(() => {
         setSelectedDeposit(null);

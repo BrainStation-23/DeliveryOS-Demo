@@ -7,7 +7,9 @@ type MockPrisma = {
   user: { findUnique: jest.Mock; update: jest.Mock };
   vendorStaff: { findFirst: jest.Mock; create: jest.Mock; update: jest.Mock };
   order: { findUnique: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
-  rider: { findUnique: jest.Mock; findMany: jest.Mock };
+  rider: { findUnique: jest.Mock; findMany: jest.Mock; updateMany?: jest.Mock; findUniqueOrThrow?: jest.Mock };
+  cashDeposit?: { findUnique: jest.Mock; updateMany: jest.Mock };
+  $transaction?: jest.Mock;
 };
 
 type MockRedis = {
@@ -131,6 +133,8 @@ describe('AdminService - forceAssignRider fleet governance guards', () => {
     status: OrderStatus.PLACED,
     paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
     paymentStatus: PaymentStatus.PENDING,
+    totalAmount: 500.0,
+    deliveryAddressSnapshot: { deliveryMethod: 'HOME_DELIVERY' },
     vendor: { id: 'vendor-1', name: 'V' },
     orderItems: [],
     customer: { fullName: 'C', phone: 'p' },
@@ -141,6 +145,8 @@ describe('AdminService - forceAssignRider fleet governance guards', () => {
     userId: 'user-rider-1',
     isApproved: true,
     isOnline: true,
+    cashInHand: 0,
+    maxCashLimit: 5000,
     user: { id: 'user-rider-1', fullName: 'Rider One', phone: 'p1', status: 'ACTIVE' },
   };
 
@@ -163,7 +169,17 @@ describe('AdminService - forceAssignRider fleet governance guards', () => {
           orderItems: [],
         })),
       },
-      rider: { findUnique: jest.fn().mockResolvedValue(mockRider), findMany: jest.fn().mockResolvedValue([]) },
+      rider: {
+        findUnique: jest.fn().mockResolvedValue(mockRider),
+        findMany: jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ ...mockRider, cashInHand: 0 }),
+      },
+      cashDeposit: {
+        findUnique: jest.fn(),
+        updateMany: jest.fn(),
+      },
+      $transaction: jest.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(prisma)),
     };
 
     redis = {
@@ -211,6 +227,34 @@ describe('AdminService - forceAssignRider fleet governance guards', () => {
     );
   });
 
+  it('rejects assignment if the order is TAKEAWAY', async () => {
+    prisma.order.findUnique.mockResolvedValue({
+      ...mockOrder,
+      deliveryAddressSnapshot: { deliveryMethod: 'TAKEAWAY' },
+    });
+
+    await expect(service.forceAssignRider('order-1', 'rider-1')).rejects.toThrow(
+      'Cannot assign a rider to a takeaway order',
+    );
+  });
+
+  it('rejects assignment if COD total exceeds rider cash limit', async () => {
+    prisma.rider.findUnique.mockResolvedValue({
+      ...mockRider,
+      cashInHand: 4800,
+      maxCashLimit: 5000,
+    });
+    prisma.order.findUnique.mockResolvedValue({
+      ...mockOrder,
+      paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+      totalAmount: 500, // 4800 + 500 = 5300 > 5000
+    });
+
+    await expect(service.forceAssignRider('order-1', 'rider-1')).rejects.toThrow(
+      "would exceed rider's cash limit",
+    );
+  });
+
   it('rejects assignment of an unpaid ONLINE_GATEWAY order (payment invariant)', async () => {
     prisma.order.findUnique.mockResolvedValue({
       ...mockOrder,
@@ -242,6 +286,85 @@ describe('AdminService - forceAssignRider fleet governance guards', () => {
     await expect(service.forceAssignRider('order-1', 'rider-1')).rejects.toThrow(
       'Order state changed before the assignment could be applied',
     );
+  });
+});
+
+describe('AdminService - verifyCashDeposit (Ledger & Cash Safety)', () => {
+  let service: AdminService;
+  let prisma: MockPrisma;
+
+  const mockDeposit = {
+    id: 'deposit-1',
+    referenceNo: 'DEP-101',
+    riderId: 'rider-1',
+    amount: 1500,
+    status: 'PENDING_APPROVAL',
+    note: 'Bank transfer receipt',
+    rider: {
+      id: 'rider-1',
+      cashInHand: 2000,
+      user: { fullName: 'Tanvir Rider' },
+    },
+  };
+
+  beforeEach(() => {
+    prisma = {
+      vendor: { findUnique: jest.fn() },
+      user: { findUnique: jest.fn(), update: jest.fn() },
+      vendorStaff: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
+      order: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
+      rider: {
+        findUnique: jest.fn(),
+        findMany: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ id: 'rider-1', cashInHand: 500 }),
+      },
+      cashDeposit: {
+        findUnique: jest.fn().mockResolvedValue(mockDeposit),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      $transaction: jest.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(prisma)),
+    };
+
+    service = new AdminService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+  });
+
+  it('approves deposit, decrements rider cashInHand, and updates status to APPROVED', async () => {
+    const result = await service.verifyCashDeposit('deposit-1', 'APPROVE', 'Verified by Admin');
+
+    expect(result.deposit.status).toBe('APPROVED');
+    expect(result.riderCashInHand).toBe(500);
+    expect(prisma.cashDeposit!.updateMany).toHaveBeenCalledWith({
+      where: { id: 'deposit-1', status: 'PENDING_APPROVAL' },
+      data: expect.objectContaining({ status: 'APPROVED' }),
+    });
+    expect(prisma.rider.updateMany).toHaveBeenCalledWith({
+      where: { id: 'rider-1', cashInHand: { gte: 1500 } },
+      data: { cashInHand: { decrement: 1500 } },
+    });
+  });
+
+  it('rejects approval if rider cashInHand is less than deposit amount (prevents negative cashInHand)', async () => {
+    prisma.rider.updateMany!.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.verifyCashDeposit('deposit-1', 'APPROVE'),
+    ).rejects.toThrow('lower than the deposit amount');
+  });
+
+  it('surfaces concurrent processing race with ConflictException', async () => {
+    prisma.cashDeposit!.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.verifyCashDeposit('deposit-1', 'APPROVE'),
+    ).rejects.toThrow('is being processed concurrently');
   });
 });
 

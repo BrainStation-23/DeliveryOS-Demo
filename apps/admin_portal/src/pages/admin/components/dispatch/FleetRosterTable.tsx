@@ -137,7 +137,7 @@ export const FleetRosterTable: React.FC<FleetRosterTableProps> = ({
                   : 'cursor-pointer'
               } ${
                 statusFilter === filter.id
-                  ? 'bg-primary-600 text-white shadow-xs'
+                  ? 'bg-primary-600 text-white shadow-sm'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
               }`}
             >
@@ -150,7 +150,7 @@ export const FleetRosterTable: React.FC<FleetRosterTableProps> = ({
             onClick={() => onApprovalFilterChange(approvalFilter === 'PENDING' ? 'ALL' : 'PENDING')}
             className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
               approvalFilter === 'PENDING'
-                ? 'bg-amber-500 text-white shadow-xs'
+                ? 'bg-amber-500 text-white shadow-sm'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
             }`}
           >

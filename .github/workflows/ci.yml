@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.18.0
           cache: npm
           cache-dependency-path: |
             services/backend_api/package-lock.json
@@ -32,6 +32,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.24.3
           cache: true
 
       - name: Install backend dependencies + Prisma client
@@ -96,7 +97,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.18.0
           cache: npm
           cache-dependency-path: services/backend_api/package-lock.json
 
@@ -112,6 +113,34 @@ jobs:
           npx prisma migrate deploy
           npm run prisma:seed
 
-      - name: Run integration suites
+      - name: Build backend
         working-directory: services/backend_api
-        run: npm test
+        run: npm run build
+
+      - name: Run integration suites (with background API server on :4000)
+        working-directory: services/backend_api
+        run: |
+          node dist/src/main.js &
+          API_PID=$!
+          echo "Started background API server (PID: $API_PID), polling http://localhost:4000/api/v1/health..."
+          
+          HEALTHY=0
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:4000/api/v1/health > /dev/null 2>&1; then
+              echo "Backend API is healthy on :4000 (attempt $i)."
+              HEALTHY=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ $HEALTHY -ne 1 ]; then
+            echo "Backend API failed to become healthy within 30 seconds."
+            kill -9 $API_PID || true
+            exit 1
+          fi
+
+          npm test
+          TEST_EXIT_CODE=$?
+          kill $API_PID || true
+          exit $TEST_EXIT_CODE

@@ -775,28 +775,30 @@ export class VendorStaffService {
 
     await this.validateStaffOutletAccess(user, targetVendorId);
 
-    for (const h of hours) {
-      await this.prisma.vendorOperatingHour.upsert({
-        where: {
-          vendorId_dayOfWeek: {
+    await this.prisma.$transaction(async (tx) => {
+      for (const h of hours) {
+        await tx.vendorOperatingHour.upsert({
+          where: {
+            vendorId_dayOfWeek: {
+              vendorId: targetVendorId,
+              dayOfWeek: h.dayOfWeek,
+            },
+          },
+          update: {
+            openTime: h.openTime,
+            closeTime: h.closeTime,
+            isClosed: h.isClosed,
+          },
+          create: {
             vendorId: targetVendorId,
             dayOfWeek: h.dayOfWeek,
+            openTime: h.openTime,
+            closeTime: h.closeTime,
+            isClosed: h.isClosed,
           },
-        },
-        update: {
-          openTime: h.openTime,
-          closeTime: h.closeTime,
-          isClosed: h.isClosed,
-        },
-        create: {
-          vendorId: targetVendorId,
-          dayOfWeek: h.dayOfWeek,
-          openTime: h.openTime,
-          closeTime: h.closeTime,
-          isClosed: h.isClosed,
-        },
-      });
-    }
+        });
+      }
+    });
 
     return this.prisma.vendorOperatingHour.findMany({
       where: { vendorId: targetVendorId },
@@ -966,6 +968,8 @@ export class VendorStaffService {
     vendorId?: string,
     dateFrom?: Date,
     dateTo?: Date,
+    limit?: number,
+    page?: number,
   ) {
     let targetVendorIds: string[];
 
@@ -977,21 +981,35 @@ export class VendorStaffService {
       targetVendorIds = accessible.map((v) => v.id);
     }
 
-    const ledgers = await this.prisma.commissionLedger.findMany({
-      where: {
-        vendorId: { in: targetVendorIds },
-        ...(dateFrom || dateTo
-          ? {
-              createdAt: {
-                ...(dateFrom ? { gte: dateFrom } : {}),
-                ...(dateTo ? { lte: dateTo } : {}),
-              },
-            }
-          : {}),
-      },
-      include: LEDGER_INCLUDE,
-      orderBy: { createdAt: 'desc' },
-    });
+    const where = {
+      vendorId: { in: targetVendorIds },
+      ...(dateFrom || dateTo
+        ? {
+            createdAt: {
+              ...(dateFrom ? { gte: dateFrom } : {}),
+              ...(dateTo ? { lte: dateTo } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const take = limit ? Math.min(limit, 500) : 500;
+    const skip = page && page > 1 ? (page - 1) * take : 0;
+
+    const [totalCount, ledgers] = await Promise.all([
+      typeof this.prisma.commissionLedger?.count === 'function'
+        ? this.prisma.commissionLedger.count({ where })
+        : Promise.resolve(0),
+      this.prisma.commissionLedger.findMany({
+        where,
+        include: LEDGER_INCLUDE,
+        orderBy: { createdAt: 'desc' },
+        take,
+        skip,
+      }),
+    ]);
+
+    const effectiveTotal = totalCount > 0 ? totalCount : ledgers.length;
 
     let totalGross = 0;
     let totalCommission = 0;
@@ -1007,10 +1025,16 @@ export class VendorStaffService {
 
     return {
       summary: {
-        totalOrders: formattedLedgers.length,
+        totalOrders: effectiveTotal,
         grossSales: Math.round(totalGross * 100) / 100,
         commissionDeducted: Math.round(totalCommission * 100) / 100,
         netVendorPayable: Math.round(totalNet * 100) / 100,
+      },
+      pagination: {
+        page: page ?? 1,
+        limit: take,
+        total: effectiveTotal,
+        totalPages: Math.max(1, Math.ceil(effectiveTotal / take)),
       },
       ledgers: formattedLedgers,
     };

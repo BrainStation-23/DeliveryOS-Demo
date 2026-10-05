@@ -6,6 +6,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/api_constants.dart';
 import '../storage/local_storage.dart';
 
+final sessionExpiredEventStream = StreamController<String?>.broadcast();
+
+Future<void> _notifySessionExpired(LocalStorage storage, Object? error) async {
+  String? message;
+  if (error is DioException && error.response?.data is Map) {
+    final data = error.response!.data as Map;
+    message = data['message'] as String?;
+  }
+  await storage.clearAuth();
+  sessionExpiredEventStream.add(message);
+}
+
 final dioClientProvider = Provider<Dio>((ref) {
   final storage = ref.watch(localStorageProvider);
 
@@ -79,7 +91,8 @@ final dioClientProvider = Provider<Dio>((ref) {
       },
       onError: (DioException error, handler) async {
         final requestOptions = error.requestOptions;
-        final canRefresh = error.response?.statusCode == 401 &&
+        final is401 = error.response?.statusCode == 401;
+        final canRefresh = is401 &&
             requestOptions.extra['__retried_after_refresh'] != true &&
             !requestOptions.path.contains('/auth/refresh') &&
             (storage.getRefreshToken()?.isNotEmpty ?? false);
@@ -93,9 +106,16 @@ final dioClientProvider = Provider<Dio>((ref) {
               final response = await dio.fetch(requestOptions);
               return handler.resolve(response);
             } on DioException catch (retryError) {
+              if (retryError.response?.statusCode == 401) {
+                await _notifySessionExpired(storage, retryError);
+              }
               return handler.next(retryError);
             }
+          } else {
+            await _notifySessionExpired(storage, error);
           }
+        } else if (is401) {
+          await _notifySessionExpired(storage, error);
         }
         return handler.next(error);
       },

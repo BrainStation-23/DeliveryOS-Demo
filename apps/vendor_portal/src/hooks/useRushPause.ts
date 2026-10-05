@@ -3,18 +3,39 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useVendorOutlet } from '../contexts/VendorOutletContext';
 import kdsApi from '../services/kdsApi';
 
+export function resolveTargetOutletState(
+  targetOutletId: string | undefined,
+  activeOutlet: { id: string; isBusy: boolean } | null,
+  outlets: Array<{ id: string; isBusy: boolean }>,
+) {
+  const effectiveOutletId = targetOutletId || (activeOutlet && activeOutlet.id !== 'ALL' ? activeOutlet.id : undefined);
+  const targetOutlet = effectiveOutletId
+    ? outlets.find((o) => o.id === effectiveOutletId) ?? (activeOutlet?.id === effectiveOutletId ? activeOutlet : null)
+    : null;
+  return {
+    effectiveOutletId,
+    targetOutlet,
+    isBusy: targetOutlet?.isBusy ?? false,
+    canToggle: Boolean(effectiveOutletId),
+  };
+}
+
 export function useRushPause(targetOutletId?: string) {
   const queryClient = useQueryClient();
-  const { activeOutlet, refetchOutlets } = useVendorOutlet();
+  const { activeOutlet, outlets, refetchOutlets } = useVendorOutlet();
   const [isTogglingRush, setIsTogglingRush] = useState(false);
 
-  const effectiveOutletId = targetOutletId || (activeOutlet && activeOutlet.id !== 'ALL' ? activeOutlet.id : undefined);
+  const { effectiveOutletId, targetOutlet, isBusy, canToggle } = resolveTargetOutletState(
+    targetOutletId,
+    activeOutlet,
+    outlets,
+  );
 
   const toggleRushPause = async (explicitState?: boolean) => {
     if (!effectiveOutletId || isTogglingRush) return;
     try {
       setIsTogglingRush(true);
-      const isCurrentlyBusy = activeOutlet?.id === effectiveOutletId ? activeOutlet.isBusy : false;
+      const isCurrentlyBusy = targetOutlet?.isBusy ?? false;
       const nextBusy = explicitState !== undefined ? explicitState : !isCurrentlyBusy;
       await kdsApi.updateOutletSettings(effectiveOutletId, {
         isBusy: nextBusy,
@@ -37,7 +58,7 @@ export function useRushPause(targetOutletId?: string) {
   };
 
   return {
-    isBusy: activeOutlet?.isBusy ?? false,
+    isBusy: targetOutlet?.isBusy ?? false,
     isTogglingRush,
     toggleRushPause,
     handleToggle,

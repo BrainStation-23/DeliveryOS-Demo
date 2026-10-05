@@ -154,7 +154,7 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
             <select
               value={typeId}
               onChange={(e) => setTypeId(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="" disabled>
                 Select a business type…
@@ -177,7 +177,7 @@ export const OutletInfoDialog: React.FC<OutletInfoDialogProps> = ({
             <select
               value={orderFlowMode}
               onChange={(e) => setOrderFlowMode(e.target.value as OrderFlowModeValue)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="RIDER_FIRST">RIDER_FIRST (Zero Food Waste)</option>
               <option value="VENDOR_FIRST">VENDOR_FIRST (Traditional Retail)</option>

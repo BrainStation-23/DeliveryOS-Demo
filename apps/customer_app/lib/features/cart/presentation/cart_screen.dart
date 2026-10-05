@@ -436,9 +436,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                                 ? 'Store Currently Closed'
                                 : cartState.isVendorBusy
                                     ? 'Store Paused (Rush Hour)'
-                                    : (!cartState.isWithinCoverage && cartState.deliveryMethod == DeliveryMethod.homeDelivery)
-                                        ? 'Address Out of Coverage'
-                                        : 'Place Order (${cartState.totalItemCount} items)',
+                                    : (cartState.isCheckingCoverage && cartState.deliveryMethod == DeliveryMethod.homeDelivery)
+                                        ? 'Verifying Delivery Coverage...'
+                                        : (!cartState.isWithinCoverage && cartState.deliveryMethod == DeliveryMethod.homeDelivery)
+                                            ? 'Address Out of Coverage'
+                                            : 'Place Order (${cartState.totalItemCount} items)',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.titleSmall.copyWith(

@@ -272,3 +272,7 @@ All authoritative system rules, business workflows, technical specifications, an
    - [`ADR-016`](./context_docs/architecture-decision-records/ADR-016-centralized-media-library-and-client-side-editing.md): Centralized Media Library & Client-Side Editing
    - [`ADR-017`](./context_docs/architecture-decision-records/ADR-017-absolute-variation-pricing-and-brand-mandatory-outlets.md): Absolute Variation Pricing & Brand-Mandatory Outlets
    - [`ADR-018`](./context_docs/architecture-decision-records/ADR-018-admin-analytics-read-layer-and-banner-deeplinks.md): Admin Analytics Read Layer & Banner Deeplinks
+   - [`ADR-019`](./context_docs/architecture-decision-records/ADR-019-admin-managed-outlet-types.md): Admin-Managed Outlet Types Replace the Vertical Enum
+   - [`ADR-020`](./context_docs/architecture-decision-records/ADR-020-refresh-token-rotation-and-reuse-detection.md): Refresh Token Rotation, Reuse Detection & Mobile Revocation Posture
+   - [`ADR-021`](./context_docs/architecture-decision-records/ADR-021-nginx-edge-dynamic-dns-resolution.md): Nginx Edge Dynamic DNS Resolution & Reverse Proxy Invariants
+   - [`ADR-022`](./context_docs/architecture-decision-records/ADR-022-financial-ledger-immutability-and-cash-safety.md): Financial Ledger Foreign Key Immutability and Soft-Deletion Policy

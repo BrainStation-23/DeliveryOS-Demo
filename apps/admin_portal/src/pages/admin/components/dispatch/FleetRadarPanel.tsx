@@ -6,9 +6,13 @@ import { LiveFleetMap } from '../../../../components/dispatch/LiveFleetMap';
 
 export interface EscalationAlert {
   orderNumber: string;
-  tier: number;
-  agingSeconds: number;
-  searchRadiusKm: number;
+  tier?: number;
+  agingSeconds?: number;
+  searchRadiusKm?: number;
+  orderId?: string;
+  vendorName?: string;
+  elapsedMinutes?: number;
+  reason?: string;
 }
 
 interface FleetRadarPanelProps {
@@ -52,8 +56,12 @@ export const FleetRadarPanel: React.FC<FleetRadarPanelProps> = ({
       <div className="mb-4">
         <Alert
           type="error"
-          title={`Urgent Dispatch Escalation (Tier ${escalation.tier})`}
-          message={`Order ${escalation.orderNumber} has been waiting ${escalation.agingSeconds}s! Search radius expanded to ${escalation.searchRadiusKm}km.`}
+          title={escalation.reason ? 'Doorstep Delivery Issue' : `Urgent Dispatch Escalation (Tier ${escalation.tier ?? 1})`}
+          message={
+            escalation.reason
+              ? `Order ${escalation.orderNumber}: ${escalation.reason}`
+              : `Order ${escalation.orderNumber} has been waiting ${escalation.agingSeconds ?? 0}s! Search radius expanded to ${escalation.searchRadiusKm ?? 5}km.`
+          }
           onDismiss={onDismissEscalation}
         />
       </div>

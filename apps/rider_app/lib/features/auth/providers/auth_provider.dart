@@ -54,6 +54,14 @@ class RiderAuthState {
 class RiderAuthNotifier extends Notifier<RiderAuthState> {
   @override
   RiderAuthState build() {
+    final sessionSub = sessionExpiredEventStream.stream.listen((message) {
+      state = state.copyWith(
+        isAuthenticated: false,
+        error: message ?? 'Session expired. Please log in again.',
+      );
+    });
+    ref.onDispose(() => sessionSub.cancel());
+
     final storage = ref.watch(localStorageProvider);
     final token = storage.getAccessToken();
     final profileJson = storage.getRiderProfileJson();
@@ -272,6 +280,18 @@ class RiderAuthNotifier extends Notifier<RiderAuthState> {
 
   Future<void> logout() async {
     final storage = ref.read(localStorageProvider);
+    final refreshToken = storage.getRefreshToken();
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      try {
+        final dio = ref.read(dioClientProvider);
+        await dio.post(
+          ApiConstants.logout,
+          data: {'refreshToken': refreshToken},
+        );
+      } catch (_) {
+        // Fire-and-forget server token revocation: proceed with local session purge
+      }
+    }
     await storage.clearAuth();
     state = RiderAuthState();
   }

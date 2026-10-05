@@ -112,7 +112,7 @@ export function Table<T>({
                 type="button"
                 onClick={() => onPageChange && onPageChange((page || 1) - 1)}
                 disabled={(page || 1) <= 1}
-                className="h-8 px-3 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-xs cursor-pointer"
+                className="h-8 px-3 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm cursor-pointer"
               >
                 {t('common.previous')}
               </button>
@@ -123,7 +123,7 @@ export function Table<T>({
                 type="button"
                 onClick={() => onPageChange && onPageChange((page || 1) + 1)}
                 disabled={(page || 1) >= totalPages}
-                className="h-8 px-3 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-xs cursor-pointer"
+                className="h-8 px-3 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm cursor-pointer"
               >
                 {t('common.next')}
               </button>

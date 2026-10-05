@@ -8,6 +8,8 @@ type MockTx = {
     findUnique: jest.Mock;
     findFirst: jest.Mock;
     update: jest.Mock;
+    updateMany?: jest.Mock;
+    findUniqueOrThrow?: jest.Mock;
   };
 };
 
@@ -15,11 +17,12 @@ describe('OrderFlowService - claimOrder', () => {
   let service: OrderFlowService;
   let mockPrisma: {
     rider: { findUnique: jest.Mock };
-    systemSetting: { findUnique: jest.Mock };
+    systemSetting: { findUnique: jest.Mock; upsert?: jest.Mock };
     $transaction: jest.Mock;
   };
   let mockRedis: {
     get: jest.Mock;
+    mget?: jest.Mock;
     set: jest.Mock;
     del: jest.Mock;
     acquireLock: jest.Mock;
@@ -107,12 +110,17 @@ describe('OrderFlowService - claimOrder', () => {
         const tx: MockTx = {
           order: {
             findUnique: jest.fn().mockResolvedValue({ ...defaultOrder }),
-            // DB backstop for the rider busy-check: no in-flight order by default
             findFirst: jest.fn().mockResolvedValue(null),
             update: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
               ...defaultOrder,
               ...data,
             })),
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            findUniqueOrThrow: jest.fn().mockResolvedValue({
+              ...defaultOrder,
+              status: OrderStatus.RIDER_ASSIGNED,
+              riderId: 'rider-uuid-1',
+            }),
           },
         };
         return cb(tx);
@@ -265,6 +273,14 @@ describe('OrderFlowService - claimOrder', () => {
             paymentStatus: PaymentStatus.PAID,
             ...data,
           })),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          findUniqueOrThrow: jest.fn().mockResolvedValue({
+            ...defaultOrder,
+            paymentMethod: PaymentMethod.ONLINE_GATEWAY,
+            paymentStatus: PaymentStatus.PAID,
+            riderId: 'rider-uuid-1',
+            status: OrderStatus.RIDER_ASSIGNED,
+          }),
         },
       };
       return cb(tx);
@@ -273,6 +289,44 @@ describe('OrderFlowService - claimOrder', () => {
     const result = await service.claimOrder('user-uuid-1', 'order-uuid-1');
     expect(result.riderId).toBe('rider-uuid-1');
     expect(mockRedis.set).toHaveBeenCalledWith('rider:active_order:rider-uuid-1', 'order-uuid-1');
+  });
+
+  it('throws ConflictException if concurrent racer claims order first (updateMany count 0)', async () => {
+    mockPrisma.$transaction.mockImplementation(async (cb: (tx: MockTx) => Promise<unknown>) => {
+      const tx: MockTx = {
+        order: {
+          findUnique: jest.fn().mockResolvedValue({ ...defaultOrder }),
+          findFirst: jest.fn().mockResolvedValue(null),
+          update: jest.fn(),
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+          findUniqueOrThrow: jest.fn(),
+        },
+      };
+      return cb(tx);
+    });
+
+    await expect(service.claimOrder('user-uuid-1', 'order-uuid-1')).rejects.toThrow(
+      'This order has already been secured by another delivery rider.',
+    );
+  });
+
+  it('setDispatchConfig returns camelCase config matching frontend expectations', async () => {
+    mockPrisma.systemSetting.upsert = jest.fn().mockResolvedValue({
+      value: {
+        rider_search_timeout_seconds: 120,
+        stale_order_ttl_minutes: 45,
+      },
+    });
+
+    const result = await service.setDispatchConfig({
+      riderSearchTimeoutSeconds: 120,
+      staleOrderTtlMinutes: 45,
+    });
+
+    expect(result).toEqual({
+      riderSearchTimeoutSeconds: 120,
+      staleOrderTtlMinutes: 45,
+    });
   });
 
   it('successfully claims order in RIDER_FIRST mode, sets Redis key post-transaction, and notifies', async () => {
@@ -342,6 +396,7 @@ function buildDispatchService(options: {
   };
   const redis = {
     get: jest.fn().mockResolvedValue(null),
+    mget: jest.fn().mockResolvedValue([]),
     set: jest.fn().mockResolvedValue('OK'),
     del: jest.fn().mockResolvedValue(1),
     geoadd: jest.fn().mockResolvedValue(1),
@@ -469,7 +524,7 @@ describe('OrderFlowService - handleOrderPlaced dispatch routing', () => {
     track(built.service);
     built.redis.geosearch.mockResolvedValue([['rider-near', '1.4']]);
     built.prisma.rider.findUnique.mockResolvedValue({ isOnline: true });
-    built.prisma.rider.findMany.mockResolvedValue([{ userId: 'user-near' }]);
+    built.prisma.rider.findMany.mockResolvedValue([{ id: 'rider-near', userId: 'user-near' }]);
 
     await built.service.handleOrderPlaced('order-uuid-1');
 
@@ -630,12 +685,12 @@ describe('OrderFlowService - dispatch timing config and rider proximity', () => 
       ['rider-busy', '0.5'],
       ['rider-offline', '2.0'],
     ]);
-    built.redis.get.mockImplementation(async (key: string) =>
-      key === 'rider:active_order:rider-busy' ? 'order-x' : null,
+    built.redis.mget.mockImplementation(async (keys: string[]) =>
+      keys.map((k) => (k === 'rider:active_order:rider-busy' ? 'order-x' : null)),
     );
-    built.prisma.rider.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) =>
-      where.id === 'rider-offline' ? { isOnline: false } : { isOnline: true },
-    );
+    built.prisma.rider.findMany.mockResolvedValue([
+      { id: 'rider-free' },
+    ]);
 
     const riders = await built.service.findNearbyAvailableRiders(23.7925, 90.4141, 5);
     built.service.onModuleDestroy();

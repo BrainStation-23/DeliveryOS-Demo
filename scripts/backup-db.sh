@@ -47,7 +47,7 @@ if ! docker ps --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
 fi
 
 echo "📦 Dumping database and compressing with gzip..."
-docker exec -e PGPASSWORD="$DB_PASSWORD" "$CONTAINER_NAME" pg_dump -h localhost -U "$DB_USER" -d "$DB_NAME" --clean --if-exists | gzip > "$BACKUP_FILE"
+docker exec -e PGPASSWORD="$DB_PASSWORD" "$CONTAINER_NAME" pg_dump -h localhost -U "$DB_USER" -d "$DB_NAME" --clean --if-exists --no-owner | gzip > "$BACKUP_FILE"
 
 # Verify backup was created and has non-zero size
 if [ -s "$BACKUP_FILE" ]; then
@@ -65,13 +65,19 @@ if [ -n "$TARGET" ]; then
   echo "☁️  Uploading backup offsite to $TARGET ..."
   case "$TARGET" in
     s3://*)
-      aws s3 cp "$BACKUP_FILE" "$TARGET/$(basename "$BACKUP_FILE")" --only-show-errors \
-        && echo "✅ Offsite upload complete (S3)." \
-        || echo "⚠️  Offsite S3 upload FAILED — local copy retained." ;;
+      if aws s3 cp "$BACKUP_FILE" "$TARGET/$(basename "$BACKUP_FILE")" --only-show-errors; then
+        echo "✅ Offsite upload complete (S3)."
+      else
+        echo "❌ Offsite S3 upload FAILED — local copy retained."
+        exit 1
+      fi ;;
     rclone:*)
-      rclone copy "$BACKUP_FILE" "$TARGET" \
-        && echo "✅ Offsite upload complete (rclone)." \
-        || echo "⚠️  Offsite rclone upload FAILED — local copy retained." ;;
+      if rclone copy "$BACKUP_FILE" "$TARGET"; then
+        echo "✅ Offsite upload complete (rclone)."
+      else
+        echo "❌ Offsite rclone upload FAILED — local copy retained."
+        exit 1
+      fi ;;
     *)
       echo "⚠️  Unknown BACKUP_OFFSITE_TARGET scheme — skipping offsite upload." ;;
   esac

@@ -94,7 +94,7 @@ export const StaffAccountsTab: React.FC<StaffAccountsTabProps> = ({ onError }) =
               }}
               className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                 roleFilter === option.id
-                  ? 'bg-primary-600 text-white shadow-xs'
+                  ? 'bg-primary-600 text-white shadow-sm'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
               }`}
             >

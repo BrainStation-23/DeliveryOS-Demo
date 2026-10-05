@@ -36,6 +36,14 @@ interface SocketOrderCancelledPayload {
   id?: string;
 }
 
+export function categorizeKDSOrders(orders: KDSOrder[]) {
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const newOrders = safeOrders.filter((o) => o && (o.status === 'PLACED' || o.status === 'RIDER_ASSIGNED'));
+  const inPreparationOrders = safeOrders.filter((o) => o && (o.status === 'ACCEPTED' || o.status === 'PREPARING'));
+  const readyOrders = safeOrders.filter((o) => o && o.status === 'READY_FOR_PICKUP');
+  return { newOrders, inPreparationOrders, readyOrders };
+}
+
 export const useKDSOrders = (vendorId?: string) => {
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => ['kds-live-orders', vendorId], [vendorId]);
@@ -170,8 +178,16 @@ export const useKDSOrders = (vendorId?: string) => {
       socket.off('order:new', handleNewOrder);
       socket.off('order:status:changed', handleStatusChanged);
       socket.off('order:cancelled', handleOrderCancelled);
+      soundEngine.stopOrderAlarm();
     };
   }, [queryClient, queryKey, vendorId]);
+
+  // Ensure sound is stopped whenever the component unmounts
+  useEffect(() => {
+    return () => {
+      soundEngine.stopOrderAlarm();
+    };
+  }, []);
 
   // Kitchen staff must see (and hear) when an action fails — silent failures
   // on the KDS board leave orders stuck in the wrong lane.
@@ -327,20 +343,11 @@ export const useKDSOrders = (vendorId?: string) => {
     }
   };
 
+
   const safeOrders = useMemo(() => (Array.isArray(orders) ? orders : []), [orders]);
 
-  const newOrders = useMemo(
-    () => safeOrders.filter((o) => o && (o.status === 'PLACED' || o.status === 'RIDER_ASSIGNED')),
-    [safeOrders]
-  );
-
-  const inPreparationOrders = useMemo(
-    () => safeOrders.filter((o) => o && (o.status === 'ACCEPTED' || o.status === 'PREPARING')),
-    [safeOrders]
-  );
-
-  const readyOrders = useMemo(
-    () => safeOrders.filter((o) => o && o.status === 'READY_FOR_PICKUP'),
+  const { newOrders, inPreparationOrders, readyOrders } = useMemo(
+    () => categorizeKDSOrders(safeOrders),
     [safeOrders]
   );
 

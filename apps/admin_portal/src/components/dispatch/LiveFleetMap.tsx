@@ -103,22 +103,44 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
 
       const marker = L.marker([lat, lng], { icon: customIcon });
 
-      const popupContent = `
-        <div class="font-sans text-xs p-1 min-w-[160px]">
-          <div class="font-bold text-sm mb-0.5 text-slate-900">${rider.riderName}</div>
-          <div class="text-slate-500 mb-1.5">${rider.phone} • ${rider.vehicleType}</div>
-          <div class="flex justify-between mb-1">
-            <span class="text-slate-500">Status:</span>
-            <strong class="${statusTextClass}">${rider.status.replace('_', ' ')}</strong>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-slate-500">Cash in Hand:</span>
-            <strong class="text-slate-900">৳${(rider.cashInHand || 0).toFixed(0)}</strong>
-          </div>
-        </div>
-      `;
+      const popupDiv = document.createElement('div');
+      popupDiv.className = 'font-sans text-xs p-1 min-w-[160px]';
 
-      marker.bindPopup(popupContent);
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'font-bold text-sm mb-0.5 text-slate-900';
+      nameDiv.textContent = rider.riderName;
+      popupDiv.appendChild(nameDiv);
+
+      const subDiv = document.createElement('div');
+      subDiv.className = 'text-slate-500 mb-1.5';
+      subDiv.textContent = `${rider.phone} • ${rider.vehicleType}`;
+      popupDiv.appendChild(subDiv);
+
+      const statusRow = document.createElement('div');
+      statusRow.className = 'flex justify-between mb-1';
+      const statusLabel = document.createElement('span');
+      statusLabel.className = 'text-slate-500';
+      statusLabel.textContent = 'Status:';
+      const statusValue = document.createElement('strong');
+      statusValue.className = statusTextClass;
+      statusValue.textContent = rider.status.replace('_', ' ');
+      statusRow.appendChild(statusLabel);
+      statusRow.appendChild(statusValue);
+      popupDiv.appendChild(statusRow);
+
+      const cashRow = document.createElement('div');
+      cashRow.className = 'flex justify-between';
+      const cashLabel = document.createElement('span');
+      cashLabel.className = 'text-slate-500';
+      cashLabel.textContent = 'Cash in Hand:';
+      const cashValue = document.createElement('strong');
+      cashValue.className = 'text-slate-900';
+      cashValue.textContent = `৳${(rider.cashInHand || 0).toFixed(0)}`;
+      cashRow.appendChild(cashLabel);
+      cashRow.appendChild(cashValue);
+      popupDiv.appendChild(cashRow);
+
+      marker.bindPopup(popupDiv);
       marker.on('click', () => {
         if (onSelectRider) onSelectRider(rider.id);
       });
@@ -149,12 +171,27 @@ export const LiveFleetMap: React.FC<LiveFleetMapProps> = ({
       const marker = L.marker([lat, lng], { icon: orderIcon });
       const popupDiv = document.createElement('div');
       popupDiv.className = 'font-sans text-xs p-1 min-w-[170px]';
-      popupDiv.innerHTML = `
-        <div class="font-bold text-amber-700 mb-0.5">Waiting for Courier</div>
-        <div class="font-semibold text-sm text-slate-900">${order.orderNumber}</div>
-        <div class="text-slate-500 mb-1">${order.vendorName}</div>
-        <div class="text-slate-900 font-bold mb-1.5">৳${order.totalAmount}</div>
-      `;
+
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'font-bold text-amber-700 mb-0.5';
+      titleDiv.textContent = 'Waiting for Courier';
+      popupDiv.appendChild(titleDiv);
+
+      const orderNumDiv = document.createElement('div');
+      orderNumDiv.className = 'font-semibold text-sm text-slate-900';
+      orderNumDiv.textContent = order.orderNumber;
+      popupDiv.appendChild(orderNumDiv);
+
+      const vendorDiv = document.createElement('div');
+      vendorDiv.className = 'text-slate-500 mb-1';
+      vendorDiv.textContent = order.vendorName;
+      popupDiv.appendChild(vendorDiv);
+
+      const amountDiv = document.createElement('div');
+      amountDiv.className = 'text-slate-900 font-bold mb-1.5';
+      amountDiv.textContent = `৳${order.totalAmount}`;
+      popupDiv.appendChild(amountDiv);
+
       const openBtn = document.createElement('button');
       openBtn.textContent = 'Open Order →';
       openBtn.className = 'text-primary-600 font-semibold underline text-xs p-0 bg-transparent border-none cursor-pointer hover:text-primary-700';

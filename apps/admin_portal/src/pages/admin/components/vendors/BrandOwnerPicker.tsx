@@ -126,7 +126,7 @@ export const BrandOwnerPicker: React.FC<BrandOwnerPickerProps> = ({ initialOwner
             type="button"
             onClick={() => setTab(id)}
             className={`px-2.5 py-1 rounded-md text-[11px] font-semibold cursor-pointer ${
-              tab === id ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100' : 'text-slate-500'
+              tab === id ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100' : 'text-slate-500'
             }`}
           >
             {id === 'existing' ? 'Existing User' : 'New Account'}

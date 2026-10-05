@@ -14,6 +14,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { requiredEnv, getAllowedOrigins } from '../../common/config/env';
 import { PermissionScope, UserRole } from '@prisma/client';
+import { haversineKm } from '../../common/utils/haversine';
 
 export interface NewOrderRealtimePayload {
   orderId?: string;
@@ -331,23 +332,13 @@ export class TrackingGateway
       if (order?.deliveryAddressSnapshot) {
         const dest = order.deliveryAddressSnapshot as { latitude?: number; longitude?: number };
         if (dest.latitude && dest.longitude) {
-          const distanceKm = this.calculateHaversineDistanceKm(
+          const distanceKm = haversineKm(
             payload.latitude,
             payload.longitude,
             dest.latitude,
             dest.longitude,
-          );
-          let avgSpeed = 25;
-          try {
-            const econSetting = await this.prisma.systemSetting.findUnique({
-              where: { key: 'delivery_economics' },
-            });
-            if (econSetting?.value && typeof econSetting.value === 'object') {
-              avgSpeed = (econSetting.value as { eta_avg_speed_kmh?: number }).eta_avg_speed_kmh || 25;
-            }
-          } catch {
-            avgSpeed = 25;
-          }
+          ) ?? 0;
+          const avgSpeed = await this.getAvgSpeedKmh();
           estimatedMinutesRemaining = Math.max(1, Math.round((distanceKm / avgSpeed) * 60));
         }
       }
@@ -389,23 +380,26 @@ export class TrackingGateway
     });
   }
 
-  private calculateHaversineDistanceKm(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ): number {
-    const R = 6371; // Earth's radius in km
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return Math.round(R * c * 100) / 100;
+  private cachedAvgSpeed: { value: number; expiresAt: number } | null = null;
+
+  private async getAvgSpeedKmh(): Promise<number> {
+    const now = Date.now();
+    if (this.cachedAvgSpeed && this.cachedAvgSpeed.expiresAt > now) {
+      return this.cachedAvgSpeed.value;
+    }
+    let speed = 25;
+    try {
+      const econSetting = await this.prisma.systemSetting.findUnique({
+        where: { key: 'delivery_economics' },
+      });
+      if (econSetting?.value && typeof econSetting.value === 'object') {
+        speed = (econSetting.value as { eta_avg_speed_kmh?: number }).eta_avg_speed_kmh || 25;
+      }
+    } catch {
+      speed = 25;
+    }
+    this.cachedAvgSpeed = { value: speed, expiresAt: now + 300_000 };
+    return speed;
   }
 
   // ---------------------------------------------------------------------------
@@ -515,8 +509,8 @@ export class TrackingGateway
       event: 'dispatch:broadcast',
       data: dispatchData,
     };
-    this.server.to('riders_pool').emit('dispatch:broadcast', payload);
-    this.logger.log(`Emitted [dispatch:broadcast] to riders_pool for order ${dispatchData.orderNumber || dispatchData.orderId}`);
+    this.server.to(['riders_pool', 'admin_hq']).emit('dispatch:broadcast', payload);
+    this.logger.log(`Emitted [dispatch:broadcast] to riders_pool & admin_hq for order ${dispatchData.orderNumber || dispatchData.orderId}`);
   }
 
   /**

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import adminApi, { AdminOperatingHour } from '../../../../services/adminApi';
 import { Button } from '../../../../components/ui/Button';
 import { Modal } from '../../../../components/ui/Modal';
@@ -23,6 +23,7 @@ interface OperatingHoursEditorProps {
 }
 
 export const OperatingHoursEditor: React.FC<OperatingHoursEditorProps> = ({ isOpen, vendorId, hours, onClose }) => {
+  const queryClient = useQueryClient();
   const [rows, setRows] = useState<DayRow[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -45,7 +46,12 @@ export const OperatingHoursEditor: React.FC<OperatingHoursEditorProps> = ({ isOp
 
   const saveMutation = useMutation({
     mutationFn: () => adminApi.updateOperatingHours(vendorId, rows),
-    onSuccess: () => onClose(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-outlet-detail', vendorId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-outlets'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-vendors'] });
+      onClose();
+    },
     onError: (err) => setActionError(extractApiError(err, 'Failed to save operating hours.')),
   });
 

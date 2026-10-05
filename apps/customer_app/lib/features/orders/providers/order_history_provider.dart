@@ -183,6 +183,16 @@ class OrderHistoryNotifier extends Notifier<OrderHistoryState> {
         .map((u) => u.toLowerCase().trim())
         .toSet();
 
+    final validItemsMap = <String, Map<String, dynamic>>{};
+    for (final v in result.validItems) {
+      if (v is Map<String, dynamic>) {
+        final pid = v['productId']?.toString();
+        if (pid != null) {
+          validItemsMap[pid] = v;
+        }
+      }
+    }
+
     for (final item in pastOrder.items) {
       final isUnavailable = unavailableSet.contains(item.name.toLowerCase().trim()) ||
           unavailableSet.contains(item.productId.toLowerCase().trim());
@@ -190,10 +200,14 @@ class OrderHistoryNotifier extends Notifier<OrderHistoryState> {
         continue;
       }
 
+      final validItem = validItemsMap[item.productId];
+      final currentPrice = (validItem?['currentBasePrice'] as num?)?.toDouble() ?? item.unitPrice;
+      final currentName = validItem?['name']?.toString() ?? item.name;
+
       final product = ProductModel(
         id: item.productId,
-        name: item.name,
-        basePrice: item.unitPrice,
+        name: currentName,
+        basePrice: currentPrice,
         unitType: 'portion',
         isInStock: true,
       );
@@ -203,7 +217,7 @@ class OrderHistoryNotifier extends Notifier<OrderHistoryState> {
         selectedVariant = VariantModel(
           id: item.variantId!,
           name: item.variantName!,
-          price: item.variantPrice ?? item.unitPrice,
+          price: (validItem?['variantPrice'] as num?)?.toDouble() ?? item.variantPrice ?? currentPrice,
           isInStock: true,
         );
       }
@@ -214,7 +228,7 @@ class OrderHistoryNotifier extends Notifier<OrderHistoryState> {
         product: product,
         selectedVariant: selectedVariant,
         quantity: item.quantity,
-        unitPrice: item.unitPrice,
+        unitPrice: selectedVariant?.price ?? currentPrice,
         forceReplace: true,
       );
     }

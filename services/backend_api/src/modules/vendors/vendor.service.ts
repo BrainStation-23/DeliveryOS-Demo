@@ -28,7 +28,6 @@ export interface RawNearbyVendorRow {
   addressText: string;
   latitude: number;
   longitude: number;
-  commissionRate: number;
   deliveryRadiusKm: number;
   defaultPrepTimeMinutes: number;
   isActive: boolean;
@@ -103,7 +102,6 @@ export class VendorService {
         v.address_text AS "addressText",
         v.latitude,
         v.longitude,
-        v.commission_rate AS "commissionRate",
         v.delivery_radius_km AS "deliveryRadiusKm",
         v.default_prep_time_minutes AS "defaultPrepTimeMinutes",
         v.is_active AS "isActive",

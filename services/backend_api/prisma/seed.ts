@@ -951,10 +951,22 @@ async function main() {
     const totalAmount = round2(netSubtotal + deliveryFee);
 
     let riderId: string | null = null;
-    if (status === OrderStatus.RIDER_ASSIGNED || status === OrderStatus.PREPARING ||
-        status === OrderStatus.READY_FOR_PICKUP || status === OrderStatus.DISPATCHED ||
-        status === OrderStatus.DELIVERED ||
-        (p.kind === 'CANCELLED' && p.fromStatus !== OrderStatus.PLACED)) {
+    const isVendorFirst = outlet.spec.mode === OrderFlowMode.VENDOR_FIRST;
+    const riderAssignedStatuses: OrderStatus[] = isVendorFirst
+      ? [OrderStatus.READY_FOR_PICKUP, OrderStatus.DISPATCHED, OrderStatus.DELIVERED]
+      : [
+          OrderStatus.RIDER_ASSIGNED,
+          OrderStatus.ACCEPTED,
+          OrderStatus.PREPARING,
+          OrderStatus.READY_FOR_PICKUP,
+          OrderStatus.DISPATCHED,
+          OrderStatus.DELIVERED,
+        ];
+
+    if (
+      riderAssignedStatuses.includes(status) ||
+      Boolean(p.kind === 'CANCELLED' && p.fromStatus && riderAssignedStatuses.includes(p.fromStatus))
+    ) {
       riderId = pick(approvedRiders).id;
     }
 
@@ -975,6 +987,19 @@ async function main() {
     const orderNumber = nextOrderNumber(placedAt);
     const commissionRate = outlet.spec.commission;
     const commissionAmount = round2((netSubtotal * commissionRate) / 100);
+
+    const acceptedStatuses: OrderStatus[] = [
+      OrderStatus.ACCEPTED,
+      OrderStatus.PREPARING,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.DISPATCHED,
+      OrderStatus.DELIVERED,
+    ];
+    const hasBeenAccepted =
+      acceptedStatuses.includes(status) ||
+      Boolean(p.kind === 'CANCELLED' && p.fromStatus && acceptedStatuses.includes(p.fromStatus));
+
+    const acceptedAt = hasBeenAccepted ? at(placedAt, randInt(1, 4) * 60_000) : null;
 
     const order = await prisma.order.create({
       data: {
@@ -1003,7 +1028,7 @@ async function main() {
         prepTimeMinutes: outlet.spec.prep,
         customerNotes: rand() < 0.15 ? 'Please ring the bell twice.' : null,
         placedAt,
-        acceptedAt: status === OrderStatus.PLACED ? null : at(placedAt, randInt(1, 4) * 60_000),
+        acceptedAt,
         pickedUpAt: status === OrderStatus.DISPATCHED || status === OrderStatus.DELIVERED
           ? at(placedAt, randInt(22, 55) * 60_000) : null,
         deliveredAt: status === OrderStatus.DELIVERED ? at(placedAt, randInt(35, 75) * 60_000) : null,

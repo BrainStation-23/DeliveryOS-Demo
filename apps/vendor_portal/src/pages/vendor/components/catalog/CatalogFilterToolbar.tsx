@@ -55,7 +55,7 @@ export const CatalogFilterToolbar: React.FC<CatalogFilterToolbarProps> = ({
           onClick={() => onStockFilterChange('ALL')}
           className={`inline-flex items-center gap-2 h-9 px-3.5 sm:px-4 rounded-lg text-xs font-semibold transition-all select-none cursor-pointer ${
             stockFilter === 'ALL'
-              ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-slate-100'
+              ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100'
               : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
           }`}
         >
@@ -75,7 +75,7 @@ export const CatalogFilterToolbar: React.FC<CatalogFilterToolbarProps> = ({
           onClick={() => onStockFilterChange('IN_STOCK')}
           className={`inline-flex items-center gap-2 h-9 px-3.5 sm:px-4 rounded-lg text-xs font-semibold transition-all select-none cursor-pointer ${
             stockFilter === 'IN_STOCK'
-              ? 'bg-white text-emerald-700 shadow-xs dark:bg-slate-700 dark:text-emerald-400'
+              ? 'bg-white text-emerald-700 shadow-sm dark:bg-slate-700 dark:text-emerald-400'
               : 'text-slate-600 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400'
           }`}
         >
@@ -96,7 +96,7 @@ export const CatalogFilterToolbar: React.FC<CatalogFilterToolbarProps> = ({
           onClick={() => onStockFilterChange('OUT_OF_STOCK')}
           className={`inline-flex items-center gap-2 h-9 px-3.5 sm:px-4 rounded-lg text-xs font-semibold transition-all select-none cursor-pointer ${
             stockFilter === 'OUT_OF_STOCK'
-              ? 'bg-white text-rose-700 shadow-xs dark:bg-slate-700 dark:text-rose-400'
+              ? 'bg-white text-rose-700 shadow-sm dark:bg-slate-700 dark:text-rose-400'
               : 'text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400'
           }`}
         >

@@ -114,8 +114,8 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
 ### 3.3 Rider Dispatch & Telemetry Events
 
 #### `dispatch:broadcast`
-- **Direction**: Server ➔ Nearby Couriers
-- **Target Room**: Couriers in `riders_pool` within merchant delivery radius.
+- **Direction**: Server ➔ Nearby Couriers & Admin HQ
+- **Target Rooms**: Couriers in `riders_pool` within merchant delivery radius, and Super Admin console in `admin_hq`.
 - **Action**: Displays modal with 45s countdown and haptic vibration alert.
 - **Payload**:
   ```json

@@ -174,7 +174,7 @@ const VendorLayoutInner: React.FC = () => {
           ) : (
             <button
               onClick={toggleCollapse}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/70 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors shadow-xs cursor-pointer"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/70 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors shadow-sm cursor-pointer"
               title={t('common.expandSidebar')}
               aria-label={t('common.expandSidebar')}
             >
@@ -225,7 +225,7 @@ const VendorLayoutInner: React.FC = () => {
             {/* Store Order Intake Active / Inactive (Mode 2) & Platform Suspension (Mode 1) */}
             {activeOutlet && activeOutlet.isActive === false ? (
               <div
-                className="inline-flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-lg text-xs font-bold border border-rose-200 bg-rose-50/70 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-400 opacity-90 cursor-not-allowed select-none shadow-2xs"
+                className="inline-flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-lg text-xs font-bold border border-rose-200 bg-rose-50/70 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-400 opacity-90 cursor-not-allowed select-none shadow-sm"
                 title={t('kds.suspendedTitle', { defaultValue: 'Outlet is suspended by platform administration.' })}
               >
                 <Ban className="h-4 w-4 text-rose-500 shrink-0" />
@@ -237,7 +237,7 @@ const VendorLayoutInner: React.FC = () => {
                 type="button"
                 disabled={isTogglingRush}
                 onClick={() => void toggleRushPause(!activeOutlet?.isBusy)}
-                className={`inline-flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-lg text-xs font-bold transition-all border shadow-xs cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-lg text-xs font-bold transition-all border shadow-sm cursor-pointer ${
                   activeOutlet?.isBusy
                     ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
                     : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300'
@@ -267,7 +267,7 @@ const VendorLayoutInner: React.FC = () => {
             {/* Sound Alarm Toggle Button */}
             <button
               onClick={toggleSound}
-              className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors shadow-xs cursor-pointer ${
+              className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors shadow-sm cursor-pointer ${
                 isMuted
                   ? 'border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-400'
                   : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
@@ -285,7 +285,7 @@ const VendorLayoutInner: React.FC = () => {
 
         {/* Global Outlet Suspended Banner (Mode 1: Platform Suspension Lock) */}
         {activeOutlet && activeOutlet.isActive === false && (
-          <div className="bg-rose-600 text-white px-4 py-2 text-xs font-semibold flex items-center justify-between shadow-xs z-20">
+          <div className="bg-rose-600 text-white px-4 py-2 text-xs font-semibold flex items-center justify-between shadow-sm z-20">
             <div className="flex items-center gap-2">
               <Ban className="h-4 w-4 shrink-0 text-white" />
               <span>
@@ -303,7 +303,7 @@ const VendorLayoutInner: React.FC = () => {
 
         {/* Global Order Intake Inactive Notice Banner (Mode 2: Intake Control) */}
         {activeOutlet && activeOutlet.isActive !== false && activeOutlet.isBusy && (
-          <div className="bg-amber-500 text-amber-950 dark:bg-amber-600 dark:text-white px-4 py-2 text-xs font-semibold flex items-center justify-between shadow-xs z-20 border-b border-amber-600/30">
+          <div className="bg-amber-500 text-amber-950 dark:bg-amber-600 dark:text-white px-4 py-2 text-xs font-semibold flex items-center justify-between shadow-sm z-20 border-b border-amber-600/30">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0 animate-pulse text-amber-950 dark:text-white" />
               <span>
@@ -317,7 +317,7 @@ const VendorLayoutInner: React.FC = () => {
               type="button"
               onClick={() => void toggleRushPause(false)}
               disabled={isTogglingRush}
-              className="text-xs bg-white text-amber-900 font-bold px-2.5 py-0.5 rounded-md hover:bg-amber-50 transition-colors shrink-0 shadow-2xs cursor-pointer border border-amber-300 dark:border-transparent"
+              className="text-xs bg-white text-amber-900 font-bold px-2.5 py-0.5 rounded-md hover:bg-amber-50 transition-colors shrink-0 shadow-sm cursor-pointer border border-amber-300 dark:border-transparent"
             >
               {t('kds.setActive', { defaultValue: 'Set Active' })}
             </button>

@@ -126,11 +126,25 @@ export const AdminFleetPage: React.FC = () => {
       handleFleetAndOrderEvent();
     };
 
+    const handleDeliveryFailed = (payload: { data?: { orderId?: string; orderNumber?: string; reason?: string } }) => {
+      handleFleetAndOrderEvent();
+      if (payload?.data) {
+        setEscalationAlert({
+          orderId: payload.data.orderId ?? '',
+          orderNumber: payload.data.orderNumber ?? 'ORD-ALERT',
+          vendorName: 'Doorstep Delivery Issue',
+          elapsedMinutes: 0,
+          reason: payload.data.reason ?? 'Delivery failed at doorstep',
+        });
+      }
+    };
+
     socket.on('order:new', handleFleetAndOrderEvent);
     socket.on('order:status:changed', handleFleetAndOrderEvent);
     socket.on('dispatch:broadcast', handleFleetAndOrderEvent);
     socket.on('rider:location', handleRiderLocation);
     socket.on('dispatch:escalated', handleEscalated);
+    socket.on('order:delivery_failed', handleDeliveryFailed);
 
     return () => {
       socket.off('order:new', handleFleetAndOrderEvent);
@@ -138,6 +152,7 @@ export const AdminFleetPage: React.FC = () => {
       socket.off('dispatch:broadcast', handleFleetAndOrderEvent);
       socket.off('rider:location', handleRiderLocation);
       socket.off('dispatch:escalated', handleEscalated);
+      socket.off('order:delivery_failed', handleDeliveryFailed);
     };
   }, [queryClient]);
 

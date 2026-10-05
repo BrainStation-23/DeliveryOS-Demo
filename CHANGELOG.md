@@ -28,6 +28,44 @@ Capability detail: [`FEATURES.md`](FEATURES.md) • Architectural rationale: [AD
 
 ### [Unreleased]
 
+### [1.8.0] - 2026-10-05 — Production Readiness Audit & Enterprise Hardening
+
+#### Added
+- **Realtime WebSocket Matrix Verifier (`scripts/verify-realtime-matrix.mjs`)**: Automated CI audit verifying 100% bi-directional contract parity across all 11 Server-to-Client events and 3 Client-to-Server ingress events with zero dead/orphaned events.
+- **Unified Test Harness (`services/backend_api/scripts/harness.ts`)**: Standardized `login()`, `requestJson()`, `withApp()` lifecycle manager, and fixture constants (`TEST_PHONES`, `TEST_OTP`) across integration suites.
+- **Modular Admin Portal Components (`DetailMetricCard`, `CollapsibleSection`)**: Reusable UI primitives replacing duplicated markup across `RiderDetailsDrawer` and `CustomerDetailsDrawer`.
+- **Production Release & Deployment Runbook (`deploy/RELEASE.md`)**: Comprehensive production release checklist, zero-downtime rolling restart commands, migration policy, and emergency rollback procedures.
+- **Architectural Decision Records (`ADR-020` to `ADR-022`)**:
+  - `ADR-020`: Refresh Token Rotation, Reuse Detection & Mobile Revocation Posture.
+  - `ADR-021`: Nginx Edge Dynamic DNS Resolution & Reverse Proxy Invariants.
+  - `ADR-022`: Financial Ledger Foreign Key Immutability and Soft-Deletion Policy.
+
+#### Fixed & Hardened
+- **Security & Authorization**:
+  - Validated all vendor operating hours (`PUT /vendor/operating-hours`) and outlet settings (`PATCH /vendor/settings`) with strictly typed DTOs and regex time formats.
+  - Stripped confidential merchant commission rates from public nearby discovery endpoint (`GET /vendors/nearby`).
+  - Escaped dynamic courier/store string injection in `LiveFleetMap` DOM popups to prevent XSS.
+  - Hardened single-flight refresh token rotation with token family reuse revocation in Redis.
+- **Financial & Dispatch Correctness**:
+  - Enforced single-execution concurrency semantics on cash deposit verification and delivery completion.
+  - COD order delivery marks `PAID` only when collected cash is greater than zero.
+  - Blocked customer checkout when delivery address falls outside outlet geofence coverage.
+  - Clamped coupon discounts to non-negative net order totals.
+  - Fixed nullish coalescing on coupon maximum discount amount (`?? null` vs `|| null`).
+  - Isolated post-commit dispatch broker errors from HTTP checkout response.
+- **Realtime & Drift Elimination**:
+  - Synchronized `order:payment:verified` in Customer App tracking screen.
+  - Handled `order:delivery_failed` in Admin Fleet and Orders screens with alert banner.
+  - Broadcasted `dispatch:broadcast` to `admin_hq` room for live admin radar reflection.
+  - Embedded dynamic Docker DNS (`resolver 127.0.0.11 valid=10s ipv6=off;`) in Nginx proxy templates to eliminate 502 Bad Gateway errors on container recreation.
+- **Mobile & Frontend Reliability**:
+  - Fixed React Rules of Hooks violations in `AdminSettingsPage`.
+  - Replaced legacy Tailwind v4 class names with Tailwind v3 standards across both portals.
+  - Handled Web Audio chime cleanup on component unmount and logout in Vendor KDS.
+  - Throttled mobile GPS location emission interval to prevent network flooding.
+  - Reordered customer cart items with current catalog prices rather than historical order prices.
+  - Added session expiration interceptor in Rider App navigating directly to login upon 401 unrecoverable refresh failure.
+
 #### Changed — 2026-10-05 Fresh-Start Reset (Steps 1–5)
 - **Database baseline squash**: 9 accumulated migrations → single schema-exact `0_init` (fixes the add-ons drop drift from the previous release; preserves PostGIS extensions + GiST expression indexes). Zero drift proven; `npm run db:reset` in `services/backend_api` rebuilds schema + seed in one command.
 - **Per-outlet order-flow modes** ([ADR-002 amendment]): `RIDER_FIRST`/`VENDOR_FIRST` moved from the global `order_flow_config` to `vendors.order_flow_mode` (admin outlet form) with an immutable `orders.order_flow_mode` snapshot at checkout; global settings keep only dispatch timing (`GET/PATCH /admin/settings/dispatch`).

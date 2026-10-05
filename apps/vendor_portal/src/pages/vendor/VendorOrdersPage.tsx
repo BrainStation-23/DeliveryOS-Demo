@@ -263,6 +263,10 @@ export const VendorOrdersPage: React.FC = () => {
         }
       />
 
+      {isError && (
+        <QueryErrorBanner error={error} onRetry={() => refetch()} />
+      )}
+
       {/* Date Filtering Toolbar (Modular) */}
       <OrderDateFilterToolbar
         datePreset={datePreset}
@@ -314,7 +318,7 @@ export const VendorOrdersPage: React.FC = () => {
               }}
               className={`inline-flex items-center justify-center rounded-lg px-3 text-xs font-semibold transition-all h-8 select-none cursor-pointer ${
                 statusFilter === st
-                  ? 'bg-amber-500 text-white shadow-xs'
+                  ? 'bg-amber-500 text-white shadow-sm'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
               }`}
             >

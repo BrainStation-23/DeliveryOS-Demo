@@ -31,9 +31,9 @@ export const KDSPrepTimePicker: React.FC<KDSPrepTimePickerProps> = ({
             type="button"
             onClick={() => onSelectMinutes(mins)}
             className={cn(
-              'h-6.5 px-2.5 rounded-md font-semibold text-xs transition-colors cursor-pointer',
+              'h-6 px-2.5 rounded-md font-semibold text-xs transition-colors cursor-pointer',
               selectedMinutes === mins
-                ? 'bg-amber-500 text-white shadow-xs'
+                ? 'bg-amber-500 text-white shadow-sm'
                 : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600'
             )}
           >

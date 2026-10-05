@@ -50,7 +50,7 @@ export const StatCard: React.FC<StatCardProps> = ({
     <div
       onClick={onClick}
       className={cn(
-        'rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-xs transition-all dark:border-slate-800 dark:bg-slate-900',
+        'rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-sm transition-all dark:border-slate-800 dark:bg-slate-900',
         onClick && 'cursor-pointer hover:border-slate-300 dark:hover:border-slate-700',
         active && 'border-amber-500 bg-amber-50/20 ring-1 ring-amber-500',
         className

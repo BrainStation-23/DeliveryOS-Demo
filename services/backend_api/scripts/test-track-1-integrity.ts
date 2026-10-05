@@ -38,6 +38,9 @@ async function runTrack1IntegrityTests() {
   console.log('🚀 Running Track 1: Core Business & Financial Integrity Tests');
   console.log('====================================================\n');
 
+  let testVendor: any = null;
+  const currentDay = new Date().getDay();
+
   try {
     // -------------------------------------------------------------------------
     // Setup / Auth
@@ -54,7 +57,7 @@ async function runTrack1IntegrityTests() {
 
     // Customer
     const customerAuth = await requestJson(`${API_BASE}/auth/otp/verify`, 'POST', {
-      phone: '+8801700000002',
+      phone: '+8801700000005',
       otp: '123456',
     });
     const customerToken = customerAuth.data?.data?.accessToken;
@@ -93,6 +96,7 @@ async function runTrack1IntegrityTests() {
       },
     });
     if (!vendor || vendor.products.length === 0) throw new Error('No active vendor with products found');
+    testVendor = vendor;
 
     const testProduct = vendor.products[0];
 
@@ -499,6 +503,16 @@ async function runTrack1IntegrityTests() {
     console.error('\n❌ Track 1 Integrity Test Failed:', err.message);
     process.exit(1);
   } finally {
+    if (testVendor) {
+      await prisma.vendor.update({
+        where: { id: testVendor.id },
+        data: { isBusy: false },
+      }).catch(() => {});
+      await prisma.vendorOperatingHour.updateMany({
+        where: { vendorId: testVendor.id, dayOfWeek: currentDay },
+        data: { isClosed: false },
+      }).catch(() => {});
+    }
     await prisma.$disconnect();
   }
 }

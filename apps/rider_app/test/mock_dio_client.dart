@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rider_app/core/network/dio_client.dart';
+import 'package:rider_app/core/network/socket_service.dart';
 import 'package:rider_app/core/storage/local_storage.dart';
 
 class MockSuccessAdapter implements HttpClientAdapter {
@@ -40,6 +41,36 @@ Dio createMockDio({HttpClientAdapter? adapter}) {
   return dio;
 }
 
+
+class FakeRiderSocketService extends RiderSocketService {
+  @override
+  void init(String? token) {}
+
+  @override
+  void emitLocationUpdate({
+    required double latitude,
+    required double longitude,
+    double bearing = 0.0,
+    double speed = 0.0,
+    String? activeOrderId,
+  }) {}
+
+  @override
+  void joinOrder(String orderId) {}
+
+  @override
+  void leaveOrder(String orderId) {}
+
+  @override
+  void on(String event, Function(dynamic) handler) {}
+
+  @override
+  void off(String event, [Function(dynamic)? handler]) {}
+
+  @override
+  void dispose() {}
+}
+
 ProviderContainer createMockRiderContainer({
   required LocalStorage storage,
   Dio? dio,
@@ -49,6 +80,7 @@ ProviderContainer createMockRiderContainer({
     overrides: [
       localStorageProvider.overrideWithValue(storage),
       dioClientProvider.overrideWithValue(dio ?? createMockDio()),
+      riderSocketServiceProvider.overrideWithValue(FakeRiderSocketService()),
       ...additionalOverrides,
     ],
   );

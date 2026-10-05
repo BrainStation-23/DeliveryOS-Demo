@@ -1,12 +1,13 @@
 {
   "name": "deliveryos",
-  "version": "1.7.2",
+  "version": "1.8.0",
   "private": true,
   "description": "DeliveryOS monorepo root — repo-level quality gate and tooling orchestration (no workspaces: each app manages its own dependencies)",
   "scripts": {
     "prepare": "husky",
-    "verify": "npm run verify:tests && npm run verify:backend && npm run verify:web && npm run verify:mobile",
+    "verify": "npm run verify:tests && npm run verify:realtime && npm run verify:backend && npm run verify:web && npm run verify:mobile",
     "verify:tests": "node scripts/check-test-integrity.mjs",
+    "verify:realtime": "node scripts/verify-realtime-matrix.mjs",
     "verify:backend": "npm run typecheck --prefix services/backend_api && npm run lint --prefix services/backend_api && npm run test:unit --prefix services/backend_api && npm run build --prefix services/backend_api",
     "verify:web": "npm run typecheck --prefix apps/admin_portal && npm run test:unit --prefix apps/admin_portal && npm run build --prefix apps/admin_portal && npm run typecheck --prefix apps/vendor_portal && npm run test:unit --prefix apps/vendor_portal && npm run build --prefix apps/vendor_portal",
     "verify:mobile": "cd apps/customer_app && flutter pub get && flutter analyze && flutter test && cd ../rider_app && flutter pub get && flutter analyze && flutter test"

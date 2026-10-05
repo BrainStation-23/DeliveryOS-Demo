@@ -69,7 +69,7 @@ export const VendorDashboardPage: React.FC = () => {
       {actionError && (
         <div
           role="alert"
-          className="flex items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 shadow-xs"
+          className="flex items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 shadow-sm"
         >
           <div className="flex items-center gap-2 min-w-0">
             <span className="h-2 w-2 shrink-0 rounded-full bg-rose-500" />
@@ -78,7 +78,7 @@ export const VendorDashboardPage: React.FC = () => {
           <button
             type="button"
             onClick={dismissActionError}
-            className="h-7 px-2.5 inline-flex items-center justify-center rounded-md border border-rose-300/80 bg-white/90 text-xs font-bold text-rose-700 hover:bg-white hover:text-rose-900 dark:border-rose-800/80 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900/60 transition-colors shadow-xs shrink-0 cursor-pointer"
+            className="h-7 px-2.5 inline-flex items-center justify-center rounded-md border border-rose-300/80 bg-white/90 text-xs font-bold text-rose-700 hover:bg-white hover:text-rose-900 dark:border-rose-800/80 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900/60 transition-colors shadow-sm shrink-0 cursor-pointer"
           >
             {t('kds.dismiss')}
           </button>
@@ -88,7 +88,7 @@ export const VendorDashboardPage: React.FC = () => {
       {(!isSocketConnected || isError) && (
         <div
           role="alert"
-          className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300 shadow-xs"
+          className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300 shadow-sm"
         >
           <div className="flex items-center gap-2 min-w-0">
             <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500 animate-pulse" />
@@ -101,7 +101,7 @@ export const VendorDashboardPage: React.FC = () => {
           <button
             type="button"
             onClick={() => refetch()}
-            className="h-7 px-2.5 inline-flex items-center justify-center rounded-md border border-amber-300/80 bg-white/90 text-xs font-bold text-amber-700 hover:bg-white hover:text-amber-900 dark:border-amber-800/80 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors shadow-xs shrink-0 cursor-pointer"
+            className="h-7 px-2.5 inline-flex items-center justify-center rounded-md border border-amber-300/80 bg-white/90 text-xs font-bold text-amber-700 hover:bg-white hover:text-amber-900 dark:border-amber-800/80 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors shadow-sm shrink-0 cursor-pointer"
           >
             {t('kds.retryNow')}
           </button>
@@ -144,7 +144,7 @@ export const VendorDashboardPage: React.FC = () => {
             className={cn(
               'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all h-8 whitespace-nowrap select-none shrink-0 cursor-pointer',
               activeTab === tab.key
-                ? 'bg-amber-500 text-white shadow-xs'
+                ? 'bg-amber-500 text-white shadow-sm'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
             )}
           >

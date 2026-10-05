@@ -43,6 +43,8 @@ export class HealthController {
 
     let isHealthy = true;
 
+    const isProd = process.env.NODE_ENV === 'production';
+
     // 1. Check PostgreSQL Database Connection
     try {
       const dbStart = Date.now();
@@ -52,7 +54,9 @@ export class HealthController {
     } catch (err) {
       isHealthy = false;
       healthStatus.services.database = 'down';
-      healthStatus.details!.error = `Database check failed: ${err instanceof Error ? err.message : String(err)}`;
+      healthStatus.details!.error = isProd
+        ? 'Database connectivity degraded'
+        : `Database check failed: ${err instanceof Error ? err.message : String(err)}`;
     }
 
     // 2. Check Redis In-Memory Cache Connection
@@ -69,8 +73,10 @@ export class HealthController {
     } catch (err) {
       isHealthy = false;
       healthStatus.services.redis = 'down';
-      healthStatus.details!.error = (healthStatus.details!.error ? `${healthStatus.details!.error}; ` : '') +
-        `Redis check failed: ${err instanceof Error ? err.message : String(err)}`;
+      const redisMsg = isProd
+        ? 'Redis connectivity degraded'
+        : `Redis check failed: ${err instanceof Error ? err.message : String(err)}`;
+      healthStatus.details!.error = (healthStatus.details!.error ? `${healthStatus.details!.error}; ` : '') + redisMsg;
     }
 
     healthStatus.status = isHealthy ? 'healthy' : 'unhealthy';

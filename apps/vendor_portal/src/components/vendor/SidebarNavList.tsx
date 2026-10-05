@@ -46,7 +46,7 @@ export const SidebarNavList: React.FC<SidebarNavListProps> = ({
                 : 'gap-3 px-3 py-2 text-sm font-medium'
             } ${
               active
-                ? 'bg-amber-50 text-amber-800 shadow-xs dark:bg-amber-950/50 dark:text-amber-400 font-bold'
+                ? 'bg-amber-50 text-amber-800 shadow-sm dark:bg-amber-950/50 dark:text-amber-400 font-bold'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100'
             }`}
           >

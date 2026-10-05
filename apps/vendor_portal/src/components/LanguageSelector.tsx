@@ -74,8 +74,8 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   }, [isOpen]);
 
   const triggerClasses = isDark
-    ? 'border-slate-700/80 bg-slate-900/80 text-slate-200 hover:bg-slate-800/90 hover:border-slate-600 hover:text-white shadow-xs backdrop-blur-md'
-    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:border-slate-700 dark:hover:text-white shadow-xs';
+    ? 'border-slate-700/80 bg-slate-900/80 text-slate-200 hover:bg-slate-800/90 hover:border-slate-600 hover:text-white shadow-sm backdrop-blur-md'
+    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:border-slate-700 dark:hover:text-white shadow-sm';
 
   const menuClasses = isDark
     ? 'border-slate-700/80 bg-slate-900/95 text-slate-200 shadow-2xl backdrop-blur-xl'

@@ -1,16 +1,32 @@
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { OrderStatus, PaymentStatus, PermissionScope, UserRole } from '@prisma/client';
+import {
+  ConflictException,
+  ForbiddenException,
+  HttpStatus,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  PermissionScope,
+  UserRole,
+} from '@prisma/client';
+import { DeliveryMethod } from './dto/checkout.dto';
 import { OrderService } from './order.service';
 
 type MockPrisma = {
-  order: { findUnique: jest.Mock; findMany: jest.Mock; updateMany: jest.Mock; update: jest.Mock };
+  order: { findUnique: jest.Mock; findMany: jest.Mock; updateMany: jest.Mock; update: jest.Mock; create: jest.Mock };
+  orderItem: { create: jest.Mock };
   payment: { updateMany: jest.Mock };
-  commissionLedger: { deleteMany: jest.Mock };
+  commissionLedger: { deleteMany: jest.Mock; create: jest.Mock };
   riderTripLedger: { deleteMany: jest.Mock };
   coupon: { updateMany: jest.Mock };
   user: { findUnique: jest.Mock };
+  vendor: { findUnique: jest.Mock };
+  customerAddress: { findUnique: jest.Mock };
   vendorStaff: { findMany: jest.Mock };
-  product: { findUnique: jest.Mock };
+  product: { findUnique: jest.Mock; findMany: jest.Mock };
+  $queryRaw: jest.Mock;
   $transaction: jest.Mock;
 };
 
@@ -22,6 +38,8 @@ type MockRedis = {
   del: jest.Mock;
   set: jest.Mock;
   get: jest.Mock;
+  incr: jest.Mock;
+  expire: jest.Mock;
   acquireLock: jest.Mock;
   releaseLock: jest.Mock;
 };
@@ -32,6 +50,20 @@ type MockTrackingGateway = {
   notifyOrderStatusChanged?: jest.Mock;
 };
 
+type MockCouponService = {
+  validateCoupon: jest.Mock;
+};
+
+type MockDeliveryFeeService = {
+  calculateFee: jest.Mock;
+};
+
+type MockOrderFlowService = {
+  handleOrderPlaced?: jest.Mock;
+  releaseRiderActiveTrip?: jest.Mock;
+  getDispatchConfig?: jest.Mock;
+};
+
 describe('OrderService - Security Scoping & Cancellation State Claims', () => {
   let orderService: OrderService;
   let prisma: MockPrisma;
@@ -39,7 +71,9 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
   let redis: MockRedis;
   let trackingGateway: MockTrackingGateway;
   let notificationsService: { sendToUser: jest.Mock };
-  let orderFlowService: Record<string, unknown>;
+  let orderFlowService: MockOrderFlowService;
+  let couponService: MockCouponService;
+  let deliveryFeeService: MockDeliveryFeeService;
 
   beforeEach(() => {
     prisma = {
@@ -48,12 +82,20 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
         findMany: jest.fn(),
         updateMany: jest.fn(),
         update: jest.fn(),
+        create: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => ({
+          id: 'order-created-1',
+          ...data,
+        })),
+      },
+      orderItem: {
+        create: jest.fn().mockResolvedValue({ id: 'item-1' }),
       },
       payment: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       commissionLedger: {
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        create: jest.fn().mockResolvedValue({ id: 'comm-1' }),
       },
       riderTripLedger: {
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -64,12 +106,20 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
       user: {
         findUnique: jest.fn(),
       },
+      vendor: {
+        findUnique: jest.fn(),
+      },
+      customerAddress: {
+        findUnique: jest.fn(),
+      },
       vendorStaff: {
         findMany: jest.fn(),
       },
       product: {
         findUnique: jest.fn(),
+        findMany: jest.fn(),
       },
+      $queryRaw: jest.fn(),
       $transaction: jest.fn(async (fn: (tx: MockPrisma) => Promise<unknown>) => fn(prisma)),
     };
 
@@ -81,6 +131,8 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
       del: jest.fn().mockResolvedValue(1),
       set: jest.fn().mockResolvedValue('OK'),
       get: jest.fn().mockResolvedValue(null),
+      incr: jest.fn().mockResolvedValue(1),
+      expire: jest.fn().mockResolvedValue(true),
       acquireLock: jest.fn().mockResolvedValue(true),
       releaseLock: jest.fn().mockResolvedValue(true),
     };
@@ -95,18 +147,139 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
       sendToUser: jest.fn().mockResolvedValue(true),
     };
 
-    orderFlowService = {};
+    couponService = {
+      validateCoupon: jest.fn().mockResolvedValue({ discountAmount: 0, couponId: null, usageLimit: 0 }),
+    };
+
+    deliveryFeeService = {
+      calculateFee: jest.fn().mockResolvedValue({ deliveryFee: 40 }),
+    };
+
+    orderFlowService = {
+      handleOrderPlaced: jest.fn().mockResolvedValue(undefined),
+    };
 
     orderService = new OrderService(
       prisma as never,
-      {} as never, // couponService
-      {} as never, // deliveryFeeService
+      couponService as never,
+      deliveryFeeService as never,
       trackingGateway as never,
       orderFlowService as never,
       redis as never,
       notificationsService as never,
       paymentsService as never,
     );
+  });
+
+  describe('T1: OrderCheckoutService', () => {
+    const mockActiveUser = {
+      id: 'customer-1',
+      status: 'ACTIVE',
+      phone: '+8801700000005',
+    };
+
+    const mockVendor = {
+      id: 'vendor-1',
+      name: 'Burger Point',
+      isActive: true,
+      isBusy: false,
+      commissionRate: 15,
+      deliveryRadiusKm: 5,
+      addressText: 'Gulshan 2, Dhaka',
+      latitude: 23.7925,
+      longitude: 90.4078,
+      operatingHours: [],
+    };
+
+    const mockProduct = {
+      id: 'prod-1',
+      name: 'Beef Burger',
+      vendorId: 'vendor-1',
+      basePrice: 100,
+      isInStock: true,
+      variants: [],
+    };
+
+    it('rejects checkout with 422 ADDRESS_OUT_OF_COVERAGE when customer address is outside vendor delivery radius', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockActiveUser);
+      prisma.vendor.findUnique.mockResolvedValue(mockVendor);
+      prisma.customerAddress.findUnique.mockResolvedValue({
+        id: 'addr-1',
+        userId: 'customer-1',
+        latitude: 23.95,
+        longitude: 90.55,
+        label: 'Home',
+        addressLine: 'Far Away Street',
+      });
+      prisma.$queryRaw.mockResolvedValue([{ distanceKm: 15.2, isWithinCoverage: false }]);
+
+      await expect(
+        orderService.checkout('customer-1', {
+          vendorId: 'vendor-1',
+          deliveryMethod: DeliveryMethod.HOME_DELIVERY,
+          deliveryAddressId: 'addr-1',
+          items: [{ productId: 'prod-1', quantity: 1 }],
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+        }),
+      ).rejects.toThrow(
+        expect.objectContaining({
+          response: expect.objectContaining({
+            statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+            error: 'ADDRESS_OUT_OF_COVERAGE',
+          }),
+        }),
+      );
+    });
+
+    it('clamps coupon discount so netSubtotal cannot fall below zero', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockActiveUser);
+      prisma.vendor.findUnique.mockResolvedValue(mockVendor);
+      prisma.product.findMany.mockResolvedValue([mockProduct]);
+      couponService.validateCoupon.mockResolvedValue({
+        discountAmount: 150,
+        couponId: 'coupon-large',
+        usageLimit: 10,
+      });
+
+      const result = await orderService.checkout('customer-1', {
+        vendorId: 'vendor-1',
+        deliveryMethod: DeliveryMethod.TAKEAWAY,
+        items: [{ productId: 'prod-1', quantity: 1 }],
+        couponCode: 'HUGE150',
+        paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+      });
+
+      expect(prisma.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            subtotal: 100,
+            couponDiscount: 150,
+            deliveryFee: 0,
+            totalAmount: 0,
+          }),
+        }),
+      );
+      expect(result.totalAmount).toBe(0);
+      expect(result.couponDiscount).toBe(150);
+    });
+
+    it('isolates post-commit dispatch failure without throwing 500', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockActiveUser);
+      prisma.vendor.findUnique.mockResolvedValue(mockVendor);
+      prisma.product.findMany.mockResolvedValue([mockProduct]);
+      orderFlowService.handleOrderPlaced!.mockRejectedValue(new Error('Dispatch broker temporarily offline'));
+
+      const result = await orderService.checkout('customer-1', {
+        vendorId: 'vendor-1',
+        deliveryMethod: DeliveryMethod.TAKEAWAY,
+        items: [{ productId: 'prod-1', quantity: 1 }],
+        paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+      });
+
+      expect(result).toBeDefined();
+      expect(result.orderId).toBe('order-created-1');
+      expect(orderFlowService.handleOrderPlaced).toHaveBeenCalledWith('order-created-1');
+    });
   });
 
   describe('Step 1.3: validateReorder (IDOR Prevention)', () => {

@@ -101,7 +101,7 @@ export const LoginPage: React.FC = () => {
           type="submit"
           variant="primary"
           size="lg"
-          className="w-full mt-2 shadow-xs"
+          className="w-full mt-2 shadow-sm"
           isLoading={isLoading}
           rightIcon={<LogIn className="h-4 w-4" />}
         >

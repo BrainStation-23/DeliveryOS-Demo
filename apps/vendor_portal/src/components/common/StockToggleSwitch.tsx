@@ -32,10 +32,10 @@ export const StockToggleSwitch: React.FC<StockToggleSwitchProps> = ({
       disabled={disabled || isLoading}
       onClick={() => onToggle(!isInStock)}
       className={cn(
-        'group relative inline-flex items-center justify-between rounded-full transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-500/40 select-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0',
+        'group relative inline-flex items-center justify-between rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 select-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0',
         isSm
-          ? 'h-6.5 w-[86px] p-0.5 text-[10px] font-semibold'
-          : 'h-8 w-[102px] p-1 text-xs font-semibold shadow-xs',
+          ? 'h-6 w-[86px] p-0.5 text-[10px] font-semibold'
+          : 'h-8 w-[102px] p-1 text-xs font-semibold shadow-sm',
         isInStock
           ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
           : 'bg-rose-600 hover:bg-rose-700 text-white',

@@ -39,9 +39,15 @@ server {
 
     client_max_body_size 10m;
 
+    # Dynamic Docker DNS resolution (10s TTL) prevents 502 Bad Gateway upon upstream restarts
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $backend_upstream http://backend:4000;
+    set $vendor_portal_upstream http://vendor_portal:8080;
+    set $admin_portal_upstream http://admin_portal:8080;
+
     # REST API
     location /api/ {
-        proxy_pass http://backend:4000;
+        proxy_pass $backend_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -50,13 +56,13 @@ server {
 
     # Uploaded media (local storage driver)
     location /uploads/ {
-        proxy_pass http://backend:4000;
+        proxy_pass $backend_upstream;
         proxy_set_header Host $host;
     }
 
     # Socket.IO handshake path
     location /socket.io/ {
-        proxy_pass http://backend:4000;
+        proxy_pass $backend_upstream;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -70,7 +76,7 @@ server {
 
     # Realtime event namespace
     location /events/ {
-        proxy_pass http://backend:4000;
+        proxy_pass $backend_upstream;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -82,7 +88,7 @@ server {
 
     # Vendor Store & Kitchen Order Console KDS (subpath)
     location /vendor/ {
-        proxy_pass http://vendor_portal:8080;
+        proxy_pass $vendor_portal_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
@@ -93,7 +99,7 @@ server {
 
     # Super Admin Master Console (default root)
     location / {
-        proxy_pass http://admin_portal:8080;
+        proxy_pass $admin_portal_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
     }

@@ -73,7 +73,7 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
   return (
     <div
       className={cn(
-        'flex flex-col rounded-xl border bg-white p-3.5 sm:p-4 shadow-xs transition-all hover:shadow-md dark:bg-slate-900',
+        'flex flex-col rounded-xl border bg-white p-3.5 sm:p-4 shadow-sm transition-all hover:shadow-md dark:bg-slate-900',
         isNew && 'border-rose-300 ring-2 ring-rose-400/25 dark:border-rose-800/80 dark:ring-rose-950/60',
         isPreparing && 'border-amber-300/90 dark:border-amber-800/80',
         isReady && 'border-emerald-300/90 dark:border-emerald-800/80'
@@ -208,7 +208,7 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
               <Button
                 variant="primary"
                 size="md"
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
                 onClick={() => onAccept && onAccept(order.id, selectedCustomTime)}
                 isLoading={isActionLoading}
                 leftIcon={<CheckCircle className="h-3.5 w-3.5" />}
@@ -219,7 +219,7 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
               <button
                 type="button"
                 onClick={() => setShowTimePicker(!showTimePicker)}
-                className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors shadow-xs cursor-pointer"
+                className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors shadow-sm cursor-pointer"
                 title="Select preparation time"
                 aria-label="Select preparation time"
               >
@@ -271,7 +271,7 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
             <Button
               variant="primary"
               size="md"
-              className="flex-1 shadow-xs"
+              className="flex-1 shadow-sm"
               onClick={() => onMarkReady && onMarkReady(order.id)}
               isLoading={isActionLoading}
               rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
@@ -289,7 +289,7 @@ export const KDSOrderCard: React.FC<KDSOrderCardProps> = ({
             <Button
               variant="primary"
               size="md"
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
               onClick={() => onHandover && onHandover(order.id)}
               isLoading={isActionLoading}
               leftIcon={<CheckCircle className="h-3.5 w-3.5" />}

@@ -55,11 +55,11 @@ const TEST_FLOORS = {
   'rider app (flutter)': { dir: 'apps/rider_app/test', pattern: /_test\.dart$/, min: 35 },
 };
 
-const TS_TEST_CASE = /\b(?:it|test|testWidgets)\s*\(/g;
+const TS_TEST_CASE = /\b(?:it|test|testWidgets)(?:\.each)?\s*\(/g;
 const DART_TEST_CASE = /\b(?:test|testWidgets)\s*\(/g;
-const TS_SKIP_MARKERS = /\.(?:skip|only|todo)\s*\(|\b(?:xit|xtest|xdescribe)\s*\(/;
+const TS_SKIP_MARKERS = /\.(?:skip|only|todo)\s*\(|\b(?:xit|xtest|xdescribe|fit|fdescribe)\s*\(/;
 const DART_SKIP_MARKERS = /,\s*skip\s*:\s*true\b|\bskip:\s*true\b/;
-const TAUTOLOGY = /expect\s*\(\s*true\s*\)/;
+const TAUTOLOGY = /expect\s*\(\s*true\s*\)|assert\s*\(\s*true\s*\)/;
 
 function walk(dir, pattern, acc = []) {
   let entries;
@@ -140,6 +140,28 @@ for (const [area, { dir, pattern, min }] of Object.entries(TEST_FLOORS)) {
   }
   console.log(`  ${area}: ${totalCases} tests (floor ${min}) — OK`);
 }
+
+// --- Check 5: scan backend integration scripts and prisma seeds for skip/tautology markers ---
+const SCRIPT_AREAS = [
+  { dir: 'services/backend_api/scripts', pattern: /\.ts$/ },
+  { dir: 'services/backend_api/prisma', pattern: /\.ts$/ },
+];
+
+let totalScriptFilesScanned = 0;
+for (const { dir, pattern } of SCRIPT_AREAS) {
+  const files = walk(join(repoRoot, dir), pattern);
+  for (const file of files) {
+    totalScriptFilesScanned++;
+    const content = readFileSync(file, 'utf8');
+    if (TS_SKIP_MARKERS.test(content)) {
+      fail(`skip/only/todo markers are forbidden in scripts: ${relative(file)}`);
+    }
+    if (TAUTOLOGY.test(content)) {
+      fail(`tautological assertion found in scripts: ${relative(file)}`);
+    }
+  }
+}
+console.log(`  integration scripts & seeds: ${totalScriptFilesScanned} files scanned — OK`);
 
 if (failures.length > 0) {
   console.error(`\n✖ test-integrity guard failed (${failures.length} violation${failures.length === 1 ? '' : 's'}):`);

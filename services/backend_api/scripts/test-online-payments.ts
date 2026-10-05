@@ -73,9 +73,9 @@ async function runOnlinePaymentTests() {
 
     // 2. Connect WebSockets for Rider and Vendor to monitor broadcast withholding
     console.log('\n📡 2. Establishing Realtime Listeners for Riders Pool & Customer Tracking...');
-    await postJson(`${API_BASE}/auth/otp/request`, { phone: '+8801700000001' });
+    await postJson(`${API_BASE}/auth/otp/request`, { phone: '+8801700000004', role: 'RIDER' });
     const riderAuth = await postJson(`${API_BASE}/auth/otp/verify`, {
-      phone: '+8801700000001',
+      phone: '+8801700000004',
       otp: '123456',
     });
     const riderToken = riderAuth.data.data.accessToken;

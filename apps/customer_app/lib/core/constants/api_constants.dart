@@ -1,5 +1,5 @@
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode, kReleaseMode;
 
 class ApiConstants {
   /// Release builds must pass API_BASE_URL via --dart-define
@@ -17,6 +17,12 @@ class ApiConstants {
 
   static String get baseUrl {
     if (_definedBaseUrl.isNotEmpty) return _definedBaseUrl;
+    if (kReleaseMode) {
+      throw StateError(
+        'Release builds must configure API_BASE_URL via --dart-define. '
+        'Example: flutter build apk --dart-define=API_BASE_URL=https://api.deliveryos.example.com/api/v1',
+      );
+    }
     if (kIsWeb) {
       return 'http://localhost:4000/api/v1';
     }
@@ -28,6 +34,12 @@ class ApiConstants {
 
   static String get socketUrl {
     if (_definedSocketUrl.isNotEmpty) return _definedSocketUrl;
+    if (kReleaseMode) {
+      throw StateError(
+        'Release builds must configure SOCKET_BASE_URL via --dart-define. '
+        'Example: flutter build apk --dart-define=SOCKET_BASE_URL=https://api.deliveryos.example.com',
+      );
+    }
     if (kIsWeb) {
       return 'http://localhost:4000';
     }
@@ -40,6 +52,7 @@ class ApiConstants {
   static const String sendOtp = '/auth/otp/request';
   static const String verifyOtp = '/auth/otp/verify';
   static const String refreshAuth = '/auth/refresh';
+  static const String logout = '/auth/logout';
   static const String registerDeviceToken = '/auth/device-token';
 
   static const String nearbyVendors = '/vendors/nearby';

@@ -23,8 +23,8 @@ export const CategoryFilterBar: React.FC<CategoryFilterBarProps> = ({
           onClick={() => onSelectCategory('ALL')}
           className={`inline-flex items-center gap-2 h-9 px-3.5 sm:px-4 rounded-xl text-xs font-semibold transition-all select-none cursor-pointer ${
             selectedCategory === 'ALL'
-              ? 'bg-amber-500 text-white shadow-xs'
-              : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/80 shadow-xs'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/80 shadow-sm'
           }`}
         >
           <span>{t('catalog.allCategories')}</span>
@@ -48,8 +48,8 @@ export const CategoryFilterBar: React.FC<CategoryFilterBarProps> = ({
               onClick={() => onSelectCategory(cat.id)}
               className={`inline-flex items-center gap-2 h-9 px-3.5 sm:px-4 rounded-xl text-xs font-semibold transition-all select-none cursor-pointer ${
                 isSelected
-                  ? 'bg-amber-500 text-white shadow-xs'
-                  : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/80 shadow-xs'
+                  ? 'bg-amber-500 text-white shadow-sm'
+                  : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/80 shadow-sm'
               }`}
             >
               <span>{cat.name}</span>

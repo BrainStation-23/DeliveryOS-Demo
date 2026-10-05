@@ -79,6 +79,34 @@ class OrderTrackingScreen extends ConsumerWidget {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
+                  if (trackingState.error != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 20),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              trackingState.error!,
+                              style: AppTypography.bodySmall.copyWith(color: AppColors.error, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => ref.read(trackingProvider(orderId).notifier).refreshDetails(),
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   if (trackingState.paymentMethod == 'ONLINE_GATEWAY' &&
                       trackingState.paymentStatus != 'PAID' &&
                       !trackingState.isCancelled) ...[

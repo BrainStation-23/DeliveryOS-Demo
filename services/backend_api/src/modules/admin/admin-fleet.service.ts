@@ -6,13 +6,8 @@ import { outletDisplayName } from '../../common/utils/outlet-display-name';
 import { PaginatedResult, toPaginatedResult } from '../../common/dto/pagination.dto';
 import { GetRidersQueryDto } from './dto/admin-governance.dto';
 
-export const IN_FLIGHT_STATUSES = [
-  OrderStatus.RIDER_ASSIGNED,
-  OrderStatus.ACCEPTED,
-  OrderStatus.PREPARING,
-  OrderStatus.READY_FOR_PICKUP,
-  OrderStatus.DISPATCHED,
-] as const;
+import { IN_FLIGHT_STATUSES } from '../../common/constants/order.constants';
+export { IN_FLIGHT_STATUSES };
 
 export type FleetRosterStatus = 'ONLINE' | 'ON_TRIP' | 'OFFLINE';
 

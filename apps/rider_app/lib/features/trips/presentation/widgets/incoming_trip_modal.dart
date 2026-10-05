@@ -23,6 +23,14 @@ class IncomingTripModal extends ConsumerWidget {
     final progress = (remainingSecs / 45.0).clamp(0.0, 1.0);
     final isBlockedByCashLimit = trip.isCod && dutyState.isCashLimitReached;
 
+    ref.listen<RiderTripState>(riderTripProvider, (previous, next) {
+      if (next.incomingTrip == null || next.countdownSeconds <= 0) {
+        if (context.mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      }
+    });
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       backgroundColor: AppColors.card,
@@ -264,7 +272,7 @@ class IncomingTripModal extends ConsumerWidget {
               SizedBox(
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: (tripState.isClaiming || isBlockedByCashLimit)
+                  onPressed: (tripState.isClaiming || isBlockedByCashLimit || remainingSecs <= 0)
                       ? null
                       : () async {
                           final success = await ref.read(riderTripProvider.notifier).claimTrip(trip);

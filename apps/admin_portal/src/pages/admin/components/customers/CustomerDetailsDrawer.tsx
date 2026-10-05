@@ -31,6 +31,7 @@ import { Drawer } from '../../../../components/ui/Drawer';
 import { Modal } from '../../../../components/ui/Modal';
 import { OrderDetailsModal } from '../../../../components/orders/OrderDetailsModal';
 import { GoogleMapsLink } from '../../../../components/common/GoogleMapsLink';
+import { DetailMetricCard } from '../../../../components/common/DetailMetricCard';
 import { extractApiError } from '../../../../utils/apiError';
 import { cn } from '../../../../utils/cn';
 
@@ -167,7 +168,7 @@ export const CustomerDetailsDrawer: React.FC<CustomerDetailsDrawerProps> = ({ cu
         title={
           customer ? (
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 text-white font-bold text-xs shadow-xs shrink-0">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 text-white font-bold text-xs shadow-sm shrink-0">
                 {getInitials(customer.fullName)}
               </div>
               <div className="min-w-0 flex items-center gap-2 flex-wrap">
@@ -306,63 +307,33 @@ export const CustomerDetailsDrawer: React.FC<CustomerDetailsDrawerProps> = ({ cu
 
             {/* Customer Lifetime Metrics Grid */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-slate-700">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Lifetime Orders
-                  </span>
-                  <ShoppingBag className="h-3.5 w-3.5 text-primary-500" />
-                </div>
-                <p className="mt-1.5 text-lg font-bold text-slate-900 dark:text-slate-100">
-                  {(metrics?.totalOrders ?? 0).toLocaleString()}
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  {metrics?.statusCounts?.CANCELLED ?? 0} cancelled
-                </p>
-              </div>
+              <DetailMetricCard
+                label="Lifetime Orders"
+                icon={<ShoppingBag className="h-3.5 w-3.5 text-primary-500" />}
+                value={(metrics?.totalOrders ?? 0).toLocaleString()}
+                subtext={`${metrics?.statusCounts?.CANCELLED ?? 0} cancelled`}
+              />
 
-              <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-slate-700">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Lifetime Spend
-                  </span>
-                  <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
-                </div>
-                <p className="mt-1.5 text-lg font-bold text-slate-900 dark:text-slate-100">
-                  {CURRENCY} {(metrics?.lifetimeSpend ?? 0).toLocaleString()}
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  across {metrics?.orderCount ?? 0} effective orders
-                </p>
-              </div>
+              <DetailMetricCard
+                label="Lifetime Spend"
+                icon={<TrendingUp className="h-3.5 w-3.5 text-emerald-500" />}
+                value={`${CURRENCY} ${(metrics?.lifetimeSpend ?? 0).toLocaleString()}`}
+                subtext={`across ${metrics?.orderCount ?? 0} effective orders`}
+              />
 
-              <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-slate-700">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Avg Order Value
-                  </span>
-                  <Receipt className="h-3.5 w-3.5 text-sky-500" />
-                </div>
-                <p className="mt-1.5 text-lg font-bold text-slate-900 dark:text-slate-100">
-                  {CURRENCY} {(metrics?.avgOrderValue ?? 0).toLocaleString()}
-                </p>
-                <p className="text-[11px] text-slate-500">per completed order</p>
-              </div>
+              <DetailMetricCard
+                label="Avg Order Value"
+                icon={<Receipt className="h-3.5 w-3.5 text-sky-500" />}
+                value={`${CURRENCY} ${(metrics?.avgOrderValue ?? 0).toLocaleString()}`}
+                subtext="per completed order"
+              />
 
-              <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-slate-700">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Coupon Savings
-                  </span>
-                  <Tag className="h-3.5 w-3.5 text-purple-500" />
-                </div>
-                <p className="mt-1.5 text-lg font-bold text-slate-900 dark:text-slate-100">
-                  {CURRENCY} {(metrics?.totalCouponSavings ?? 0).toLocaleString()}
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  + {CURRENCY} {(metrics?.totalDeliveryFees ?? 0).toLocaleString()} delivery fees
-                </p>
-              </div>
+              <DetailMetricCard
+                label="Coupon Savings"
+                icon={<Tag className="h-3.5 w-3.5 text-purple-500" />}
+                value={`${CURRENCY} ${(metrics?.totalCouponSavings ?? 0).toLocaleString()}`}
+                subtext={`+ ${CURRENCY} ${(metrics?.totalDeliveryFees ?? 0).toLocaleString()} delivery fees`}
+              />
             </div>
 
             {/* Base-Level Collapsible Saved Addresses Section */}
@@ -417,7 +388,7 @@ export const CustomerDetailsDrawer: React.FC<CustomerDetailsDrawerProps> = ({ cu
                     addresses.map((address) => (
                       <div
                         key={address.id}
-                        className="rounded-lg border border-slate-200 bg-slate-50/40 p-3 dark:border-slate-800 dark:bg-slate-900/40 space-y-2 shadow-xs"
+                        className="rounded-lg border border-slate-200 bg-slate-50/40 p-3 dark:border-slate-800 dark:bg-slate-900/40 space-y-2 shadow-sm"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0">
@@ -513,7 +484,7 @@ export const CustomerDetailsDrawer: React.FC<CustomerDetailsDrawerProps> = ({ cu
                             setSelectedOrderId(order.id);
                           }
                         }}
-                        className="group w-full flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/40 px-3 py-2.5 text-left hover:border-primary-400 hover:bg-primary-50/20 dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-primary-600 dark:hover:bg-primary-950/20 transition-all cursor-pointer shadow-xs select-none"
+                        className="group w-full flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/40 px-3 py-2.5 text-left hover:border-primary-400 hover:bg-primary-50/20 dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-primary-600 dark:hover:bg-primary-950/20 transition-all cursor-pointer shadow-sm select-none"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 flex-wrap">

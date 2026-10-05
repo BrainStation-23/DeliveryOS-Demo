@@ -26,7 +26,7 @@ export const OutletSuspendedScreen: React.FC<OutletSuspendedScreenProps> = ({
     <div className="mx-auto max-w-3xl py-8 sm:py-12 px-4">
       <div className="rounded-2xl border border-rose-200 bg-white p-6 sm:p-8 shadow-sm dark:border-rose-900/60 dark:bg-slate-900">
         <div className="text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/70 dark:text-rose-400 mb-4 shadow-xs">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/70 dark:text-rose-400 mb-4 shadow-sm">
             <Ban className="h-9 w-9" />
           </div>
 

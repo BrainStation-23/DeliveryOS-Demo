@@ -1,4 +1,4 @@
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, PaymentMethod, PaymentStatus, SettlementStatus } from '@prisma/client';
 import { RiderService } from './rider.service';
 
 type MockPrisma = {
@@ -10,11 +10,15 @@ type MockPrisma = {
     findUnique: jest.Mock;
     findFirst: jest.Mock;
     update: jest.Mock;
+    updateMany: jest.Mock;
+    findUniqueOrThrow: jest.Mock;
     count: jest.Mock;
   };
   riderTripLedger: {
+    upsert: jest.Mock;
     aggregate: jest.Mock;
   };
+  $transaction: jest.Mock;
 };
 
 type MockRedis = {
@@ -60,11 +64,15 @@ describe('RiderService - Phase 2 Operations & Dispatch Integrity', () => {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         count: jest.fn().mockResolvedValue(0),
       },
       riderTripLedger: {
+        upsert: jest.fn(),
         aggregate: jest.fn().mockResolvedValue({ _sum: { deliveryEarnings: 0 } }),
       },
+      $transaction: jest.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(prisma)),
     };
 
     redis = {
@@ -282,11 +290,30 @@ describe('RiderService - Phase 2 Operations & Dispatch Integrity', () => {
 
       // Verify Redis geospatial index update
       expect(redis.geoadd).toHaveBeenCalledWith(
-        'riders:locations',
+        'riders:locations:active',
         90.4078,
         23.7925,
         'rider-1',
       );
+    });
+
+    it('removes rider from riders:locations:active when toggled offline', async () => {
+      prisma.rider.findUnique.mockResolvedValue({
+        id: 'rider-1',
+        userId: 'user-rider-1',
+        isApproved: true,
+        user: { status: 'ACTIVE' },
+      });
+
+      prisma.rider.update.mockResolvedValue({
+        id: 'rider-1',
+        isOnline: false,
+      });
+
+      const updated = await service.toggleDuty('user-rider-1', { isOnline: false });
+
+      expect(updated.isOnline).toBe(false);
+      expect(redis.zrem).toHaveBeenCalledWith('riders:locations:active', 'rider-1');
     });
   });
 
@@ -375,6 +402,102 @@ describe('RiderService - Phase 2 Operations & Dispatch Integrity', () => {
         service.toggleDuty('user-rider-1', { isOnline: false }),
       ).rejects.toThrow('Cannot go offline while you have an active in-flight delivery');
       expect(prisma.rider.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deliverOrder (COD Collection & Settlement)', () => {
+    const mockOrder = {
+      id: 'order-1',
+      orderNumber: 'ORD-101',
+      riderId: 'rider-1',
+      status: OrderStatus.DISPATCHED,
+      paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+      paymentStatus: PaymentStatus.PENDING,
+      totalAmount: 500.0,
+      deliveryFee: 50.0,
+      customerId: 'customer-1',
+      vendorId: 'vendor-1',
+    };
+
+    beforeEach(() => {
+      prisma.rider.findUnique.mockResolvedValue({
+        id: 'rider-1',
+        userId: 'user-rider-1',
+        isApproved: true,
+        user: { status: 'ACTIVE' },
+      });
+      prisma.order.findUnique.mockResolvedValue(mockOrder);
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+      prisma.order.findUniqueOrThrow.mockResolvedValue({
+        ...mockOrder,
+        status: OrderStatus.DELIVERED,
+        paymentStatus: PaymentStatus.PAID,
+      });
+      prisma.riderTripLedger.upsert.mockResolvedValue({
+        orderId: 'order-1',
+        riderId: 'rider-1',
+        deliveryEarnings: 40,
+        codCollected: 500,
+        status: SettlementStatus.PENDING,
+      });
+    });
+
+    it('marks order DELIVERED, marks payment PAID, and increments rider cashInHand on valid COD collection', async () => {
+      const result = await service.deliverOrder('user-rider-1', 'order-1', {
+        codCashCollected: true,
+        amountCollected: 500.0,
+      });
+
+      expect(result.order.status).toBe(OrderStatus.DELIVERED);
+      expect(prisma.order.updateMany).toHaveBeenCalledWith({
+        where: { id: 'order-1', status: OrderStatus.DISPATCHED },
+        data: expect.objectContaining({
+          status: OrderStatus.DELIVERED,
+          paymentStatus: PaymentStatus.PAID,
+        }),
+      });
+      expect(prisma.rider.update).toHaveBeenCalledWith({
+        where: { id: 'rider-1' },
+        data: {
+          cashInHand: { increment: 500 },
+        },
+      });
+      expect(orderFlowService.releaseRiderActiveTrip).toHaveBeenCalledWith('rider-1');
+      expect(trackingGateway.notifyOrderStatusChanged).toHaveBeenCalledWith(
+        'order-1',
+        'customer-1',
+        OrderStatus.DISPATCHED,
+        OrderStatus.DELIVERED,
+        expect.objectContaining({ codCollected: 500 }),
+      );
+    });
+
+    it('rejects delivery with BadRequestException if codCashCollected is false or 0 on positive COD order', async () => {
+      await expect(
+        service.deliverOrder('user-rider-1', 'order-1', {
+          codCashCollected: false,
+        }),
+      ).rejects.toThrow('Cash on Delivery orders require positive cash collection confirmation');
+
+      await expect(
+        service.deliverOrder('user-rider-1', 'order-1', {
+          codCashCollected: true,
+          amountCollected: 0,
+        }),
+      ).rejects.toThrow('Cash on Delivery orders require positive cash collection confirmation');
+
+      expect(prisma.order.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException if order is already delivered (concurrent claim count 0)', async () => {
+      prisma.order.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.deliverOrder('user-rider-1', 'order-1', {
+          codCashCollected: true,
+          amountCollected: 500.0,
+        }),
+      ).rejects.toThrow('Order is not awaiting delivery confirmation');
     });
   });
 });

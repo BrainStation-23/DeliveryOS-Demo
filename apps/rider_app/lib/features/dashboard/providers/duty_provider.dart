@@ -15,6 +15,7 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
   StreamSubscription<Position>? _positionSubscription;
   StreamSubscription<Map<String, dynamic>>? _backgroundLocationSubscription;
   DateTime? _lastHttpSync;
+  DateTime? _lastSocketEmission;
 
   @override
   RiderDutyState build() {
@@ -101,19 +102,19 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
         data: {'isOnline': targetState},
       );
     } on DioException catch (dioErr) {
-      final statusCode = dioErr.response?.statusCode;
-      if (statusCode == 403 || statusCode == 400) {
-        final resData = dioErr.response?.data;
-        final msg = resData is Map ? (resData['message'] ?? dioErr.message) : (dioErr.message ?? 'Duty switch failed');
-        state = state.copyWith(
-          isToggling: false,
-          error: msg.toString(),
-        );
-        return false;
-      }
-      // Offline fallback handling
+      final resData = dioErr.response?.data;
+      final msg = resData is Map ? (resData['message'] ?? dioErr.message) : (dioErr.message ?? 'Duty switch failed');
+      state = state.copyWith(
+        isToggling: false,
+        error: msg.toString(),
+      );
+      return false;
     } catch (_) {
-      // Offline fallback handling
+      state = state.copyWith(
+        isToggling: false,
+        error: 'Failed to update duty status. Please check your connection.',
+      );
+      return false;
     }
 
     final storage = ref.read(localStorageProvider);
@@ -212,18 +213,24 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
 
   Future<void> _dispatchTelemetryToBackend(double lat, double lng, double speed) async {
     try {
-      // 1. WebSocket zero-latency streaming to Redis geospatial index & live customer map
-      final socket = ref.read(riderSocketServiceProvider);
-      socket.emitLocationUpdate(
-        latitude: lat,
-        longitude: lng,
-        speed: speed,
-        bearing: state.bearing,
-        activeOrderId: state.activeOrderId,
-      );
+      final now = DateTime.now();
+
+      // 1. WebSocket streaming to Redis geospatial index & live customer map,
+      // throttled to a minimum interval of 5 seconds to prevent network/battery drain.
+      final lastEmission = _lastSocketEmission;
+      if (lastEmission == null || now.difference(lastEmission).inSeconds >= 5) {
+        _lastSocketEmission = now;
+        final socket = ref.read(riderSocketServiceProvider);
+        socket.emitLocationUpdate(
+          latitude: lat,
+          longitude: lng,
+          speed: speed,
+          bearing: state.bearing,
+          activeOrderId: state.activeOrderId,
+        );
+      }
 
       // 2. HTTP persistent state sync, throttled to one call per 30 seconds
-      final now = DateTime.now();
       final lastSync = _lastHttpSync;
       if (lastSync == null || now.difference(lastSync).inSeconds >= 30) {
         _lastHttpSync = now;

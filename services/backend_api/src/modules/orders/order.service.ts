@@ -457,8 +457,16 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    // Trigger Dispatch FSM based on active mode (RIDER_FIRST vs VENDOR_FIRST)
-    await this.orderFlowService.handleOrderPlaced(order.id);
+    // Trigger Dispatch FSM based on active mode (RIDER_FIRST vs VENDOR_FIRST).
+    // Wrapped in try/catch so a dispatch failure post-commit does not fail the checkout
+    // response with 500 when the order and financial ledger are already committed.
+    try {
+      await this.orderFlowService.handleOrderPlaced(order.id);
+    } catch (dispatchErr: unknown) {
+      this.logger.error(
+        `Failed to trigger dispatch for committed order ${order.id}: ${dispatchErr instanceof Error ? dispatchErr.message : 'Unknown'}`,
+      );
+    }
 
     return {
       orderId: order.id,
@@ -469,8 +477,6 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
       totalAmount: Number(order.totalAmount),
       status: order.status,
       paymentMethod: order.paymentMethod,
-      commissionAmount,
-      netVendorPayable,
     };
   }
 

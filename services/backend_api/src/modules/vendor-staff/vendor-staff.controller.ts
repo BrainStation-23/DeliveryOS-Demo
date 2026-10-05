@@ -22,6 +22,8 @@ import { VendorStaffService } from './vendor-staff.service';
 import { AcceptOrderDto } from './dto/accept-order.dto';
 import { RejectOrderDto } from './dto/reject-order.dto';
 import { ToggleStockDto } from './dto/toggle-stock.dto';
+import { UpdateOutletSettingsDto } from './dto/update-outlet-settings.dto';
+import { UpdateVendorOperatingHoursDto } from './dto/update-operating-hours.dto';
 
 @ApiTags('Vendor Kitchen Operations')
 @Controller('vendor')
@@ -87,13 +89,7 @@ export class VendorStaffController {
   async updateSettings(
     @CurrentUser() user: User,
     @Query('vendorId') queryVendorId: string,
-    @Body()
-    dto: {
-      vendorId?: string;
-      defaultPrepTimeMinutes?: number;
-      isBusy?: boolean;
-      busyReason?: string;
-    },
+    @Body() dto: UpdateOutletSettingsDto,
   ) {
     const targetVendorId = queryVendorId || dto.vendorId;
     const updated = await this.vendorStaffService.updateOutletSettings(user, targetVendorId, dto);
@@ -109,25 +105,13 @@ export class VendorStaffController {
   async updateOperatingHours(
     @CurrentUser() user: User,
     @Query('vendorId') queryVendorId: string,
-    @Body()
-    dto: {
-      vendorId?: string;
-      hours?: Array<{
-        dayOfWeek: number;
-        openTime: string;
-        closeTime: string;
-        isClosed: boolean;
-      }>;
-      operatingHours?: Array<{
-        dayOfWeek: number;
-        openTime: string;
-        closeTime: string;
-        isClosed: boolean;
-      }>;
-    },
+    @Body() dto: UpdateVendorOperatingHoursDto,
   ) {
     const targetVendorId = queryVendorId || dto.vendorId;
     const hours = dto.hours || dto.operatingHours || [];
+    if (hours.length === 0) {
+      throw new BadRequestException('At least one day operating hour schedule must be provided');
+    }
     const schedule = await this.vendorStaffService.updateOperatingHours(user, targetVendorId, hours);
     return {
       message: 'Operating hours schedule updated successfully',
@@ -136,20 +120,24 @@ export class VendorStaffController {
   }
 
   @Get('sales')
-  @ApiOperation({ summary: 'Get sales ledger and commission breakdown (optional dateFrom/dateTo)' })
+  @ApiOperation({ summary: 'Get sales ledger and commission breakdown (optional dateFrom/dateTo, limit/page)' })
   @ApiResponse({ status: 200, description: 'Sales metrics and commission ledger records' })
   async getSales(
     @CurrentUser() user: User,
     @Query('vendorId') vendorId?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
+    @Query('limit') limit?: string,
+    @Query('page') page?: string,
   ) {
     const from = dateFrom ? new Date(dateFrom) : undefined;
     const to = dateTo ? new Date(dateTo) : undefined;
     if ((dateFrom && Number.isNaN(from!.getTime())) || (dateTo && Number.isNaN(to!.getTime()))) {
       throw new BadRequestException('dateFrom/dateTo must be valid ISO-8601 timestamps');
     }
-    const sales = await this.vendorStaffService.getSalesLedger(user, vendorId, from, to);
+    const parsedLimit = limit ? Math.min(Math.max(1, parseInt(limit, 10) || 50), 500) : undefined;
+    const parsedPage = page ? Math.max(1, parseInt(page, 10) || 1) : undefined;
+    const sales = await this.vendorStaffService.getSalesLedger(user, vendorId, from, to, parsedLimit, parsedPage);
     return {
       message: 'Sales ledger retrieved successfully',
       data: sales,

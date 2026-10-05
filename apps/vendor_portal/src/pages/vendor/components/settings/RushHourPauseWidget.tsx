@@ -25,7 +25,7 @@ export const RushHourPauseWidget: React.FC<RushHourPauseWidgetProps> = ({
 
   return (
     <div
-      className={`rounded-xl border p-3.5 sm:p-5 transition-all shadow-xs ${
+      className={`rounded-xl border p-3.5 sm:p-5 transition-all shadow-sm ${
         isCurrentlyBusy
           ? 'border-amber-400 bg-amber-50/30 dark:border-amber-800 dark:bg-amber-950/20'
           : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
@@ -62,7 +62,7 @@ export const RushHourPauseWidget: React.FC<RushHourPauseWidgetProps> = ({
             <Button
               variant="success"
               size="md"
-              className="shadow-xs font-semibold"
+              className="shadow-sm font-semibold"
               onClick={() => toggleRushPause(false)}
               disabled={!canToggle || isTogglingRush}
               isLoading={isTogglingRush}
@@ -74,7 +74,7 @@ export const RushHourPauseWidget: React.FC<RushHourPauseWidgetProps> = ({
             <Button
               variant="danger"
               size="md"
-              className="shadow-xs font-semibold"
+              className="shadow-sm font-semibold"
               onClick={() => toggleRushPause(true)}
               disabled={!canToggle || isTogglingRush}
               isLoading={isTogglingRush}

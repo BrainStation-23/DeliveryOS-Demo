@@ -26,6 +26,7 @@ import { Button } from '../../../../components/ui/Button';
 import { Drawer } from '../../../../components/ui/Drawer';
 import { ConfirmDialog } from '../../../../components/ui/ConfirmDialog';
 import { GoogleMapsLink } from '../../../../components/common/GoogleMapsLink';
+import { DetailMetricCard } from '../../../../components/common/DetailMetricCard';
 import { OrderDetailsModal } from '../../../../components/orders/OrderDetailsModal';
 import { CashLimitModal } from './CashLimitModal';
 import { cn } from '../../../../utils/cn';
@@ -175,7 +176,7 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
         title={
           rider ? (
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 text-white font-bold text-xs shadow-xs shrink-0">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 text-white font-bold text-xs shadow-sm shrink-0">
                 {getInitials(rider.fullName)}
               </div>
               <div className="min-w-0 flex items-center gap-2 flex-wrap">
@@ -351,7 +352,7 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
                     setSelectedOrderId(detail.activeOrder!.id);
                   }
                 }}
-                className="group rounded-xl border border-primary-200 bg-primary-50/40 p-3.5 hover:border-primary-400 hover:bg-primary-50/60 dark:border-primary-900 dark:bg-primary-950/20 dark:hover:border-primary-700 transition-all cursor-pointer shadow-xs select-none"
+                className="group rounded-xl border border-primary-200 bg-primary-50/40 p-3.5 hover:border-primary-400 hover:bg-primary-50/60 dark:border-primary-900 dark:bg-primary-950/20 dark:hover:border-primary-700 transition-all cursor-pointer shadow-sm select-none"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -375,68 +376,34 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
 
             {/* Courier Metrics Grid (Synchronized 2x2 with Customer Details) */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-slate-700">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Cash in Hand
-                  </span>
-                  <Banknote className="h-3.5 w-3.5 text-amber-500" />
-                </div>
-                <p
-                  className={cn(
-                    'mt-1.5 text-lg font-bold',
-                    rider?.cashSafetyWarning
-                      ? 'text-rose-600 dark:text-rose-400'
-                      : 'text-slate-900 dark:text-slate-100'
-                  )}
-                >
-                  {CURRENCY} {(rider?.cashInHand ?? 0).toLocaleString()}
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  limit {CURRENCY} {(rider?.maxCashLimit ?? 0).toLocaleString()}
-                </p>
-              </div>
+              <DetailMetricCard
+                label="Cash in Hand"
+                icon={<Banknote className="h-3.5 w-3.5 text-amber-500" />}
+                value={`${CURRENCY} ${(rider?.cashInHand ?? 0).toLocaleString()}`}
+                valueClassName={rider?.cashSafetyWarning ? 'text-rose-600 dark:text-rose-400' : undefined}
+                subtext={`limit ${CURRENCY} ${(rider?.maxCashLimit ?? 0).toLocaleString()}`}
+              />
 
-              <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-slate-700">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Deliveries
-                  </span>
-                  <PackageCheck className="h-3.5 w-3.5 text-primary-500" />
-                </div>
-                <p className="mt-1.5 text-lg font-bold text-slate-900 dark:text-slate-100">
-                  {(stats?.totalDeliveries ?? 0).toLocaleString()}
-                </p>
-                <p className="text-[11px] text-slate-500">{stats?.totalTrips ?? 0} recorded trips</p>
-              </div>
+              <DetailMetricCard
+                label="Deliveries"
+                icon={<PackageCheck className="h-3.5 w-3.5 text-primary-500" />}
+                value={(stats?.totalDeliveries ?? 0).toLocaleString()}
+                subtext={`${stats?.totalTrips ?? 0} recorded trips`}
+              />
 
-              <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-slate-700">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Earnings (30d)
-                  </span>
-                  <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
-                </div>
-                <p className="mt-1.5 text-lg font-bold text-slate-900 dark:text-slate-100">
-                  {CURRENCY} {(stats?.earnings30d ?? 0).toLocaleString()}
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  lifetime {CURRENCY} {(stats?.lifetimeEarnings ?? 0).toLocaleString()}
-                </p>
-              </div>
+              <DetailMetricCard
+                label="Earnings (30d)"
+                icon={<TrendingUp className="h-3.5 w-3.5 text-emerald-500" />}
+                value={`${CURRENCY} ${(stats?.earnings30d ?? 0).toLocaleString()}`}
+                subtext={`lifetime ${CURRENCY} ${(stats?.lifetimeEarnings ?? 0).toLocaleString()}`}
+              />
 
-              <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-slate-700">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    COD Collected
-                  </span>
-                  <Receipt className="h-3.5 w-3.5 text-sky-500" />
-                </div>
-                <p className="mt-1.5 text-lg font-bold text-slate-900 dark:text-slate-100">
-                  {CURRENCY} {(stats?.lifetimeCodCollected ?? 0).toLocaleString()}
-                </p>
-                <p className="text-[11px] text-slate-500">lifetime courier collections</p>
-              </div>
+              <DetailMetricCard
+                label="COD Collected"
+                icon={<Receipt className="h-3.5 w-3.5 text-sky-500" />}
+                value={`${CURRENCY} ${(stats?.lifetimeCodCollected ?? 0).toLocaleString()}`}
+                subtext="lifetime courier collections"
+              />
             </div>
 
             {/* Last known location / Telemetry strip */}
@@ -520,7 +487,7 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
                             setSelectedOrderId(order.id);
                           }
                         }}
-                        className="group w-full flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/40 px-3 py-2.5 text-left hover:border-primary-400 hover:bg-primary-50/20 dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-primary-600 dark:hover:bg-primary-950/20 transition-all cursor-pointer shadow-xs select-none"
+                        className="group w-full flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/40 px-3 py-2.5 text-left hover:border-primary-400 hover:bg-primary-50/20 dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-primary-600 dark:hover:bg-primary-950/20 transition-all cursor-pointer shadow-sm select-none"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -609,7 +576,7 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
                     recentDeposits.map((deposit) => (
                       <div
                         key={deposit.id}
-                        className="w-full flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/40 px-3 py-2.5 text-left dark:border-slate-800 dark:bg-slate-900/40 shadow-xs"
+                        className="w-full flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/40 px-3 py-2.5 text-left dark:border-slate-800 dark:bg-slate-900/40 shadow-sm"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">

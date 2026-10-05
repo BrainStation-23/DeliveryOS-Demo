@@ -192,7 +192,7 @@ export const StaffProfileDialog: React.FC<StaffProfileDialogProps> = ({
                       type="button"
                       onClick={() => setUseNewAccount(false)}
                       className={`px-2.5 py-1 rounded-md text-[11px] font-semibold cursor-pointer ${
-                        !useNewAccount ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100' : 'text-slate-500'
+                        !useNewAccount ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100' : 'text-slate-500'
                       }`}
                     >
                       Existing User
@@ -204,7 +204,7 @@ export const StaffProfileDialog: React.FC<StaffProfileDialogProps> = ({
                         setSelectedUser(null);
                       }}
                       className={`px-2.5 py-1 rounded-md text-[11px] font-semibold cursor-pointer ${
-                        useNewAccount ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100' : 'text-slate-500'
+                        useNewAccount ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100' : 'text-slate-500'
                       }`}
                     >
                       New Account

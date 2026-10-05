@@ -36,8 +36,10 @@ This document provides a line-level, granular breakdown of every operational fea
 - **Deterministic Financial Rounding**: All monetary computations round strictly to 2 decimal places (`Math.round(x * 100) / 100`) and map to `DECIMAL(10, 2)` in PostgreSQL ([ADR-009](context_docs/architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md)).
 
 ### 1.3. Multilingual Localization & RTL Engine
-- **Supported Languages**: English (`en`), Arabic (`ar` with bidirectional Right-to-Left RTL flipping), and Bengali (`bn`).
-- **Dynamic Localization Providers**: In-code localized lookup tables in mobile apps (`language_provider.dart`) and web portals (`i18n/` dictionaries) with instant runtime language switching.
+- **Localization Scope & Architecture**:
+  - **Customer App & Vendor Portal**: Full multi-locale foundation covering English (`en`), Bengali (`bn`), and Arabic (`ar` with bidirectional Right-to-Left RTL flipping) with instant runtime switching and locale persistence.
+  - **Admin Portal & Rider App**: English-first (`en`) operations during the pilot release, with automated locale key extraction and full multi-locale dictionary expansion prioritized on the platform roadmap.
+- **Dynamic Localization Providers**: In-code localized lookup tables in mobile apps (`language_provider.dart`, `AppLocalizations`) and web portals (`i18n/` dictionaries) with zero runtime restart required.
 
 ### 1.4. Ingress & Subpath Reverse Proxy Topology
 - **Unified Port 8080 Routing**: Nginx terminates public edge traffic and dispatches by subpath ([ADR-005](context_docs/architecture-decision-records/ADR-005-micro-frontends-and-subpath-routing.md)):

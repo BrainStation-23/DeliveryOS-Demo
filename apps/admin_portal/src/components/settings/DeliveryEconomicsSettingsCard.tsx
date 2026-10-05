@@ -58,7 +58,7 @@ export const DeliveryEconomicsSettingsCard: React.FC<DeliveryEconomicsSettingsCa
     parsed.eta_fallback_minutes > 120;
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-4">
+    <section className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
       <div>
         <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
           <Gauge className="h-5 w-5 text-primary-600" />

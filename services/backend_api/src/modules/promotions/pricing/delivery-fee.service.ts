@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 
 import { roundMoney } from '../../../common/utils/currency.util';
+import { computeRiderEarnings } from '../../../common/utils/rider-earnings';
 
 export interface DeliveryFeeConfig {
   mode: 'FIXED_FLAT' | 'DISTANCE_TIERED';
@@ -87,6 +88,26 @@ export class DeliveryFeeService {
     }
 
     return roundMoney(fee);
+  }
+
+  /**
+   * Pure calculation helper for courier earnings from delivery fee and rider share percentage.
+   */
+  computeRiderEarnings(
+    deliveryFee: number | { toString(): string },
+    riderSharePercent?: number,
+  ): number {
+    return computeRiderEarnings(deliveryFee, riderSharePercent);
+  }
+
+  /**
+   * Calculates courier earnings based on active delivery economics configuration.
+   */
+  async calculateRiderEarnings(
+    deliveryFee: number | { toString(): string },
+  ): Promise<number> {
+    const economics = await this.getEconomicsConfig();
+    return computeRiderEarnings(deliveryFee, economics.rider_share_percent);
   }
 
   /**

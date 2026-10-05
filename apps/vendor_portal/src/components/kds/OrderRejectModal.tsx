@@ -78,7 +78,7 @@ export const OrderRejectModal: React.FC<OrderRejectModalProps> = ({
             onChange={(e) => setNotes(e.target.value)}
             placeholder={t('kds.notesPlaceholder')}
             rows={2}
-            className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
 

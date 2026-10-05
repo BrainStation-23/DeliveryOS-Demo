@@ -36,7 +36,7 @@ export const DefaultPrepTimeWidget: React.FC<DefaultPrepTimeWidgetProps> = ({
   const hasChanged = selectedMinutes !== initialMinutes;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3.5 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2">
@@ -53,7 +53,7 @@ export const DefaultPrepTimeWidget: React.FC<DefaultPrepTimeWidgetProps> = ({
         <Button
           variant="primary"
           size="md"
-          className="shadow-xs font-semibold self-start sm:self-auto shrink-0"
+          className="shadow-sm font-semibold self-start sm:self-auto shrink-0"
           onClick={handleSave}
           disabled={!hasChanged || isLoading}
           isLoading={isLoading}
@@ -72,7 +72,7 @@ export const DefaultPrepTimeWidget: React.FC<DefaultPrepTimeWidgetProps> = ({
               type="button"
               onClick={() => setSelectedMinutes(mins)}
               className={cn(
-                'h-9 px-3.5 rounded-lg text-xs font-semibold transition-all select-none cursor-pointer border shadow-xs',
+                'h-9 px-3.5 rounded-lg text-xs font-semibold transition-all select-none cursor-pointer border shadow-sm',
                 isSelected
                   ? 'bg-amber-500 text-white border-amber-600 dark:bg-amber-500 dark:border-amber-600'
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700'

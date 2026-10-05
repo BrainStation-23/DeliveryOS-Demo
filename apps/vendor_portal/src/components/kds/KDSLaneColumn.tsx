@@ -55,7 +55,7 @@ export const KDSLaneColumn: React.FC<KDSLaneColumnProps> = ({
   return (
     <div
       className={cn(
-        'flex flex-col rounded-xl border p-3.5 sm:p-4 shadow-xs shrink-0 md:shrink w-[88vw] sm:w-[360px] md:w-auto snap-center',
+        'flex flex-col rounded-xl border p-3.5 sm:p-4 shadow-sm shrink-0 md:shrink w-[88vw] sm:w-[360px] md:w-auto snap-center',
         styles.container,
         !isVisibleOnMobile && 'hidden md:flex'
       )}

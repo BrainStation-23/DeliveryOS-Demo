@@ -125,6 +125,7 @@ class LocationNotifier extends Notifier<LocationState> {
 
   Future<void> _bootstrapDiscovery() async {
     await fetchOutletTypes();
+    if (!ref.mounted) return;
     await fetchNearbyVendors(state.location.latitude, state.location.longitude);
   }
 
@@ -133,6 +134,7 @@ class LocationNotifier extends Notifier<LocationState> {
     try {
       final dio = ref.read(dioClientProvider);
       final response = await dio.get(ApiConstants.outletTypes);
+      if (!ref.mounted) return;
       final data = response.data['data'];
       if (response.statusCode == 200 && data is List) {
         final types = data
@@ -159,6 +161,7 @@ class LocationNotifier extends Notifier<LocationState> {
         },
       );
 
+      if (!ref.mounted) return;
       if (response.statusCode == 200) {
         final data = response.data['data'];
         final vendors = data is List

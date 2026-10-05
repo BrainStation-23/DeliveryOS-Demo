@@ -114,10 +114,27 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
       }
     }
 
+    void handlePaymentVerified(dynamic payload) {
+      if (payload is Map<String, dynamic>) {
+        final data = payload['data'] is Map<String, dynamic>
+            ? payload['data'] as Map<String, dynamic>
+            : payload;
+        final targetOrderId = data['orderId']?.toString();
+        if (targetOrderId == null || targetOrderId == orderId) {
+          state = state.copyWith(paymentStatus: 'PAID');
+          refreshDetails();
+        }
+      } else {
+        state = state.copyWith(paymentStatus: 'PAID');
+        refreshDetails();
+      }
+    }
+
     socket.on('order:status:changed', handleStatusChanged);
     socket.on('order:status_changed', handleStatusChanged);
     socket.on('order:cancelled', handleOrderCancelled);
     socket.on('order:rider:moved', handleRiderMoved);
+    socket.on('order:payment:verified', handlePaymentVerified);
 
     ref.onDispose(() {
       socket.leaveOrder(orderId);
@@ -125,6 +142,7 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
       socket.off('order:status_changed', handleStatusChanged);
       socket.off('order:cancelled', handleOrderCancelled);
       socket.off('order:rider:moved', handleRiderMoved);
+      socket.off('order:payment:verified', handlePaymentVerified);
       _telemetryTimer?.cancel();
     });
 
@@ -204,6 +222,7 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
   Future<void> refreshDetails() async {
     if (!ref.mounted) return;
     try {
+      state = state.copyWith(isLoading: true, error: null);
       final dio = ref.read(dioClientProvider);
       final response = await dio.get('${ApiConstants.orderDetails}/$orderId');
       if (!ref.mounted) return;
@@ -255,10 +274,18 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
           cancellationReason: rejectionReason ?? state.cancellationReason,
           paymentStatus: paymentStatus ?? state.paymentStatus,
           paymentMethod: paymentMethod ?? state.paymentMethod,
+          isLoading: false,
+          error: null,
         );
       }
     } catch (e) {
       debugPrint('Error refreshing order tracking details: $e');
+      if (ref.mounted) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Failed to load tracking details. Tap retry to reload.',
+        );
+      }
     }
   }
 }

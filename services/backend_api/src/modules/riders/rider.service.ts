@@ -123,12 +123,24 @@ export class RiderService {
       data: dataToUpdate,
     });
 
-    if (latitude !== undefined && longitude !== undefined) {
+    if (isOnline) {
+      const geoLat = latitude ?? updatedRider.latitude;
+      const geoLng = longitude ?? updatedRider.longitude;
+      if (geoLat !== null && geoLng !== null && geoLat !== undefined && geoLng !== undefined) {
+        try {
+          await this.redis.geoadd('riders:locations:active', geoLng, geoLat, rider.id);
+        } catch (err: unknown) {
+          this.logger.warn(
+            `Failed to update redis geoadd for rider ${rider.id}: ${err instanceof Error ? err.message : 'Unknown'}`,
+          );
+        }
+      }
+    } else {
       try {
-        await this.redis.geoadd('riders:locations', longitude, latitude, rider.id);
+        await this.redis.zrem('riders:locations:active', rider.id);
       } catch (err: unknown) {
         this.logger.warn(
-          `Failed to update redis geoadd for rider ${rider.id}: ${err instanceof Error ? err.message : 'Unknown'}`,
+          `Failed to remove rider ${rider.id} from redis geo index: ${err instanceof Error ? err.message : 'Unknown'}`,
         );
       }
     }
@@ -223,15 +235,23 @@ export class RiderService {
     // order total so an over-reported figure can never inflate cashInHand.
     const totalAmount = Number(order.totalAmount);
     const isCodOrder = order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY;
+
+    // Reject non-positive cash collection on positive-total COD orders
+    if (isCodOrder && totalAmount > 0) {
+      if (!dto.codCashCollected || (dto.amountCollected !== undefined && dto.amountCollected <= 0)) {
+        throw new BadRequestException('Cash on Delivery orders require positive cash collection confirmation upon delivery');
+      }
+    }
+
     const cashConfirmed = isCodOrder && dto.codCashCollected === true;
     const requestedCollection = dto.amountCollected ?? totalAmount;
     const codCollected = cashConfirmed
       ? Math.round(Math.min(Math.max(requestedCollection, 0), totalAmount) * 100) / 100
       : 0;
 
-    const economics = await this.deliveryFeeService.getEconomicsConfig();
-    const riderShare = (economics.rider_share_percent || 80) / 100;
-    const deliveryEarnings = Math.round(Number(order.deliveryFee) * riderShare * 100) / 100;
+    const shouldMarkPaid = isCodOrder ? (codCollected > 0 || totalAmount === 0) : false;
+
+    const deliveryEarnings = await this.calculateRiderEarnings(order.deliveryFee);
 
     const result = await this.prisma.$transaction(async (tx) => {
       // 1. Claim the delivery with a guarded transition: a concurrent
@@ -241,7 +261,7 @@ export class RiderService {
         data: {
           status: OrderStatus.DELIVERED,
           deliveredAt: new Date(),
-          ...(cashConfirmed ? { paymentStatus: PaymentStatus.PAID } : {}),
+          ...(shouldMarkPaid ? { paymentStatus: PaymentStatus.PAID } : {}),
         },
       });
 
@@ -405,9 +425,7 @@ export class RiderService {
       return null;
     }
 
-    const economics = await this.deliveryFeeService.getEconomicsConfig();
-    const riderShare = (economics.rider_share_percent || 80) / 100;
-    const riderEarnings = Math.round(Number(activeOrder.deliveryFee) * riderShare * 100) / 100;
+    const riderEarnings = await this.calculateRiderEarnings(activeOrder.deliveryFee);
 
     return {
       ...activeOrder,
@@ -507,7 +525,6 @@ export class RiderService {
   async getRiderTrips(userId: string) {
     const rider = await this.getRiderProfile(userId);
     const economics = await this.deliveryFeeService.getEconomicsConfig();
-    const riderShare = (economics.rider_share_percent || 80) / 100;
     const orders = await this.prisma.order.findMany({
       where: {
         riderId: rider.id,
@@ -538,7 +555,7 @@ export class RiderService {
         isCod: order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY,
         payout: order.riderTrip
           ? Number(order.riderTrip.deliveryEarnings)
-          : Math.round(Number(order.deliveryFee) * riderShare * 100) / 100,
+          : this.deliveryFeeService.computeRiderEarnings(order.deliveryFee, economics.rider_share_percent),
         codCollected: order.riderTrip ? Number(order.riderTrip.codCollected) : 0,
         distanceKm: haversineKm(
           order.vendor.latitude,
@@ -550,5 +567,14 @@ export class RiderService {
         deliveredAt: order.deliveredAt,
       };
     });
+  }
+
+  private async calculateRiderEarnings(deliveryFee: Prisma.Decimal | number): Promise<number> {
+    if (typeof this.deliveryFeeService.calculateRiderEarnings === 'function') {
+      return this.deliveryFeeService.calculateRiderEarnings(deliveryFee);
+    }
+    const economics = await this.deliveryFeeService.getEconomicsConfig();
+    const riderShare = (economics?.rider_share_percent || 80) / 100;
+    return Math.round(Number(deliveryFee) * riderShare * 100) / 100;
   }
 }

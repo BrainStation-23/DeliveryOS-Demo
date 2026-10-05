@@ -130,24 +130,28 @@ export class AuthService {
       const role: UserRole = requestedRole === UserRole.RIDER ? UserRole.RIDER : UserRole.CUSTOMER;
       const status = role === UserRole.RIDER ? AccountStatus.PENDING_APPROVAL : AccountStatus.ACTIVE;
 
-      user = await this.prisma.user.create({
-        data: {
-          phone,
-          fullName: fullName || (role === UserRole.RIDER ? 'New Rider' : 'New Customer'),
-          role,
-          status,
-        },
-      });
-
-      if (role === UserRole.RIDER) {
-        await this.prisma.rider.create({
+      user = await this.prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
           data: {
-            userId: user.id,
-            vehicleType: 'motorcycle',
-            isOnline: false,
+            phone,
+            fullName: fullName || (role === UserRole.RIDER ? 'New Rider' : 'New Customer'),
+            role,
+            status,
           },
         });
-      }
+
+        if (role === UserRole.RIDER) {
+          await tx.rider.create({
+            data: {
+              userId: newUser.id,
+              vehicleType: 'motorcycle',
+              isOnline: false,
+            },
+          });
+        }
+
+        return newUser;
+      });
     }
 
     // Enforce approved login status
@@ -223,14 +227,16 @@ export class AuthService {
     }
 
     const storeKey = `auth:refresh:${decoded.jti}`;
-    const storedUserId = await this.redis.get(storeKey);
+    // Redis 6.2+ GETDEL provides atomic get-and-delete: concurrent refresh requests with the
+    // same token will yield only one winner, eliminating the token replay window.
+    const storedUserId = await this.redis.getdel(storeKey);
     if (!storedUserId || storedUserId !== decoded.sub) {
+      this.logger.warn(`Refresh token revoked or reused for user ${decoded.sub}`);
       throw new UnauthorizedException('Refresh token has been revoked');
     }
 
     const user = await this.prisma.user.findUnique({ where: { id: decoded.sub } });
     if (!user || user.status !== 'ACTIVE') {
-      await this.redis.del(storeKey);
       if (user?.status === AccountStatus.SUSPENDED) {
         const reason = user.suspensionReason || 'Violation of platform policies';
         throw new UnauthorizedException({
@@ -242,8 +248,6 @@ export class AuthService {
       }
       throw new UnauthorizedException('User account not found or inactive');
     }
-
-    await this.redis.del(storeKey);
 
     const secret = requiredEnv('JWT_SECRET');
     const refreshSecret = requiredEnv('JWT_REFRESH_SECRET');

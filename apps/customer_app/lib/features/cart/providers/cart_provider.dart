@@ -166,6 +166,7 @@ class CartNotifier extends Notifier<CartState> {
         },
       );
 
+      if (!ref.mounted) return;
       if (response.statusCode == 200) {
         final data = response.data['data'] as Map<String, dynamic>? ?? {};
         final dynamic rawFee = data['estimatedDeliveryFee'];
@@ -183,6 +184,8 @@ class CartNotifier extends Notifier<CartState> {
     } catch (_) {
       // Offline / Test geofence calculation using Haversine formula
     }
+
+    if (!ref.mounted) return;
 
     // Local Haversine Distance Check
     final vLat = state.vendorLat ?? 23.7925;
@@ -270,6 +273,14 @@ class CartNotifier extends Notifier<CartState> {
     String? customerNotes,
     String? deliveryAddressId,
   }) async {
+    if (state.isCheckingCoverage) {
+      int waitMs = 0;
+      while (state.isCheckingCoverage && waitMs < 2000) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        waitMs += 20;
+      }
+    }
+
     if (!state.canCheckout) {
       return {'success': false, 'message': 'Cannot checkout: please resolve cart errors.'};
     }

@@ -211,5 +211,26 @@ describe('DeliveryFeeService', () => {
       expect(result).toEqual({ deliveryFee: 92.5, mode: 'DISTANCE_TIERED', distanceKm: 5.5 });
     });
   });
+
+  describe('computeRiderEarnings & calculateRiderEarnings', () => {
+    it('computes pure rider earnings with custom or default share', () => {
+      const service = new DeliveryFeeService({} as never);
+      expect(service.computeRiderEarnings(100, 75)).toBe(75);
+      expect(service.computeRiderEarnings(60)).toBe(48);
+    });
+
+    it('calculates rider earnings using active delivery economics setting', async () => {
+      const mockPrisma = {
+        systemSetting: {
+          findUnique: jest.fn().mockResolvedValue({
+            value: { rider_share_percent: 75 },
+          }),
+        },
+      };
+      const service = new DeliveryFeeService(mockPrisma as never);
+      const earnings = await service.calculateRiderEarnings(100);
+      expect(earnings).toBe(75);
+    });
+  });
 });
 

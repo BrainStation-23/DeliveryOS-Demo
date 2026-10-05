@@ -76,7 +76,7 @@ export const DeliveryFeeSettingsCard: React.FC<DeliveryFeeSettingsCardProps> = (
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-5"
+      className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-5"
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -111,9 +111,9 @@ export const DeliveryFeeSettingsCard: React.FC<DeliveryFeeSettingsCardProps> = (
             }
           }}
           onClick={() => setFeeMode('FIXED_FLAT')}
-          className={`cursor-pointer rounded-xl border p-4 sm:p-5 transition-all focus:outline-hidden focus:ring-2 focus:ring-primary-500 flex flex-col justify-between ${
+          className={`cursor-pointer rounded-xl border p-4 sm:p-5 transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 flex flex-col justify-between ${
             feeMode === 'FIXED_FLAT'
-              ? 'border-primary-600 bg-primary-50/50 dark:border-primary-500 dark:bg-primary-950/20 ring-2 ring-primary-500/20 shadow-xs'
+              ? 'border-primary-600 bg-primary-50/50 dark:border-primary-500 dark:bg-primary-950/20 ring-2 ring-primary-500/20 shadow-sm'
               : 'border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
           }`}
         >
@@ -173,9 +173,9 @@ export const DeliveryFeeSettingsCard: React.FC<DeliveryFeeSettingsCardProps> = (
             }
           }}
           onClick={() => setFeeMode('DISTANCE_TIERED')}
-          className={`cursor-pointer rounded-xl border p-4 sm:p-5 transition-all focus:outline-hidden focus:ring-2 focus:ring-primary-500 flex flex-col justify-between ${
+          className={`cursor-pointer rounded-xl border p-4 sm:p-5 transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 flex flex-col justify-between ${
             feeMode === 'DISTANCE_TIERED'
-              ? 'border-primary-600 bg-primary-50/50 dark:border-primary-500 dark:bg-primary-950/20 ring-2 ring-primary-500/20 shadow-xs'
+              ? 'border-primary-600 bg-primary-50/50 dark:border-primary-500 dark:bg-primary-950/20 ring-2 ring-primary-500/20 shadow-sm'
               : 'border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
           }`}
         >

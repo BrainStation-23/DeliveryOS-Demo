@@ -71,8 +71,11 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
    * clients never derive earnings from the gross fee.
    */
   private async computeRiderEarnings(deliveryFee: Prisma.Decimal | number): Promise<number> {
+    if (typeof this.deliveryFeeService.calculateRiderEarnings === 'function') {
+      return this.deliveryFeeService.calculateRiderEarnings(deliveryFee);
+    }
     const economics = await this.deliveryFeeService.getEconomicsConfig();
-    const riderShare = (economics.rider_share_percent || 80) / 100;
+    const riderShare = (economics?.rider_share_percent || 80) / 100;
     return Math.round(Number(deliveryFee) * riderShare * 100) / 100;
   }
 
@@ -189,7 +192,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
       stale_order_ttl_minutes: dto.staleOrderTtlMinutes ?? existingValue.stale_order_ttl_minutes ?? 60,
     };
 
-    const updated = await this.prisma.systemSetting.upsert({
+    await this.prisma.systemSetting.upsert({
       where: { key: 'dispatch_config' },
       update: { value: nextValue },
       create: {
@@ -200,7 +203,10 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
     });
 
     this.logger.log(`Dispatch timing updated: ${JSON.stringify(nextValue)}`);
-    return updated.value;
+    return {
+      riderSearchTimeoutSeconds: nextValue.rider_search_timeout_seconds,
+      staleOrderTtlMinutes: nextValue.stale_order_ttl_minutes,
+    };
   }
 
   /**
@@ -225,27 +231,48 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
       radiusKm,
     );
 
-    const availableRiders: Array<{ riderId: string; distanceKm: number }> = [];
-
-    for (const [riderId, distance] of rawResults) {
-      const distanceKm = parseFloat(distance);
-
-      // Check if rider is currently busy on an active delivery
-      const isBusy = await this.redis.get(`rider:active_order:${riderId}`);
-      if (isBusy) continue;
-
-      // Verify rider is online in database
-      const rider = await this.prisma.rider.findUnique({
-        where: { id: riderId },
-        select: { isOnline: true },
-      });
-
-      if (rider && rider.isOnline) {
-        availableRiders.push({ riderId, distanceKm });
-      }
+    if (rawResults.length === 0) {
+      return [];
     }
 
-    return availableRiders;
+    // 1. Batch filter active order busy lock from Redis
+    const riderIds = rawResults.map(([riderId]) => riderId);
+    const busyKeys = riderIds.map((id) => `rider:active_order:${id}`);
+    const busyStatuses = await this.redis.mget(busyKeys);
+
+    const nonBusyCandidateIds: string[] = [];
+    const distanceMap = new Map<string, number>();
+
+    rawResults.forEach(([riderId, distance], index) => {
+      const isBusy = busyStatuses[index];
+      if (!isBusy) {
+        nonBusyCandidateIds.push(riderId);
+        distanceMap.set(riderId, parseFloat(distance));
+      }
+    });
+
+    if (nonBusyCandidateIds.length === 0) {
+      return [];
+    }
+
+    // 2. Batch verify online status in database
+    const onlineRiders = await this.prisma.rider.findMany({
+      where: {
+        id: { in: nonBusyCandidateIds },
+        isOnline: true,
+      },
+      select: { id: true },
+    });
+
+    const onlineSet = new Set(onlineRiders.map((r) => r.id));
+
+    // Preserve order from geosearch (distance ascending)
+    return nonBusyCandidateIds
+      .filter((riderId) => onlineSet.has(riderId))
+      .map((riderId) => ({
+        riderId,
+        distanceKm: distanceMap.get(riderId) ?? 0,
+      }));
   }
 
   /**
@@ -519,12 +546,20 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
           assertTransition(order.status, newStatus);
         }
 
-        const updated = await tx.order.update({
-          where: { id: orderId },
+        const claimResult = await tx.order.updateMany({
+          where: { id: orderId, riderId: null },
           data: {
             riderId: rider.id,
             status: newStatus,
           },
+        });
+
+        if (claimResult.count === 0) {
+          throw new ConflictException('This order has already been secured by another delivery rider.');
+        }
+
+        const updated = await tx.order.findUniqueOrThrow({
+          where: { id: orderId },
           include: {
             vendor: true,
             orderItems: true,

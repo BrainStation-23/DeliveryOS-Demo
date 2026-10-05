@@ -9,6 +9,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { TrackingGateway } from '../realtime/tracking.gateway';
 import { PaginatedResult, PaginationQueryDto, toPaginatedResult } from '../../common/dto/pagination.dto';
+import { IN_FLIGHT_STATUSES } from '../../common/constants/order.constants';
 
 export interface LiveOrderView {
   id: string;
@@ -52,6 +53,7 @@ import {
   DiscountType,
   OrderFlowMode,
   OrderStatus,
+  PaymentMethod,
   PermissionScope,
   Prisma,
   SettlementStatus,
@@ -191,15 +193,8 @@ export class AdminService {
     });
 
     // Single batched lookup; the database is the busy-signal source of truth.
-    const inFlightStatuses = [
-      OrderStatus.RIDER_ASSIGNED,
-      OrderStatus.ACCEPTED,
-      OrderStatus.PREPARING,
-      OrderStatus.READY_FOR_PICKUP,
-      OrderStatus.DISPATCHED,
-    ];
     const activeOrders = await this.prisma.order.findMany({
-      where: { riderId: { not: null }, status: { in: inFlightStatuses } },
+      where: { riderId: { not: null }, status: { in: [...IN_FLIGHT_STATUSES] } },
       select: {
         riderId: true,
         id: true,
@@ -427,6 +422,14 @@ export class AdminService {
       throw new BadRequestException(`Cannot reassign order in status "${order.status}"`);
     }
 
+    const snapshot = order.deliveryAddressSnapshot as Record<string, unknown> | null;
+    const isTakeaway = (order as { orderType?: string }).orderType === 'TAKEAWAY' ||
+      snapshot?.deliveryMethod === 'TAKEAWAY' ||
+      snapshot?.type === 'TAKEAWAY';
+    if (isTakeaway) {
+      throw new BadRequestException('Cannot assign a rider to a takeaway order');
+    }
+
     const rider = await this.prisma.rider.findUnique({
       where: { id: riderId },
       include: { user: { select: { id: true, fullName: true, phone: true, status: true } } },
@@ -446,41 +449,22 @@ export class AdminService {
       throw new BadRequestException('This courier is currently offline. The rider must go on duty before assignment');
     }
 
+    // COD safety limit: verify rider cash capacity before force-assigning
+    if (order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY) {
+      const projectedCash = Number(rider.cashInHand) + Number(order.totalAmount);
+      if (projectedCash > Number(rider.maxCashLimit)) {
+        throw new BadRequestException(
+          `Order total (৳${order.totalAmount}) would exceed rider's cash limit of ৳${rider.maxCashLimit} (current: ৳${rider.cashInHand})`,
+        );
+      }
+    }
+
     // Online Payment Invariant (ADR-011): an unverified ONLINE_GATEWAY order
     // must never enter the courier fleet, even by admin override.
     if (order.paymentMethod === 'ONLINE_GATEWAY' && order.paymentStatus !== 'PAID') {
       throw new BadRequestException(
         'This order is awaiting online payment confirmation and cannot be assigned to a courier yet',
       );
-    }
-
-    if (rider.id !== order.riderId) {
-      const riderInFlight = await this.prisma.order.findFirst({
-        where: {
-          riderId: rider.id,
-          id: { not: order.id },
-          status: {
-            in: [
-              OrderStatus.RIDER_ASSIGNED,
-              OrderStatus.ACCEPTED,
-              OrderStatus.PREPARING,
-              OrderStatus.READY_FOR_PICKUP,
-              OrderStatus.DISPATCHED,
-            ],
-          },
-        },
-        select: { orderNumber: true },
-      });
-      if (riderInFlight) {
-        throw new ConflictException(
-          `Courier is already mid-trip on Order #${riderInFlight.orderNumber}. Complete or reassign that trip first.`,
-        );
-      }
-    }
-
-    // Release any previous rider if reassigned
-    if (order.riderId && order.riderId !== riderId) {
-      await this.redis.del(`rider:active_order:${order.riderId}`);
     }
 
     // Advance status to RIDER_ASSIGNED if it was still in PLACED.
@@ -490,23 +474,54 @@ export class AdminService {
 
     let updatedOrder;
     try {
-      updatedOrder = await this.prisma.order.update({
-        where: { id: orderId, status: order.status },
-        data: {
-          riderId: rider.id,
-          status: newStatus,
-        },
-        include: {
-          customer: { select: { fullName: true, phone: true } },
-          vendor: true,
-          orderItems: true,
-        },
+      updatedOrder = await this.prisma.$transaction(async (tx) => {
+        if (rider.id !== order.riderId) {
+          const riderInFlight = await tx.order.findFirst({
+            where: {
+              riderId: rider.id,
+              id: { not: order.id },
+              status: {
+                in: [
+                  OrderStatus.RIDER_ASSIGNED,
+                  OrderStatus.ACCEPTED,
+                  OrderStatus.PREPARING,
+                  OrderStatus.READY_FOR_PICKUP,
+                  OrderStatus.DISPATCHED,
+                ],
+              },
+            },
+            select: { orderNumber: true },
+          });
+          if (riderInFlight) {
+            throw new ConflictException(
+              `Courier is already mid-trip on Order #${riderInFlight.orderNumber}. Complete or reassign that trip first.`,
+            );
+          }
+        }
+
+        return tx.order.update({
+          where: { id: orderId, status: order.status },
+          data: {
+            riderId: rider.id,
+            status: newStatus,
+          },
+          include: {
+            customer: { select: { fullName: true, phone: true } },
+            vendor: true,
+            orderItems: true,
+          },
+        });
       });
     } catch (err: unknown) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
         throw new ConflictException('Order state changed before the assignment could be applied; refresh and retry');
       }
       throw err;
+    }
+
+    // Release any previous rider if reassigned
+    if (order.riderId && order.riderId !== riderId) {
+      await this.redis.del(`rider:active_order:${order.riderId}`);
     }
 
     // Mark rider busy in Redis
@@ -714,9 +729,9 @@ export class AdminService {
         description: data.description || null,
         discountType: data.discountType,
         discountValue: data.discountValue,
-        minOrderAmount: data.minOrderAmount || 0,
-        maxDiscountAmount: data.maxDiscountAmount || null,
-        usageLimit: data.usageLimit || 1000,
+        minOrderAmount: data.minOrderAmount ?? 0,
+        maxDiscountAmount: data.maxDiscountAmount ?? null,
+        usageLimit: data.usageLimit ?? 1000,
         validFrom: data.validFrom || new Date(),
         validTo: data.validTo || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         isActive: data.isActive !== undefined ? data.isActive : true,
@@ -1772,10 +1787,10 @@ export class AdminService {
     baseKm?: number;
     perKmRate?: number;
   }): Promise<DeliveryFeeConfig> {
-    const flatFee = data.flatFee ?? 50.0;
-    const baseFee = data.baseFee ?? 40.0;
-    const baseKm = data.baseKm ?? 2.0;
-    const perKmRate = data.perKmRate ?? 15.0;
+    const flatFee = data.flatFee ?? DEFAULT_DELIVERY_FEE_CONFIG.flatFee;
+    const baseFee = data.baseFee ?? DEFAULT_DELIVERY_FEE_CONFIG.baseFee;
+    const baseKm = data.baseKm ?? DEFAULT_DELIVERY_FEE_CONFIG.baseKm;
+    const perKmRate = data.perKmRate ?? DEFAULT_DELIVERY_FEE_CONFIG.perKmRate;
 
     const payload: DeliveryFeeConfig = {
       mode: data.mode,

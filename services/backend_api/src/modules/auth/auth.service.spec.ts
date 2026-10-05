@@ -25,7 +25,9 @@ function buildService(options: {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     rider: { create: jest.fn().mockResolvedValue({}) },
+    $transaction: jest.fn(),
   };
+  prisma.$transaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => cb(prisma));
   const redis = {
     get: jest.fn(async (key: string) => {
       if (key === 'otp:+8801700000009') return options.storedOtp ?? null;
@@ -34,6 +36,10 @@ function buildService(options: {
       if (key === 'role_req:+8801700000009') return options.roleRequest ?? null;
       return null;
     }),
+    getdel: jest.fn(async (_key: string): Promise<string | null> => {
+      return null;
+    }),
+    zrem: jest.fn().mockResolvedValue(1),
     set: jest.fn().mockResolvedValue('OK'),
     del: jest.fn().mockResolvedValue(1),
   };
@@ -302,7 +308,7 @@ describe('AuthService - refreshTokens rotation', () => {
     const token = mintRefreshToken({ sub: 'user-1', type: 'refresh', jti: presentedJti });
     const { service, redis } = (() => {
       const built = buildService({ user: activeUser });
-      built.redis.get = jest.fn(async (key: string) =>
+      built.redis.getdel = jest.fn(async (key: string) =>
         key === `auth:refresh:${presentedJti}` ? 'user-1' : null,
       );
       return built;
@@ -316,12 +322,37 @@ describe('AuthService - refreshTokens rotation', () => {
     expect(refresh.jti).not.toBe(presentedJti);
     expect(refresh.jti).toEqual(expect.any(String));
 
-    expect(redis.del).toHaveBeenCalledWith(`auth:refresh:${presentedJti}`);
+    expect(redis.getdel).toHaveBeenCalledWith(`auth:refresh:${presentedJti}`);
     expect(redis.set).toHaveBeenCalledWith(
       `auth:refresh:${refresh.jti}`,
       'user-1',
       expect.any(Number),
     );
+  });
+
+  it('rejects concurrent replay attempt with the same refresh token', async () => {
+    const presentedJti = 'concurrent-jti';
+    const token = mintRefreshToken({ sub: 'user-1', type: 'refresh', jti: presentedJti });
+    const { service } = (() => {
+      const built = buildService({ user: activeUser });
+      let callCount = 0;
+      built.redis.getdel = jest.fn(async (key: string) => {
+        if (key === `auth:refresh:${presentedJti}`) {
+          callCount++;
+          // First call succeeds, second concurrent call gets null (key already consumed)
+          return callCount === 1 ? 'user-1' : null;
+        }
+        return null;
+      });
+      return built;
+    })();
+
+    // Winner succeeds
+    const firstCall = await service.refreshTokens(token);
+    expect(firstCall.accessToken).toBeDefined();
+
+    // Loser fails with revocation exception
+    await expect(service.refreshTokens(token)).rejects.toThrow('Refresh token has been revoked');
   });
 
   it('revokes the stored jti when the user is no longer active', async () => {
@@ -331,7 +362,7 @@ describe('AuthService - refreshTokens rotation', () => {
       const built = buildService({
         user: { ...activeUser, status: AccountStatus.SUSPENDED },
       });
-      built.redis.get = jest.fn(async (key: string) =>
+      built.redis.getdel = jest.fn(async (key: string) =>
         key === `auth:refresh:${presentedJti}` ? 'user-1' : null,
       );
       return built;
@@ -340,7 +371,7 @@ describe('AuthService - refreshTokens rotation', () => {
     await expect(service.refreshTokens(token)).rejects.toThrow(
       'Your account has been suspended',
     );
-    expect(redis.del).toHaveBeenCalledWith(`auth:refresh:${presentedJti}`);
+    expect(redis.getdel).toHaveBeenCalledWith(`auth:refresh:${presentedJti}`);
   });
 
   it('rejects garbage tokens without leaking errors', async () => {

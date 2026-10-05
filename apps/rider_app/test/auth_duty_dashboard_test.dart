@@ -129,6 +129,41 @@ void main() {
       dutyNotifier.stopBeaconing();
     });
 
+    test('INVARIANT: Duty switch fails closed on network/server error without going online', () async {
+      final mockDio = createMockDio(
+        adapter: MockSuccessAdapter(
+          statusCode: 500,
+          customResponse: {'message': 'Internal Server Error'},
+        ),
+      );
+
+      final container = createMockRiderContainer(
+        storage: storage,
+        dio: mockDio,
+      );
+
+      final approvedProfile = RiderProfileData.pilotApproved(
+        phone: '+8801700112233',
+        fullName: 'Tanvir Hossain',
+      );
+      container.read(riderAuthProvider.notifier).state = RiderAuthState(
+        isAuthenticated: true,
+        isPendingApproval: false,
+        profile: approvedProfile,
+      );
+
+      final dutyNotifier = container.read(riderDutyProvider.notifier);
+
+      final result = await dutyNotifier.toggleDuty(forceState: true);
+      expect(result, isFalse);
+
+      final state = container.read(riderDutyProvider);
+      expect(state.isOnline, isFalse);
+      expect(state.isBeaconing, isFalse);
+      expect(state.error, isNotNull);
+      expect(storage.getIsOnline(), isFalse);
+    });
+
     test('COD cash safety limit calculation is accurate', () {
       final safeDuty = RiderDutyState(
         codCashInHand: 1500.0,

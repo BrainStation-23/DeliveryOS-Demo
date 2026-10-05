@@ -134,7 +134,7 @@ class CartState {
   bool get canCheckout {
     if (isEmpty) return false;
     if (!isVendorActive || isVendorBusy) return false;
-    if (deliveryMethod == DeliveryMethod.homeDelivery && !isWithinCoverage) {
+    if (deliveryMethod == DeliveryMethod.homeDelivery && (isCheckingCoverage || !isWithinCoverage)) {
       return false;
     }
     return true;

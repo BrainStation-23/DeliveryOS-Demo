@@ -9,6 +9,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/common/PageHeader';
 import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { extractApiError } from '../../utils/apiError';
+import { getSocket } from '../../services/socket';
 import { useSocketQueryInvalidation } from '../../hooks/useSocketSubscription';
 import { OrderDetailsModal } from '../../components/orders/OrderDetailsModal';
 import { ForceAssignModal } from '../../components/orders/ForceAssignModal';
@@ -22,7 +23,7 @@ import { OrderStatusCards } from './components/orders/OrderStatusCards';
 import { OrderDeepLinkBanner } from './components/orders/OrderDeepLinkBanner';
 import { OrdersTable } from './components/orders/OrdersTable';
 
-const ORDER_SOCKET_EVENTS = ['order:new', 'order:status:changed'];
+const ORDER_SOCKET_EVENTS = ['order:new', 'order:status:changed', 'order:delivery_failed'];
 const ORDER_QUERY_KEYS = [['admin-orders']];
 
 export const AdminOrdersPage: React.FC = () => {
@@ -86,7 +87,7 @@ export const AdminOrdersPage: React.FC = () => {
   useSocketQueryInvalidation(ORDER_SOCKET_EVENTS, ORDER_QUERY_KEYS);
 
   const { data: fleet = [] } = useQuery({
-    queryKey: ['admin-fleet-assignable'],
+    queryKey: ['admin-fleet'],
     queryFn: adminApi.getFleet,
   });
 
@@ -116,6 +117,19 @@ export const AdminOrdersPage: React.FC = () => {
       }
     }
   }, [orderNumberParam, safeOrders, autoHandledOrderNumber]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    const handleDeliveryFailed = (payload: { data?: { orderId?: string; orderNumber?: string; reason?: string } }) => {
+      if (payload?.data?.orderNumber) {
+        setActionError(`Doorstep delivery failure reported for order ${payload.data.orderNumber}: ${payload.data.reason || 'Customer unreachable / delivery rejected'}`);
+      }
+    };
+    socket.on('order:delivery_failed', handleDeliveryFailed);
+    return () => {
+      socket.off('order:delivery_failed', handleDeliveryFailed);
+    };
+  }, []);
 
   const forceAssignMutation = useMutation({
     mutationFn: ({ orderId, riderId }: { orderId: string; riderId: string }) =>
@@ -251,7 +265,7 @@ export const AdminOrdersPage: React.FC = () => {
               }}
               className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer h-8 ${
                 unassignedOnly
-                  ? 'bg-amber-500 text-white shadow-xs'
+                  ? 'bg-amber-500 text-white shadow-sm'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
               }`}
               title="Show only active orders with no courier assigned"

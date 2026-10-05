@@ -48,16 +48,6 @@ async function runVendorRiderTest() {
       });
     }
 
-    // This suite verifies the RIDER_FIRST contract (courier-before-kitchen);
-    // other suites may leave the global flow mode in VENDOR_FIRST, so pin it.
-    await prisma.systemSetting.upsert({
-      where: { key: 'order_flow_config' },
-      update: { value: { mode: 'RIDER_FIRST', rider_search_timeout_seconds: 90, stale_order_ttl_minutes: 60 } },
-      create: {
-        key: 'order_flow_config',
-        value: { mode: 'RIDER_FIRST', rider_search_timeout_seconds: 90, stale_order_ttl_minutes: 60 },
-      },
-    });
     // -------------------------------------------------------------------------
     // Helper: Authenticate by Phone
     // -------------------------------------------------------------------------

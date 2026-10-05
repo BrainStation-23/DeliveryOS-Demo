@@ -54,7 +54,7 @@ export const OperatingHoursWidget: React.FC<OperatingHoursWidgetProps> = ({
   const todayDayOfWeek = new Date().getDay();
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3.5 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2">
@@ -82,7 +82,7 @@ export const OperatingHoursWidget: React.FC<OperatingHoursWidgetProps> = ({
           <Button
             variant="primary"
             size="md"
-            className="shadow-xs font-semibold"
+            className="shadow-sm font-semibold"
             onClick={handleSave}
             isLoading={isLoading}
             leftIcon={justSaved ? <Check className="h-3.5 w-3.5 text-white" /> : <Save className="h-3.5 w-3.5" />}
@@ -131,7 +131,7 @@ export const OperatingHoursWidget: React.FC<OperatingHoursWidgetProps> = ({
                       newHours[index].openTime = `${e.target.value}:00`;
                       setHours(newHours);
                     }}
-                    className="h-8 rounded-lg border border-slate-200 px-2 text-xs font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 disabled:opacity-40 focus:border-amber-500 focus:outline-hidden"
+                    className="h-8 rounded-lg border border-slate-200 px-2 text-xs font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 disabled:opacity-40 focus:border-amber-500 focus:outline-none"
                   />
                 </div>
 
@@ -146,7 +146,7 @@ export const OperatingHoursWidget: React.FC<OperatingHoursWidgetProps> = ({
                       newHours[index].closeTime = `${e.target.value}:00`;
                       setHours(newHours);
                     }}
-                    className="h-8 rounded-lg border border-slate-200 px-2 text-xs font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 disabled:opacity-40 focus:border-amber-500 focus:outline-hidden"
+                    className="h-8 rounded-lg border border-slate-200 px-2 text-xs font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 disabled:opacity-40 focus:border-amber-500 focus:outline-none"
                   />
                 </div>
 
