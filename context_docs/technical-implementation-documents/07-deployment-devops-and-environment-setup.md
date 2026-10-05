@@ -251,11 +251,18 @@ CREATE EXTENSION IF NOT EXISTS "postgis_topology";
 
 ## 5. Seed Data Strategy for 10 Pilot Vendors
 
-When initializing the database for the pilot, the seed script (`services/backend_api/prisma/seed.ts`) populates:
-1. **1 Super Admin Account** (`admin@deliveryos.local` / `+8801700000000`).
-2. **10 Pilot Vendors** (7 restaurants/cafes, 3 super shops/groceries) complete with coordinates, operating hours, categories, dishes, variants, and add-ons.
-3. **5 Pre-Approved Pilot Riders** with mock GPS coordinates within the pilot radius.
-4. **Default System Settings** (`FIXED_FLAT` fee mode at 50 BDT / 12 SAR; `RIDER_FIRST` FSM mode).
+Rebuild the full demo system with one command (`services/backend_api`):
+
+```bash
+npm run db:reset   # prisma migrate reset --force: drops, replays the single 0_init baseline, reseeds
+```
+
+The deterministic production-realistic seeder (`services/backend_api/prisma/seed.ts`) populates:
+1. **Documented demo logins** (OTP `123456`): Super Admin `+8801700000001`, outlet manager `+8801700000002`, brand owner `+8801700000003`, rider `+8801700000004`, customer `+8801700000005`; plus a pending-approval rider applicant (`…042`) and a suspended customer (`…073`).
+2. **5 outlet types** (Cafe deactivated with 2 assigned outlets — customer-hiding demo), **6 brands / 12 outlets** with mixed per-outlet flow modes, operating hours (incl. a weekly closed day), categories, and ~60 products with variants incl. out-of-stock.
+3. **15 riders** (2 pending applicants, one near the cash ceiling) and **24 customers + 1 suspended**, all addressed.
+4. **All system settings**: `dispatch_config` (rider search timeout, stale TTL), `FIXED_FLAT` delivery fee at 50 BDT, `delivery_economics` (80% rider share), `region_config`.
+5. **30 days of books**: ~114 orders across every live FSM state (delivered/cancelled/live), paired commission + trip ledgers, gateway payments (PAID/REFUNDED/FAILED), 2 settlement batches, cash deposits in all 3 verification states, coupons (exhausted/expired/inactive cases), banners (all 4 link types), and media assets — with reconciliation asserts that fail the seed on any drift.
 
 ---
 

@@ -62,7 +62,9 @@ async function runTrack1IntegrityTests() {
     if (!customerToken || !customerId) throw new Error('Failed to authenticate customer');
 
     // Rider
+    // An approved, ACTIVE rider is required — pending applicants cannot authenticate.
     const riderRecord = await prisma.rider.findFirst({
+      where: { isApproved: true, user: { status: 'ACTIVE' } },
       include: { user: true },
     });
     if (!riderRecord) throw new Error('Rider record not found in database');

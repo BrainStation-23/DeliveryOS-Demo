@@ -65,7 +65,7 @@ Single source of truth: `apps/vendor_portal/src/config/vendorNavigation.ts`. Sid
 ### 4.2 3-Lane Kanban Workflow
 
 #### Lane 1: New Orders (`PLACED` or `RIDER_ASSIGNED`)
-- **Displays**: Pulsing rose badge, order number, elapsed arrival timer, dishes, quantities, add-ons, cooking notes, and courier badge.
+- **Displays**: Pulsing rose badge, order number, elapsed arrival timer, dishes, quantities, variants, cooking notes, and courier badge.
 - **Actions**:
   - *One-Tap Accept*: Automatically applies store's default prep duration (e.g. 20 min) and advances order directly to `PREPARING` ([ADR-002](../architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)).
   - *Custom Prep Time*: Selector pills for `[15, 20, 25, 35, 45]` minutes.
@@ -119,5 +119,5 @@ Single source of truth: `apps/vendor_portal/src/config/vendorNavigation.ts`. Sid
 - **Itemized Order Details Modal**:
   - Customer contact snapshot and delivery address.
   - Special cooking instructions note.
-  - Itemized breakdown of quantities, variants, add-ons, unit prices, and line item subtotals.
+  - Itemized breakdown of quantities, variants, unit prices, and line item subtotals.
   - Financial breakdown: Gross amount, platform commission, net payable, payment method, and settlement status (`SETTLED` vs `PENDING`).

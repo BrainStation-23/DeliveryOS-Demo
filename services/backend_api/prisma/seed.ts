@@ -14,6 +14,12 @@
  * Re-runnable: reference data is upserted; transactional data (orders,
  * ledgers, payments, batches, deposits) is wiped and recreated.
  */
+import * as dotenv from 'dotenv';
+import Redis from 'ioredis';
+
+dotenv.config({ path: '../../.env' });
+dotenv.config();
+
 import {
   PrismaClient,
   AccountStatus,
@@ -767,12 +773,12 @@ async function main() {
 
   const couponSeed = [
     {
-      code: 'WELCOME50', description: '10% off your first order (max ৳200)', type: DiscountType.PERCENTAGE,
-      value: 10, min: 200, cap: 200, limit: 500, from: -30, to: 60,
+      code: 'WELCOME50', description: '৳50 flat off your first order over ৳250', type: DiscountType.FLAT,
+      value: 50, min: 250, cap: null, limit: 500, from: -30, to: 60,
     },
     {
-      code: 'BURGER20', description: '৳20 off any burger order over ৳150', type: DiscountType.FLAT,
-      value: 20, min: 150, cap: null, limit: 1000, from: -30, to: 60,
+      code: 'BURGER20', description: '20% off (max ৳100) over ৳150', type: DiscountType.PERCENTAGE,
+      value: 20, min: 150, cap: 100, limit: 1000, from: -30, to: 60,
     },
     {
       code: 'GROCERY10', description: '5% off groceries (max ৳100)', type: DiscountType.PERCENTAGE,
@@ -1076,6 +1082,30 @@ async function main() {
       netSubtotal, deliveryFee, totalAmount, riderId,
       deliveredAt: order.deliveredAt, placedAt, couponCode,
     });
+  }
+
+  // Prime the per-day order-number Redis counters so API-generated numbers
+  // never collide with the seeded history (checkout retries only 3x).
+  {
+    const redis = new Redis(process.env.REDIS_URL ?? 'redis://:redispassword@localhost:6380', {
+      lazyConnect: true,
+      maxRetriesPerRequest: 2,
+    });
+    try {
+      await redis.connect();
+      for (const [day, seq] of seqByDay) {
+        const key = `order:seq:${day}`;
+        const current = await redis.get(key);
+        if (!current || parseInt(current, 10) < seq) {
+          await redis.set(key, String(seq));
+          await redis.expire(key, 172800); // match the 48h TTL the API uses
+        }
+      }
+    } catch (e) {
+      console.warn(`⚠️ Could not prime Redis order-number counters: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      redis.disconnect();
+    }
   }
 
   // -------------------------------------------------------------------------

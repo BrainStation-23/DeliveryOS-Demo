@@ -11,7 +11,7 @@
 - **Quality gate**: `npm run verify` at root (mirrors CI in `.github/workflows/ci.yml`): test-integrity guard + backend typecheck/lint/Jest unit tests (per-file coverage floors)/build + portal typechecks/Vitest unit tests/builds + `flutter analyze`/`flutter test` ×2. Backend integration suites: `npm test` in `services/backend_api` (live stack); unit tests: `npm run test:unit` (no DB needed).
 - **Datastores**: PostgreSQL 16 + PostGIS (`localhost:5433`), Redis 7.2 (`localhost:6380`). Boot via `./scripts/start-local.sh`.
 - **Auth**: phone OTP only (no passwords anywhere). Dev seeded logins use OTP `123456`: Super Admin `+8801700000001`, vendor branch manager `+8801700000002`, brand owner `+8801700000003`.
-- **Canonical sources**: schema = `services/backend_api/prisma/schema.prisma` (23 models) • endpoints = `TID-03` • WS events = `TID-04` • FSM = `src/modules/orders/order-state.machine.ts` • fees = `src/modules/promotions/pricing/delivery-fee.service.ts`.
+- **Canonical sources**: schema = `services/backend_api/prisma/schema.prisma` (22 models) • endpoints = `TID-03` • WS events = `TID-04` • FSM = `src/modules/orders/order-state.machine.ts` • fees = `src/modules/promotions/pricing/delivery-fee.service.ts`.
 
 ---
 
@@ -19,7 +19,7 @@
 - **Rules & Standards**: [`context_docs/AGENT_RULES.md`](./context_docs/AGENT_RULES.md) (authoritative governance & DoD)
 - **Feature Catalog**: [`FEATURES.md`](./FEATURES.md) (granular capability index + test traceability)
 - **Roadmap & Changelog**: [`CHANGELOG.md`](./CHANGELOG.md) (milestone tracker & SemVer release history)
-- **ADR Index**: [`context_docs/architecture-decision-records/README.md`](./context_docs/architecture-decision-records/README.md) (`ADR-001` through `ADR-018`)
+- **ADR Index**: [`context_docs/architecture-decision-records/README.md`](./context_docs/architecture-decision-records/README.md) (`ADR-001` through `ADR-019`)
 - **BRD Suite**: [`context_docs/business-requirements-documents/README.md`](./context_docs/business-requirements-documents/README.md) (`BRD-00` through `BRD-07`)
 - **TID Suite**: [`context_docs/technical-implementation-documents/README.md`](./context_docs/technical-implementation-documents/README.md) (`TID-01` through `TID-07`)
 

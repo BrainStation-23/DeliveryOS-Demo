@@ -103,7 +103,7 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
     "totalAmount": 550.0,
     "paymentMethod": "CASH_ON_DELIVERY",
     "customerNotes": "Extra spicy please",
-    "items": [{ "name": "Burger", "quantity": 1, "variant": "Large", "addons": ["Cheese"] }],
+    "items": [{ "name": "Burger", "quantity": 1, "variant": "Large" }],
     "riderAssigned": true,
     "placedAt": "2026-10-01T12:05:00.000Z"
   }

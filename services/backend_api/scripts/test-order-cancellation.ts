@@ -58,9 +58,11 @@ async function runCancellationTests() {
     const adminToken = adminAuth.data.data.accessToken;
 
     // Active Vendor & Product
+    // Rider claims from PLACED, so the fixture outlet must run RIDER_FIRST.
     const vendor = await prisma.vendor.findFirst({
       where: {
         isActive: true,
+        orderFlowMode: 'RIDER_FIRST',
         products: { some: { isInStock: true } },
       },
       include: { products: { where: { isInStock: true } } },

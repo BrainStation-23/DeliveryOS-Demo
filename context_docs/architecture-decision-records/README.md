@@ -30,6 +30,7 @@ Because DeliveryOS development is **AI-driven**, this ADR framework serves as a 
 | **[ADR-016](./ADR-016-centralized-media-library-and-client-side-editing.md)** | Centralized Media Library with Client-Side Crop & Resize | **Accepted** | 2026-10-02 | Media / Storage / Admin Portal |
 | **[ADR-017](./ADR-017-absolute-variation-pricing-and-brand-mandatory-outlets.md)** | Absolute Variation Pricing, Ordered Variations & Brand-Mandatory Outlets | **Accepted** | 2026-10-02 | Catalog / Data Model / Admin Portal |
 | **[ADR-018](./ADR-018-admin-analytics-read-layer-and-banner-deeplinks.md)** | Admin Analytics Read Layer & Banner Deeplink Completion | **Accepted** | 2026-10-02 | Analytics / Admin Portal / Mobile |
+| **[ADR-019](./ADR-019-admin-managed-outlet-types.md)** | Admin-Managed Outlet Types Replace the Vertical Enum | **Accepted** | 2026-10-05 | Catalog / Discovery / Admin Portal |
 
 ---
 

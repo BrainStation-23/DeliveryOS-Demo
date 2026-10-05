@@ -37,6 +37,7 @@ The production-readiness hardening effort (2026-09) identified security gaps tha
 - `docker-compose.prod.yml` renders TLS config from `nginx-templates/default.conf.template` (envsubst, Let's Encrypt webroot via a certbot renewal service); the bootstrap procedure lives in `deploy/README.md`.
 - All containers run non-root (backend `USER node`; portals on `nginxinc/nginx-unprivileged` listening on 8080); JSON log rotation and memory limits are declared in compose.
 - The backend container runs `prisma migrate deploy` on every start — schema can never drift from the image.
+- **Baseline squash (amended 2026-10-05)**: at the full system reset the nine accumulated migrations were squashed into the single `0_init` baseline (schema-exact, incl. PostGIS extensions and GiST expression indexes). The `migrate deploy` gate is unchanged going forward; new schema changes append fresh migrations as before.
 - `app.enableShutdownHooks()` guarantees Prisma/Redis disconnect on SIGTERM.
 - Structured JSON logging via winston with an `AsyncLocalStorage` request-id middleware (`x-request-id` echoed on responses); the global exception filter logs status, path, request id, and stack trace for every 5xx.
 

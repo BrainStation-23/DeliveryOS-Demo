@@ -86,7 +86,7 @@ async function runSettlementAndGovernanceTests() {
     // 3. Rider Fleet Governance: Approval & Cash Limit
     console.log('\n🛵 3. Testing Rider Fleet Governance (Approval & Cash Limits)...');
     const riderListRes = await requestJson(`${API_BASE}/admin/riders`, 'GET', null, adminToken);
-    const ridersList = riderListRes.data?.data || riderListRes.data;
+    const ridersList = riderListRes.data?.items ?? riderListRes.data;
     console.log(`   Retrieved ${ridersList.length} couriers in fleet.`);
     if (ridersList.length === 0) throw new Error('No riders found');
     const testRider = ridersList[0];

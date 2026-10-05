@@ -49,12 +49,15 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 ### 2.2 Customer Discovery, Cart & Checkout (`/vendors`, `/orders`, `/coupons`, `/banners`)
 - **`GET /banners/active`**
   - *Guard*: Public.
-  - *Response*: Array of `{ "id": "...", "title": "...", "imageUrl": "...", "linkType": "OUTLET" | "CATEGORY" | "EXTERNAL", "targetId": "...", "targetUrl": "https://..." | null, "targetName": "..." | null }` — `targetUrl` carries the absolute http(s) link for `EXTERNAL` banners; `targetName` is the resolved outlet/category display name so mobile clients route deeplinks without extra lookups.
+  - *Response*: Array of `{ "id": "...", "title": "...", "imageUrl": "...", "linkType": "OUTLET" | "CATEGORY" | "EXTERNAL" | "INTERNAL", "targetId": "...", "targetUrl": "https://..." | null, "targetName": "..." | null }` — `targetUrl` carries the absolute http(s) link for `EXTERNAL` banners; `targetName` is the resolved outlet/category display name so mobile clients route deeplinks without extra lookups.
+- **`GET /vendors/outlet-types`**
+  - *Guard*: Public.
+  - *Response*: Active outlet types `[{ "id", "name", "slug", "sortOrder" }]` ordered by `sortOrder` — powers the customer-app category chips (ADR-019; deactivated types are omitted, hiding their outlets from discovery).
 - **`GET /vendors/nearby`**
   - *Guard*: Public.
-  - *Query*: `lat` (float), `lng` (float), `vertical` (optional: `FOOD` | `GROCERY` | `SUPER_SHOP` | `PHARMACY`), `limit` (optional int: 1–100, default 50).
-  - *Action*: Executes PostGIS `ST_DWithin` returning outlets where user is within `delivery_radius_km`.
-  - Rows carry `brandName` and `displayName` (`"Brand - Outlet"`, the canonical customer-facing representation; `/vendors/search` matches brand names too).
+  - *Query*: `lat` (float), `lng` (float), `typeSlug` (optional kebab-case outlet-type filter from `GET /vendors/outlet-types`), `limit` (optional int: 1–100, default 50).
+  - *Action*: Executes PostGIS `ST_DWithin` returning outlets where user is within `delivery_radius_km`; joins `outlet_types` and excludes deactivated types (ADR-019).
+  - Rows carry `brandName`, `typeId`/`typeName`/`typeSlug`, and `displayName` (`"Brand - Outlet"`, the canonical customer-facing representation; `/vendors/search` matches brand names too).
 - **`GET /vendors/search`**
   - *Guard*: Public.
   - *Query*: `q` (string), `lat` (float), `lng` (float).
@@ -66,9 +69,6 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Guard*: `JwtAuthGuard` (any authenticated role; Throttled: 30 req / min). When `addressId` is supplied, ownership is enforced exactly like checkout — a caller may only probe their own saved addresses (403 otherwise).
   - *Body*: `{ "vendorId": "uuid", "latitude": 23.7808, "longitude": 90.4190 }` or `{ "vendorId": "uuid", "addressId": "uuid" }`.
   - *Response*: `{ "isWithinCoverage": true, "distanceKm": 2.4, "deliveryRadiusKm": 5.0, "estimatedDeliveryFee": 50.0, "isActive": true, "isBusy": false }`.
-- **`POST /cart/validate-address-coverage`**
-  - *Guard*: `JwtAuthGuard` (any authenticated role). Cart-controller alias of the vendor coverage check; identical address-ownership rule.
-  - *Body / Response*: Identical to `POST /vendors/validate-address-coverage`.
 - **`POST /coupons/validate`**
   - *Guard*: Public (Throttled: 30 req / min).
   - *Body*: `{ "code": "PILOT50", "cartSubtotal": 500.0, "vendorId": "uuid" }`.
@@ -84,7 +84,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
       "paymentMethod": "CASH_ON_DELIVERY",
       "couponCode": "PILOT50",
       "customerNotes": "Don't ring bell",
-      "items": [{ "productId": "uuid", "quantity": 2, "variantId": "uuid", "addonIds": ["uuid"] }]
+      "items": [{ "productId": "uuid", "quantity": 2, "variantId": "uuid" }]
     }
     ```
   - *Response*: `{ "orderId": "uuid", "orderNumber": "ORD-20261001-0042", "totalAmount": 500.0, "status": "PLACED" }`.
@@ -99,9 +99,6 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`GET /orders/:id`**
   - *Guard*: `JwtAuthGuard` (owner).
   - *Response*: Full order detail envelope (status, items, payment, courier snapshot).
-- **`GET /orders/:id/live-tracking`**
-  - *Guard*: `JwtAuthGuard` (`CUSTOMER`).
-  - *Response*: Current status, stepper step, courier coordinates (`lat`, `lng`, `bearing`), and ETA.
 - **`POST /orders/:id/switch-cod`**
   - *Guard*: `JwtAuthGuard` (`CUSTOMER`).
   - *Action*: Converts pending/failed online gateway order to COD and releases to kitchen/dispatch.
@@ -116,7 +113,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`PATCH /vendor/orders/:id/accept`**
   - *Body*: `{ "prepTimeMinutes": 25 }`.
   - *Action*: Transitions order directly to `PREPARING` per ADR-002, setting `accepted_at = NOW()`.
-  - *Invariant*: In `RIDER_FIRST` mode a `PLACED` order returns `409` — the kitchen cannot begin preparation before a courier secures the order. The update is conditional on the observed status, so a concurrent cancellation wins instead of being overwritten.
+  - *Invariant*: On a `RIDER_FIRST`-flow order (per the order's immutable snapshot) a `PLACED` order returns `409` — the kitchen cannot begin preparation before a courier secures the order. The update is conditional on the observed status, so a concurrent cancellation wins instead of being overwritten.
 - **`POST /vendor/orders/:id/reject`**
   - *Body*: `{ "reasonCode": "OUT_OF_STOCK" | "KITCHEN_OVERLOAD" | "STORE_CLOSING_SOON" | "OTHER", "reasonNotes": "..." }`.
   - *Action*: Transitions order to `CANCELLED`.
@@ -150,13 +147,9 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Action*: Status-conditional `DISPATCHED → READY_FOR_PICKUP` reset (a concurrent cancellation cannot be overwritten), unlocks courier, reports doorstep failure, and alerts Dispatch HQ.
 - **`GET /rider/trips`**: Returns completed delivery trips, payout earnings, and collected cash.
 - **`POST /rider/cash/deposit`**: Body `{ "amount": 2500.0, "notes": "Banani Hub" }`.
-- **`GET /rider/cash/deposits`**: Returns history of submitted cash deposits.
+- **`GET /rider/cash/deposits`**: Returns the signed-in rider's cash-deposit history (newest first) with verification statuses.
 
 ### 2.5 Super Admin Master Governance Module (`/admin`)
-- **`POST /admin/uploads`** (legacy alias — now delegates to the media library)
-  - *Guard*: `JwtAuthGuard` + `RolesGuard` (`SUPER_ADMIN`).
-  - *Body*: `multipart/form-data` with `file` (JPEG/PNG/WebP/GIF, max 5 MB).
-  - *Response*: the registered `media_assets` entity (ADR-016), including its public `url`.
 - **`GET /admin/media`**: Central media library listing — paginated `{ items, total, page, limit, totalPages }`, newest first, with optional `search` (case-insensitive contains over `originalName` and `filename`); each item carries `id`, `url`, `filename`, `originalName`, `mimeType`, `sizeBytes`, `width`/`height` (client-measured post-crop), `uploadedBy { id, fullName }`, `createdAt`.
 - **`POST /admin/media`**: Upload to the central library — `multipart/form-data` with `file` (JPEG/PNG/WebP/GIF, max 5 MB) plus optional `width`/`height` ints (final pixel dimensions after client-side crop/resize) and optional `name` (display name, ≤255 chars; defaults to the uploaded file name). Returns the registered entity.
 - **`DELETE /admin/media/:id`**: Deletes the asset row first, then unlinks the stored file (idempotent file removal; 404 for unknown ids).
@@ -177,11 +170,11 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`PATCH /admin/riders/:id/cash-limit`**: Body `{ "maxCashLimit": 8000.0 }`.
 - **`GET /admin/customers`**: Paginated customer directory (role=CUSTOMER) — query `page`/`limit`, `search` (name/phone), `status=ACTIVE | PENDING_APPROVAL | SUSPENDED | ALL`, `dateFrom`/`dateTo` (registration window). Rows carry `orderCount`, `lifetimeSpend` (non-cancelled), and `lastOrderAt`.
 - **`GET /admin/customers/:id`**: Customer detail — profile, saved addresses, status-count metrics, lifetime spend / delivery fees / coupon savings / avg order value, and the last 10 orders. 404 for unknown or non-customer ids (read-only surface).
-- **`GET /admin/vendors`** / **`POST /admin/vendors`** / **`PATCH /admin/vendors/:id`**: Complete vendor CRUD — a `brandId` is required on create and can be switched on update but never detached (ADR-017); updates accept `name`, `contactPhone`, `addressText`, `commissionRate`, `deliveryRadiusKm`, `defaultPrepTimeMinutes`, and the GPS pin (`latitude` -90..90, `longitude` -180..180, omitted keys leave the pin untouched).
-- **`GET /admin/vendors/:id/catalog`**: Full catalog governance view for one outlet — active categories → products with variations (absolute `price`, `sortOrder`) and add-on groups. 404 for unknown outlets.
+- **`GET /admin/vendors`** / **`POST /admin/vendors`** / **`PATCH /admin/vendors/:id`**: Complete vendor CRUD — a `brandId` is required on create and can be switched on update but never detached (ADR-017); an active `typeId` is required on create (creation under a deactivated type returns 409, ADR-019); both create and update accept `orderFlowMode` (`RIDER_FIRST` | `VENDOR_FIRST`, default `RIDER_FIRST`) — the per-outlet dispatch sequence snapshotted onto every order at checkout; updates also accept `name`, `contactPhone`, `addressText`, `commissionRate`, `deliveryRadiusKm`, `defaultPrepTimeMinutes`, `typeId`, and the GPS pin (`latitude` -90..90, `longitude` -180..180, omitted keys leave the pin untouched).
+- **`GET /admin/outlet-types`** / **`POST /admin/outlet-types`** / **`PATCH /admin/outlet-types/:id`** / **`DELETE /admin/outlet-types/:id`**: Outlet-type governance (ADR-019) — list (incl. deactivated, with assigned outlet counts), create (`name`, optional kebab-case `slug` derived from the name, `sortOrder`, `isActive`), update (rename/slug/reorder/visibility toggle — toggling off hides every outlet of the type from customers), and guarded delete (409 while outlets remain assigned).
 - **`GET /admin/outlets/:id`**: Aggregated Outlet Page payload — brand strip, outlet info, operating hours, staff assignments, and the category → product → variation catalog in one call (no N+1).
 - **`POST /admin/products`** / **`PATCH /admin/products/:id`**: Wholesale product save (ADR-017) — body `{ vendorId?, categoryId, name, description?, imageUrl?, isInStock?, sortOrder?, variations: [{ id?, name, price, isInStock }] }`. One ACID transaction: ≥1 variation enforced (400), omitted variation ids deleted (safe — snapshots are JSONB), order renumbered 1..n, `basePrice` synced to the first variation. Replaces the former override/disable endpoints.
-- **`DELETE /admin/products/:id`**: Hard product delete — removes add-ons, add-on groups, and variations in one transaction; 409 while any historical `OrderItem` references the product (retire those via `isInStock=false` instead).
+- **`DELETE /admin/products/:id`**: Hard product delete — removes variations in one transaction; 409 while any historical `OrderItem` references the product (retire those via `isInStock=false` instead).
 - **`PATCH /admin/vendors/:id/status`**: Body `{ "isActive": boolean }` — suspends/reactivates an outlet (suspended outlets stop surfacing in customer discovery).
 - **`PUT /admin/vendors/:id/operating-hours`**: Body `{ hours: [7 × { dayOfWeek, openTime "HH:mm", closeTime, isClosed }] }` — upserts the weekly schedule.
 - **`POST /admin/vendors/:id/categories`** / **`PATCH /admin/categories/:id`** / **`DELETE /admin/categories/:id`**: Outlet-scoped category create; rename/sort/deactivate; delete is 409-blocked while any product is attached (retire stocked categories via `isActive=false` instead).
@@ -194,12 +187,11 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
 - **`POST /admin/users`**: Body `{ "phone", "fullName" }` — provisions a VENDOR_ADMIN owner/staff account (no password; the owner later signs in with this phone via OTP). Duplicate phone 409.
 - **`GET /admin/vendor-staff`**: Every staff assignment with user, outlet, brand, and scope.
 - **`DELETE /admin/vendor-staff/:id`**: Removes an assignment; demotes the account to CUSTOMER when it was the last tie and purges the session cache for immediate revocation. 404 for unknown ids.
-- **`GET /admin/catalog/categories`** / **`POST /admin/catalog/categories`**: Master central category list + creation.
-- **`GET /admin/banners`** / **`POST /admin/banners`** / **`PATCH /admin/banners/:id`** / **`DELETE /admin/banners/:id`**: Banner CRUD with deeplink integrity — body carries `title`, `imageUrl`, `linkType` (`OUTLET | CATEGORY | EXTERNAL`), `targetId` (validated to exist for OUTLET/CATEGORY), `targetUrl` (absolute http(s) required for EXTERNAL), `sortOrder`, `isActive`, `startsAt`/`endsAt`.
+- **`GET /admin/banners`** / **`POST /admin/banners`** / **`PATCH /admin/banners/:id`** / **`DELETE /admin/banners/:id`**: Banner CRUD with deeplink integrity — body carries `title`, `imageUrl`, `linkType` (`OUTLET | CATEGORY | EXTERNAL | INTERNAL`), `targetId` (validated to exist for OUTLET/CATEGORY), `targetUrl` (absolute http(s) required for EXTERNAL), `sortOrder`, `isActive`, `startsAt`/`endsAt`.
 - **`GET /admin/coupons`** / **`POST /admin/coupons`** / **`PATCH /admin/coupons/:id`** / **`DELETE /admin/coupons/:id`**: Coupon CRUD.
-- **`GET /admin/settings`**: Returns current FSM mode (with `rider_search_timeout_seconds` and `stale_order_ttl_minutes`), delivery fee pricing mode, and delivery economics (`rider_share_percent`, `eta_avg_speed_kmh`, `eta_fallback_minutes`).
-- **`GET /admin/settings/order-flow`**: Returns the active fulfillment flow config (`mode`, `riderSearchTimeoutSeconds`, `staleOrderTtlMinutes`).
-- **`PATCH /admin/settings/order-flow`**: Body `{ "mode": "RIDER_FIRST" | "VENDOR_FIRST", "riderSearchTimeoutSeconds?", "staleOrderTtlMinutes?" }` (5–720 min; drives the stale-order auto-cancel sweep).
+- **`GET /admin/settings`**: Returns dispatch timing (`rider_search_timeout_seconds`, `stale_order_ttl_minutes`), delivery fee pricing mode, and delivery economics (`rider_share_percent`, `eta_avg_speed_kmh`, `eta_fallback_minutes`).
+- **`GET /admin/settings/dispatch`**: Returns the dispatch timing config (`riderSearchTimeoutSeconds`, `staleOrderTtlMinutes`). The fulfillment *sequence* is configured per outlet (`orderFlowMode`), not globally.
+- **`PATCH /admin/settings/dispatch`**: Body `{ "riderSearchTimeoutSeconds?" (15–600), "staleOrderTtlMinutes?" (5–720; drives the stale-order auto-cancel sweep) }`.
 - **`PATCH /admin/settings/delivery-fee`**: Body `{ "mode": "FIXED_FLAT" | "DISTANCE_TIERED", "flatFee": 50.0, "baseFee": 40.0, "baseKm": 2.0, "perKmRate": 15.0 }`.
 - **`PATCH /admin/settings/delivery-economics`**: Body `{ "riderSharePercent": 80, "etaAvgSpeedKmh": 25, "etaFallbackMinutes": 10 }` — upserts `delivery_economics` and invalidates the pricing cache so the next order uses the new split/ETA inputs.
 - **`GET /admin/finance/settlement-export?format=csv`**: Downloads RFC 4180 CSV settlement file.

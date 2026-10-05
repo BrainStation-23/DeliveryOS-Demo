@@ -25,7 +25,7 @@
 | Full quality gate (CI-identical) | `npm run verify` (root) = test-integrity guard + backend typecheck+lint+test:unit+build, portal typechecks+test:unit+builds, `flutter analyze`+`flutter test` ×2 |
 | Test-integrity guard alone | `npm run verify:tests` (root) — bans skip/only markers, tautologies, deleted/trivial tests |
 | Boot local infra | `./scripts/start-local.sh` (or `docker compose -f deploy/docker-compose.yml up -d postgres redis`) |
-| Migrate + seed | `npx prisma migrate dev` then `npm run prisma:seed` (or `prisma:seed:massive`) in `services/backend_api` |
+| Rebuild + reseed DB | `npm run db:reset` in `services/backend_api` (drops, replays the single `0_init` baseline, runs the unified production-realistic seed) |
 | Backend integration suites (needs live stack) | `npm test` in `services/backend_api` (chains 18 `*:test` scripts: `auth:test`, `order:test`, `dispatch:test`, `payment:test`, `settlement:test`, `cancel:test`, `track1:test`, `track3:test`, …) |
 | Backend unit tests (no DB needed) | `npm run test:unit` in `services/backend_api` (Jest, `src/**/*.spec.ts`, per-file coverage floors in `jest.config.mjs`) |
 | Portal unit tests (no API needed) | `npm run test:unit` in each portal (Vitest, `src/**/*.test.ts`) |
@@ -49,7 +49,7 @@
 | Feature inventory & traceability | [FEATURES.md](../FEATURES.md) | — |
 | Release history & roadmap | [CHANGELOG.md](../CHANGELOG.md) | — |
 | Monorepo topology & ingress | `ADR-001`, `ADR-005`, `TID-01` | `deploy/nginx.local.conf`, `deploy/nginx-templates/` |
-| Database schema, migrations | `TID-02` | `services/backend_api/prisma/schema.prisma` (23 models), `prisma/migrations/` |
+| Database schema, migrations | `TID-02` | `services/backend_api/prisma/schema.prisma` (22 models), `prisma/migrations/` |
 | REST endpoints & DTOs | `TID-03` | `services/backend_api/src/modules/*/**.controller.ts` |
 | WebSocket rooms & events | `TID-04` | `src/modules/realtime/tracking.gateway.ts` |
 | Order FSM & dispatch | `ADR-002`, `TID-05` | `src/modules/orders/order-state.machine.ts`, `src/modules/order-flow/order-flow.service.ts` |
@@ -94,7 +94,7 @@ enum BannerLinkType   { OUTLET, CATEGORY, EXTERNAL }
 
 // String conventions (not Prisma enums)
 CashDeposit.status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'   // written by code; schema default 'COMPLETED' is legacy
-OrderFlowConfig.mode: 'RIDER_FIRST' | 'VENDOR_FIRST'               // inside SystemSetting JSON `order_flow_config`
+Vendor/Order.orderFlowMode: 'RIDER_FIRST' | 'VENDOR_FIRST'         // per outlet, snapshotted on orders; timing in `dispatch_config`
 DeliveryFeeConfig.mode: 'FIXED_FLAT' | 'DISTANCE_TIERED'           // canonical camelCase; legacy snake_case normalized on read
 ```
 

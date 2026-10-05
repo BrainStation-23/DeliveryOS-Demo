@@ -96,8 +96,8 @@ async function runVendorDiscoveryTest() {
     const itemNames = searchJson.data?.items?.map((i: any) => i.name) || [];
     console.log(`   Matched Dishes: ${itemNames.join(', ')}`);
 
-    if (!itemNames.includes('Classic Smoky Beef Burger')) {
-      throw new Error('Classic Smoky Beef Burger was not found in search results');
+    if (!itemNames.includes('Smoky BBQ Burger')) {
+      throw new Error('Smoky BBQ Burger was not found in search results');
     }
     console.log('   ✅ Instant search correctly found matching outlets and dish items!\n');
 

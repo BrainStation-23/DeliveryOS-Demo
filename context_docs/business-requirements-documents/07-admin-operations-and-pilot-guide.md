@@ -71,7 +71,8 @@ All table datasets across the console adhere to unified pagination standards:
 - **Store Configuration**: Commission rate (e.g. 15%), delivery radius (km), operational hours, and default prep time.
 
 ### 2.6 System Settings & Financial Settlements (`/settings`)
-- **Order Flow FSM Selector**: 1-click toggle between `RIDER_FIRST` (Zero Food Waste Mode) and `VENDOR_FIRST` (Traditional Retail Mode).
+- **Outlet Types Manager**: Admin-defined business types (Restaurant, Grocery, Pharmacy, …) assigned at outlet create/edit; switching a type off hides all its outlets from the customer app, deletes are blocked while outlets are assigned (ADR-019).
+- **Per-Outlet Flow Mode**: Each outlet's dispatch sequence (`RIDER_FIRST` Zero Food Waste / `VENDOR_FIRST` Traditional Retail) is set on the outlet form; global settings retain only the dispatch timing knobs.
 - **Delivery Fee Pricing Engine**: Toggle between `FIXED_FLAT` (uniform flat rate) and `DISTANCE_TIERED` (base fee + per-km fee).
 - **RFC 4180 CSV Settlement Export**: Download formatted `vendor-settlements-YYYY-MM-DD.csv` for enterprise accounting systems (ERP / QuickBooks) ([ADR-009](../architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md)).
 - **Settlement Batch Trigger**: Modal to execute settlement cycles via `POST /admin/finance/settlement-cycle`.
@@ -84,7 +85,7 @@ All table datasets across the console adhere to unified pagination standards:
 - [ ] Define pilot delivery zone (3–5 km radius geofence).
 - [ ] Onboard 10 pilot merchants (7 restaurants/cafes, 3 grocery/super shops).
 - [ ] Assign store staff permissions (`PARTICULAR_OUTLET` vs `ALL_OUTLETS_MASTER`).
-- [ ] Digitize full menus, prices, variants, add-ons, and photos.
+- [ ] Digitize full menus, prices, variants, and photos.
 - [ ] Deploy 2–3 welcome promotional banners and a pilot coupon code (`PILOT50`).
 - [ ] Ensure store tablet hardware and audio output are active at counters.
 - [ ] Onboard and approve 5–8 active riders.

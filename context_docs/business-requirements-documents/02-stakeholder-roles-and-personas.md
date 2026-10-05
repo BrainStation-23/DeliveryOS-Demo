@@ -23,7 +23,7 @@ Authoritative definitions of platform roles, interface boundaries, functional ca
 - **Core Capabilities**:
   - Authenticate via Phone OTP (`+880` / `+966`) or browse catalogs anonymously as Guest.
   - Pin delivery coordinates on interactive map; manage saved addresses with custom delivery notes.
-  - Maintain a single-vendor cart; select item variants and add-on groups.
+  - Maintain a single-vendor cart; select item variants.
   - Validate address delivery coverage against outlet radius via PostGIS.
   - Apply promotional coupon codes with automatic threshold validation.
   - Pay via Cash on Delivery (COD) or Online Payment Gateway.

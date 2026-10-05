@@ -28,7 +28,7 @@ If orders reference only foreign keys (`product_id`, `customer_address_id`) and 
 ## Considered Options
 1. **Live Relational Joins**: Store only IDs and join against mutable entities. *(Rejected: Corrupts historical audit trails)*.
 2. **Duplicated Relational Snapshot Tables**: Create separate snapshot tables per entity. *(Rejected: Massive schema bloat and complex migrations)*.
-3. **Immutable JSONB Snapshots on Orders (Chosen)**: Store frozen JSON objects in `deliveryAddressSnapshot`, `variantSnapshot`, and `addonsSnapshot` at order creation.
+3. **Immutable JSONB Snapshots on Orders (Chosen)**: Store frozen JSON objects in `deliveryAddressSnapshot` and `variantSnapshot` at order creation (the former `addonsSnapshot` was retired with the add-ons feature removal).
 
 ---
 

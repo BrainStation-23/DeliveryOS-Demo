@@ -56,11 +56,10 @@ Functional specifications, screen states, user inputs, business guards, outputs,
 - **Outputs**: Tapping an available item opens the `ItemCustomizerSheet`.
 
 ### Screen 5: Item Customizer Modal (`ItemCustomizerSheet`)
-- **Components**: Variant selection radio buttons, add-on checkboxes, special notes textarea, quantity stepper, dynamic subtotal button.
-- **Inputs**: Selected variant ID, selected add-on IDs, item quantity, special cooking instructions.
+- **Components**: Variant selection radio buttons, special notes textarea, quantity stepper, dynamic subtotal button.
+- **Inputs**: Selected variant ID, item quantity, special cooking instructions.
 - **Business Rules**:
   - Single-choice variants (e.g. Regular, Large or 500g, 1kg) recalculate line total dynamically.
-  - Add-on groups enforce `min_selection` and `max_selection` bounds.
 - **Outputs**: Formatted cart item payload dispatched to Riverpod `CartNotifier`.
 
 ### Screen 6: Cart & Operational Guards (`CartScreen`)

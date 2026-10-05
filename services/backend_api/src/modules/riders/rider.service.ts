@@ -342,6 +342,17 @@ export class RiderService {
   }
 
   /**
+   * Cash deposit history for the signed-in rider (newest first).
+   */
+  async getCashDeposits(userId: string) {
+    const rider = await this.getRiderProfile(userId);
+    return this.prisma.cashDeposit.findMany({
+      where: { riderId: rider.id },
+      orderBy: { depositedAt: 'desc' },
+    });
+  }
+
+  /**
    * Helper / Rehydration: Retrieve current active in-flight trip for rider
    */
   async getActiveTrip(userId: string) {

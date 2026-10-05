@@ -7,7 +7,7 @@
 
 ## Context & Problem Statement
 
-Platform images were uploaded per-module (only promotional banners, via `POST /admin/uploads`) with no persistence of what had been uploaded: the file landed in the storage driver, but nothing recorded its URL, size, dimensions, or uploader. Consequences:
+Platform images were uploaded per-module (only promotional banners, via the former `POST /admin/uploads` endpoint) with no persistence of what had been uploaded: the file landed in the storage driver, but nothing recorded its URL, size, dimensions, or uploader. Consequences:
 
 1. No way to list, inspect, reuse, or clean up uploaded media — every module that needed an image (banners today; categories, vendor logos, and future modules tomorrow) grew its own inline upload control.
 2. Admins could not crop or resize before upload, so oversized camera photos hit the 5 MB server cap with no remedy except external tools.
@@ -17,7 +17,7 @@ Platform images were uploaded per-module (only promotional banners, via `POST /a
 
 ## Decision
 
-- **`media_assets` registry (23rd Prisma model)**: every upload — through the new `POST /admin/media` or the legacy `POST /admin/uploads` alias — records `url` (unique, relative), stored/generated filenames, MIME, byte size, optional client-measured `width`/`height`, and the uploading admin. The storage driver itself is unchanged (local `UPLOAD_DIR` served at `/uploads`); S3-compatible drivers remain the next increment.
+- **`media_assets` registry (23rd Prisma model)**: every upload through `POST /admin/media` — records `url` (unique, relative), stored/generated filenames, MIME, byte size, optional client-measured `width`/`height`, and the uploading admin. The storage driver itself is unchanged (local `UPLOAD_DIR` served at `/uploads`); S3-compatible drivers remain the next increment.
 - **Media module** (`src/modules/media/`): `MediaService` wraps `StorageService` + Prisma; `MediaController` exposes upload / paginated list (newest first) / delete under `SUPER_ADMIN`. Shared multipart constraints (MIME allow-list, 5 MB cap) live in `common/storage/image-upload.options.ts` and are reused by both controllers. Deletion removes the database row first, then unlinks the file (a stranded file is harmless; a dangling row is not).
 - **Client-side editing before upload** (`react-image-crop` in the admin portal): the `UploadEditorModal` offers free-form + fixed-aspect crop selection and a longest-edge resize cap (original/1920/1280/800) with canvas re-encoding. The server never re-processes pixels — it stores exactly the bytes the admin approved. GIFs re-encode as static frames (canvas limitation, surfaced in the UI); the 5 MB limit is pre-checked client-side and still enforced server-side.
 - **Central picker over inline uploads**: the banner form's inline upload is removed; every creation module picks from the shared `MediaPickerModal` (which itself can stage an upload through the same editor). Pure helpers (`computeResizedDimensions`, MIME/quality mapping, `resolveMediaUrl`) are unit-tested.

@@ -24,12 +24,10 @@ This document provides a line-level, granular breakdown of every operational fea
 ## 1. Core Platform & System-Wide Capabilities
 
 ### 1.1. Multi-Vertical Commercial Support
-- **Supported Retail Verticals**:
-  - `FOOD`: Restaurants, fast food, bakeries, cloud kitchens, and cafes.
-  - `GROCERY`: Supermarkets, organic produce, convenience stores, and daily essentials.
-  - `PHARMACY`: Licensed chemist stores, prescription drops, OTC remedies, personal care.
-  - `SUPER_SHOP`: Large multi-category retail departments with mixed item baskets.
-- **Vertical-Specific Metadata**: Dynamic badge rendering, catalog unit distinctions (`piece`, `kg`, `500g`, `pack`), and customizable preparation duration.
+- **Admin-Managed Outlet Types (ADR-019)**: Business categories (Restaurant, Super Shop, Grocery, Pharmacy, Cafe, …) are data, not code — CRUD from Admin → Settings → Outlet Types, assigned at outlet create/edit.
+- **Type Visibility Toggle**: Deactivating a type instantly hides every outlet of that type from customer discovery (the soft business control); deletes are 409-guarded while outlets remain assigned; new outlets may only be created under active types.
+- **Type-Specific Metadata**: Dynamic badge rendering, catalog unit distinctions (`piece`, `kg`, `500g`, `pack`), and customizable preparation duration.
+- **Per-Outlet Dispatch Flow Modes**: Each outlet runs `RIDER_FIRST` (Zero Food Waste) or `VENDOR_FIRST` (Traditional Retail), configured on the outlet form and snapshotted immutably onto every order at checkout (ADR-002); platform settings retain only the shared dispatch timing.
 
 ### 1.2. Multi-Region Currencies & Financial Decimal Precision
 - **Supported Currencies**:
@@ -95,7 +93,7 @@ This document provides a line-level, granular breakdown of every operational fea
 
 ### 2.3. Home Discovery & Promotions
 - **Dynamic Hero Banners**: Auto-scrolling banner carousel displaying active platform promotions, linked to vendors or promo codes (`BannerCarousel`). Relative media-library URLs (`/uploads/...`, ADR-016) are joined onto the API origin at parse time via `resolveImageUrl` — banners created in the central Media Library render without app-side changes.
-- **Category Filter Grid**: Quick vertical category selector (`All`, `FOOD`, `GROCERY`, `PHARMACY`) filtering nearby outlets in real-time (`HomeScreen`).
+- **Dynamic Category Chips**: Outlet-type chips fetched live from `GET /vendors/outlet-types` (active only, server-ordered); tapping filters the nearby feed by `typeSlug` in real-time (`HomeScreen`) — new admin-created types appear without an app update.
 - **Hyperlocal Vendor Feed & List Virtualization**: Distance-sorted merchant cards showing delivery fee, ETA in minutes, rating, open status badge, and rush-hour pause indicators. Feed uses lazy `SliverList.builder` virtualization to eliminate memory pressure and maintain 60/120fps scroll smoothness.
 
 ### 2.4. Smart Search & Direct Add-to-Cart
@@ -352,7 +350,7 @@ This document provides a line-level, granular breakdown of every operational fea
   - `FIXED_FLAT`: Platform-wide uniform delivery fee (e.g. 50 BDT).
   - `DISTANCE_TIERED`: Base fee for initial 1.5 km plus incremental per-kilometer fee.
 - **Delivery Economics Card**: rider payout share of delivery fees (percent), average courier speed, and fallback ETA (`PATCH /admin/settings/delivery-economics`) — upserts the `delivery_economics` key and invalidates the pricing cache so the next order picks up the new split.
-- **Dispatch Timing Controls**: rider search timeout and stale-order auto-cancel TTL inputs on the order-flow card (`PATCH /admin/settings/order-flow` with `staleOrderTtlMinutes`).
+- **Dispatch Timing Controls**: rider search timeout and stale-order auto-cancel TTL inputs on the Dispatch Timing card (`PATCH /admin/settings/dispatch` with `staleOrderTtlMinutes`); the RIDER_FIRST/VENDOR_FIRST sequence itself is per outlet on the outlet form. **Outlet Types Manager**: admin CRUD for business types with visibility toggles and guarded deletes (ADR-019).
 - **Apply Confirmation Gates**: Dispatch-mode switches and delivery-fee saves pop a confirmation dialog summarizing the pending change (reusable `ConfirmDialog`); canceling leaves the live configuration untouched — the pipeline mode previously applied instantly on card click.
 
 ### 5.8. Financial Governance: Ledger, Settlements & Statements Export
@@ -390,13 +388,13 @@ This document provides a line-level, granular breakdown of every operational fea
 ### 6.1. Modular NestJS Architecture (14 Feature Modules)
 - **Auth (`/auth`)**: Phone OTP request/verify (mock SMS in dev, SSL Wireless in prod), JWT access + rotating refresh tokens with Redis jti revocation, logout, `GET /auth/me`, FCM device-token registration (`POST /auth/device-token`).
 - **Promotions (`/banners`, `/coupons`)**: Active hero banners, coupon validation, and the pricing engine (`delivery-fee.service.ts`).
-- **Orders (`/orders`)**: ACID checkout boundary, reorder validation, history pagination, live tracking payload, customer cancel, switch-to-COD, FSM guard (`order-state.machine.ts`), leader-locked stale-order reaper (`sweepStaleOrders`, TTL `order_flow_config.stale_order_ttl_minutes`, default 60m).
+- **Orders (`/orders`)**: ACID checkout boundary, reorder validation, history pagination, live tracking payload, customer cancel, switch-to-COD, FSM guard (`order-state.machine.ts`), leader-locked stale-order reaper (`sweepStaleOrders`, TTL `dispatch_config.stale_order_ttl_minutes`, default 60m).
 - **Vendor Staff (`/vendor`)**: KDS live board, accept/reject/ready/handover transitions (RIDER_FIRST accept guard, handover courier requirement, status-conditional writes), catalog + variant stock toggles, settings & operating hours, date-scoped sales ledger (`dateFrom`/`dateTo`).
 - **Riders (`/rider`)**: Profile with computed lifetime `earningsBalance`/`completedTripsCount`, duty toggle with in-flight lock (all 5 statuses), claim (Redis mutex + DB in-flight backstop) / assignment-guarded pickup / deliver flow, trip history, COD cash deposit submission & tracking, issue reporting.
-- **Order Flow (`/admin/settings/order-flow`)**: Config-driven dispatch (`order_flow_config`: `RIDER_FIRST`/`VENDOR_FIRST`, rider search timeout, stale-order TTL), broadcast engine with geo-targeted FCM push rings (5/6/10 km tiers, pool-wide socket broadcast), escalation scanner (30s leader-locked sweep, TTL-capped window), takeaway bypass on the canonical snapshot `deliveryMethod` field.
+- **Dispatch (`/admin/settings/dispatch`)**: Timing-configured dispatch (rider search timeout, stale-order TTL; the flow sequence is per outlet via `orderFlowMode` snapshotted on each order), broadcast engine with geo-targeted FCM push rings (5/6/10 km tiers, pool-wide socket broadcast), escalation scanner (30s leader-locked sweep, TTL-capped window), takeaway bypass on the canonical snapshot `deliveryMethod` field.
 - **Vendors (`/vendors`, `/cart`)**: PostGIS nearby discovery (`nearby`, `search`, `:id/catalog`) and authenticated address-coverage geofence validation (`validate-address-coverage`, owner-only `addressId` probes).
 - **Realtime**: Socket.IO gateway (`/events`) — room topology, JWT handshake auth, GPS telemetry ingestion (§ 6.3).
-- **Admin (`/admin`)**: 63 governance routes — overview KPIs, date-ranged analytics (overview + orders-summary), fleet, paginated rider roster + courier detail, orders (force-assign/cancel), customer directory + detail, vendor/category/banner (deeplink-validated)/coupon/product (incl. delete) CRUD, brand pagination, media uploads, order-flow (incl. stale-order TTL) + delivery-fee + delivery-economics settings, unified per-order ledger + CSV export, settlement cycles, statements, cash-deposit verification.
+- **Admin (`/admin`)**: 63 governance routes — overview KPIs, date-ranged analytics (overview + orders-summary), fleet, paginated rider roster + courier detail, orders (force-assign/cancel), customer directory + detail, vendor/category/banner (deeplink-validated)/coupon/product (incl. delete) CRUD, brand pagination, media uploads, outlet-type CRUD, dispatch timing + delivery-fee + delivery-economics settings, unified per-order ledger + CSV export, settlement cycles, statements, cash-deposit verification.
 - **Payments (`/payments`)**: Gateway session initiation, HMAC-verified idempotent webhooks, transaction status, browser callback redirects.
 - **Addresses (`/customers`)**: Customer address book CRUD + default selection, profile management.
 - **Geo (`/geo`)**: OSM Nominatim reverse geocoding with 24h Redis cache.
@@ -497,7 +495,7 @@ The platform is guarded by a layered verification pyramid. Backend integration s
 | **Portal Unit Tests** | `npm run test:unit` (each portal) | Vitest (admin 76 / vendor 32 tests): currency & date formatters, API error extraction, Tailwind class merging, auth store login/logout persistence, i18n locale symmetry + codebase-wide referenced-key scan, dispatch fleet filters & unassigned-pool aging math, order lifecycle filters, date-range preset resolution, theme parsing, media resize math & URL resolution, vendor outlet-store resolution rules |
 | **DB & Spatial Integrity** | `npm run db:test` | Prisma models, PostGIS expression GIST indexes, spatial query sanity |
 | **Auth & RBAC Security** | `npm run auth:test` | Phone OTP, JWT + refresh rotation, tenant isolation, Super Admin override guards |
-| **Vendor Discovery & Geofence** | `npm run vendor:test` | PostGIS `ST_DWithin` radius search, vertical filters, distance sorting |
+| **Vendor Discovery & Geofence** | `npm run vendor:test` | PostGIS `ST_DWithin` radius search, outlet-type filters, distance sorting |
 | **Promotions & Pricing** | `npm run promotions:test` | Banners, coupon validation, flat vs distance delivery fees |
 | **Order Checkout** | `npm run order:test` | Single-vendor cart boundary, coupon claims, fee math |
 | **Vendor & Rider Operations** | `npm run vendor-rider:test` | KDS transitions, stock toggles, rider duty/claim/deliver |

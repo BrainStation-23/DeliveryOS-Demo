@@ -72,14 +72,14 @@ flowchart TD
 - Mode claimability rules: `RIDER_FIRST` claims from `PLACED`; `VENDOR_FIRST` claims from `READY_FOR_PICKUP`.
 - Invariant A3 Security Guard: Rider claiming and delivery strictly requires `order.riderId === rider.id`, completely eliminating unassigned order cash collection holes.
 - Rider trip ledger records exact `delivery_economics.rider_share_percent` (80%) of delivery fee, maintaining 100% financial consistency across ledger entries and WebSocket broadcasts.
-- Stored in `system_settings` table under `order_flow_config`:
+- **Per-outlet configuration (amended 2026-10-05)**: the mode lives on `vendors.order_flow_mode` (set at outlet create/edit in the admin console; default `RIDER_FIRST`) and is **snapshotted onto `orders.order_flow_mode` at checkout** — dispatch, claim rules, and the vendor accept-invariant all read the order's immutable snapshot, so flipping an outlet's mode never re-routes an in-flight order.
+- Shared dispatch timing stays platform-wide in `system_settings` under `dispatch_config`:
   ```json
   {
-    "mode": "RIDER_FIRST",
-    "rider_search_timeout_seconds": 90
+    "rider_search_timeout_seconds": 90,
+    "stale_order_ttl_minutes": 60
   }
   ```
-- Cached in Redis for sub-millisecond retrieval during checkout processing.
 
 ---
 
@@ -135,5 +135,5 @@ When an order is cancelled:
 - **`DISPATCHED → CANCELLED` removed from the transition graph**: no code path could legally execute it (admin cancel blocks `DISPATCHED` by policy — the rider reports a delivery issue or completes the trip). The dead edge is deleted from `ORDER_TRANSITIONS` so the machine matches enforced behavior.
 - **Status-conditional writes on all fulfillment mutations**: `markOrderReady`, `handoverOrder`, `pickupOrder`, and `reportDeliveryIssue` now update `WHERE id AND status = observed` (P2025 → `409`), matching `acceptOrder`. A concurrent cancellation can never be silently resurrected.
 - **Handover requires an assigned courier for delivery orders** (takeaway excepted): dispatching a riderless delivery order left it in `DISPATCHED`, a status no rider can claim.
-- **Stale-order reaper**: `OrderService.sweepStaleOrders()` (leader-locked, 60s tick) auto-cancels kitchen-unaccepted orders older than `order_flow_config.stale_order_ttl_minutes` (default 60) via the central cancellation engine; the escalation scanner caps its window at the same TTL so forgotten orders stop re-broadcasting hourly.
+- **Stale-order reaper**: `OrderService.sweepStaleOrders()` (leader-locked, 60s tick) auto-cancels kitchen-unaccepted orders older than `dispatch_config.stale_order_ttl_minutes` (default 60) via the central cancellation engine; the escalation scanner caps its window at the same TTL so forgotten orders stop re-broadcasting hourly.
 - **Takeaway snapshot field**: checkout now stamps the canonical `deliveryMethod` field (legacy `type`-only snapshots are honored). Section 3's bypass previously read a field checkout never wrote and was dead in production — unit tests now pin the exact checkout-produced snapshot shape.

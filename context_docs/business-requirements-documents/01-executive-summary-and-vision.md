@@ -20,7 +20,7 @@ DeliveryOS operates as a unified hyperlocal logistics and multi-vendor delivery 
 
 | Vertical | Catalog Structure | Operational SLA | Packaging & Handling |
 | :--- | :--- | :--- | :--- |
-| **Restaurants & Cafes** | Dish items with single-choice variants (sizes) and optional multi-select add-on groups | 25–40 min delivery window; prep timer 15–45 min | Immediate hot/cold consumption; sealed containers |
+| **Restaurants & Cafes** | Dish items with single-choice variants (sizes) | 25–40 min delivery window; prep timer 15–45 min | Immediate hot/cold consumption; sealed containers |
 | **Groceries & Super Shops** | Packaged goods and fresh produce sold by unit or weight (`kg`, `500g`, `grams`, `piece`) | 30–60 min delivery window; prep timer 10–20 min | Bagged ambient/cold grocery packs |
 | **Pharmacies & Essentials** | Over-the-counter wellness and personal care items | 20–35 min rapid delivery window | Tamper-evident secure packaging |
 

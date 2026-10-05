@@ -40,7 +40,7 @@ DeliveryOS connects merchants, customers, and delivery couriers through 4 unifie
 - **Conflict Handling**: Adding an item from a different store prompts a confirmation dialog to clear the existing cart before adding the new item.
 
 ### 2.4 Multi-Vertical Catalog Flexibility
-- **Restaurants & Cafes**: Dish items with single-choice variants (e.g., sizes) and multiple optional add-ons/toppings.
+- **Restaurants & Cafes**: Dish items with single-choice variants (e.g., sizes).
 - **Groceries & Super Shops**: Packaged products and bulk produce sold by weight unit (`kg`, `500g`, `grams`, `piece`).
 - **Pharmacies & Essentials**: Standard unit OTC healthcare items.
 
@@ -135,7 +135,7 @@ DeliveryOS connects merchants, customers, and delivery couriers through 4 unifie
 Dispute-free settlement arithmetic executed per completed order:
 
 $$\begin{aligned}
-\text{Gross Subtotal} &= \sum (\text{item\_price} \times \text{qty}) + \text{add-ons} \\
+\text{Gross Subtotal} &= \sum (\text{item\_price} \times \text{qty}) \\
 \text{Net Subtotal} &= \text{Gross Subtotal} - \text{Coupon Discount} \\
 \text{Total Customer Paid} &= \text{Net Subtotal} + \text{Delivery Fee} + \text{Tax} \\
 \text{Platform Commission} &= \text{Net Subtotal} \times \left(\frac{\text{commission\_rate}}{100}\right) \\

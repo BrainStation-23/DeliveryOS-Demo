@@ -127,6 +127,16 @@ export class RiderController {
     };
   }
 
+  @Get('cash/deposits')
+  @ApiOperation({ summary: 'Get history of cash deposits submitted by current rider' })
+  @ApiResponse({ status: 200, description: 'Rider cash deposit history' })
+  async getCashDeposits(@CurrentUser() user: User) {
+    const deposits = await this.riderService.getCashDeposits(user.id);
+    return {
+      message: 'Cash deposits retrieved successfully',
+      data: deposits,
+    };
+  }
 
   @Get('trips')
   @ApiOperation({ summary: 'Get history of completed delivery trips and earnings for current rider' })

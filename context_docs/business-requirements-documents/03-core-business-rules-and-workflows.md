@@ -14,8 +14,8 @@ Authoritative business logic, mathematical equations, PostGIS spatial queries, o
 
 ### 1.2 Item Pricing Arithmetic
 - **Formula**:
-  $$\text{Item Total} = (\text{Base Price} + \text{Variant Price Modifier} + \sum \text{Addon Prices}) \times \text{Quantity}$$
-- **Inputs**: `base_price` (NUMERIC), `price_modifier` (NUMERIC, default 0), `addon.price` (NUMERIC), `quantity` (INT > 0).
+  $$\text{Item Total} = \text{Variant Price} \times \text{Quantity}$$
+- **Inputs**: variant `price` (NUMERIC, absolute — first variant anchors the display price, ADR-017), `quantity` (INT > 0).
 - **Output**: Line item total amount.
 
 ### 1.3 Cart Address Geofence Guard
@@ -61,7 +61,9 @@ Authoritative business logic, mathematical equations, PostGIS spatial queries, o
 
 ## 2. Order Lifecycle & Configurable Dispatch Sequences
 
-The platform supports two dispatch execution sequences governed by the `order_flow_config` JSON key in `system_settings` ([ADR-002](../architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)):
+The platform supports two dispatch execution sequences, configured **per outlet** via `vendors.order_flow_mode` ([ADR-002](../architecture-decision-records/ADR-002-dynamic-dual-order-flow-fsm.md)); shared timing lives in the `dispatch_config` `system_settings` key:
+
+The mode is **configured per outlet** (admin sets it at outlet create/edit; `RIDER_FIRST` is the default) and **snapshotted onto each order at checkout** — flipping an outlet's mode never re-routes an in-flight order. Shared dispatch timing (rider search timeout, stale-order TTL) remains a platform setting.
 
 ### 2.1 Mode 1: `RIDER_FIRST` (Zero Food Waste — Recommended Default)
 1. **Order Placed**: Customer completes checkout (`PLACED`). If online payment, waits for `PAID` webhook.
@@ -127,7 +129,7 @@ Executed atomically inside a database transaction upon order completion (`DELIVE
 
 | Line Item | Mathematical Formula | Sample Transaction (BDT) |
 | :--- | :--- | :--- |
-| **Gross Subtotal** | $\sum (\text{item\_price} \times \text{quantity}) + \text{add-ons}$ | ৳ 500.00 |
+| **Gross Subtotal** | $\sum (\text{item\_price} \times \text{quantity})$ | ৳ 500.00 |
 | **Coupon Discount** | Value validated by coupon engine | - ৳ 50.00 |
 | **Net Subtotal** | $\text{Gross Subtotal} - \text{Coupon Discount}$ | ৳ 450.00 |
 | **Delivery Fee** | Computed via active delivery fee mode | ৳ 50.00 |

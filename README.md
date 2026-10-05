@@ -123,7 +123,7 @@ docker compose -f deploy/docker-compose.yml up -d postgres redis
 **3. Backend API** — REST at `http://localhost:4000/api/v1`, WebSocket at `ws://localhost:4000/events`:
 ```bash
 cd services/backend_api
-npm install && npx prisma migrate dev && npm run prisma:seed
+npm install && npm run db:reset   # single 0_init baseline + unified production-realistic seed
 npm run start:dev
 ```
 
@@ -139,7 +139,7 @@ cd apps/customer_app && flutter pub get && flutter run -d chrome   # or an iOS/A
 cd apps/rider_app    && flutter pub get && flutter run -d chrome
 ```
 
-**Seeded dev logins** (mock OTP `123456`): Super Admin `+8801700000001` → [localhost:3000](http://localhost:3000) • Branch manager `+8801700000002` and brand owner `+8801700000003` → [localhost:3001](http://localhost:3001). The seed also creates the Burger Point + FreshMart Daily outlets with menus, coupons `WELCOME50` / `BURGER20`, banners, and `RIDER_FIRST` dispatch settings.
+**Seeded dev logins** (mock OTP `123456`): Super Admin `+8801700000001` → [localhost:3000](http://localhost:3000) • Branch manager `+8801700000002` and brand owner `+8801700000003` → [localhost:3001](http://localhost:3001) • Rider `+8801700000004` • Customer `+8801700000005` • pending applicant `+8801700000042` • suspended customer `+8801700000073`. The deterministic seed creates 5 admin-managed outlet types (Cafe hidden — visibility-toggle demo), 6 brands / 12 outlets with per-outlet flow modes, ~114 orders across every FSM state with complete financial books (ledgers, payments, settlements, deposits), coupons incl. exhausted/expired cases, and banners across all 4 link types.
 
 ---
 
