@@ -453,12 +453,12 @@ async function runTrack1IntegrityTests() {
     // -------------------------------------------------------------------------
     console.log('🧹 6. Testing Task 1.5: Route Deduplication & Dead Stubs Cleanup...');
 
-    // A. Verify OrderFlowController is active at /admin/settings/order-flow
-    const orderFlowRes = await requestJson(`${API_BASE}/admin/settings/order-flow`, 'GET', null, adminToken);
-    if (orderFlowRes.status !== 200 || !orderFlowRes.data?.data?.mode) {
-      throw new Error(`Order flow config route failed with status=${orderFlowRes.status}`);
+    // A. Verify dispatch timing config route is active at /admin/settings/dispatch
+    const dispatchRes = await requestJson(`${API_BASE}/admin/settings/dispatch`, 'GET', null, adminToken);
+    if (dispatchRes.status !== 200 || !dispatchRes.data?.data?.riderSearchTimeoutSeconds) {
+      throw new Error(`Dispatch config route failed with status=${dispatchRes.status}`);
     }
-    console.log(`   OrderFlow route active: currentMode=${orderFlowRes.data?.data?.mode}`);
+    console.log(`   Dispatch timing route active: riderSearchTimeout=${dispatchRes.data?.data?.riderSearchTimeoutSeconds}s`);
 
     // B. Verify Cash limit route works
     const cashLimitRes = await requestJson(

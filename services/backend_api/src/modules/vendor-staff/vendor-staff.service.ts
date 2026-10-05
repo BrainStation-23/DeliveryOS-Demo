@@ -8,9 +8,8 @@ import {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AcceptOrderDto } from './dto/accept-order.dto';
 import { RejectOrderDto } from './dto/reject-order.dto';
-import { OrderStatus, PermissionScope, Prisma, User, UserRole } from '@prisma/client';
+import { OrderFlowMode, OrderStatus, PermissionScope, Prisma, User, UserRole } from '@prisma/client';
 import { TrackingGateway } from '../realtime/tracking.gateway';
-import { OrderFlowMode } from '../order-flow/dto/update-order-flow.dto';
 import { OrderFlowService } from '../order-flow/order-flow.service';
 import { assertTransition } from '../orders/order-state.machine';
 import { OrderService } from '../orders/order.service';
@@ -306,8 +305,9 @@ export class VendorStaffService {
     // PREPARING, where assertClaimable() rejects every claim — stranding the
     // order without a rider forever.
     if (order.status === OrderStatus.PLACED) {
-      const { mode } = await this.orderFlowService.getOrderFlowConfig();
-      if (mode === OrderFlowMode.RIDER_FIRST) {
+      // The order's snapshotted flow mode governs; live outlet config never
+      // re-routes an in-flight order.
+      if (order.orderFlowMode === OrderFlowMode.RIDER_FIRST) {
         throw new ConflictException(
           'Zero Food Waste mode is active: this order is still awaiting a courier. Accept unlocks as soon as a rider secures it.',
         );

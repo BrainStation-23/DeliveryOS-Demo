@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, AccountStatus, VendorVertical, PermissionScope, DiscountType, BannerLinkType } from '@prisma/client';
+import { PrismaClient, UserRole, AccountStatus, PermissionScope, DiscountType, BannerLinkType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -10,22 +10,20 @@ async function main() {
   // ---------------------------------------------------------------------------
   console.log('⚙️  Seeding System Settings...');
   await prisma.systemSetting.upsert({
-    where: { key: 'order_flow_config' },
+    where: { key: 'dispatch_config' },
     update: {
       value: {
-        mode: 'RIDER_FIRST',
         rider_search_timeout_seconds: 90,
-        description: 'Zero Food Waste Mode: Secures rider before kitchen begins prep.'
+        stale_order_ttl_minutes: 60
       }
     },
     create: {
-      key: 'order_flow_config',
+      key: 'dispatch_config',
       value: {
-        mode: 'RIDER_FIRST',
         rider_search_timeout_seconds: 90,
-        description: 'Zero Food Waste Mode: Secures rider before kitchen begins prep.'
+        stale_order_ttl_minutes: 60
       },
-      description: 'Order fulfillment flow sequence (RIDER_FIRST vs VENDOR_FIRST)'
+      description: 'Dispatch timing (rider search timeout, stale-order TTL)'
     }
   });
 
@@ -122,6 +120,27 @@ async function main() {
     }
   });
   console.log('   ✅ System settings seeded.\n');
+
+
+  // ---------------------------------------------------------------------------
+  // 1b. Outlet Types (ADR-019: admin-managed business types)
+  // ---------------------------------------------------------------------------
+  console.log('🏷️  Seeding Outlet Types...');
+  const outletTypeDefs = [
+    { name: 'Restaurant', slug: 'restaurant', sortOrder: 0 },
+    { name: 'Super Shop', slug: 'super-shop', sortOrder: 1 },
+    { name: 'Grocery', slug: 'grocery', sortOrder: 2 },
+    { name: 'Pharmacy', slug: 'pharmacy', sortOrder: 3 },
+  ];
+  const outletTypes: Record<string, { id: string }> = {};
+  for (const def of outletTypeDefs) {
+    const t = await prisma.outletType.upsert({
+      where: { slug: def.slug },
+      update: { name: def.name, sortOrder: def.sortOrder },
+      create: { ...def, isActive: true },
+    });
+    outletTypes[def.slug] = t;
+  }
 
   // ---------------------------------------------------------------------------
   // 2. Core Users (All 4 Stakeholders)
@@ -247,7 +266,8 @@ async function main() {
       data: {
         brandId: burgerBrand.id,
         name: 'Burger Point — Gulshan Branch',
-        vertical: VendorVertical.FOOD,
+        typeId: outletTypes['restaurant'].id,
+        orderFlowMode: 'RIDER_FIRST',
         contactPhone: '+8801711000001',
         logoUrl: 'https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=200',
         bannerUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=800',
@@ -269,7 +289,8 @@ async function main() {
       data: {
         brandId: burgerBrand.id,
         name: 'Burger Point — Dhanmondi Branch',
-        vertical: VendorVertical.FOOD,
+        typeId: outletTypes['restaurant'].id,
+        orderFlowMode: 'RIDER_FIRST',
         contactPhone: '+8801711000002',
         logoUrl: 'https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=200',
         bannerUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=800',
@@ -301,7 +322,8 @@ async function main() {
       data: {
         brandId: freshMartBrand.id,
         name: 'FreshMart Daily — Gulshan Hub',
-        vertical: VendorVertical.SUPER_SHOP,
+        typeId: outletTypes['super-shop'].id,
+        orderFlowMode: 'VENDOR_FIRST',
         contactPhone: '+8801711000003',
         logoUrl: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=200',
         bannerUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800',

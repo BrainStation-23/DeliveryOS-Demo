@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { AccountStatus, OrderStatus, PaymentMethod, PaymentStatus, UserRole } from '@prisma/client';
+import { AccountStatus, OrderFlowMode, OrderStatus, PaymentMethod, PaymentStatus, UserRole } from '@prisma/client';
 import { OrderFlowService } from './order-flow.service';
-import { OrderFlowMode } from './dto/update-order-flow.dto';
+
 
 type MockTx = {
   order: {
@@ -59,6 +59,7 @@ describe('OrderFlowService - claimOrder', () => {
     vendorId: 'vendor-uuid-1',
     riderId: null as string | null,
     status: OrderStatus.PLACED,
+    orderFlowMode: OrderFlowMode.RIDER_FIRST,
     paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
     paymentStatus: PaymentStatus.PENDING,
     totalAmount: 1500.0,
@@ -299,6 +300,7 @@ function buildDispatchService(options: {
     vendorId: 'vendor-uuid-1',
     riderId: null as string | null,
     status: OrderStatus.PLACED,
+    orderFlowMode: options.flowMode ?? OrderFlowMode.RIDER_FIRST,
     paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
     paymentStatus: PaymentStatus.PENDING,
     totalAmount: 1500.0,
@@ -332,8 +334,8 @@ function buildDispatchService(options: {
     systemSetting: {
       findUnique: jest.fn().mockResolvedValue({
         value: {
-          mode: options.flowMode ?? OrderFlowMode.RIDER_FIRST,
           rider_search_timeout_seconds: options.riderSearchTimeoutSeconds ?? 90,
+          stale_order_ttl_minutes: 60,
         },
       }),
     },
@@ -594,29 +596,27 @@ describe('OrderFlowService - handleOrderReady (VENDOR_FIRST rider broadcast)', (
     expect(built.trackingGateway.broadcastDispatch).not.toHaveBeenCalled();
   });
 
-  it('does nothing in RIDER_FIRST mode (broadcast already happened at placement)', async () => {
+  it('does not rebroadcast in RIDER_FIRST mode (broadcast already happened at placement)', async () => {
     const built = buildDispatchService({ flowMode: OrderFlowMode.RIDER_FIRST });
     built.service.onModuleInit();
 
     await built.service.handleOrderReady('order-uuid-1');
     built.service.onModuleDestroy();
 
-    expect(built.prisma.order.findUnique).not.toHaveBeenCalled();
     expect(built.trackingGateway.broadcastDispatch).not.toHaveBeenCalled();
   });
 });
 
-describe('OrderFlowService - getOrderFlowConfig and rider proximity', () => {
-  it('defaults to RIDER_FIRST with a 90s search timeout when no setting exists', async () => {
+describe('OrderFlowService - dispatch timing config and rider proximity', () => {
+  it('defaults to a 90s search timeout and 60min stale TTL when no setting exists', async () => {
     const built = buildDispatchService({});
     built.prisma.systemSetting.findUnique.mockResolvedValue(null);
     built.service.onModuleInit();
 
-    const config = await built.service.getOrderFlowConfig();
+    const config = await built.service.getDispatchConfig();
     built.service.onModuleDestroy();
 
     expect(config).toEqual({
-      mode: OrderFlowMode.RIDER_FIRST,
       riderSearchTimeoutSeconds: 90,
       staleOrderTtlMinutes: 60,
     });

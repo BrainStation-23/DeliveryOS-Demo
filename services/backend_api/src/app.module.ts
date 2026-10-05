@@ -21,6 +21,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PaymentsModule } from './modules/payments/payments.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { MediaModule } from './modules/media/media.module';
+import { OutletTypesModule } from './modules/outlet-types/outlet-types.module';
 
 @Module({
   imports: [
@@ -117,6 +118,7 @@ import { MediaModule } from './modules/media/media.module';
     PaymentsModule,
     AddressesModule,
     MediaModule,
+    OutletTypesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

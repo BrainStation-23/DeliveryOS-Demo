@@ -52,6 +52,13 @@ async function main() {
       brandId: (
         await prisma.vendorBrand.create({ data: { name: 'PostGIS Test Kitchen Brand' } })
       ).id,
+      typeId: (
+        await prisma.outletType.upsert({
+          where: { slug: 'postgis-test-kitchen' },
+          update: {},
+          create: { name: 'PostGIS Test Kitchen', slug: 'postgis-test-kitchen', sortOrder: 99 },
+        })
+      ).id,
       name: 'PostGIS Test Burger Kitchen',
       contactPhone: '+8801711000000',
       latitude: 23.7925,

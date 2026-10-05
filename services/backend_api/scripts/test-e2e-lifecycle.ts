@@ -6,7 +6,7 @@ import { TransformInterceptor } from '../src/common/interceptors/transform.inter
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { OrderFlowService } from '../src/modules/order-flow/order-flow.service';
-import { OrderFlowMode } from '../src/modules/order-flow/dto/update-order-flow.dto';
+import { OrderFlowMode } from '@prisma/client';
 import { RedisService } from '../src/common/redis/redis.service';
 import { io, Socket } from 'socket.io-client';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
@@ -94,13 +94,18 @@ async function runE2ELifecycleTest() {
     });
     await orderFlowService.updateRiderLocation(riderProfile.id, 23.7930, 90.4080); // ~70m from store
 
-    // Ensure RIDER_FIRST dispatch mode is configured
-    await fetch(`${baseUrl}/admin/settings/order-flow`, {
+    // Ensure the outlet runs RIDER_FIRST with tight dispatch timing
+    await fetch(`${baseUrl}/admin/vendors/${gulshanOutlet.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${superAdmin.token}` },
-      body: JSON.stringify({ mode: OrderFlowMode.RIDER_FIRST, riderSearchTimeoutSeconds: 60 }),
+      body: JSON.stringify({ orderFlowMode: OrderFlowMode.RIDER_FIRST }),
     });
-    console.log('   ✅ Order Flow Configured: Mode = RIDER_FIRST (Zero Food Waste).\n');
+    await fetch(`${baseUrl}/admin/settings/dispatch`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${superAdmin.token}` },
+      body: JSON.stringify({ riderSearchTimeoutSeconds: 60 }),
+    });
+    console.log('   ✅ Outlet Flow Mode: RIDER_FIRST (Zero Food Waste), timeout 60s.\n');
 
     // -------------------------------------------------------------------------
     // Phase 1: Customer Geofence & Coupon Validation

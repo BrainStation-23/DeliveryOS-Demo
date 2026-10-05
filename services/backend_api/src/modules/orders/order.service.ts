@@ -115,13 +115,13 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Auto-cancel orders that never reached kitchen acceptance within the stale
-   * TTL (order_flow_config.stale_order_ttl_minutes, default 60). Unpaid online
+   * TTL (dispatch_config.stale_order_ttl_minutes, default 60). Unpaid online
    * orders are excluded — the payments sweep owns those. Uses the central
    * cancellation engine so refunds, coupon restoration, ledger cleanup, courier
    * release, and realtime events all behave exactly like a manual cancel.
    */
   async sweepStaleOrders() {
-    const { staleOrderTtlMinutes } = await this.orderFlowService.getOrderFlowConfig();
+    const { staleOrderTtlMinutes } = await this.orderFlowService.getDispatchConfig();
     const cutoff = new Date(Date.now() - staleOrderTtlMinutes * 60_000);
 
     const staleOrders = await this.prisma.order.findMany({
@@ -392,6 +392,7 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
               totalAmount,
               paymentMethod: dto.paymentMethod || 'CASH_ON_DELIVERY',
               paymentStatus: PaymentStatus.PENDING,
+              orderFlowMode: vendor.orderFlowMode,
               deliveryAddressSnapshot: addressSnapshot as unknown as Prisma.InputJsonObject,
               customerPhoneSnapshot: customer.phone,
               prepTimeMinutes: vendor.defaultPrepTimeMinutes,

@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { OrderStatus, PermissionScope, Prisma, User, UserRole } from '@prisma/client';
 import { VendorStaffService } from './vendor-staff.service';
-import { OrderFlowMode } from '../order-flow/dto/update-order-flow.dto';
+import { OrderFlowMode } from '@prisma/client';
 
 type MockPrisma = {
   vendorStaff: { findMany: jest.Mock };
@@ -109,7 +109,7 @@ describe('VendorStaffService - Step 1.5: Safe Live Orders Scoping', () => {
 describe('VendorStaffService - accept/handover flow-mode guards', () => {
   let service: VendorStaffService;
   let prisma: MockPrisma;
-  let orderFlowService: { getOrderFlowConfig: jest.Mock; handleOrderReady: jest.Mock };
+  let orderFlowService: { handleOrderReady: jest.Mock };
 
   const staffUser: User = {
     id: 'user-staff-1',
@@ -131,6 +131,7 @@ describe('VendorStaffService - accept/handover flow-mode guards', () => {
     customerId: 'customer-1',
     vendorId: 'vendor-1',
     status: OrderStatus.PLACED,
+    orderFlowMode: OrderFlowMode.RIDER_FIRST,
     riderId: null as string | null,
     deliveryAddressSnapshot: {
       type: 'HOME_DELIVERY',
@@ -161,11 +162,6 @@ describe('VendorStaffService - accept/handover flow-mode guards', () => {
     };
 
     orderFlowService = {
-      getOrderFlowConfig: jest.fn().mockResolvedValue({
-        mode: OrderFlowMode.RIDER_FIRST,
-        riderSearchTimeoutSeconds: 90,
-        staleOrderTtlMinutes: 60,
-      }),
       handleOrderReady: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -183,10 +179,10 @@ describe('VendorStaffService - accept/handover flow-mode guards', () => {
   });
 
   it('allows accepting a PLACED order in VENDOR_FIRST mode with a status-conditional update', async () => {
-    orderFlowService.getOrderFlowConfig.mockResolvedValue({
-      mode: OrderFlowMode.VENDOR_FIRST,
-      riderSearchTimeoutSeconds: 90,
-      staleOrderTtlMinutes: 60,
+    prisma.order.findUnique.mockResolvedValue({
+      ...baseOrder,
+      orderFlowMode: OrderFlowMode.VENDOR_FIRST,
+      vendor: { defaultPrepTimeMinutes: 20 },
     });
 
     const result = await service.acceptOrder(staffUser, 'order-1', {});
@@ -209,10 +205,10 @@ describe('VendorStaffService - accept/handover flow-mode guards', () => {
   });
 
   it('rejects a lost accept race with a ConflictException instead of overwriting', async () => {
-    orderFlowService.getOrderFlowConfig.mockResolvedValue({
-      mode: OrderFlowMode.VENDOR_FIRST,
-      riderSearchTimeoutSeconds: 90,
-      staleOrderTtlMinutes: 60,
+    prisma.order.findUnique.mockResolvedValue({
+      ...baseOrder,
+      orderFlowMode: OrderFlowMode.VENDOR_FIRST,
+      vendor: { defaultPrepTimeMinutes: 20 },
     });
     prisma.order.update.mockImplementation(() => {
       throw new Prisma.PrismaClientKnownRequestError('record not found', {

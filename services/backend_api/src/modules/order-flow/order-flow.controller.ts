@@ -5,10 +5,10 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { OrderFlowService } from './order-flow.service';
-import { UpdateOrderFlowDto } from './dto/update-order-flow.dto';
+import { UpdateDispatchConfigDto } from './dto/update-dispatch-config.dto';
 
 @ApiTags('Admin Dispatch Governance')
-@Controller('admin/settings/order-flow')
+@Controller('admin/settings/dispatch')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.SUPER_ADMIN)
 @ApiBearerAuth()
@@ -16,24 +16,24 @@ export class OrderFlowController {
   constructor(private readonly orderFlowService: OrderFlowService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get active order flow dispatch configuration (RIDER_FIRST vs VENDOR_FIRST)' })
-  @ApiResponse({ status: 200, description: 'Active dispatch settings' })
-  async getOrderFlowConfig() {
-    const config = await this.orderFlowService.getOrderFlowConfig();
+  @ApiOperation({ summary: 'Get dispatch timing configuration (rider search timeout, stale-order TTL)' })
+  @ApiResponse({ status: 200, description: 'Active dispatch timing settings' })
+  async getDispatchConfig() {
+    const config = await this.orderFlowService.getDispatchConfig();
     return {
-      message: 'Order flow configuration retrieved',
+      message: 'Dispatch timing configuration retrieved',
       data: config,
     };
   }
 
   @Patch()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Dynamically toggle between RIDER_FIRST and VENDOR_FIRST dispatch modes' })
-  @ApiResponse({ status: 200, description: 'Dispatch mode updated successfully' })
-  async setOrderFlowConfig(@Body() dto: UpdateOrderFlowDto) {
-    const updated = await this.orderFlowService.setOrderFlowConfig(dto);
+  @ApiOperation({ summary: 'Update dispatch timing (fulfillment sequence itself is configured per outlet)' })
+  @ApiResponse({ status: 200, description: 'Dispatch timing updated successfully' })
+  async setDispatchConfig(@Body() dto: UpdateDispatchConfigDto) {
+    const updated = await this.orderFlowService.setDispatchConfig(dto);
     return {
-      message: `Order flow sequence updated to ${dto.mode}`,
+      message: 'Dispatch timing updated',
       data: updated,
     };
   }

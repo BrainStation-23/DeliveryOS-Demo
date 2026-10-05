@@ -1,7 +1,7 @@
 # DeliveryOS Fresh-Start Reset & Production Hardening — Execution Plan
 
 - **Date:** 2026-10-05
-- **Status:** Executing — Step 1 in progress; Steps 2–6 run only on explicit owner command after per-step inspection
+- **Status:** Step 1 ✅ committed · Step 2 ✅ complete (backend: per-outlet flow mode + outlet-type system) — awaiting owner validation · Steps 3–6 on command
 - **Authorization:** Full database wipe and migration-baseline replacement explicitly ordered by owner. No auto-commit / auto-push at any point.
 - **Per-step gates:** each step ends in a validated, compilable, suite-green state for owner inspection.
 

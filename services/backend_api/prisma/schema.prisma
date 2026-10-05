@@ -27,13 +27,6 @@ enum AccountStatus {
   SUSPENDED
 }
 
-enum VendorVertical {
-  FOOD
-  GROCERY
-  SUPER_SHOP
-  PHARMACY
-}
-
 enum PermissionScope {
   PARTICULAR_OUTLET
   ALL_OUTLETS_MASTER
@@ -153,26 +146,27 @@ model VendorBrand {
 }
 
 model Vendor {
-  id                     String         @id @default(uuid()) @db.Uuid
-  brandId                String         @map("brand_id") @db.Uuid
-  name                   String         @db.VarChar(150)
-  vertical               VendorVertical @default(FOOD)
-  contactPhone           String         @map("contact_phone") @db.VarChar(20)
-  logoUrl                String?        @map("logo_url") @db.Text
-  bannerUrl              String?        @map("banner_url") @db.Text
+  id                     String        @id @default(uuid()) @db.Uuid
+  brandId                String        @map("brand_id") @db.Uuid
+  typeId                 String        @map("type_id") @db.Uuid
+  name                   String        @db.VarChar(150)
+  contactPhone           String        @map("contact_phone") @db.VarChar(20)
+  logoUrl                String?       @map("logo_url") @db.Text
+  bannerUrl              String?       @map("banner_url") @db.Text
   latitude               Float
   longitude              Float
-  addressText            String         @map("address_text") @db.Text
-  commissionRate         Decimal        @default(15.00) @map("commission_rate") @db.Decimal(5, 2)
-  deliveryRadiusKm       Decimal        @default(5.00) @map("delivery_radius_km") @db.Decimal(5, 2)
-  defaultPrepTimeMinutes Int            @default(20) @map("default_prep_time_minutes")
-  isActive               Boolean        @default(true) @map("is_active")
-  isBusy                 Boolean        @default(false) @map("is_busy")
-  orderFlowMode          OrderFlowMode  @default(RIDER_FIRST) @map("order_flow_mode")
-  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt              DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  addressText            String        @map("address_text") @db.Text
+  commissionRate         Decimal       @default(15.00) @map("commission_rate") @db.Decimal(5, 2)
+  deliveryRadiusKm       Decimal       @default(5.00) @map("delivery_radius_km") @db.Decimal(5, 2)
+  defaultPrepTimeMinutes Int           @default(20) @map("default_prep_time_minutes")
+  isActive               Boolean       @default(true) @map("is_active")
+  isBusy                 Boolean       @default(false) @map("is_busy")
+  orderFlowMode          OrderFlowMode @default(RIDER_FIRST) @map("order_flow_mode")
+  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   brand          VendorBrand           @relation(fields: [brandId], references: [id])
+  type           OutletType            @relation(fields: [typeId], references: [id])
   staff          VendorStaff[]
   operatingHours VendorOperatingHour[]
   categories     Category[]
@@ -181,8 +175,28 @@ model Vendor {
   commissions    CommissionLedger[]
 
   @@index([brandId])
+  @@index([typeId])
   @@index([isActive])
   @@map("vendors")
+}
+
+/// Admin-managed business type for outlets (e.g. Restaurant, Grocery, Pharmacy).
+/// Toggling `isActive` off hides every outlet of the type from customer
+/// discovery — the soft business control; hard deletes are guarded while any
+/// outlet is still assigned (ADR-019).
+model OutletType {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique @db.VarChar(100)
+  slug      String   @unique @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  outlets Vendor[]
+
+  @@index([isActive, sortOrder])
+  @@map("outlet_types")
 }
 
 model VendorStaff {

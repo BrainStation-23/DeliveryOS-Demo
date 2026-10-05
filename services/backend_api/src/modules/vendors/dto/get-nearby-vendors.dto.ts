@@ -1,7 +1,6 @@
-import { IsEnum, IsInt, IsLatitude, IsLongitude, IsNumber, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsLatitude, IsLongitude, IsNumber, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { VendorVertical } from '@prisma/client';
 
 export class GetNearbyVendorsDto {
   @ApiProperty({ example: 23.7937, description: 'Customer current latitude' })
@@ -16,10 +15,22 @@ export class GetNearbyVendorsDto {
   @IsLongitude()
   lng!: number;
 
-  @ApiPropertyOptional({ enum: VendorVertical, description: 'Filter by vendor vertical' })
+  @ApiPropertyOptional({
+    description: 'Filter by outlet type slug (from GET /vendors/outlet-types)',
+    example: 'restaurant',
+  })
   @IsOptional()
-  @IsEnum(VendorVertical)
-  vertical?: VendorVertical;
+  @IsString()
+  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, { message: 'typeSlug must be lowercase kebab-case' })
+  typeSlug?: string;
+
+  @ApiPropertyOptional({
+    deprecated: true,
+    description: 'Legacy vertical filter from the pre-outlet-types app build — accepted and ignored',
+  })
+  @IsOptional()
+  @IsString()
+  vertical?: string;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 50, description: 'Maximum outlets returned' })
   @IsOptional()

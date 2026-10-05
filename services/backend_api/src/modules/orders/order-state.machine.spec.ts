@@ -1,5 +1,5 @@
 import { OrderStatus } from '@prisma/client';
-import { OrderFlowMode } from '../order-flow/dto/update-order-flow.dto';
+import { OrderFlowMode } from '@prisma/client';
 import {
   ORDER_TRANSITIONS,
   assertClaimable,

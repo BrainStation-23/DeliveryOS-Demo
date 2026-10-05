@@ -1,6 +1,5 @@
-import { OrderStatus } from '@prisma/client';
+import { OrderFlowMode, OrderStatus } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
-import { OrderFlowMode } from '../order-flow/dto/update-order-flow.dto';
 
 /**
  * Authoritative Order State Machine Transitions (ADR-002)

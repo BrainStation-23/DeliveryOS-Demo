@@ -10,16 +10,15 @@ import {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { TrackingGateway } from '../realtime/tracking.gateway';
-import { OrderFlowMode, UpdateOrderFlowDto } from './dto/update-order-flow.dto';
-import { AccountStatus, OrderStatus, PaymentMethod, PaymentStatus, Prisma, UserRole } from '@prisma/client';
+import { UpdateDispatchConfigDto } from './dto/update-dispatch-config.dto';
+import { AccountStatus, OrderFlowMode, OrderStatus, PaymentMethod, PaymentStatus, Prisma, UserRole } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { assertClaimable, assertTransition } from '../orders/order-state.machine';
 import { DeliveryFeeService } from '../promotions/pricing/delivery-fee.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { haversineKm } from '../../common/utils/haversine';
 
-interface OrderFlowSettingValue {
-  mode?: OrderFlowMode;
+interface DispatchSettingValue {
   rider_search_timeout_seconds?: number;
   stale_order_ttl_minutes?: number;
 }
@@ -153,60 +152,54 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 1. Get Active Order Flow Configuration
-   * Reads the Postgres system setting to determine whether the system is
-   * operating in RIDER_FIRST or VENDOR_FIRST. Reads are cheap and single-row;
-   * hot-path callers (dispatch) tolerate the round trip.
+   * 1. Get dispatch timing configuration.
+   * The fulfillment sequence itself (RIDER_FIRST vs VENDOR_FIRST) is resolved
+   * per order from the outlet's `orderFlowMode` snapshot — this setting only
+   * carries the shared timing knobs. Reads are cheap and single-row; hot-path
+   * callers (dispatch) tolerate the round trip.
    */
-  async getOrderFlowConfig(): Promise<{
-    mode: OrderFlowMode;
+  async getDispatchConfig(): Promise<{
     riderSearchTimeoutSeconds: number;
     staleOrderTtlMinutes: number;
   }> {
     const setting = await this.prisma.systemSetting.findUnique({
-      where: { key: 'order_flow_config' },
+      where: { key: 'dispatch_config' },
     });
 
-    const val = (setting?.value as OrderFlowSettingValue | null) || {};
+    const val = (setting?.value as DispatchSettingValue | null) || {};
     return {
-      mode: val.mode === OrderFlowMode.VENDOR_FIRST ? OrderFlowMode.VENDOR_FIRST : OrderFlowMode.RIDER_FIRST,
       riderSearchTimeoutSeconds: val.rider_search_timeout_seconds || 90,
       staleOrderTtlMinutes: val.stale_order_ttl_minutes || 60,
     };
   }
 
   /**
-   * 2. Update Order Flow Configuration
+   * 2. Update dispatch timing configuration.
    * The setting is a single JSON blob: preserve fields the caller did not
-   * send (e.g. stale_order_ttl_minutes) instead of clobbering them.
+   * send instead of clobbering them.
    */
-  async setOrderFlowConfig(dto: UpdateOrderFlowDto) {
+  async setDispatchConfig(dto: UpdateDispatchConfigDto) {
     const existing = await this.prisma.systemSetting.findUnique({
-      where: { key: 'order_flow_config' },
+      where: { key: 'dispatch_config' },
     });
-    const existingValue = (existing?.value as OrderFlowSettingValue | null) || {};
+    const existingValue = (existing?.value as DispatchSettingValue | null) || {};
 
     const nextValue = {
-      mode: dto.mode,
       rider_search_timeout_seconds: dto.riderSearchTimeoutSeconds ?? existingValue.rider_search_timeout_seconds ?? 90,
       stale_order_ttl_minutes: dto.staleOrderTtlMinutes ?? existingValue.stale_order_ttl_minutes ?? 60,
-      description:
-        dto.mode === OrderFlowMode.RIDER_FIRST
-          ? 'Zero Food Waste Mode: Secures rider before kitchen begins prep.'
-          : 'Traditional Retail Mode: Store preps first, broadcasts to riders when ready.',
     };
 
     const updated = await this.prisma.systemSetting.upsert({
-      where: { key: 'order_flow_config' },
+      where: { key: 'dispatch_config' },
       update: { value: nextValue },
       create: {
-        key: 'order_flow_config',
+        key: 'dispatch_config',
         value: nextValue,
-        description: 'Order fulfillment flow sequence (RIDER_FIRST vs VENDOR_FIRST)',
+        description: 'Dispatch timing (rider search timeout, stale-order TTL)',
       },
     });
 
-    this.logger.log(`Order flow mode updated to: ${dto.mode}`);
+    this.logger.log(`Dispatch timing updated: ${JSON.stringify(nextValue)}`);
     return updated.value;
   }
 
@@ -311,7 +304,8 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const { mode, riderSearchTimeoutSeconds } = await this.getOrderFlowConfig();
+    const { riderSearchTimeoutSeconds } = await this.getDispatchConfig();
+    const mode = order.orderFlowMode;
 
     if (mode === OrderFlowMode.RIDER_FIRST) {
       // RIDER_FIRST: Zero Food Waste Mode
@@ -383,17 +377,17 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
    * 6. Dispatch Event Handler: Triggered when vendor marks order READY_FOR_PICKUP
    */
   async handleOrderReady(orderId: string) {
-    const { mode, riderSearchTimeoutSeconds } = await this.getOrderFlowConfig();
+    const { riderSearchTimeoutSeconds } = await this.getDispatchConfig();
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { vendor: true, orderItems: true },
+    });
+
+    if (!order || order.riderId) return; // already assigned or not found
 
     // In VENDOR_FIRST mode, rider broadcast is triggered when food is packaged
-    if (mode === OrderFlowMode.VENDOR_FIRST) {
-      const order = await this.prisma.order.findUnique({
-        where: { id: orderId },
-        include: { vendor: true, orderItems: true },
-      });
-
-      if (!order || order.riderId) return; // already assigned or not found
-
+    if (order.orderFlowMode === OrderFlowMode.VENDOR_FIRST) {
       const addressSnap = order.deliveryAddressSnapshot as AddressSnapshot | null;
       if (isTakeawayOrder(addressSnap)) {
         this.logger.log(`Order ${order.orderNumber} is TAKEAWAY; skipping courier dispatch on ready.`);
@@ -462,8 +456,6 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const { mode } = await this.getOrderFlowConfig();
-
       const updatedOrder = await this.prisma.$transaction(async (tx) => {
         // DB backstop for the busy check: the Redis `rider:active_order` marker
         // can be lost to eviction or a crash between commit and SET — the
@@ -517,6 +509,10 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
           }
         }
 
+        // The outlet's flow mode is snapshotted on the order at checkout; the
+        // claim rules below follow that immutable copy, never live outlet config.
+        const mode = order.orderFlowMode;
+
         assertClaimable(mode, order.status);
         const newStatus = mode === OrderFlowMode.RIDER_FIRST ? OrderStatus.RIDER_ASSIGNED : order.status;
         if (newStatus !== order.status) {
@@ -542,7 +538,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
       await this.redis.set(`rider:active_order:${rider.id}`, orderId);
 
       // Side Effects outside DB transaction:
-      if (mode === OrderFlowMode.RIDER_FIRST) {
+      if (updatedOrder.orderFlowMode === OrderFlowMode.RIDER_FIRST) {
         // Emit RIDER_ASSIGNED to customer tracking
         this.trackingGateway.notifyOrderStatusChanged(
           updatedOrder.id,
@@ -630,16 +626,27 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
    * order can never re-broadcast and re-alert admins every hour forever.
    */
   async evaluateDispatchEscalations() {
-    const { mode, riderSearchTimeoutSeconds, staleOrderTtlMinutes } = await this.getOrderFlowConfig();
+    const { riderSearchTimeoutSeconds, staleOrderTtlMinutes } = await this.getDispatchConfig();
 
+    // Claimable per outlet flow mode: RIDER_FIRST orders await a rider while
+    // PLACED; VENDOR_FIRST orders only enter the pool once READY_FOR_PICKUP.
     const unassignedOrders = await this.prisma.order.findMany({
       where: {
         riderId: null,
-        status: mode === OrderFlowMode.RIDER_FIRST ? OrderStatus.PLACED : OrderStatus.READY_FOR_PICKUP,
         placedAt: { gte: new Date(Date.now() - staleOrderTtlMinutes * 60_000) },
-        OR: [
-          { paymentMethod: PaymentMethod.CASH_ON_DELIVERY },
-          { paymentMethod: PaymentMethod.ONLINE_GATEWAY, paymentStatus: PaymentStatus.PAID },
+        AND: [
+          {
+            OR: [
+              { status: OrderStatus.PLACED, orderFlowMode: OrderFlowMode.RIDER_FIRST },
+              { status: OrderStatus.READY_FOR_PICKUP, orderFlowMode: OrderFlowMode.VENDOR_FIRST },
+            ],
+          },
+          {
+            OR: [
+              { paymentMethod: PaymentMethod.CASH_ON_DELIVERY },
+              { paymentMethod: PaymentMethod.ONLINE_GATEWAY, paymentStatus: PaymentStatus.PAID },
+            ],
+          },
         ],
       },
       include: {

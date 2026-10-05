@@ -8,7 +8,6 @@ import {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { TrackingGateway } from '../realtime/tracking.gateway';
-import { OrderFlowMode } from '../order-flow/dto/update-order-flow.dto';
 import { PaginatedResult, PaginationQueryDto, toPaginatedResult } from '../../common/dto/pagination.dto';
 
 export interface LiveOrderView {
@@ -51,6 +50,7 @@ import {
   BannerLinkType,
   CashDepositStatus,
   DiscountType,
+  OrderFlowMode,
   OrderStatus,
   PermissionScope,
   Prisma,
@@ -65,9 +65,9 @@ import { GetLiveOrdersQueryDto } from './dto/admin-governance.dto';
 import { startOfRegionToday } from '../../common/utils/region-time';
 import { outletDisplayName } from '../../common/utils/outlet-display-name';
 
-export interface OrderFlowSettingPayload {
-  mode: OrderFlowMode;
+export interface DispatchSettingPayload {
   rider_search_timeout_seconds: number;
+  stale_order_ttl_minutes: number;
 }
 
 @Injectable()
@@ -1095,6 +1095,7 @@ export class AdminService {
   async createVendor(data: {
     name: string;
     brandId: string;
+    typeId: string;
     addressText: string;
     latitude: number;
     longitude: number;
@@ -1103,14 +1104,27 @@ export class AdminService {
     commissionRate?: number;
     deliveryRadiusKm?: number;
     defaultPrepTimeMinutes?: number;
+    orderFlowMode?: OrderFlowMode;
   }) {
     if (!data.brandId) {
       throw new BadRequestException('Every outlet must belong to a brand');
     }
+
+    const type = await this.prisma.outletType.findUnique({ where: { id: data.typeId } });
+    if (!type) {
+      throw new BadRequestException(`Outlet type with ID "${data.typeId}" not found`);
+    }
+    if (!type.isActive) {
+      throw new ConflictException(
+        `Outlet type "${type.name}" is deactivated — outlets cannot be created under it while it remains hidden from customers`,
+      );
+    }
+
     return this.prisma.vendor.create({
       data: {
         name: data.name,
         brandId: data.brandId,
+        typeId: data.typeId,
         addressText: data.addressText,
         latitude: data.latitude,
         longitude: data.longitude,
@@ -1119,8 +1133,10 @@ export class AdminService {
         commissionRate: data.commissionRate ?? 15.00,
         deliveryRadiusKm: data.deliveryRadiusKm ?? 5.00,
         defaultPrepTimeMinutes: data.defaultPrepTimeMinutes ?? 20,
+        orderFlowMode: data.orderFlowMode ?? OrderFlowMode.RIDER_FIRST,
         isActive: true,
       },
+      include: { type: true },
     });
   }
 
@@ -1129,6 +1145,7 @@ export class AdminService {
     data: {
       name?: string;
       brandId?: string;
+      typeId?: string;
       addressText?: string;
       contactPhone?: string;
       commissionRate?: number;
@@ -1140,10 +1157,18 @@ export class AdminService {
       longitude?: number;
       isActive?: boolean;
       isBusy?: boolean;
+      orderFlowMode?: OrderFlowMode;
     },
   ) {
     const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
     if (!vendor) throw new NotFoundException('Vendor outlet not found');
+
+    if (data.typeId !== undefined) {
+      const type = await this.prisma.outletType.findUnique({ where: { id: data.typeId } });
+      if (!type) {
+        throw new BadRequestException(`Outlet type with ID "${data.typeId}" not found`);
+      }
+    }
 
     const updated = await this.prisma.vendor.update({
       where: { id: vendorId },
@@ -1151,6 +1176,7 @@ export class AdminService {
         ...(data.name !== undefined && { name: data.name }),
         // Brands are mandatory (ADR-017): an update may switch brands but never detach.
         ...(data.brandId !== undefined && data.brandId !== '' && { brandId: data.brandId }),
+        ...(data.typeId !== undefined && { typeId: data.typeId }),
         ...(data.addressText !== undefined && { addressText: data.addressText }),
         ...(data.contactPhone !== undefined && { contactPhone: data.contactPhone }),
         ...(data.commissionRate !== undefined && { commissionRate: data.commissionRate }),
@@ -1161,7 +1187,9 @@ export class AdminService {
         ...(data.bannerUrl !== undefined && data.bannerUrl !== '' && { bannerUrl: data.bannerUrl || null }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.isBusy !== undefined && { isBusy: data.isBusy }),
+        ...(data.orderFlowMode !== undefined && { orderFlowMode: data.orderFlowMode }),
       },
+      include: { type: true },
     });
 
     if (data.isActive !== undefined || data.isBusy !== undefined) {
@@ -1781,17 +1809,17 @@ export class AdminService {
   // 8. Platform System Settings
   // ===========================================================================
   async getSystemSettings() {
-    const [orderFlowSetting, deliveryFeeSetting, economicsSetting] = await Promise.all([
-      this.prisma.systemSetting.findUnique({ where: { key: 'order_flow_config' } }),
+    const [dispatchSetting, deliveryFeeSetting, economicsSetting] = await Promise.all([
+      this.prisma.systemSetting.findUnique({ where: { key: 'dispatch_config' } }),
       this.prisma.systemSetting.findUnique({ where: { key: 'delivery_fee_config' } }),
       this.prisma.systemSetting.findUnique({ where: { key: 'delivery_economics' } }),
     ]);
 
     return {
-      orderFlow:
-        (orderFlowSetting?.value as unknown as OrderFlowSettingPayload | null) || {
-          mode: OrderFlowMode.RIDER_FIRST,
+      dispatch:
+        (dispatchSetting?.value as unknown as DispatchSettingPayload | null) || {
           rider_search_timeout_seconds: 90,
+          stale_order_ttl_minutes: 60,
         },
       deliveryFee: normalizeDeliveryFeeConfig(
         deliveryFeeSetting?.value as Record<string, unknown> | null,

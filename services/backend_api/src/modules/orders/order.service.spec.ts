@@ -381,9 +381,9 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
   describe('Step 1.8: sweepStaleOrders (leader-elected stale order reaper)', () => {
     it('auto-cancels kitchen-unaccepted orders older than the configured TTL', async () => {
       orderFlowService = {
-        getOrderFlowConfig: jest
+        getDispatchConfig: jest
           .fn()
-          .mockResolvedValue({ mode: 'RIDER_FIRST', riderSearchTimeoutSeconds: 90, staleOrderTtlMinutes: 60 }),
+          .mockResolvedValue({ riderSearchTimeoutSeconds: 90, staleOrderTtlMinutes: 60 }),
         releaseRiderActiveTrip: jest.fn().mockResolvedValue(undefined),
       };
       orderService = new OrderService(
@@ -435,9 +435,9 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
 
     it('is a no-op when no stale orders exist', async () => {
       orderFlowService = {
-        getOrderFlowConfig: jest
+        getDispatchConfig: jest
           .fn()
-          .mockResolvedValue({ mode: 'RIDER_FIRST', riderSearchTimeoutSeconds: 90, staleOrderTtlMinutes: 60 }),
+          .mockResolvedValue({ riderSearchTimeoutSeconds: 90, staleOrderTtlMinutes: 60 }),
       };
       orderService = new OrderService(
         prisma as never,

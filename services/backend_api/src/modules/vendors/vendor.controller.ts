@@ -23,6 +23,14 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 export class VendorController {
   constructor(private readonly vendorService: VendorService) {}
 
+  @Get('outlet-types')
+  @ApiOperation({ summary: 'Active outlet types for customer category chips (deactivated types hidden)' })
+  @ApiResponse({ status: 200, description: 'Active outlet types ordered by sortOrder' })
+  async getOutletTypes() {
+    const data = await this.vendorService.getOutletTypes();
+    return { message: `Found ${data.length} active outlet type(s)`, data };
+  }
+
   @Get('nearby')
   @ApiOperation({ summary: 'Get nearby active outlets within delivery coverage' })
   @ApiResponse({ status: 200, description: 'List of outlets within delivery radius' })

@@ -5,9 +5,6 @@ CREATE TYPE "UserRole" AS ENUM ('SUPER_ADMIN', 'VENDOR_ADMIN', 'RIDER', 'CUSTOME
 CREATE TYPE "AccountStatus" AS ENUM ('PENDING_APPROVAL', 'ACTIVE', 'SUSPENDED');
 
 -- CreateEnum
-CREATE TYPE "VendorVertical" AS ENUM ('FOOD', 'GROCERY', 'SUPER_SHOP', 'PHARMACY');
-
--- CreateEnum
 CREATE TYPE "PermissionScope" AS ENUM ('PARTICULAR_OUTLET', 'ALL_OUTLETS_MASTER');
 
 -- CreateEnum
@@ -81,8 +78,8 @@ CREATE TABLE "vendor_brands" (
 CREATE TABLE "vendors" (
     "id" UUID NOT NULL,
     "brand_id" UUID NOT NULL,
+    "type_id" UUID NOT NULL,
     "name" VARCHAR(150) NOT NULL,
-    "vertical" "VendorVertical" NOT NULL DEFAULT 'FOOD',
     "contact_phone" VARCHAR(20) NOT NULL,
     "logo_url" TEXT,
     "banner_url" TEXT,
@@ -99,6 +96,19 @@ CREATE TABLE "vendors" (
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "vendors_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "outlet_types" (
+    "id" UUID NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "slug" VARCHAR(100) NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "sort_order" INTEGER NOT NULL DEFAULT 0,
+    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "outlet_types_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -386,7 +396,19 @@ CREATE INDEX "customer_addresses_user_id_idx" ON "customer_addresses"("user_id")
 CREATE INDEX "vendors_brand_id_idx" ON "vendors"("brand_id");
 
 -- CreateIndex
+CREATE INDEX "vendors_type_id_idx" ON "vendors"("type_id");
+
+-- CreateIndex
 CREATE INDEX "vendors_is_active_idx" ON "vendors"("is_active");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "outlet_types_name_key" ON "outlet_types"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "outlet_types_slug_key" ON "outlet_types"("slug");
+
+-- CreateIndex
+CREATE INDEX "outlet_types_is_active_sort_order_idx" ON "outlet_types"("is_active", "sort_order");
 
 -- CreateIndex
 CREATE INDEX "vendor_staff_user_id_idx" ON "vendor_staff"("user_id");
@@ -519,6 +541,9 @@ ALTER TABLE "customer_addresses" ADD CONSTRAINT "customer_addresses_user_id_fkey
 
 -- AddForeignKey
 ALTER TABLE "vendors" ADD CONSTRAINT "vendors_brand_id_fkey" FOREIGN KEY ("brand_id") REFERENCES "vendor_brands"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "vendors" ADD CONSTRAINT "vendors_type_id_fkey" FOREIGN KEY ("type_id") REFERENCES "outlet_types"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "vendor_staff" ADD CONSTRAINT "vendor_staff_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

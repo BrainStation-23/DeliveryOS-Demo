@@ -21,7 +21,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { BannerLinkType, DiscountType, OrderStatus, PermissionScope } from '@prisma/client';
+import { BannerLinkType, DiscountType, OrderFlowMode, OrderStatus, PermissionScope } from '@prisma/client';
 import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 
 export class UpdateRiderCashLimitDto {
@@ -274,6 +274,20 @@ export class CreateCouponDto extends CouponFields {
 export class UpdateCouponDto extends CouponFields {}
 
 class VendorFields {
+  @ApiPropertyOptional({ description: 'Outlet type — required on create, from GET /admin/outlet-types' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  typeId?: string;
+
+  @ApiPropertyOptional({
+    enum: OrderFlowMode,
+    description: 'Dispatch sequence for this outlet: RIDER_FIRST (zero food waste) or VENDOR_FIRST (traditional retail)',
+  })
+  @IsOptional()
+  @IsEnum(OrderFlowMode)
+  orderFlowMode?: OrderFlowMode;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -360,6 +374,11 @@ export class CreateVendorDto extends VendorFields {
   @IsString()
   @IsNotEmpty()
   declare brandId: string;
+
+  @ApiProperty({ description: 'Outlet business type — must be an active type from GET /admin/outlet-types' })
+  @IsString()
+  @IsNotEmpty()
+  declare typeId: string;
 
   @ApiProperty()
   @IsString()

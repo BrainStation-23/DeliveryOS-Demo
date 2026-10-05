@@ -5,7 +5,7 @@ import { TransformInterceptor } from '../src/common/interceptors/transform.inter
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { OrderFlowService } from '../src/modules/order-flow/order-flow.service';
-import { OrderFlowMode } from '../src/modules/order-flow/dto/update-order-flow.dto';
+import { OrderFlowMode } from '@prisma/client';
 import { io, Socket } from 'socket.io-client';
 import { UserRole } from '@prisma/client';
 
@@ -212,14 +212,18 @@ async function runOrderDispatchFsmTest() {
     // -------------------------------------------------------------------------
     console.log('🥗 3. Testing RIDER_FIRST Sequence (Zero Food Waste Mode)...');
 
-    // Set Admin config to RIDER_FIRST
-    const setRiderFirstRes = await fetch(`${baseUrl}/admin/settings/order-flow`, {
+    // Set the outlet's flow mode to RIDER_FIRST and tighten dispatch timing
+    await fetch(`${baseUrl}/admin/vendors/${gulshanOutlet!.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${superAdmin.token}` },
-      body: JSON.stringify({ mode: OrderFlowMode.RIDER_FIRST, riderSearchTimeoutSeconds: 60 }),
+      body: JSON.stringify({ orderFlowMode: OrderFlowMode.RIDER_FIRST }),
     });
-    const setRiderFirstJson = await setRiderFirstRes.json();
-    console.log(`   Dispatch Config: mode=${setRiderFirstJson.data?.mode}`);
+    await fetch(`${baseUrl}/admin/settings/dispatch`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${superAdmin.token}` },
+      body: JSON.stringify({ riderSearchTimeoutSeconds: 60 }),
+    });
+    console.log(`   Outlet flow mode: RIDER_FIRST (rider search timeout 60s)`);
 
     // Connect vendor socket to monitor incoming chimes
     const vendorSocket = io(wsUrl, {
@@ -313,14 +317,13 @@ async function runOrderDispatchFsmTest() {
     // -------------------------------------------------------------------------
     console.log('🏪 4. Testing VENDOR_FIRST Sequence (Traditional Retail Mode)...');
 
-    // Switch mode to VENDOR_FIRST
-    const setVendorFirstRes = await fetch(`${baseUrl}/admin/settings/order-flow`, {
+    // Switch the outlet to VENDOR_FIRST
+    await fetch(`${baseUrl}/admin/vendors/${gulshanOutlet!.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${superAdmin.token}` },
-      body: JSON.stringify({ mode: OrderFlowMode.VENDOR_FIRST }),
+      body: JSON.stringify({ orderFlowMode: OrderFlowMode.VENDOR_FIRST }),
     });
-    const setVendorFirstJson = await setVendorFirstRes.json();
-    console.log(`   Dispatch Config: mode=${setVendorFirstJson.data?.mode}`);
+    console.log(`   Outlet flow mode: VENDOR_FIRST`);
 
     vendorChimeReceived = false;
 
@@ -387,12 +390,12 @@ async function runOrderDispatchFsmTest() {
     console.log('   ✅ VENDOR_FIRST sequence completed successfully!\n');
 
     // Restore pilot default to RIDER_FIRST
-    await fetch(`${baseUrl}/admin/settings/order-flow`, {
+    await fetch(`${baseUrl}/admin/vendors/${gulshanOutlet!.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${superAdmin.token}` },
-      body: JSON.stringify({ mode: OrderFlowMode.RIDER_FIRST }),
+      body: JSON.stringify({ orderFlowMode: OrderFlowMode.RIDER_FIRST }),
     });
-    console.log('   Restored default setting: RIDER_FIRST.');
+    console.log('   Restored outlet default: RIDER_FIRST.');
 
     console.log('\n====================================================');
     console.log(' 🎉 All Configurable Dispatch FSM Tests Passed!');

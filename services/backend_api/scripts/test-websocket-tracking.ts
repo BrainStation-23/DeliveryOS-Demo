@@ -49,11 +49,15 @@ async function runWebSocketTrackingTest() {
     const rider = await login('+8801700000004');         // Delivery Rider
     console.log('   ✅ Super Admin, Branch Manager, Customer, and Rider authenticated.\n');
 
-    // Ensure VENDOR_FIRST mode so order:new fires immediately on checkout for benchmark
-    await fetch(`${baseUrl}/admin/settings/order-flow`, {
+    // Ensure the outlet runs VENDOR_FIRST so order:new fires immediately on checkout
+    const flowOutlet = await prisma.vendor.findFirst({
+      where: { name: { contains: 'Gulshan Branch' } },
+      select: { id: true },
+    });
+    await fetch(`${baseUrl}/admin/vendors/${flowOutlet!.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${superAdmin.token}` },
-      body: JSON.stringify({ mode: 'VENDOR_FIRST' }),
+      body: JSON.stringify({ orderFlowMode: 'VENDOR_FIRST' }),
     });
 
     // -------------------------------------------------------------------------
@@ -281,10 +285,10 @@ async function runWebSocketTrackingTest() {
     console.log(`     ✅ Customer received [order:status:changed]: newStatus=${deliverEvent.newStatus}`);
 
     // Restore pilot default to RIDER_FIRST
-    await fetch(`${baseUrl}/admin/settings/order-flow`, {
+    await fetch(`${baseUrl}/admin/vendors/${gulshanOutlet!.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${superAdmin.token}` },
-      body: JSON.stringify({ mode: 'RIDER_FIRST' }),
+      body: JSON.stringify({ orderFlowMode: 'RIDER_FIRST' }),
     });
 
     console.log('\n====================================================');

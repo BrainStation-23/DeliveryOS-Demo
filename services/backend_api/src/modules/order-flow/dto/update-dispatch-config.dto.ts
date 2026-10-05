@@ -1,20 +1,7 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
-export enum OrderFlowMode {
-  RIDER_FIRST = 'RIDER_FIRST',
-  VENDOR_FIRST = 'VENDOR_FIRST',
-}
-
-export class UpdateOrderFlowDto {
-  @ApiProperty({
-    description: 'Order fulfillment dispatch mode',
-    enum: OrderFlowMode,
-    example: OrderFlowMode.RIDER_FIRST,
-  })
-  @IsEnum(OrderFlowMode)
-  mode!: OrderFlowMode;
-
+export class UpdateDispatchConfigDto {
   @ApiPropertyOptional({
     description: 'Timeout in seconds before searching in wider radius or alerting dispatch',
     example: 90,

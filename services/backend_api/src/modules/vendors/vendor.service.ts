@@ -13,12 +13,15 @@ import { GetNearbyVendorsDto } from './dto/get-nearby-vendors.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { ValidateAddressCoverageDto } from './dto/validate-address-coverage.dto';
 import { DeliveryFeeService } from '../promotions/pricing/delivery-fee.service';
+import { OutletTypesService } from '../outlet-types/outlet-types.service';
 
 export interface RawNearbyVendorRow {
   id: string;
   name: string;
   brandName: string | null;
-  vertical: string;
+  typeId: string;
+  typeName: string;
+  typeSlug: string;
   contactPhone: string;
   logoUrl: string | null;
   bannerUrl: string | null;
@@ -37,7 +40,9 @@ export interface RawOutletSearchRow {
   id: string;
   name: string;
   brandName: string | null;
-  vertical: string;
+  typeId: string;
+  typeName: string;
+  typeSlug: string;
   logoUrl: string | null;
   addressText: string;
   distanceKm: number | string;
@@ -66,24 +71,32 @@ export class VendorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly deliveryFeeService: DeliveryFeeService,
+    private readonly outletTypesService: OutletTypesService,
   ) {}
+
+  /** Public outlet-type listing (active only) powering customer category chips. */
+  async getOutletTypes() {
+    return this.outletTypesService.listActive();
+  }
 
   /**
    * 1. Get Nearby Outlets filtered by customer coordinate via PostGIS ST_DWithin
    */
   async getNearbyVendors(dto: GetNearbyVendorsDto) {
-    const { lat, lng, vertical, limit = 50 } = dto;
+    const { lat, lng, typeSlug, limit = 50 } = dto;
 
-    const verticalFilter = vertical
-      ? Prisma.sql`AND v.vertical = ${vertical}::"VendorVertical"`
+    const typeFilter = typeSlug
+      ? Prisma.sql`AND ot.slug = ${typeSlug}`
       : Prisma.empty;
 
     const nearbyVendors: RawNearbyVendorRow[] = await this.prisma.$queryRaw`
-      SELECT 
+      SELECT
         v.id,
         v.name,
         b.name AS "brandName",
-        v.vertical,
+        v.type_id AS "typeId",
+        ot.name AS "typeName",
+        ot.slug AS "typeSlug",
         v.contact_phone AS "contactPhone",
         v.logo_url AS "logoUrl",
         v.banner_url AS "bannerUrl",
@@ -101,13 +114,15 @@ export class VendorService {
         ) / 1000)::numeric, 2) AS "distanceKm"
       FROM vendors v
       JOIN vendor_brands b ON b.id = v.brand_id
+      JOIN outlet_types ot ON ot.id = v.type_id
       WHERE v.is_active = TRUE
+        AND ot.is_active = TRUE
         AND ST_DWithin(
           CAST(ST_SetSRID(ST_MakePoint(v.longitude, v.latitude), 4326) AS geography),
           CAST(ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326) AS geography),
           v.delivery_radius_km * 1000
         )
-        ${verticalFilter}
+        ${typeFilter}
       ORDER BY "distanceKm" ASC
       LIMIT ${limit};
     `;
@@ -136,11 +151,13 @@ export class VendorService {
 
     // 1. Matching Outlets within coverage
     const outlets: RawOutletSearchRow[] = await this.prisma.$queryRaw`
-      SELECT 
+      SELECT
         v.id,
         v.name,
         b.name AS "brandName",
-        v.vertical,
+        v.type_id AS "typeId",
+        ot.name AS "typeName",
+        ot.slug AS "typeSlug",
         v.logo_url AS "logoUrl",
         v.address_text AS "addressText",
         ROUND((ST_Distance(
@@ -149,7 +166,9 @@ export class VendorService {
         ) / 1000)::numeric, 2) AS "distanceKm"
       FROM vendors v
       JOIN vendor_brands b ON b.id = v.brand_id
+      JOIN outlet_types ot ON ot.id = v.type_id
       WHERE v.is_active = TRUE
+        AND ot.is_active = TRUE
         AND (v.name ILIKE ${term} OR b.name ILIKE ${term})
         AND ST_DWithin(
           CAST(ST_SetSRID(ST_MakePoint(v.longitude, v.latitude), 4326) AS geography),
@@ -160,9 +179,9 @@ export class VendorService {
       LIMIT 10;
     `;
 
-    // 2. Matching Products from active outlets within coverage
+    // 2. Matching Products from active outlets of active types within coverage
     const items: RawProductSearchRow[] = await this.prisma.$queryRaw`
-      SELECT 
+      SELECT
         p.id,
         p.name,
         p.description,
@@ -178,7 +197,9 @@ export class VendorService {
         ) / 1000)::numeric, 2) AS "distanceKm"
       FROM products p
       JOIN vendors v ON p.vendor_id = v.id
+      JOIN outlet_types ot ON ot.id = v.type_id
       WHERE v.is_active = TRUE
+        AND ot.is_active = TRUE
         AND (p.name ILIKE ${term} OR p.description ILIKE ${term})
         AND ST_DWithin(
           CAST(ST_SetSRID(ST_MakePoint(v.longitude, v.latitude), 4326) AS geography),
@@ -206,6 +227,7 @@ export class VendorService {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: vendorId },
       include: {
+        type: true,
         operatingHours: {
           orderBy: { dayOfWeek: 'asc' },
         },
