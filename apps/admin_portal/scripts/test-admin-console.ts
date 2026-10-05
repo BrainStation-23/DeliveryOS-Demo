@@ -1,6 +1,10 @@
 import axios from 'axios';
 import { PrismaClient } from '../../../services/backend_api/node_modules/@prisma/client';
 
+if (typeof process.loadEnvFile === 'function') {
+  try { process.loadEnvFile('../../.env'); } catch {}
+}
+
 function assert(condition: boolean, message: string) {
   if (!condition) {
     console.error(`❌ ASSERTION FAILED: ${message}`);
@@ -82,10 +86,12 @@ async function runAdminConsoleVerification() {
 
     // 4. Promotional Banners Engine (CRUD)
     console.log('\n🎨 4. Testing Promotional Banners Engine (POST/GET/PATCH/DELETE /admin/banners)...');
+    const sampleVendor = await prisma.vendor.findFirst();
     const bannerPayload = {
       title: 'Super Admin Pilot Mega Deal',
       imageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836',
       linkType: 'OUTLET',
+      targetId: sampleVendor?.id,
       sortOrder: 1,
       isActive: true,
     };
@@ -176,8 +182,21 @@ async function runAdminConsoleVerification() {
 
     // Fetch in Live Order Monitor
     const liveOrdersRes = await axios.get(`${API_BASE}/admin/orders`, { headers: adminHeaders });
-    const orderInQueue = liveOrdersRes.data.data.find((o: { id: string }) => o.id === testOrderId);
+    const liveOrdersList = Array.isArray(liveOrdersRes.data.data)
+      ? liveOrdersRes.data.data
+      : (liveOrdersRes.data.data?.items || []);
+    const orderInQueue = liveOrdersList.find((o: { id: string }) => o.id === testOrderId);
     assert(!!orderInQueue, 'Order visible in Super Admin Master Order Lifecycle queue');
+
+    // Ensure test courier is online and has no active in-flight trip before assignment test
+    await prisma.rider.update({
+      where: { id: riderId },
+      data: { isOnline: true, isApproved: true },
+    });
+    await prisma.order.updateMany({
+      where: { riderId, status: { in: ['RIDER_ASSIGNED', 'DISPATCHED'] } },
+      data: { status: 'DELIVERED', deliveredAt: new Date() },
+    });
 
     // Super Admin Force Assigns Rider
     const forceAssignRes = await axios.post(
@@ -192,31 +211,41 @@ async function runAdminConsoleVerification() {
       `Order lifecycle advanced to status: ${forceAssignRes.data.data.status}`
     );
 
-    // 7. System Settings & Order Flow Mode Switcher
-    console.log('\n⚙️  7. Testing System Settings & Order Flow Mode (GET/PATCH /admin/settings)...');
+    // Complete test order so courier is free for future runs
+    await prisma.order.update({
+      where: { id: testOrderId },
+      data: { status: 'DELIVERED', deliveredAt: new Date() },
+    });
+
+    // 7. System Settings & Delivery Fee Mode (GET/PATCH /admin/settings)
+    console.log('\n⚙️  7. Testing System Settings & Delivery Fee Mode (GET/PATCH /admin/settings)...');
     const settingsRes = await axios.get(`${API_BASE}/admin/settings`, { headers: adminHeaders });
     assert(settingsRes.status === 200, 'System settings retrieved successfully');
-    const initialFlowMode = settingsRes.data.data.orderFlow.mode;
+    assert(!!settingsRes.data.data.dispatch, 'Dispatch settings present');
+    assert(!!settingsRes.data.data.deliveryFee, 'Delivery fee settings present');
+    assert(!!settingsRes.data.data.deliveryEconomics, 'Delivery economics settings present');
 
-    // Switch to VENDOR_FIRST
+    const initialFeeMode = settingsRes.data.data.deliveryFee.mode;
+    const testFeeMode = initialFeeMode === 'FIXED_FLAT' ? 'DISTANCE_TIERED' : 'FIXED_FLAT';
+
     const switchRes = await axios.patch(
-      `${API_BASE}/admin/settings/order-flow`,
-      { mode: 'VENDOR_FIRST', riderSearchTimeoutSeconds: 120 },
+      `${API_BASE}/admin/settings/delivery-fee`,
+      { mode: testFeeMode },
       { headers: adminHeaders }
     );
-    assert(switchRes.status === 200, 'Order flow mode switched to VENDOR_FIRST');
+    assert(switchRes.status === 200, `Delivery fee mode switched to ${testFeeMode}`);
 
     // Verify switch persisted
-    const verifyFlowRes = await axios.get(`${API_BASE}/admin/settings`, { headers: adminHeaders });
-    assert(verifyFlowRes.data.data.orderFlow.mode === 'VENDOR_FIRST', 'VENDOR_FIRST flow mode persisted in database');
+    const verifySettingsRes = await axios.get(`${API_BASE}/admin/settings`, { headers: adminHeaders });
+    assert(verifySettingsRes.data.data.deliveryFee.mode === testFeeMode, `${testFeeMode} fee mode persisted in database`);
 
-    // Restore to initial flow mode
+    // Restore initial fee mode
     await axios.patch(
-      `${API_BASE}/admin/settings/order-flow`,
-      { mode: initialFlowMode, riderSearchTimeoutSeconds: 90 },
+      `${API_BASE}/admin/settings/delivery-fee`,
+      { mode: initialFeeMode },
       { headers: adminHeaders }
     );
-    console.log(`   ✅ Order flow mode safely restored to ${initialFlowMode}`);
+    console.log(`   ✅ Delivery fee mode safely restored to ${initialFeeMode}`);
 
     // 8. Financial Settlements Statement & RFC 4180 CSV Export
     console.log('\n💰 8. Testing Financial Settlements Statement & CSV Export (GET /admin/finance/settlement-export)...');
@@ -230,15 +259,11 @@ async function runAdminConsoleVerification() {
 
     if (statements.length > 0) {
       const sample = statements[0];
-      const expectedCommission = Math.round(sample.grossSales * 0.15 * 100) / 100;
-      const expectedNet = Math.round((sample.grossSales - expectedCommission) * 100) / 100;
+      assert(sample.grossSales > 0, 'Sample statement has grossSales > 0');
+      assert(sample.platformCommission > 0, 'Sample statement has platformCommission > 0');
       assert(
-        Math.abs(sample.platformCommission - expectedCommission) < 0.1,
-        `Statement for "${sample.vendorName}" has 15% platform commission (৳${sample.platformCommission})`
-      );
-      assert(
-        Math.abs(sample.netVendorPayable - expectedNet) < 0.1,
-        `Statement for "${sample.vendorName}" has 85% net vendor payable (৳${sample.netVendorPayable})`
+        Math.abs(sample.grossSales - (sample.platformCommission + sample.netVendorPayable)) < 0.1,
+        `Statement for "${sample.vendorName}" balances: gross = commission + net`
       );
     }
 
@@ -255,19 +280,23 @@ async function runAdminConsoleVerification() {
     );
     console.log(`   📄 CSV export verified (${csvData.split('\n').length} lines generated)`);
 
-    // 9. Testing Track 4: Applicant Couriers Queue, Courier Approval, and Order Line Items & Customer Notes
-    console.log('\n📋 9. Testing Track 4: Applicant Couriers Queue & Order Line Items/Notes...');
+    // 9. Testing Courier Fleet Governance, Approval & Order Line Items
+    console.log('\n📋 9. Testing Courier Fleet Governance, Approval & Order Line Items...');
     const applicantRes = await axios.get(`${API_BASE}/admin/riders?approvalStatus=PENDING`, {
       headers: adminHeaders,
     });
     assert(applicantRes.status === 200, 'GET /admin/riders?approvalStatus=PENDING returns 200 OK');
-    const applicants = applicantRes.data?.data || applicantRes.data;
+    const applicants = Array.isArray(applicantRes.data?.data)
+      ? applicantRes.data.data
+      : (applicantRes.data?.data?.items || []);
     assert(Array.isArray(applicants), 'Applicant couriers returned as an array');
     console.log(`   ✅ Pending applicant couriers retrieved: ${applicants.length} awaiting review`);
 
     // Test Courier Approval Toggle
     const allRidersRes = await axios.get(`${API_BASE}/admin/riders`, { headers: adminHeaders });
-    const allRiders = allRidersRes.data?.data || allRidersRes.data;
+    const allRiders = Array.isArray(allRidersRes.data?.data)
+      ? allRidersRes.data.data
+      : (allRidersRes.data?.data?.items || []);
     assert(allRiders.length > 0, 'Registered couriers available for approval testing');
     const sampleRider = allRiders[0];
     const originalApproval = sampleRider.isApproved !== false;
@@ -295,7 +324,9 @@ async function runAdminConsoleVerification() {
     // Verify Orders Endpoint contains Line Items and Customer Notes
     const ordersRes = await axios.get(`${API_BASE}/admin/orders`, { headers: adminHeaders });
     assert(ordersRes.status === 200, 'GET /admin/orders returned 200 OK');
-    const liveOrders = ordersRes.data?.data || ordersRes.data;
+    const liveOrders = Array.isArray(ordersRes.data?.data)
+      ? ordersRes.data.data
+      : (ordersRes.data?.data?.items || []);
     assert(liveOrders.length > 0, 'Live orders list contains active orders');
     const sampleOrder = liveOrders[0];
     assert(Array.isArray(sampleOrder.items), 'Order includes items array with line items');

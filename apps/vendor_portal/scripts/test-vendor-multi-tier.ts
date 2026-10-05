@@ -1,6 +1,10 @@
 import axios from 'axios';
 import { PrismaClient } from '../../../services/backend_api/node_modules/@prisma/client';
 
+if (typeof process.loadEnvFile === 'function') {
+  try { process.loadEnvFile('../../.env'); } catch {}
+}
+
 function assert(condition: boolean, message: string) {
   if (!condition) {
     console.error(`❌ ASSERTION FAILED: ${message}`);
@@ -168,15 +172,16 @@ async function runMultiTierVerification() {
 
     if (boSales.ledgers.length > 0) {
       const sampleItem = boSales.ledgers[0];
-      const expectedCommission = Math.round(sampleItem.grossAmount * 0.15 * 100) / 100;
+      const rate = sampleItem.commissionRate > 0 ? sampleItem.commissionRate / 100 : 0.15;
+      const expectedCommission = Math.round(sampleItem.grossAmount * rate * 100) / 100;
       const expectedNet = Math.round((sampleItem.grossAmount - expectedCommission) * 100) / 100;
       assert(
         Math.abs(sampleItem.commissionAmount - expectedCommission) < 0.05,
-        `Ledger order #${sampleItem.orderNumber} correctly calculates 15% platform commission (৳${sampleItem.commissionAmount})`
+        `Ledger order #${sampleItem.orderNumber} correctly calculates platform commission (৳${sampleItem.commissionAmount})`
       );
       assert(
         Math.abs(sampleItem.netVendorPayable - expectedNet) < 0.05,
-        `Ledger order #${sampleItem.orderNumber} correctly calculates 85% net vendor payable (৳${sampleItem.netVendorPayable})`
+        `Ledger order #${sampleItem.orderNumber} correctly calculates net vendor payable (৳${sampleItem.netVendorPayable})`
       );
     }
 

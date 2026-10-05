@@ -35,9 +35,9 @@ async function requestJson(url: string, method: string, body?: any, token?: stri
   return { status: res.status, data: json };
 }
 
-async function runTrack3VendorKDSTests() {
+async function runVendorKDSResilienceTests() {
   console.log('====================================================');
-  console.log('🚀 Running Track 3: Merchant & Kitchen KDS Resilience Tests');
+  console.log('🚀 Running Merchant & Kitchen KDS Resilience Tests');
   console.log('====================================================\n');
 
   const socketsToClose: Socket[] = [];
@@ -395,10 +395,10 @@ async function runTrack3VendorKDSTests() {
     await prisma.order.delete({ where: { id: testOrderId } });
 
     console.log('====================================================');
-    console.log('🎉 Track 3: Merchant & Kitchen KDS Resilience: ALL TESTS PASSED!');
+    console.log('🎉 Merchant & Kitchen KDS Resilience: ALL TESTS PASSED!');
     console.log('====================================================\n');
   } catch (error: any) {
-    console.error('\n❌ Track 3 Test Failed:', error.message || error);
+    console.error('\n❌ Merchant & Kitchen KDS Resilience Test Failed:', error.message || error);
     process.exit(1);
   } finally {
     for (const s of socketsToClose) {
@@ -408,4 +408,4 @@ async function runTrack3VendorKDSTests() {
   }
 }
 
-runTrack3VendorKDSTests();
+runVendorKDSResilienceTests();

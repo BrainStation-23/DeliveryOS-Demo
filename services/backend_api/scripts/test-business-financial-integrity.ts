@@ -33,9 +33,9 @@ async function requestJson(url: string, method: string, body?: any, token?: stri
   return { status: res.status, data: json };
 }
 
-async function runTrack1IntegrityTests() {
+async function runBusinessFinancialIntegrityTests() {
   console.log('====================================================');
-  console.log('🚀 Running Track 1: Core Business & Financial Integrity Tests');
+  console.log('🚀 Running Core Business & Financial Integrity Tests');
   console.log('====================================================\n');
 
   let testVendor: any = null;
@@ -100,16 +100,24 @@ async function runTrack1IntegrityTests() {
 
     const testProduct = vendor.products[0];
 
-    // Ensure customer has a delivery address within coverage
+    // Ensure customer has a delivery address within vendor coverage
     let address = await prisma.customerAddress.findFirst({
-      where: { userId: customerId },
+      where: { userId: customerId, label: 'Business Integrity Home' },
     });
     if (!address) {
       address = await prisma.customerAddress.create({
         data: {
           userId: customerId,
-          label: 'Track 1 Home',
-          addressLine: 'Gulshan-2, Dhaka',
+          label: 'Business Integrity Home',
+          addressLine: 'Near Store, Dhaka',
+          latitude: vendor.latitude,
+          longitude: vendor.longitude,
+        },
+      });
+    } else {
+      address = await prisma.customerAddress.update({
+        where: { id: address.id },
+        data: {
           latitude: vendor.latitude,
           longitude: vendor.longitude,
         },
@@ -497,10 +505,10 @@ async function runTrack1IntegrityTests() {
     console.log('   RBAC protection verified on production admin routes.\n');
 
     console.log('====================================================');
-    console.log(' 🎉 ALL TRACK 1 INTEGRITY TESTS PASSED 100%!');
+    console.log(' 🎉 ALL BUSINESS & FINANCIAL INTEGRITY TESTS PASSED 100%!');
     console.log('====================================================\n');
   } catch (err: any) {
-    console.error('\n❌ Track 1 Integrity Test Failed:', err.message);
+    console.error('\n❌ Business & Financial Integrity Test Failed:', err.message);
     process.exit(1);
   } finally {
     if (testVendor) {
@@ -517,4 +525,4 @@ async function runTrack1IntegrityTests() {
   }
 }
 
-runTrack1IntegrityTests();
+runBusinessFinancialIntegrityTests();

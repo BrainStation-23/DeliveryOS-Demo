@@ -72,9 +72,9 @@ Run the standard post-deploy smoke checklist:
 3. **WebSocket Gateway**:
    - Connect client to `wss://your-domain.com/events` → verify successful Socket.IO handshake.
 4. **Active Order FSM**:
-   - Run Track 1 integrity smoke script against staging:
+   - Run business & financial integrity smoke script against staging:
      ```bash
-     npm run test:track1 --prefix services/backend_api
+     npm run test:business-integrity --prefix services/backend_api
      ```
 
 ---

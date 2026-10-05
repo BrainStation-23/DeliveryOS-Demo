@@ -100,6 +100,14 @@ async function runOrderCheckoutTest() {
       });
     }
 
+    // Ensure vendor operating hours cover current time during test run
+    const todayDayOfWeek = new Date().getDay();
+    await prisma.vendorOperatingHour.upsert({
+      where: { vendorId_dayOfWeek: { vendorId: gulshanOutlet.id, dayOfWeek: todayDayOfWeek } },
+      update: { openTime: '00:00:00', closeTime: '23:59:59', isClosed: false },
+      create: { vendorId: gulshanOutlet.id, dayOfWeek: todayDayOfWeek, openTime: '00:00:00', closeTime: '23:59:59', isClosed: false },
+    });
+
     // -------------------------------------------------------------------------
     // Test 1: Single-Vendor Guard
     // -------------------------------------------------------------------------

@@ -510,8 +510,8 @@ The platform is guarded by a layered verification pyramid. Backend integration s
 | **Online Payments & IPN** | `npm run payment:test` | Gateway initiation, webhook signature verification, pre-payment broadcast suppression |
 | **Settlement Cycles** | `npm run settlement:test` | Batch settlements, net COD offset, CSV export validation |
 | **Cancellation & Refunds** | `npm run cancel:test` | Pre-prep boundary guard, vendor reject codes, admin force-cancel, ledger rollbacks |
-| **Business Integrity (Track 1)** | `npm run track1:test` | Store hours/busy guards, COD deposits, net COD offset, in-flight duty lock |
-| **Vendor KDS Resilience (Track 3)** | `npm run track3:test` | KDS flows under churn |
+| **Business & Financial Integrity** | `npm run test:business-integrity` | Store hours/busy guards, COD deposits, net COD offset, in-flight duty lock |
+| **Vendor KDS Resilience** | `npm run test:vendor-kds-resilience` | KDS flows under churn |
 | **Web Portal Admin Tests** | `npm test` (admin_portal) | Scaffolding assertions + live governance-endpoint walkthrough |
 | **Web Portal KDS Tests** | `npm test` (vendor_portal) | Scaffolding + KDS operations + multi-tier vendor flows |
 | **Customer App Flutter Tests** | `flutter test` | Riverpod providers, cart conflict modal, stepper layout, design-system tokens |
