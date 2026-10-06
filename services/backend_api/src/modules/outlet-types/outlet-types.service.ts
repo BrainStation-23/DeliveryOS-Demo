@@ -109,4 +109,51 @@ export class OutletTypesService {
     await this.prisma.outletType.delete({ where: { id } });
     return { id, name: type.name };
   }
+
+  /**
+   * List all store outlets assigned to a specific outlet type with basic information.
+   */
+  async listOutletsForType(id: string) {
+    const type = await this.prisma.outletType.findUnique({
+      where: { id },
+      select: { id: true, name: true, slug: true, isActive: true },
+    });
+    if (!type) {
+      throw new NotFoundException(`Outlet type with ID "${id}" not found`);
+    }
+
+    const outlets = await this.prisma.vendor.findMany({
+      where: { typeId: id },
+      include: {
+        brand: { select: { id: true, name: true, logoUrl: true } },
+        _count: { select: { products: true, orders: true, staff: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    return {
+      type,
+      outlets: outlets.map((v) => ({
+        id: v.id,
+        name: v.name,
+        brandId: v.brandId,
+        brandName: v.brand?.name || null,
+        brandLogoUrl: v.brand?.logoUrl || null,
+        addressText: v.addressText,
+        contactPhone: v.contactPhone,
+        latitude: v.latitude,
+        longitude: v.longitude,
+        isActive: v.isActive,
+        isBusy: v.isBusy,
+        orderFlowMode: v.orderFlowMode,
+        commissionRate: Number(v.commissionRate),
+        defaultPrepTimeMinutes: v.defaultPrepTimeMinutes,
+        deliveryRadiusKm: Number(v.deliveryRadiusKm),
+        totalProducts: v._count.products,
+        totalOrders: v._count.orders,
+        totalStaff: v._count.staff,
+        createdAt: v.createdAt,
+      })),
+    };
+  }
 }

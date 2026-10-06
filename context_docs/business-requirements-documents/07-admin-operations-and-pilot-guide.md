@@ -69,9 +69,10 @@ All table datasets across the console adhere to unified pagination standards:
 - **Brand & Outlet Deletion Invariants**: Brands with active outlets or staff cannot be deleted (Delete button is hidden). Outlets tagged with any staff, menu categories, catalog items, or historical orders cannot be deleted; the Delete Outlet action button remains strictly invisible on both the brand outlet roster and outlet detail header until all three prerequisites (staff, categories, items) reach zero.
 - **Permission Assignment**: Assign `PARTICULAR_OUTLET` (single-branch staff) or `ALL_OUTLETS_MASTER` (multi-outlet brand owner).
 - **Store Configuration**: Commission rate (e.g. 15%), delivery radius (km), operational hours, and default prep time.
+- **Outlet Types Manager (Outlet Types tab)**: Admin-defined business types (Restaurant, Grocery, Pharmacy, …) assigned at outlet create/edit; switching a type off hides all its outlets from the customer app, deletes are blocked while outlets are assigned (ADR-019).
 
-### 2.6 System Settings & Financial Settlements (`/settings`)
-- **Outlet Types Manager**: Admin-defined business types (Restaurant, Grocery, Pharmacy, …) assigned at outlet create/edit; switching a type off hides all its outlets from the customer app, deletes are blocked while outlets are assigned (ADR-019).
+### 2.6 System Settings & Dispatch Timing (`/settings`)
+- **Dispatch Timing Controls**: Global rider search timeout and stale-order auto-cancel TTL knobs.
 - **Per-Outlet Flow Mode**: Each outlet's dispatch sequence (`RIDER_FIRST` Zero Food Waste / `VENDOR_FIRST` Traditional Retail) is set on the outlet form; global settings retain only the dispatch timing knobs.
 - **Delivery Fee Pricing Engine**: Toggle between `FIXED_FLAT` (uniform flat rate) and `DISTANCE_TIERED` (base fee + per-km fee).
 - **RFC 4180 CSV Settlement Export**: Download formatted `vendor-settlements-YYYY-MM-DD.csv` for enterprise accounting systems (ERP / QuickBooks) ([ADR-009](../architecture-decision-records/ADR-009-deterministic-financial-accounting-ledger.md)).

@@ -49,4 +49,15 @@ export class OutletTypesController {
     const data = await this.outletTypesService.remove(id);
     return { message: `Outlet type "${data.name}" deleted`, data };
   }
+
+  @Get(':id/outlets')
+  @ApiOperation({ summary: 'List all store outlets assigned to this outlet type' })
+  @ApiResponse({ status: 200, description: 'Assigned outlets list' })
+  async listOutlets(@Param('id') id: string) {
+    const data = await this.outletTypesService.listOutletsForType(id);
+    return {
+      message: `Retrieved ${data.outlets.length} outlet(s) assigned to "${data.type.name}"`,
+      data,
+    };
+  }
 }

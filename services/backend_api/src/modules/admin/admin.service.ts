@@ -777,6 +777,7 @@ export class AdminService {
     const vendors = await this.prisma.vendor.findMany({
       include: {
         brand: { select: { id: true, name: true } },
+        type: { select: { id: true, name: true, slug: true, isActive: true } },
         operatingHours: true,
         staff: {
           include: {
@@ -800,6 +801,8 @@ export class AdminService {
       name: v.name,
       brandId: v.brandId,
       brandName: v.brand?.name || null,
+      typeId: v.typeId,
+      type: v.type ? { id: v.type.id, name: v.type.name, slug: v.type.slug, isActive: v.type.isActive } : undefined,
       addressText: v.addressText,
       contactPhone: v.contactPhone,
       bannerUrl: v.bannerUrl,

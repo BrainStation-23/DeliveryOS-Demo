@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Building2, ChevronRight, Plus, UserRound } from 'lucide-react';
+import { Building2, ChevronRight, Plus, Tags, UserRound } from 'lucide-react';
 import { outletDisplayName } from '../../utils/outletDisplayName';
 import adminApi, { AdminBrand, AdminStaffAssignment, AdminVendor } from '../../services/adminApi';
 import { Badge } from '../../components/ui/Badge';
@@ -19,10 +19,11 @@ import { useSocketQueryInvalidation } from '../../hooks/useSocketSubscription';
 import { resolveMediaUrl } from '../../utils/mediaUrl';
 import { BrandFormModal } from './components/vendors/BrandFormModal';
 import { StaffAccountsTab } from './components/vendors/StaffAccountsTab';
+import { OutletTypesTab } from './components/vendors/OutletTypesTab';
 import { StaffProfileDialog } from './components/staff/StaffProfileDialog';
 import { OutletInfoDialog } from './components/outlets/OutletInfoDialog';
 
-type VendorsTab = 'BRANDS' | 'STAFF';
+type VendorsTab = 'BRANDS' | 'OUTLET_TYPES' | 'STAFF';
 
 /**
  * Unified Brand Page: every brand with search + creation. Brand cards expose
@@ -32,8 +33,27 @@ type VendorsTab = 'BRANDS' | 'STAFF';
 export const AdminVendorsPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [actionError, setActionError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<VendorsTab>('BRANDS');
+
+  const tabParam = searchParams.get('tab')?.toUpperCase();
+  const activeTab: VendorsTab =
+    tabParam === 'STAFF' || tabParam === 'OUTLET_TYPES' || tabParam === 'TYPES'
+      ? tabParam === 'TYPES'
+        ? 'OUTLET_TYPES'
+        : (tabParam as VendorsTab)
+      : 'BRANDS';
+
+  const handleTabChange = (nextTab: VendorsTab) => {
+    const next = new URLSearchParams(searchParams);
+    if (nextTab === 'BRANDS') {
+      next.delete('tab');
+    } else {
+      next.set('tab', nextTab.toLowerCase());
+    }
+    setSearchParams(next, { replace: true });
+  };
+
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
 
@@ -142,7 +162,7 @@ export const AdminVendorsPage: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title="Brands & Outlets"
-        subtitle="Govern brand umbrellas, drill into any outlet's catalog, staff accounts, and operating settings"
+        subtitle="Govern brand umbrellas, outlet business types, drill into catalogs, staff accounts, and operating settings"
         icon={Building2}
         actions={
           activeTab === 'BRANDS' ? (
@@ -166,10 +186,11 @@ export const AdminVendorsPage: React.FC = () => {
         aria-label="Brands & outlets sections"
         items={[
           { id: 'BRANDS', label: 'Brands', icon: <Building2 className="h-4 w-4" /> },
+          { id: 'OUTLET_TYPES', label: 'Outlet Types', icon: <Tags className="h-4 w-4" /> },
           { id: 'STAFF', label: 'Staff Accounts', icon: <UserRound className="h-4 w-4" /> },
         ]}
         selected={activeTab}
-        onChange={setActiveTab}
+        onChange={handleTabChange}
       />
 
       {activeTab === 'BRANDS' && (
@@ -263,6 +284,13 @@ export const AdminVendorsPage: React.FC = () => {
             </div>
           )}
         </div>
+      )}
+
+      {activeTab === 'OUTLET_TYPES' && (
+        <OutletTypesTab
+          onError={setActionError}
+          onOpenOutlet={(outletId) => navigate(`/outlets/${outletId}`)}
+        />
       )}
 
       {activeTab === 'STAFF' && <StaffAccountsTab onError={setActionError} />}

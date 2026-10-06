@@ -17,7 +17,7 @@ Outlets require dynamic classification (Restaurant, Grocery, Pharmacy, Store, et
 1. **`outlet_types` table** (`name`/`slug` unique, `is_active`, `sortOrder`) models business classifications; `vendors.type_id` is NOT NULL (every outlet is classified). Deletions are guarded while outlets remain assigned (HTTP 409 Conflict).
 2. **Visibility toggle is the soft control**: deactivating a type immediately excludes its outlets from customer discovery (`/vendors/nearby`, `/vendors/search`, and product matches join `outlet_types` and filter `is_active: true`); the public `GET /vendors/outlet-types` (active only) feeds customer-app category chips dynamically.
 3. **Creation guard**: new outlets may only be created under an *active* type (`409` otherwise); editing may reassign to any existing type.
-4. **Governance surface**: full CRUD at `/admin/outlet-types` (SUPER_ADMIN) + the Settings → Outlet Types manager card in the admin portal; the outlet form requires an explicit Type selection.
+4. **Governance surface**: full CRUD at `/admin/outlet-types` (SUPER_ADMIN) + the Brands & Outlets → Outlet Types tab in the admin portal; the outlet form requires an explicit Type selection.
 
 ## Alternatives Considered
 

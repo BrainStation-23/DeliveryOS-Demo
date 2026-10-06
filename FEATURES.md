@@ -24,7 +24,7 @@ This document provides a line-level, granular breakdown of every operational fea
 ## 1. Core Platform & System-Wide Capabilities
 
 ### 1.1. Multi-Vertical Commercial Support
-- **Admin-Managed Outlet Types (ADR-019)**: Business categories (Restaurant, Super Shop, Grocery, Pharmacy, Cafe, …) are data, not code — CRUD from Admin → Settings → Outlet Types, assigned at outlet create/edit.
+- **Admin-Managed Outlet Types (ADR-019)**: Business categories (Restaurant, Super Shop, Grocery, Pharmacy, Cafe, …) are data, not code — CRUD from Admin → Brands & Outlets → Outlet Types, assigned at outlet create/edit, with interactive drill-down modal into assigned outlet lists and direct outlet management navigation.
 - **Type Visibility Toggle**: Deactivating a type instantly hides every outlet of that type from customer discovery (the soft business control); deletes are 409-guarded while outlets remain assigned; new outlets may only be created under active types.
 - **Type-Specific Metadata**: Dynamic badge rendering, catalog unit distinctions (`piece`, `kg`, `500g`, `pack`), and customizable preparation duration.
 - **Per-Outlet Dispatch Flow Modes**: Each outlet runs `RIDER_FIRST` (Zero Food Waste) or `VENDOR_FIRST` (Traditional Retail), configured on the outlet form and snapshotted immutably onto every order at checkout (ADR-002); platform settings retain only the shared dispatch timing.
@@ -352,7 +352,7 @@ This document provides a line-level, granular breakdown of every operational fea
   - `FIXED_FLAT`: Platform-wide uniform delivery fee (e.g. 50 BDT).
   - `DISTANCE_TIERED`: Base fee for initial 1.5 km plus incremental per-kilometer fee.
 - **Delivery Economics Card**: rider payout share of delivery fees (percent), average courier speed, and fallback ETA (`PATCH /admin/settings/delivery-economics`) — upserts the `delivery_economics` key and invalidates the pricing cache so the next order picks up the new split.
-- **Dispatch Timing Controls**: rider search timeout and stale-order auto-cancel TTL inputs on the Dispatch Timing card (`PATCH /admin/settings/dispatch` with `staleOrderTtlMinutes`); the RIDER_FIRST/VENDOR_FIRST sequence itself is per outlet on the outlet form. **Outlet Types Manager**: admin CRUD for business types with visibility toggles and guarded deletes (ADR-019).
+- **Dispatch Timing Controls**: rider search timeout and stale-order auto-cancel TTL inputs on the Dispatch Timing card (`PATCH /admin/settings/dispatch` with `staleOrderTtlMinutes`); the RIDER_FIRST/VENDOR_FIRST sequence itself is per outlet on the outlet form. **Outlet Types Manager**: admin CRUD for business types with visibility toggles and guarded deletes under Brands & Outlets → Outlet Types tab (ADR-019).
 - **Apply Confirmation Gates**: Dispatch-mode switches and delivery-fee saves pop a confirmation dialog summarizing the pending change (reusable `ConfirmDialog`); canceling leaves the live configuration untouched — the pipeline mode previously applied instantly on card click.
 
 ### 5.8. Financial Governance: Ledger, Settlements & Statements Export

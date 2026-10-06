@@ -7,7 +7,6 @@ import { PageHeader } from '../../components/common/PageHeader';
 import { QueryErrorBanner } from '../../components/common/QueryErrorBanner';
 import { extractApiError } from '../../utils/apiError';
 import { DispatchTimingCard, DispatchTimingConfig } from '../../components/settings/DispatchTimingCard';
-import { OutletTypesCard } from '../../components/settings/OutletTypesCard';
 import { DeliveryFeeSettingsCard, DeliveryFeeConfig } from '../../components/settings/DeliveryFeeSettingsCard';
 import { DeliveryEconomicsSettingsCard } from '../../components/settings/DeliveryEconomicsSettingsCard';
 
@@ -64,7 +63,7 @@ export const AdminSettingsPage: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title="System Settings"
-        subtitle="Configure outlet types, dispatch timing, delivery fees and payout economics"
+        subtitle="Configure dispatch timing, delivery fees and payout economics"
         icon={Settings}
       />
 
@@ -77,7 +76,6 @@ export const AdminSettingsPage: React.FC = () => {
       )}
 
       <div className="space-y-6">
-        <OutletTypesCard />
 
         <DispatchTimingCard
           timing={timing}

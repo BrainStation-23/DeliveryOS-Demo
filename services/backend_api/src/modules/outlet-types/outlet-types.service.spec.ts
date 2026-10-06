@@ -11,7 +11,7 @@ describe('OutletTypesService', () => {
       update: jest.Mock;
       delete: jest.Mock;
     };
-    vendor: { count: jest.Mock };
+    vendor: { count: jest.Mock; findMany: jest.Mock };
   };
 
   const typeRow = { id: 'type-1', name: 'Restaurant', slug: 'restaurant', isActive: true, sortOrder: 0 };
@@ -25,7 +25,7 @@ describe('OutletTypesService', () => {
         update: jest.fn().mockResolvedValue(typeRow),
         delete: jest.fn().mockResolvedValue(typeRow),
       },
-      vendor: { count: jest.fn().mockResolvedValue(0) },
+      vendor: { count: jest.fn().mockResolvedValue(0), findMany: jest.fn().mockResolvedValue([]) },
     };
     service = new OutletTypesService(prisma as never);
   });
@@ -107,6 +107,52 @@ describe('OutletTypesService', () => {
       );
       const select = prisma.outletType.findMany.mock.calls[0][0].select;
       expect(Object.keys(select).sort()).toEqual(['id', 'name', 'slug', 'sortOrder']);
+    });
+  });
+
+  describe('listOutletsForType', () => {
+    it('throws NotFoundException when outlet type does not exist', async () => {
+      prisma.outletType.findUnique.mockResolvedValue(null);
+      await expect(service.listOutletsForType('missing-id')).rejects.toThrow(NotFoundException);
+    });
+
+    it('returns assigned outlets with brand and metric counts', async () => {
+      prisma.outletType.findUnique.mockResolvedValue({ id: 'type-1', name: 'Restaurant', slug: 'restaurant', isActive: true });
+      prisma.vendor.findMany.mockResolvedValue([
+        {
+          id: 'v-1',
+          name: 'Gulshan Branch',
+          brandId: 'b-1',
+          brand: { id: 'b-1', name: 'Burger King', logoUrl: '/logo.png' },
+          addressText: 'Road 11, Gulshan',
+          contactPhone: '+8801700000002',
+          latitude: 23.79,
+          longitude: 90.41,
+          isActive: true,
+          isBusy: false,
+          orderFlowMode: 'RIDER_FIRST',
+          commissionRate: '15.00',
+          defaultPrepTimeMinutes: 20,
+          deliveryRadiusKm: '5.00',
+          _count: { products: 12, orders: 45, staff: 3 },
+          createdAt: new Date('2026-01-01'),
+        },
+      ]);
+
+      const result = await service.listOutletsForType('type-1');
+      expect(result.type.name).toBe('Restaurant');
+      expect(result.outlets).toHaveLength(1);
+      expect(result.outlets[0]).toEqual(
+        expect.objectContaining({
+          id: 'v-1',
+          name: 'Gulshan Branch',
+          brandName: 'Burger King',
+          commissionRate: 15,
+          totalProducts: 12,
+          totalOrders: 45,
+          totalStaff: 3,
+        }),
+      );
     });
   });
 });

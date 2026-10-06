@@ -96,6 +96,41 @@ describe('adminApi settings and settlements methods', () => {
       expect(patchMock).toHaveBeenCalledWith('/api/v1/admin/outlet-types/type-1', { isActive: false });
       expect(result.isActive).toBe(false);
     });
+
+    it('fetches outlets assigned to an outlet type', async () => {
+      const mockResponse = {
+        type: { id: 'type-1', name: 'Restaurant', slug: 'restaurant' },
+        outlets: [
+          {
+            id: 'v-1',
+            name: 'Gulshan Branch',
+            brandId: 'b-1',
+            brandName: 'Burger King',
+            brandLogoUrl: null,
+            addressText: 'Gulshan',
+            contactPhone: '+8801700000002',
+            latitude: 23.79,
+            longitude: 90.41,
+            isActive: true,
+            isBusy: false,
+            orderFlowMode: 'RIDER_FIRST',
+            commissionRate: 15,
+            defaultPrepTimeMinutes: 20,
+            deliveryRadiusKm: 5,
+            totalProducts: 10,
+            totalOrders: 30,
+            createdAt: '2026-01-01',
+          },
+        ],
+      };
+      getMock.mockResolvedValue({ data: { data: mockResponse } });
+
+      const result = await adminApi.getOutletTypeOutlets('type-1');
+
+      expect(getMock).toHaveBeenCalledWith('/api/v1/admin/outlet-types/type-1/outlets');
+      expect(result.outlets).toHaveLength(1);
+      expect(result.outlets[0].name).toBe('Gulshan Branch');
+    });
   });
 
   describe('updateDeliveryFeeMode', () => {

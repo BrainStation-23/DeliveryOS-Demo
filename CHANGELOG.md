@@ -28,6 +28,12 @@ Capability detail: [`FEATURES.md`](FEATURES.md) • Architectural rationale: [AD
 
 ### [Unreleased]
 
+#### Added
+- **Outlet Types Drill-down & Assigned Outlets Roster**:
+  - Added `GET /api/v1/admin/outlet-types/:id/outlets` endpoint returning assigned store outlets with brand context, contact, address, and product/order counts.
+  - Interactive drill-down modal (`AssignedOutletsModal`) from Outlet Types table rows linking directly to outlet management.
+  - Dedicated `Outlet Types` management tab on `Brands & Outlets` console (`/vendors?tab=outlet_types`), migrating governance out of System Settings.
+
 #### Changed
 - **Fresh Production Launch Posture Alignment**:
   - Removed all legacy compatibility shims, dead aliases, and fallback pathways across backend, portals, mobile apps, and scripts for a clean-slate fresh production launch.
