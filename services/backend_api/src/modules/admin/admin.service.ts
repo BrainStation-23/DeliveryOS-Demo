@@ -234,6 +234,7 @@ export class AdminService {
         vehicleType: r.vehicleType,
         isOnline: r.isOnline,
         isApproved: r.isApproved ?? true,
+        userStatus: r.user.status,
         status,
         cashInHand: Number(r.cashInHand),
         maxCashLimit: Number(r.maxCashLimit),
@@ -1953,7 +1954,10 @@ export class AdminService {
   // (roster listing + detail live in AdminFleetService)
   // ===========================================================================
   async setRiderApproval(riderId: string, isApproved: boolean) {
-    const rider = await this.prisma.rider.findUnique({ where: { id: riderId } });
+    const rider = await this.prisma.rider.findUnique({
+      where: { id: riderId },
+      include: { user: { select: { id: true, fullName: true, phone: true, status: true } } },
+    });
     if (!rider) throw new NotFoundException(`Rider with ID "${riderId}" not found`);
 
     const updated = await this.prisma.rider.update({
@@ -1961,12 +1965,56 @@ export class AdminService {
       data: {
         isApproved,
         ...(!isApproved && { isOnline: false }),
+        user: {
+          update: {
+            status: isApproved ? AccountStatus.ACTIVE : AccountStatus.PENDING_APPROVAL,
+          },
+        },
       },
-      include: { user: { select: { fullName: true, phone: true } } },
+      include: { user: { select: { id: true, fullName: true, phone: true, status: true } } },
     });
 
+    await this.redis.del(`auth:user:${rider.userId}`);
     this.logger.log(`Rider ${riderId} (${updated.user.fullName}) approval set to: ${isApproved}`);
     return updated;
+  }
+
+  async updateRiderStatus(riderId: string, status: 'ACTIVE' | 'SUSPENDED', reason?: string) {
+    const rider = await this.prisma.rider.findUnique({
+      where: { id: riderId },
+      include: { user: { select: { id: true, fullName: true, phone: true, status: true } } },
+    });
+    if (!rider) throw new NotFoundException(`Rider with ID "${riderId}" not found`);
+
+    const suspensionReason = status === 'SUSPENDED' ? (reason?.trim() || 'Suspended by administrator') : null;
+
+    const [updatedRider] = await this.prisma.$transaction([
+      this.prisma.rider.update({
+        where: { id: riderId },
+        data: {
+          ...(status === 'SUSPENDED' ? { isOnline: false } : { isApproved: true }),
+        },
+        include: { user: { select: { id: true, fullName: true, phone: true, status: true } } },
+      }),
+      this.prisma.user.update({
+        where: { id: rider.userId },
+        data: {
+          status: status as AccountStatus,
+          suspensionReason,
+          ...(status === 'SUSPENDED' ? { fcmToken: null } : {}),
+        },
+      }),
+    ]);
+
+    await this.redis.del(`auth:user:${rider.userId}`);
+    this.logger.log(`Rider ${riderId} (${rider.user.fullName}) account status updated to: ${status}`);
+    return {
+      id: updatedRider.id,
+      userId: rider.userId,
+      userStatus: status,
+      isApproved: updatedRider.isApproved,
+      isOnline: updatedRider.isOnline,
+    };
   }
 
   // ===========================================================================

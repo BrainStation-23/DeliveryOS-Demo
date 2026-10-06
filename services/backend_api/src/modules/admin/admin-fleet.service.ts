@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { OrderStatus, SettlementStatus } from '@prisma/client';
+import { AccountStatus, OrderStatus, SettlementStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { outletDisplayName } from '../../common/utils/outlet-display-name';
 import { PaginatedResult, toPaginatedResult } from '../../common/dto/pagination.dto';
@@ -54,6 +54,7 @@ export class AdminFleetService {
     // deliberately ignored — Applicants always shows every applicant.
     if (query.approvalStatus === 'PENDING') {
       where.isApproved = false;
+      where.user = { status: { not: AccountStatus.SUSPENDED } };
     } else {
       if (query.approvalStatus === 'APPROVED') {
         where.isApproved = true;
@@ -170,7 +171,7 @@ export class AdminFleetService {
   async getRiderDetail(riderId: string) {
     const rider = await this.prisma.rider.findUnique({
       where: { id: riderId },
-      include: { user: { select: { id: true, fullName: true, phone: true, email: true, status: true, createdAt: true } } },
+      include: { user: { select: { id: true, fullName: true, phone: true, email: true, status: true, suspensionReason: true, createdAt: true } } },
     });
     if (!rider) throw new NotFoundException('Rider not found');
 
@@ -223,6 +224,7 @@ export class AdminFleetService {
         phone: rider.user.phone,
         email: rider.user.email,
         userStatus: rider.user.status,
+        suspensionReason: rider.user.suspensionReason ?? null,
         vehicleType: rider.vehicleType,
         isOnline: rider.isOnline,
         isApproved: rider.isApproved ?? true,

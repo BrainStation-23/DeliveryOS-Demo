@@ -94,4 +94,13 @@ describe('computeFleetStats', () => {
       pendingApplicantsCount: 0,
     });
   });
+
+  it('does not classify suspended riders as pending applicants', () => {
+    const fleetWithSuspended = [
+      ...fleet,
+      rider({ id: 'r-5', riderName: 'Suspended Rider', isApproved: true, userStatus: 'SUSPENDED' }),
+    ];
+    const stats = computeFleetStats(fleetWithSuspended);
+    expect(stats.pendingApplicantsCount).toBe(1);
+  });
 });

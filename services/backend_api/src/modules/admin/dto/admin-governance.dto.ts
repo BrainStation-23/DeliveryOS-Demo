@@ -662,6 +662,17 @@ export class SetRiderApprovalDto {
   isApproved!: boolean;
 }
 
+export class UpdateRiderStatusDto {
+  @ApiProperty({ enum: ['ACTIVE', 'SUSPENDED'], description: 'Target account status for the courier' })
+  @IsIn(['ACTIVE', 'SUSPENDED'])
+  status!: 'ACTIVE' | 'SUSPENDED';
+
+  @ApiPropertyOptional({ description: 'Optional reason for suspension' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
 export class GetRidersQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: ['PENDING', 'APPROVED', 'ALL'] })
   @IsOptional()

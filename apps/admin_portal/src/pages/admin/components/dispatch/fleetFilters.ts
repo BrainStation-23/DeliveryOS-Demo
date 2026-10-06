@@ -15,10 +15,12 @@ export function filterFleet(riders: FleetRider[], criteria: FleetFilterCriteria)
   return (Array.isArray(riders) ? riders : []).filter((r) => {
     if (!r) return false;
     const matchesStatus = statusFilter === 'ALL' || r.status === statusFilter;
+    const isSuspended = r.userStatus === 'SUSPENDED';
+    const isPending = (r.isApproved === false || r.userStatus === 'PENDING_APPROVAL') && !isSuspended;
     const matchesApproval =
       approvalFilter === 'ALL' ||
-      (approvalFilter === 'APPROVED' && r.isApproved !== false) ||
-      (approvalFilter === 'PENDING' && r.isApproved === false);
+      (approvalFilter === 'APPROVED' && !isPending) ||
+      (approvalFilter === 'PENDING' && isPending);
     const matchesSearch =
       (r.riderName || '').toLowerCase().includes(q) ||
       (r.phone || '').includes(q) ||
@@ -42,6 +44,8 @@ export function computeFleetStats(riders: FleetRider[]): FleetStats {
     onTripCount: safeRiders.filter((r) => Boolean(r && r.status === 'ON_TRIP')).length,
     idleCount: safeRiders.filter((r) => Boolean(r && r.status === 'ONLINE')).length,
     safetyWarningsCount: safeRiders.filter((r) => Boolean(r && r.cashSafetyWarning)).length,
-    pendingApplicantsCount: safeRiders.filter((r) => Boolean(r && r.isApproved === false)).length,
+    pendingApplicantsCount: safeRiders.filter(
+      (r) => Boolean(r && (r.isApproved === false || r.userStatus === 'PENDING_APPROVAL') && r.userStatus !== 'SUSPENDED'),
+    ).length,
   };
 }

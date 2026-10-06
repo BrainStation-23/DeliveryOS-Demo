@@ -8,6 +8,7 @@ export interface FleetRider {
   vehicleType: string;
   isOnline: boolean;
   isApproved?: boolean;
+  userStatus?: string;
   status: 'ONLINE' | 'ON_TRIP' | 'OFFLINE';
   cashInHand: number;
   maxCashLimit: number;
@@ -53,6 +54,7 @@ export interface RiderDetail {
     phone: string;
     email: string | null;
     userStatus: string;
+    suspensionReason?: string | null;
     vehicleType: string;
     isOnline: boolean;
     isApproved: boolean;
@@ -133,6 +135,11 @@ export const fleetApi = {
   async setRiderApproval(riderId: string, isApproved: boolean): Promise<{ message: string; data: { id: string; isApproved: boolean } }> {
     const res = await apiClient.patch(`/api/v1/admin/riders/${riderId}/approval`, { isApproved });
     return unwrapData<{ message: string; data: { id: string; isApproved: boolean } }>(res);
+  },
+
+  async updateRiderStatus(riderId: string, status: 'ACTIVE' | 'SUSPENDED', reason?: string): Promise<{ message: string; data: unknown }> {
+    const res = await apiClient.patch(`/api/v1/admin/riders/${riderId}/status`, { status, reason });
+    return unwrapData<{ message: string; data: unknown }>(res);
   },
 
   async updateRiderCashLimit(riderId: string, maxCashLimit: number): Promise<void> {

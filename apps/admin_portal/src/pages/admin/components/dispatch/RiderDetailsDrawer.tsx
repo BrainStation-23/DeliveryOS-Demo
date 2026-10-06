@@ -24,7 +24,7 @@ import adminApi from '../../../../services/adminApi';
 import { Badge, OrderStatusBadge } from '../../../../components/ui/Badge';
 import { Button } from '../../../../components/ui/Button';
 import { Drawer } from '../../../../components/ui/Drawer';
-import { ConfirmDialog } from '../../../../components/ui/ConfirmDialog';
+import { Modal } from '../../../../components/ui/Modal';
 import { GoogleMapsLink } from '../../../../components/common/GoogleMapsLink';
 import { DetailMetricCard } from '../../../../components/common/DetailMetricCard';
 import { OrderDetailsModal } from '../../../../components/orders/OrderDetailsModal';
@@ -45,6 +45,24 @@ export const STATUS_BADGE_VARIANT: Record<string, 'success' | 'info' | 'default'
   ON_TRIP: 'info',
   OFFLINE: 'default',
 };
+
+export type RiderGovernanceAction = 'APPROVE' | 'SUSPEND' | 'ACTIVATE';
+
+export interface RiderGovernanceState {
+  action: RiderGovernanceAction;
+  badgeLabel: 'Pending Approval' | 'Suspended' | 'Active';
+  badgeVariant: 'warning' | 'danger' | 'success';
+}
+
+export function getRiderGovernanceState(rider: { isApproved: boolean; userStatus?: string }): RiderGovernanceState {
+  if (rider.userStatus === 'SUSPENDED') {
+    return { action: 'ACTIVATE', badgeLabel: 'Suspended', badgeVariant: 'danger' };
+  }
+  if (!rider.isApproved || rider.userStatus === 'PENDING_APPROVAL') {
+    return { action: 'APPROVE', badgeLabel: 'Pending Approval', badgeVariant: 'warning' };
+  }
+  return { action: 'SUSPEND', badgeLabel: 'Active', badgeVariant: 'success' };
+}
 
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -98,7 +116,9 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
 
   // Modal & Governance action states
   const [isCashModalOpen, setIsCashModalOpen] = useState(false);
-  const [isSuspendConfirmOpen, setIsSuspendConfirmOpen] = useState(false);
+  const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [suspendReasonError, setSuspendReasonError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   // Collapsible section visibility states (synchronized with CustomerDetailsDrawer)
@@ -133,11 +153,27 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
     mutationFn: (isApproved: boolean) => adminApi.setRiderApproval(riderId as string, isApproved),
     onSuccess: () => {
       invalidateAll();
-      setIsSuspendConfirmOpen(false);
       setActionError(null);
     },
     onError: (err) => {
       const msg = extractApiError(err) || 'Courier approval update failed.';
+      setActionError(msg);
+      onError(msg);
+    },
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: ({ status, reason }: { status: 'ACTIVE' | 'SUSPENDED'; reason?: string }) =>
+      adminApi.updateRiderStatus(riderId as string, status, reason),
+    onSuccess: () => {
+      invalidateAll();
+      setIsSuspendModalOpen(false);
+      setSuspendReason('');
+      setSuspendReasonError(null);
+      setActionError(null);
+    },
+    onError: (err) => {
+      const msg = extractApiError(err) || 'Courier account status update failed.';
       setActionError(msg);
       onError(msg);
     },
@@ -167,6 +203,7 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
   const stats = detail?.stats;
   const recentOrders = detail?.recentOrders ?? [];
   const recentDeposits = detail?.recentDeposits ?? [];
+  const governance = rider ? getRiderGovernanceState(rider) : null;
 
   return (
     <>
@@ -186,18 +223,9 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
                 <Badge variant={STATUS_BADGE_VARIANT[detail?.status ?? 'OFFLINE'] ?? 'default'} size="sm">
                   {(detail?.status ?? 'OFFLINE').replace('_', ' ')}
                 </Badge>
-                {rider.isApproved ? (
-                  <Badge variant="success" size="sm">
-                    Approved
-                  </Badge>
-                ) : (
-                  <Badge variant="warning" size="sm">
-                    Pending Approval
-                  </Badge>
-                )}
-                {rider.userStatus !== 'ACTIVE' && (
-                  <Badge variant="danger" size="sm">
-                    Suspended
+                {governance && (
+                  <Badge variant={governance.badgeVariant} size="sm">
+                    {governance.badgeLabel}
                   </Badge>
                 )}
               </div>
@@ -247,7 +275,7 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
           ) : undefined
         }
         action={
-          rider ? (
+          rider && governance ? (
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
@@ -258,17 +286,7 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
               >
                 Cash Limit
               </Button>
-              {rider.isApproved ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  leftIcon={<ShieldOff className="h-3.5 w-3.5 shrink-0 text-rose-600 dark:text-rose-400" />}
-                  className="text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 cursor-pointer whitespace-nowrap text-xs h-8"
-                  onClick={() => setIsSuspendConfirmOpen(true)}
-                >
-                  Suspend
-                </Button>
-              ) : (
+              {governance.action === 'APPROVE' && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -278,6 +296,33 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
                   onClick={() => approvalMutation.mutate(true)}
                 >
                   Approve
+                </Button>
+              )}
+              {governance.action === 'ACTIVATE' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  leftIcon={<ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />}
+                  className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 cursor-pointer whitespace-nowrap text-xs h-8"
+                  isLoading={statusMutation.isPending}
+                  onClick={() => statusMutation.mutate({ status: 'ACTIVE' })}
+                >
+                  Activate
+                </Button>
+              )}
+              {governance.action === 'SUSPEND' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  leftIcon={<ShieldOff className="h-3.5 w-3.5 shrink-0 text-rose-600 dark:text-rose-400" />}
+                  className="text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 cursor-pointer whitespace-nowrap text-xs h-8"
+                  onClick={() => {
+                    setIsSuspendModalOpen(true);
+                    setSuspendReason('');
+                    setSuspendReasonError(null);
+                  }}
+                >
+                  Suspend
                 </Button>
               )}
             </div>
@@ -305,17 +350,41 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
             )}
 
             {/* Account Suspension / Inactive Warning Banner */}
-            {(rider?.userStatus !== 'ACTIVE' || !rider?.isApproved) && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-3.5 text-xs text-rose-800 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
-                <div className="flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-300">
-                  <ShieldOff className="h-4 w-4 shrink-0" />
-                  <span>{!rider?.isApproved ? 'Courier Pending Approval' : 'Courier Suspended'}</span>
+            {governance && governance.action !== 'SUSPEND' && (
+              <div
+                className={cn(
+                  'rounded-xl border p-3.5 text-xs shadow-sm',
+                  governance.action === 'ACTIVATE'
+                    ? 'border-rose-200 bg-rose-50/70 text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200'
+                    : 'border-amber-200 bg-amber-50/70 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200',
+                )}
+              >
+                <div
+                  className={cn(
+                    'flex items-center gap-1.5 font-bold',
+                    governance.action === 'ACTIVATE'
+                      ? 'text-rose-700 dark:text-rose-300'
+                      : 'text-amber-700 dark:text-amber-300',
+                  )}
+                >
+                  {governance.action === 'ACTIVATE' ? (
+                    <ShieldOff className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                  )}
+                  <span>{governance.action === 'ACTIVATE' ? 'Courier Suspended' : 'Courier Pending Approval'}</span>
                 </div>
-                <div className="mt-1 text-slate-700 dark:text-slate-300">
+                <div className="mt-1.5 space-y-1 text-slate-700 dark:text-slate-300">
+                  {governance.action === 'ACTIVATE' && (
+                    <p>
+                      <span className="font-semibold text-rose-900 dark:text-rose-200">Reason / Note:</span>{' '}
+                      {rider?.suspensionReason || 'Suspended by administrator'}
+                    </p>
+                  )}
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {!rider?.isApproved
-                      ? 'Courier application has not yet been approved. Dispatch offers are paused.'
-                      : 'Courier account is suspended and blocked from receiving dispatch orders.'}
+                    {governance.action === 'ACTIVATE'
+                      ? 'Courier account is suspended and blocked from receiving dispatch orders. Click Activate above to restore active duty eligibility.'
+                      : 'Courier application has not yet been approved. Dispatch offers are paused. Click Approve above to onboard the courier.'}
                   </p>
                 </div>
               </div>
@@ -650,24 +719,88 @@ export const RiderDetailsDrawer: React.FC<RiderDetailsDrawerProps> = ({ riderId,
         />
       )}
 
-      {/* Suspend Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={isSuspendConfirmOpen}
-        title="Suspend Courier?"
-        variant="danger"
-        confirmLabel="Suspend Courier"
-        message={
-          <>
-            <p>
-              Suspend <strong>{rider?.fullName}</strong>? The courier is forced off duty immediately and stops
-              receiving dispatch offers.
-            </p>
-          </>
+      {/* Suspend Confirmation Modal with Note/Reason (sync with Customer suspension flow) */}
+      <Modal
+        isOpen={isSuspendModalOpen}
+        onClose={() => {
+          setIsSuspendModalOpen(false);
+          setSuspendReason('');
+          setSuspendReasonError(null);
+        }}
+        title="Suspend Courier Account"
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsSuspendModalOpen(false);
+                setSuspendReason('');
+                setSuspendReasonError(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              isLoading={statusMutation.isPending}
+              leftIcon={<ShieldOff className="h-3.5 w-3.5 shrink-0" />}
+              onClick={() => {
+                if (!suspendReason.trim()) {
+                  setSuspendReasonError('Please provide a note/reason for the courier suspension.');
+                  return;
+                }
+                statusMutation.mutate({
+                  status: 'SUSPENDED',
+                  reason: suspendReason.trim(),
+                });
+              }}
+            >
+              Suspend Courier
+            </Button>
+          </div>
         }
-        isPending={approvalMutation.isPending}
-        onConfirm={() => approvalMutation.mutate(false)}
-        onCancel={() => setIsSuspendConfirmOpen(false)}
-      />
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50/70 p-3.5 text-xs text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold">Immediate duty & access restriction</p>
+              <p className="text-slate-600 dark:text-slate-300">
+                <strong>{rider?.fullName}</strong> will be forced off duty immediately, disconnected from receiving new dispatch offers, and logged out on their next network request.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="riderSuspendReason" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              Reason / Note for Suspension <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              id="riderSuspendReason"
+              rows={3}
+              value={suspendReason}
+              onChange={(e) => {
+                setSuspendReason(e.target.value);
+                if (suspendReasonError && e.target.value.trim()) {
+                  setSuspendReasonError(null);
+                }
+              }}
+              placeholder="e.g., Cash safety limit default, order theft/tampering, persistent unresponsiveness, reckless driving, policy violation..."
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+            />
+            {suspendReasonError ? (
+              <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">{suspendReasonError}</p>
+            ) : (
+              <p className="mt-1 text-[11px] text-slate-500">
+                This note will be recorded on the courier's profile and governance audit log.
+              </p>
+            )}
+          </div>
+        </div>
+      </Modal>
     </>
   );
 };

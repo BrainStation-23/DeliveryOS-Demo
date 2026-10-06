@@ -4,6 +4,7 @@ import {
   formatDateTime,
   formatPaymentMethod,
   getInitials,
+  getRiderGovernanceState,
   STATUS_BADGE_VARIANT,
 } from './RiderDetailsDrawer';
 
@@ -69,6 +70,49 @@ describe('RiderDetailsDrawer helpers', () => {
       expect(STATUS_BADGE_VARIANT['ONLINE']).toBe('success');
       expect(STATUS_BADGE_VARIANT['ON_TRIP']).toBe('info');
       expect(STATUS_BADGE_VARIANT['OFFLINE']).toBe('default');
+    });
+  });
+
+  describe('getRiderGovernanceState', () => {
+    it('returns ACTIVATE action and Suspended danger badge when courier userStatus is SUSPENDED', () => {
+      const stateFromApproved = getRiderGovernanceState({ isApproved: true, userStatus: 'SUSPENDED' });
+      expect(stateFromApproved).toEqual({
+        action: 'ACTIVATE',
+        badgeLabel: 'Suspended',
+        badgeVariant: 'danger',
+      });
+
+      const stateFromUnapproved = getRiderGovernanceState({ isApproved: false, userStatus: 'SUSPENDED' });
+      expect(stateFromUnapproved).toEqual({
+        action: 'ACTIVATE',
+        badgeLabel: 'Suspended',
+        badgeVariant: 'danger',
+      });
+    });
+
+    it('returns APPROVE action and Pending Approval warning badge when courier is unapproved', () => {
+      const stateUnapproved = getRiderGovernanceState({ isApproved: false, userStatus: 'ACTIVE' });
+      expect(stateUnapproved).toEqual({
+        action: 'APPROVE',
+        badgeLabel: 'Pending Approval',
+        badgeVariant: 'warning',
+      });
+
+      const statePendingUser = getRiderGovernanceState({ isApproved: true, userStatus: 'PENDING_APPROVAL' });
+      expect(statePendingUser).toEqual({
+        action: 'APPROVE',
+        badgeLabel: 'Pending Approval',
+        badgeVariant: 'warning',
+      });
+    });
+
+    it('returns SUSPEND action and Active success badge when courier is approved and active', () => {
+      const state = getRiderGovernanceState({ isApproved: true, userStatus: 'ACTIVE' });
+      expect(state).toEqual({
+        action: 'SUSPEND',
+        badgeLabel: 'Active',
+        badgeVariant: 'success',
+      });
     });
   });
 });

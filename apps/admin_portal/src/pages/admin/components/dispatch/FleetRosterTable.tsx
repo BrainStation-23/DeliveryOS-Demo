@@ -64,8 +64,11 @@ export const FleetRosterTable: React.FC<FleetRosterTableProps> = ({
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="font-semibold text-slate-900 dark:text-slate-100">{row.fullName}</span>
-            {!row.isApproved && <Badge variant="warning">Pending</Badge>}
-            {row.userStatus !== 'ACTIVE' && <Badge variant="danger">Suspended Acct</Badge>}
+            {row.userStatus === 'SUSPENDED' ? (
+              <Badge variant="danger">Suspended</Badge>
+            ) : !row.isApproved ? (
+              <Badge variant="warning">Pending</Badge>
+            ) : null}
           </div>
           <div className="text-[11px] text-slate-500">
             {row.phone} · <span className="inline-flex items-center gap-1"><Bike className="h-3 w-3" />{row.vehicleType}</span>

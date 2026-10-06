@@ -54,6 +54,7 @@ import {
   UpdateDeliveryFeeDto,
   UpdateOperatingHoursDto,
   UpdateRiderCashLimitDto,
+  UpdateRiderStatusDto,
   UpdateStaffAccountDto,
   UpdateVendorDto,
   UpdateVendorStaffDto,
@@ -591,12 +592,22 @@ export class AdminController {
   }
 
   @Patch('riders/:id/approval')
-  @ApiOperation({ summary: 'Approve or suspend a delivery courier' })
+  @ApiOperation({ summary: 'Approve or reject a delivery courier application' })
   async setRiderApproval(@Param('id') riderId: string, @Body() dto: SetRiderApprovalDto) {
     const updated = await this.adminService.setRiderApproval(riderId, dto.isApproved);
     return {
-      message: `Courier approval status set to ${dto.isApproved ? 'APPROVED' : 'SUSPENDED'}`,
+      message: `Courier approval status set to ${dto.isApproved ? 'APPROVED' : 'PENDING'}`,
       data: updated,
+    };
+  }
+
+  @Patch('riders/:id/status')
+  @ApiOperation({ summary: 'Update rider operational account status (ACTIVE or SUSPENDED)' })
+  async updateRiderStatus(@Param('id') riderId: string, @Body() dto: UpdateRiderStatusDto) {
+    const data = await this.adminService.updateRiderStatus(riderId, dto.status, dto.reason);
+    return {
+      message: `Courier account status updated to ${dto.status}`,
+      data,
     };
   }
 

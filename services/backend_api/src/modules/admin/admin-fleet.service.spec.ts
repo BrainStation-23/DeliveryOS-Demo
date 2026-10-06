@@ -272,6 +272,34 @@ describe('AdminFleetService.getRiderDetail', () => {
     expect(detail.recentDeposits[0]).toMatchObject({ referenceNo: 'DEP-001', amount: 500 });
   });
 
+  it('includes suspensionReason when courier has an active suspension note', async () => {
+    prisma.rider.findUnique.mockResolvedValue({
+      id: 'rider-suspended',
+      userId: 'user-suspended',
+      vehicleType: 'bicycle',
+      isOnline: false,
+      isApproved: true,
+      cashInHand: new Prisma.Decimal('0'),
+      maxCashLimit: new Prisma.Decimal('5000'),
+      latitude: null,
+      longitude: null,
+      updatedAt: new Date('2026-10-02T09:00:00.000Z'),
+      user: {
+        id: 'user-suspended',
+        fullName: 'Suspended Courier',
+        phone: '+8801700000088',
+        email: null,
+        status: 'SUSPENDED',
+        suspensionReason: 'Exceeded cash limit without reconciliation',
+        createdAt: new Date('2026-08-01T00:00:00.000Z'),
+      },
+    });
+
+    const detail = await service.getRiderDetail('rider-suspended');
+    expect(detail.rider.userStatus).toBe('SUSPENDED');
+    expect(detail.rider.suspensionReason).toBe('Exceeded cash limit without reconciliation');
+  });
+
   it('rejects unknown rider ids with 404', async () => {
     prisma.rider.findUnique.mockResolvedValue(null);
     await expect(service.getRiderDetail('missing')).rejects.toThrow(NotFoundException);

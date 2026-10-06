@@ -1,4 +1,4 @@
-import { OrderStatus, PaymentMethod, PaymentStatus, PermissionScope, Prisma, UserRole } from '@prisma/client';
+import { AccountStatus, OrderStatus, PaymentMethod, PaymentStatus, PermissionScope, Prisma, UserRole } from '@prisma/client';
 import { AdminService } from './admin.service';
 import { GetLiveOrdersQueryDto } from './dto/admin-governance.dto';
 
@@ -7,7 +7,7 @@ type MockPrisma = {
   user: { findUnique: jest.Mock; update: jest.Mock };
   vendorStaff: { findFirst: jest.Mock; create: jest.Mock; update: jest.Mock };
   order: { findUnique: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
-  rider: { findUnique: jest.Mock; findMany: jest.Mock; updateMany?: jest.Mock; findUniqueOrThrow?: jest.Mock };
+  rider: { findUnique: jest.Mock; findMany: jest.Mock; update?: jest.Mock; updateMany?: jest.Mock; findUniqueOrThrow?: jest.Mock };
   cashDeposit?: { findUnique: jest.Mock; updateMany: jest.Mock };
   $transaction?: jest.Mock;
 };
@@ -1403,5 +1403,151 @@ describe('AdminService - category deletion guard', () => {
   it('rejects unknown categories with 404', async () => {
     prisma.category.findUnique.mockResolvedValue(null);
     await expect(service.deleteCategory('ghost')).rejects.toThrow('Category not found');
+  });
+});
+
+describe('AdminService - Rider Governance (setRiderApproval & updateRiderStatus)', () => {
+  const prisma = {
+    rider: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    user: {
+      update: jest.fn(),
+    },
+    $transaction: jest.fn(),
+  };
+  const redis = {
+    del: jest.fn().mockResolvedValue(1),
+  };
+  const service = new AdminService(
+    prisma as never,
+    redis as never,
+    {} as never,
+    {} as never,
+    { invalidateCache: jest.fn() } as never,
+    { sendToUser: jest.fn() } as never,
+  );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('setRiderApproval', () => {
+    it('throws NotFoundException when rider does not exist', async () => {
+      prisma.rider.findUnique.mockResolvedValue(null);
+      await expect(service.setRiderApproval('rider-missing', true)).rejects.toThrow(
+        'Rider with ID "rider-missing" not found',
+      );
+    });
+
+    it('approves applicant: sets isApproved true, activates user account, and invalidates redis cache', async () => {
+      prisma.rider.findUnique.mockResolvedValue({
+        id: 'rider-1',
+        userId: 'user-1',
+        user: { id: 'user-1', fullName: 'Karim Rider', phone: '+8801700000004', status: AccountStatus.PENDING_APPROVAL },
+      });
+      prisma.rider.update.mockResolvedValue({
+        id: 'rider-1',
+        isApproved: true,
+        user: { id: 'user-1', fullName: 'Karim Rider', phone: '+8801700000004', status: AccountStatus.ACTIVE },
+      });
+
+      const result = await service.setRiderApproval('rider-1', true);
+      expect(result.isApproved).toBe(true);
+      expect(prisma.rider.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'rider-1' },
+          data: expect.objectContaining({
+            isApproved: true,
+            user: { update: { status: AccountStatus.ACTIVE } },
+          }),
+        }),
+      );
+      expect(redis.del).toHaveBeenCalledWith('auth:user:user-1');
+    });
+
+    it('unapproves courier: sets isApproved false, forces offline, and sets user status PENDING_APPROVAL', async () => {
+      prisma.rider.findUnique.mockResolvedValue({
+        id: 'rider-1',
+        userId: 'user-1',
+        user: { id: 'user-1', fullName: 'Karim Rider', phone: '+8801700000004', status: AccountStatus.ACTIVE },
+      });
+      prisma.rider.update.mockResolvedValue({
+        id: 'rider-1',
+        isApproved: false,
+        isOnline: false,
+        user: { id: 'user-1', fullName: 'Karim Rider', phone: '+8801700000004', status: AccountStatus.PENDING_APPROVAL },
+      });
+
+      const result = await service.setRiderApproval('rider-1', false);
+      expect(result.isApproved).toBe(false);
+      expect(prisma.rider.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'rider-1' },
+          data: expect.objectContaining({
+            isApproved: false,
+            isOnline: false,
+            user: { update: { status: AccountStatus.PENDING_APPROVAL } },
+          }),
+        }),
+      );
+      expect(redis.del).toHaveBeenCalledWith('auth:user:user-1');
+    });
+  });
+
+  describe('updateRiderStatus', () => {
+    it('throws NotFoundException when rider does not exist', async () => {
+      prisma.rider.findUnique.mockResolvedValue(null);
+      await expect(service.updateRiderStatus('rider-missing', 'SUSPENDED')).rejects.toThrow(
+        'Rider with ID "rider-missing" not found',
+      );
+    });
+
+    it('suspends courier: forces offline, updates user status to SUSPENDED, nulls fcmToken, and clears cache', async () => {
+      prisma.rider.findUnique.mockResolvedValue({
+        id: 'rider-1',
+        userId: 'user-1',
+        user: { id: 'user-1', fullName: 'Karim Rider', phone: '+8801700000004', status: AccountStatus.ACTIVE },
+      });
+      prisma.$transaction.mockResolvedValue([
+        { id: 'rider-1', isApproved: true, isOnline: false },
+        { id: 'user-1', status: AccountStatus.SUSPENDED },
+      ]);
+
+      const result = await service.updateRiderStatus('rider-1', 'SUSPENDED', 'Policy violation');
+      expect(result).toEqual({
+        id: 'rider-1',
+        userId: 'user-1',
+        userStatus: 'SUSPENDED',
+        isApproved: true,
+        isOnline: false,
+      });
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(redis.del).toHaveBeenCalledWith('auth:user:user-1');
+    });
+
+    it('activates suspended courier: sets isApproved true, updates user status to ACTIVE, and clears cache', async () => {
+      prisma.rider.findUnique.mockResolvedValue({
+        id: 'rider-1',
+        userId: 'user-1',
+        user: { id: 'user-1', fullName: 'Karim Rider', phone: '+8801700000004', status: AccountStatus.SUSPENDED },
+      });
+      prisma.$transaction.mockResolvedValue([
+        { id: 'rider-1', isApproved: true, isOnline: false },
+        { id: 'user-1', status: AccountStatus.ACTIVE },
+      ]);
+
+      const result = await service.updateRiderStatus('rider-1', 'ACTIVE');
+      expect(result).toEqual({
+        id: 'rider-1',
+        userId: 'user-1',
+        userStatus: 'ACTIVE',
+        isApproved: true,
+        isOnline: false,
+      });
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(redis.del).toHaveBeenCalledWith('auth:user:user-1');
+    });
   });
 });
