@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/constants.dart';
 import '../../../core/localization/app_localizations.dart';
-import '../../../core/localization/language_provider.dart';
 import '../../../core/routing/deeplink_router.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/empty_state_view.dart';
@@ -18,7 +17,6 @@ import '../../cart/providers/cart_provider.dart';
 import '../../discovery/presentation/search_screen.dart';
 import '../../location/providers/location_provider.dart';
 import '../../location/presentation/map_location_picker_screen.dart';
-import '../../orders/presentation/order_history_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import 'widgets/category_chip.dart';
 import 'widgets/outlet_card.dart';
@@ -84,7 +82,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final l10n = AppLocalizations.of(context);
     final authState = ref.watch(authProvider);
     final locState = ref.watch(locationProvider);
-    final currentLocale = ref.watch(languageProvider);
     final cartState = ref.watch(cartProvider);
 
     final displayedVendors = locState.nearbyVendors.where((v) {
@@ -100,167 +97,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             SliverToBoxAdapter(
               child: Container(
                 color: AppColors.white,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-                child: Column(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primary,
-                                  borderRadius: AppRadius.borderSm,
-                                ),
-                                child: const Icon(
-                                  Icons.delivery_dining_rounded,
-                                  color: AppColors.white,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: AppSpacing.sm),
-                              Flexible(
-                                child: Text(
-                                  l10n.translate('app_title'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w900),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            PopupMenuButton<String>(
-                              initialValue: currentLocale.languageCode,
-                              icon: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: AppColors.background,
-                                  borderRadius: AppRadius.borderLg,
-                                  border: Border.all(color: AppColors.border),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.language_rounded, size: 14, color: AppColors.textSecondary),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      currentLocale.languageCode.toUpperCase(),
-                                      style: AppTypography.labelSmall.copyWith(fontWeight: FontWeight.w700),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              onSelected: (code) {
-                                ref.read(languageProvider.notifier).setLanguage(code);
-                              },
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(value: 'en', child: Text('English')),
-                                PopupMenuItem(value: 'ar', child: Text('العربية (RTL)')),
-                                PopupMenuItem(value: 'bn', child: Text('বাংলা')),
-                              ],
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const MapLocationPickerScreen(isInitialOnboarding: false),
                             ),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              padding: AppSpacing.edgeInsetsXs,
-                              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                              icon: Badge(
-                                isLabelVisible: cartState.items.isNotEmpty,
-                                label: Text('${cartState.totalItemCount}'),
-                                backgroundColor: AppColors.primary,
-                                child: const Icon(Icons.shopping_bag_outlined, size: 21, color: AppColors.textPrimary),
-                              ),
-                              tooltip: 'Cart',
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const CartScreen()),
-                                );
-                              },
-                            ),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              padding: AppSpacing.edgeInsetsXs,
-                              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                              icon: const Icon(Icons.receipt_long_outlined, size: 21, color: AppColors.textPrimary),
-                              tooltip: 'My Orders',
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const OrderHistoryScreen()),
-                                );
-                              },
-                            ),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              padding: AppSpacing.edgeInsetsXs,
-                              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                              icon: const Icon(Icons.person_outline_rounded, size: 21, color: AppColors.textPrimary),
-                              tooltip: 'My Profile',
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    InkWell(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const MapLocationPickerScreen(isInitialOnboarding: false),
-                          ),
-                        );
-                      },
-                      borderRadius: AppRadius.borderMd,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.background,
-                          borderRadius: AppRadius.borderMd,
-                          border: Border.all(color: AppColors.border),
-                        ),
+                          );
+                        },
+                        borderRadius: AppRadius.borderSm,
                         child: Row(
                           children: [
-                            const Icon(Icons.place_rounded, color: AppColors.primary, size: 22),
-                            const SizedBox(width: 10),
+                            const Icon(
+                              Icons.place_rounded,
+                              color: AppColors.primary,
+                              size: 22,
+                            ),
+                            const SizedBox(width: AppSpacing.xs),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
                                         l10n.translate('home_greeting'),
-                                        style: AppTypography.labelSmall.copyWith(color: AppColors.textMuted),
+                                        style: AppTypography.caption.copyWith(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textMuted,
+                                        ),
                                       ),
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: const BoxDecoration(
-                                          color: AppColors.primaryContainer,
-                                          borderRadius: AppRadius.borderXs,
-                                        ),
-                                        child: Text(
-                                          locState.location.addressType.name.toUpperCase(),
-                                          style: AppTypography.caption.copyWith(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w800,
-                                            color: AppColors.primary,
-                                          ),
-                                        ),
+                                      const SizedBox(width: 4),
+                                      const Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        size: 14,
+                                        color: AppColors.textSecondary,
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 2),
                                   Text(
                                     locState.location.addressLine,
                                     maxLines: 1,
@@ -268,29 +150,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     style: AppTypography.titleSmall.copyWith(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,
+                                      color: AppColors.textPrimary,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                              decoration: BoxDecoration(
-                                color: AppColors.white,
-                                borderRadius: AppRadius.borderXs,
-                                border: Border.all(color: AppColors.border),
-                              ),
-                              child: Text(
-                                l10n.translate('change_location'),
-                                style: AppTypography.labelSmall.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: AppSpacing.edgeInsetsXs,
+                          constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                          icon: Badge(
+                            isLabelVisible: cartState.items.isNotEmpty,
+                            label: Text('${cartState.totalItemCount}'),
+                            backgroundColor: AppColors.primary,
+                            child: const Icon(Icons.shopping_bag_outlined, size: 21, color: AppColors.textPrimary),
+                          ),
+                          tooltip: 'Cart',
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const CartScreen()),
+                            );
+                          },
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: AppSpacing.edgeInsetsXs,
+                          constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                          icon: const Icon(Icons.person_outline_rounded, size: 21, color: AppColors.textPrimary),
+                          tooltip: 'My Profile',
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),

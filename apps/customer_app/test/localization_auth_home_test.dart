@@ -240,14 +240,13 @@ void main() {
       expect(find.textContaining('Gulshan'), findsWidgets);
     });
 
-    testWidgets('HomeScreen displays delivering address header and store counts',
+    testWidgets('HomeScreen displays delivering address in top bar and opens map on tap',
         (WidgetTester tester) async {
       await tester.pumpWidget(createTestApp(child: const HomeScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.text('DeliveryOS'), findsOneWidget);
+      expect(find.byIcon(Icons.place_rounded), findsOneWidget);
       expect(find.text('Delivering To'), findsOneWidget);
-      expect(find.text('Change'), findsOneWidget);
       expect(find.textContaining('Banani'), findsWidgets);
       expect(find.text("Sultan's Dine - Banani"), findsOneWidget);
       expect(find.text('Kacchi Bhai - Gulshan 1'), findsOneWidget);
@@ -256,6 +255,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Shwapno Superstore Express'), findsOneWidget);
+
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, 250));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.place_rounded));
+      await tester.pumpAndSettle();
+      expect(find.byType(MapLocationPickerScreen), findsOneWidget);
     });
   });
 }
