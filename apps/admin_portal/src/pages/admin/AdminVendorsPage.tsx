@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Building2, ChevronRight, Plus, UserRound } from 'lucide-react';
+import { outletDisplayName } from '../../utils/outletDisplayName';
 import adminApi, { AdminBrand, AdminStaffAssignment, AdminVendor } from '../../services/adminApi';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -440,7 +441,7 @@ const BrandCard: React.FC<{
           >
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{outlet.name}</span>
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{outletDisplayName(outlet.brandName, outlet.name)}</span>
                 {!outlet.isActive && <Badge variant="danger">Suspended</Badge>}
                 {outlet.isActive && outlet.isBusy && <Badge variant="warning">Intake: Inactive</Badge>}
               </div>

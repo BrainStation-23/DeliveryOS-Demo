@@ -530,7 +530,9 @@ export class RiderService {
         riderId: rider.id,
       },
       include: {
-        vendor: { select: { id: true, name: true, addressText: true, latitude: true, longitude: true } },
+        vendor: {
+          select: { id: true, name: true, addressText: true, latitude: true, longitude: true, brand: { select: { name: true } } },
+        },
         orderItems: { select: { productNameSnapshot: true, quantity: true } },
         riderTrip: true,
       },
@@ -547,6 +549,7 @@ export class RiderService {
         orderNumber: order.orderNumber,
         status: order.status,
         vendorName: order.vendor.name,
+        brandName: order.vendor.brand?.name ?? null,
         customerAddress: address,
         itemsSummary,
         deliveryFee: Number(order.deliveryFee),

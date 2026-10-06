@@ -46,7 +46,7 @@ async function runOnlinePaymentTests() {
 
     // Ensure Vendor & Product exist
     let vendor = await prisma.vendor.findFirst({
-      where: { name: { contains: 'Gulshan Branch' } },
+      where: { name: 'Gulshan', brand: { name: 'Burger King' } },
       include: { products: true },
     });
     if (!vendor || vendor.products.length === 0) {

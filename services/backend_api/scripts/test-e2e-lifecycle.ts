@@ -65,7 +65,7 @@ async function runE2ELifecycleTest() {
     if (!riderProfile) throw new Error('Rider 1 profile not found');
 
     const gulshanOutlet = await prisma.vendor.findFirst({
-      where: { name: { contains: 'Gulshan Branch' } },
+      where: { name: 'Gulshan', brand: { name: 'Burger King' } },
       include: { products: true },
     });
     if (!gulshanOutlet) throw new Error('Gulshan outlet not found');

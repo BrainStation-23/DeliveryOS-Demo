@@ -18,6 +18,7 @@ export interface User {
   role: UserRole;
   vendorId?: string | null;
   vendorName?: string | null;
+  brandName?: string | null;
   outletScope?: PermissionScope | null;
   managedVendorIds?: string[];
 }

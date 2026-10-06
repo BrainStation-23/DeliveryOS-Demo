@@ -1,4 +1,5 @@
 import '../../../../core/utils/numeric_parser.dart';
+import '../../../core/utils/outlet_display_name.dart';
 
 class VariantModel {
   final String id;
@@ -87,6 +88,7 @@ class CategoryModel {
 class VendorCatalog {
   final String id;
   final String name;
+  final String? brandName;
   final String? logoUrl;
   final String? bannerUrl;
   final String addressText;
@@ -103,6 +105,7 @@ class VendorCatalog {
   VendorCatalog({
     required this.id,
     required this.name,
+    this.brandName,
     this.logoUrl,
     this.bannerUrl,
     required this.addressText,
@@ -115,11 +118,14 @@ class VendorCatalog {
     this.categories = const [],
   });
 
+  String get displayName => outletDisplayName(brandName, name);
+
   factory VendorCatalog.fromJson(Map<String, dynamic> json) {
     final categoriesRaw = json['categories'] as List<dynamic>? ?? [];
     return VendorCatalog(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      brandName: json['brandName'] as String? ?? json['brand_name'] as String?,
       logoUrl: json['logoUrl'] as String? ?? json['logo_url'] as String?,
       bannerUrl: json['bannerUrl'] as String? ?? json['banner_url'] as String?,
       addressText: json['addressText'] as String? ?? json['address_text'] as String? ?? '',

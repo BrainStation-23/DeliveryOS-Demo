@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, ShieldCheck, UserRound } from 'lucide-react';
+import { outletDisplayName } from '../../../../utils/outletDisplayName';
 import adminApi, { AdminStaffAssignment, AdminUserSummary } from '../../../../services/adminApi';
 import { Badge } from '../../../../components/ui/Badge';
 import { Button } from '../../../../components/ui/Button';
@@ -172,7 +173,9 @@ export const StaffProfileDialog: React.FC<StaffProfileDialogProps> = ({
               )}
             </Row>
             <Row label="Governance">
-              {assignment.scope === 'ALL_OUTLETS_MASTER' ? `All ${brandName} outlets` : assignment.vendorName || '—'}
+              {assignment.scope === 'ALL_OUTLETS_MASTER'
+                ? `All ${brandName} outlets`
+                : outletDisplayName(assignment.brandName, assignment.vendorName || '—')}
             </Row>
             <Row label="Status">
               {assignment.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}

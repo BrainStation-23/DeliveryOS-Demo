@@ -59,7 +59,7 @@ class SearchItemCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'from ${item.vendorName}',
+                  'from ${item.vendorDisplayName}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.labelSmall.copyWith(

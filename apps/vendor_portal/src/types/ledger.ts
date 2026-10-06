@@ -21,6 +21,7 @@ export interface LedgerItem {
   orderNumber: string;
   vendorId: string;
   vendorName: string;
+  brandName?: string | null;
   vendorAddress?: string | null;
   customerName: string;
   customerPhone?: string;

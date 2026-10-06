@@ -51,6 +51,7 @@ export class BannerService {
           select: {
             id: true,
             name: true,
+            brand: { select: { name: true } },
             latitude: true,
             longitude: true,
             deliveryRadiusKm: true,
@@ -98,6 +99,7 @@ export class BannerService {
       return {
         ...banner,
         targetName: outlet?.name ?? null,
+        targetBrandName: outlet?.brand?.name ?? null,
       };
     });
   }

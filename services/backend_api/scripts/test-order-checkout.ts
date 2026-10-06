@@ -45,7 +45,7 @@ async function runOrderCheckoutTest() {
 
     // Fetch Outlets & Products
     const gulshanOutlet = await prisma.vendor.findFirst({
-      where: { name: { contains: 'Gulshan Branch' } },
+      where: { name: 'Gulshan', brand: { name: 'Burger King' } },
       include: {
         products: {
           include: { variants: true },
@@ -54,14 +54,14 @@ async function runOrderCheckoutTest() {
     });
 
     const freshmartOutlet = await prisma.vendor.findFirst({
-      where: { name: { contains: 'FreshMart' } },
+      where: { name: 'Gulshan', brand: { name: 'Shwapno' } },
       include: {
         products: true,
       },
     });
 
     if (!gulshanOutlet || !freshmartOutlet) {
-      throw new Error('Gulshan or FreshMart outlet not found in database');
+      throw new Error('Burger King or Shwapno Gulshan outlet not found in database');
     }
 
     const gulshanProduct = gulshanOutlet.products.find((p) => Number(p.basePrice) >= 250) || gulshanOutlet.products[0];

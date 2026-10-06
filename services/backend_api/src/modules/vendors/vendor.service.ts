@@ -57,6 +57,7 @@ export interface RawProductSearchRow {
   isInStock: boolean;
   vendorId: string;
   vendorName: string;
+  brandName: string | null;
   distanceKm: number | string;
 }
 
@@ -134,8 +135,6 @@ export class VendorService {
         distanceKm,
         deliveryRadiusKm: Number(vendor.deliveryRadiusKm),
         deliveryFee: this.deliveryFeeService.computeFee(feeConfig, distanceKm),
-        // Canonical outlet representation everywhere: "Brand - Outlet".
-        displayName: outletDisplayName(vendor.brandName, vendor.name, ' - '),
       };
     });
   }
@@ -189,12 +188,14 @@ export class VendorService {
         p.is_in_stock AS "isInStock",
         v.id AS "vendorId",
         v.name AS "vendorName",
+        b.name AS "brandName",
         ROUND((ST_Distance(
           CAST(ST_SetSRID(ST_MakePoint(v.longitude, v.latitude), 4326) AS geography),
           CAST(ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326) AS geography)
         ) / 1000)::numeric, 2) AS "distanceKm"
       FROM products p
       JOIN vendors v ON p.vendor_id = v.id
+      JOIN vendor_brands b ON b.id = v.brand_id
       JOIN outlet_types ot ON ot.id = v.type_id
       WHERE v.is_active = TRUE
         AND ot.is_active = TRUE
@@ -209,12 +210,13 @@ export class VendorService {
     `;
 
     return {
-      outlets: outlets.map((o) => ({
-        ...o,
-        distanceKm: Number(o.distanceKm),
-        displayName: outletDisplayName(o.brandName, o.name, ' - '),
+      outlets: outlets.map((o) => ({ ...o, distanceKm: Number(o.distanceKm) })),
+      // Items expose the bare outlet name plus brandName; UIs compose "Brand - Outlet".
+      items: items.map((i) => ({
+        ...i,
+        distanceKm: Number(i.distanceKm),
+        basePrice: Number(i.basePrice),
       })),
-      items: items.map((i) => ({ ...i, distanceKm: Number(i.distanceKm), basePrice: Number(i.basePrice) })),
     };
   }
 
@@ -225,6 +227,7 @@ export class VendorService {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: vendorId },
       include: {
+        brand: { select: { name: true } },
         type: true,
         operatingHours: {
           orderBy: { dayOfWeek: 'asc' },
@@ -252,7 +255,7 @@ export class VendorService {
       throw new NotFoundException('Vendor outlet not found or currently inactive');
     }
 
-    return vendor;
+    return { ...vendor, brandName: vendor.brand?.name ?? null };
   }
 
   /**
@@ -265,6 +268,7 @@ export class VendorService {
 
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: vendorId },
+      include: { brand: { select: { name: true } } },
     });
 
     if (!vendor || !vendor.isActive) {
@@ -314,7 +318,7 @@ export class VendorService {
           success: false,
           statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
           error: 'ADDRESS_OUT_OF_COVERAGE',
-          message: `Selected address is outside ${vendor.name}'s delivery coverage radius of ${vendor.deliveryRadiusKm} km. Distance is ${distanceKm} km.`,
+          message: `Selected address is outside ${outletDisplayName(vendor.brand?.name, vendor.name)}'s delivery coverage radius of ${vendor.deliveryRadiusKm} km. Distance is ${distanceKm} km.`,
         },
         HttpStatus.UNPROCESSABLE_ENTITY,
       );

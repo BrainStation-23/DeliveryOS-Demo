@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { VENDOR_NAV_ITEMS, findActiveVendorNavItem } from '../config/vendorNavigation';
 import {
-  Building2,
   ShoppingBag,
   Store,
   ClipboardList,
@@ -120,11 +119,6 @@ const VendorLayoutInner: React.FC = () => {
 
   const { displayName, roleTitle } = parseUserIdentity();
 
-  // The consolidated "All Outlets" view still speaks the user's brand; fall
-  // back to the first accessible outlet's brand for scope-less accounts.
-  const brandName =
-    activeOutlet?.brandName ?? outlets.find((o) => o.brandName)?.brandName ?? null;
-
   const toggleSound = () => {
     const nextMuted = !isMuted;
     soundEngine.setMuted(nextMuted);
@@ -207,15 +201,7 @@ const VendorLayoutInner: React.FC = () => {
               <Menu className="h-5 w-5" />
             </button>
 
-            {/* Brand identity — outlets always render under their brand */}
-            {brandName && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/40 dark:border-amber-900 dark:text-amber-300 text-xs font-bold shrink-0 max-w-[220px]">
-                <Building2 className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{brandName}</span>
-              </span>
-            )}
-
-            {/* Scoped Outlet Switcher */}
+            {/* Scoped Outlet Switcher — carries the full "Brand - Outlet" label */}
             <div className="min-w-0 max-w-[200px] sm:max-w-[260px] md:max-w-xs">
               <OutletSwitcher />
             </div>

@@ -83,6 +83,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       let vendorId = userData.vendorId;
       let vendorName = userData.vendorName;
+      let brandName = userData.brandName ?? null;
       let outletScope = userData.outletScope;
       let managedVendorIds = userData.managedVendorIds;
 
@@ -96,6 +97,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             outletScope = staffProfile.outlet_scope || staffProfile.outletScope || PermissionScope.PARTICULAR_OUTLET;
             vendorId = staffProfile.vendor_id || staffProfile.vendorId;
             vendorName = staffProfile.vendor?.name || staffProfile.vendorName;
+            brandName = staffProfile.brandName ?? staffProfile.brand?.name ?? null;
             managedVendorIds = staffProfile.managedVendorIds || (vendorId ? [vendorId] : []);
           }
         } catch {
@@ -111,6 +113,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         role: userData.role,
         vendorId,
         vendorName,
+        brandName,
         outletScope,
         managedVendorIds,
       };

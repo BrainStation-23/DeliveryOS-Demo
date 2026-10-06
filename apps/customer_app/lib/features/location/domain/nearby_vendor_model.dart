@@ -1,19 +1,13 @@
+import '../../../core/utils/outlet_display_name.dart';
+
 /// Immutable data model representing a nearby outlet/vendor returned by GET /vendors/nearby.
 class NearbyVendor {
   final String id;
   final String name;
   final String? brandName;
 
-  /// Canonical outlet representation: "Brand - Outlet" — shown once when the
-  /// outlet name already carries the brand (no "X - X" doubling).
-  String get displayName {
-    final brand = (brandName ?? '').trim();
-    if (brand.isEmpty) return name;
-    if (name == brand || name.startsWith('$brand ') || name.startsWith('$brand—')) {
-      return name;
-    }
-    return '$brand - $name';
-  }
+  /// Canonical outlet representation: "Brand - Outlet", composed at render time.
+  String get displayName => outletDisplayName(brandName, name);
 
   /// Admin-managed outlet business type (ADR-019); drives the home chips.
   final String typeSlug;

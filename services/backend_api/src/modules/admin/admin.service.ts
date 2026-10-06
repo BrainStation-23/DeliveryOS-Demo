@@ -507,7 +507,7 @@ export class AdminService {
           },
           include: {
             customer: { select: { fullName: true, phone: true } },
-            vendor: true,
+            vendor: { include: { brand: { select: { name: true } } } },
             orderItems: true,
           },
         });
@@ -550,7 +550,7 @@ export class AdminService {
         .emit('order:assigned', {
           orderId: updatedOrder.id,
           orderNumber: updatedOrder.orderNumber,
-          vendorName: updatedOrder.vendor?.name,
+          vendorName: outletDisplayName(updatedOrder.vendor?.brand?.name ?? null, updatedOrder.vendor?.name ?? null),
           totalAmount: Number(updatedOrder.totalAmount),
         });
     }
@@ -559,7 +559,7 @@ export class AdminService {
     this.notificationsService
       .sendToUser(rider.userId, {
         title: 'New Order Assigned! 📦',
-        body: `You have been manually assigned order #${updatedOrder.orderNumber} from ${updatedOrder.vendor?.name || 'Restaurant'}`,
+        body: `You have been manually assigned order #${updatedOrder.orderNumber} from ${outletDisplayName(updatedOrder.vendor?.brand?.name ?? null, updatedOrder.vendor?.name ?? null)}`,
         data: {
           orderId: updatedOrder.id,
           orderNumber: updatedOrder.orderNumber,
@@ -1173,6 +1173,7 @@ export class AdminService {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: vendorId },
       include: {
+        brand: { select: { name: true } },
         _count: {
           select: {
             staff: true,
@@ -1184,25 +1185,26 @@ export class AdminService {
       },
     });
     if (!vendor) throw new NotFoundException('Vendor outlet not found');
+    const outletLabel = outletDisplayName(vendor.brand?.name, vendor.name);
 
     if (vendor._count.staff > 0) {
       throw new ConflictException(
-        `Outlet "${vendor.name}" still has ${vendor._count.staff} tagged staff assignment(s) — remove them first`,
+        `Outlet "${outletLabel}" still has ${vendor._count.staff} tagged staff assignment(s) — remove them first`,
       );
     }
     if (vendor._count.categories > 0) {
       throw new ConflictException(
-        `Outlet "${vendor.name}" still has ${vendor._count.categories} category/categories — remove or delete them first`,
+        `Outlet "${outletLabel}" still has ${vendor._count.categories} category/categories — remove or delete them first`,
       );
     }
     if (vendor._count.products > 0) {
       throw new ConflictException(
-        `Outlet "${vendor.name}" still has ${vendor._count.products} item/product(s) — remove or delete them first`,
+        `Outlet "${outletLabel}" still has ${vendor._count.products} item/product(s) — remove or delete them first`,
       );
     }
     if (vendor._count.orders > 0) {
       throw new ConflictException(
-        `Outlet "${vendor.name}" has ${vendor._count.orders} order(s) — cannot delete an outlet with historical orders`,
+        `Outlet "${outletLabel}" has ${vendor._count.orders} order(s) — cannot delete an outlet with historical orders`,
       );
     }
 

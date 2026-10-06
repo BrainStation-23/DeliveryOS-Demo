@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Search, RefreshCw, Receipt } from 'lucide-react';
+import { outletLabel } from '../../utils/outletDisplayName';
 import { useVendorOutlet } from '../../contexts/VendorOutletContext';
 import kdsApi from '../../services/kdsApi';
 import { Table, Column } from '../../components/ui/Table';
@@ -177,7 +178,9 @@ export const VendorOrdersPage: React.FC = () => {
     {
       key: 'vendorName',
       header: t('orders.table.outletBranch'),
-      render: (item) => <span className="text-xs font-semibold">{item.vendorName}</span>,
+      render: (item) => (
+        <span className="text-xs font-semibold">{outletLabel({ name: item.vendorName, brandName: item.brandName })}</span>
+      ),
     },
     {
       key: 'orderStatus',

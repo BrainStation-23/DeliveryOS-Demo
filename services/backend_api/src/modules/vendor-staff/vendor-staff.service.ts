@@ -58,7 +58,7 @@ const LEDGER_INCLUDE = {
       },
     },
   },
-  vendor: { select: { id: true, name: true, addressText: true } },
+  vendor: { select: { id: true, name: true, addressText: true, brand: { select: { name: true } } } },
 } satisfies Prisma.CommissionLedgerInclude;
 
 type LedgerRow = Prisma.CommissionLedgerGetPayload<{ include: typeof LEDGER_INCLUDE }>;
@@ -74,6 +74,7 @@ function toLedgerRow(l: LedgerRow) {
     orderNumber: l.order?.orderNumber || 'N/A',
     vendorId: l.vendorId,
     vendorName: l.vendor?.name || 'Unknown Outlet',
+    brandName: l.vendor?.brand?.name ?? null,
     vendorAddress: l.vendor?.addressText || null,
     customerName: l.order?.customer?.fullName || 'Guest Customer',
     customerPhone: l.order?.customerPhoneSnapshot || l.order?.customer?.phone || '',
@@ -565,7 +566,7 @@ export class VendorStaffService {
     const staffRecord = await this.prisma.vendorStaff.findFirst({
       where: { userId: user.id, isActive: true },
       include: {
-        vendor: true,
+        vendor: { include: { brand: { select: { name: true } } } },
         brand: {
           include: {
             outlets: { select: { id: true, name: true } },
@@ -593,6 +594,7 @@ export class VendorStaffService {
       outletScope: staffRecord.scope,
       vendorId: staffRecord.vendorId || (staffRecord.brand?.outlets[0]?.id ?? null),
       vendorName: staffRecord.vendor?.name || staffRecord.brand?.name || 'Assigned Outlet',
+      brandName: staffRecord.brand?.name ?? staffRecord.vendor?.brand?.name ?? null,
       brandId: staffRecord.brandId,
       managedVendorIds,
     };
@@ -902,7 +904,7 @@ export class VendorStaffService {
           select: { id: true, vehicleType: true, user: { select: { fullName: true, phone: true } } },
         },
         orderItems: true,
-        vendor: { select: { id: true, name: true, addressText: true } },
+        vendor: { select: { id: true, name: true, addressText: true, brand: { select: { name: true } } } },
       },
     });
     if (!order) {
@@ -916,6 +918,7 @@ export class VendorStaffService {
       orderNumber: order.orderNumber,
       vendorId: order.vendorId,
       vendorName: order.vendor?.name || 'Unknown Outlet',
+    brandName: order.vendor?.brand?.name ?? null,
       vendorAddress: order.vendor?.addressText || null,
       customerName: order.customer?.fullName || 'Guest Customer',
       customerPhone: order.customerPhoneSnapshot || order.customer?.phone || '',

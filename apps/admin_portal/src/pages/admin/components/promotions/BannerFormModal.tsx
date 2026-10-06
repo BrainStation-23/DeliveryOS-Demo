@@ -219,8 +219,7 @@ export const BannerFormModal: React.FC<BannerFormModalProps> = ({
                   <option value="">Select an outlet...</option>
                   {outlets.map((outlet) => (
                     <option key={outlet.id} value={outlet.id}>
-                      {outlet.name}
-                      {outlet.brandName ? ` — ${outlet.brandName}` : ''}
+                      {outlet.brandName ? `${outlet.brandName} - ${outlet.name}` : outlet.name}
                     </option>
                   ))}
                 </select>

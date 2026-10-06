@@ -26,7 +26,18 @@ import { RedisService } from '../../common/redis/redis.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentsService } from '../payments/payments.service';
 import { getCurrentRegionTimeParts, isWithinOperatingHours } from '../../common/utils/region-time';
+import { outletDisplayName } from '../../common/utils/outlet-display-name';
 import { PaginatedResult, PaginationQueryDto, toPaginatedResult } from '../../common/dto/pagination.dto';
+
+/** History row exposing the bare outlet name plus brandName for UI composition. */
+export type OrderHistoryRow = Omit<Order, 'vendor'> & {
+  vendor: {
+    id: string;
+    name: string;
+    logoUrl: string | null;
+    brandName: string | null;
+  };
+};
 
 export interface OrderAddressSnapshot {
   deliveryMethod: DeliveryMethod;
@@ -163,6 +174,7 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: dto.vendorId },
       include: {
+        brand: { select: { name: true } },
         operatingHours: true,
       },
     });
@@ -172,7 +184,7 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
 
     if (vendor.isBusy) {
       throw new BadRequestException(
-        `Vendor "${vendor.name}" is currently busy and temporarily paused receiving new orders`,
+        `Vendor "${outletDisplayName(vendor.brand?.name, vendor.name)}" is currently busy and temporarily paused receiving new orders`,
       );
     }
 
@@ -183,12 +195,12 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
 
       if (todayHours) {
         if (todayHours.isClosed) {
-          throw new BadRequestException(`Vendor "${vendor.name}" is scheduled closed today`);
+          throw new BadRequestException(`Vendor "${outletDisplayName(vendor.brand?.name, vendor.name)}" is scheduled closed today`);
         }
 
         if (!isWithinOperatingHours(currentTime, todayHours.openTime, todayHours.closeTime)) {
           throw new BadRequestException(
-            `Vendor "${vendor.name}" is currently outside operating hours (${todayHours.openTime} - ${todayHours.closeTime})`,
+            `Vendor "${outletDisplayName(vendor.brand?.name, vendor.name)}" is currently outside operating hours (${todayHours.openTime} - ${todayHours.closeTime})`,
           );
         }
       }
@@ -240,7 +252,7 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
             success: false,
             statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
             error: 'ADDRESS_OUT_OF_COVERAGE',
-            message: `Selected address is outside ${vendor.name}'s delivery coverage radius of ${vendor.deliveryRadiusKm} km. Distance is ${distanceKm} km.`,
+            message: `Selected address is outside ${outletDisplayName(vendor.brand?.name, vendor.name)}'s delivery coverage radius of ${vendor.deliveryRadiusKm} km. Distance is ${distanceKm} km.`,
           },
           HttpStatus.UNPROCESSABLE_ENTITY,
         );
@@ -483,7 +495,7 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
     const previousOrder = await this.prisma.order.findUnique({
       where: { id: dto.previousOrderId },
       include: {
-        vendor: true,
+        vendor: { include: { brand: { select: { name: true } } } },
         orderItems: true,
       },
     });
@@ -560,6 +572,7 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
       hasStockChanges,
       vendorId: vendor.id,
       vendorName: vendor.name,
+      brandName: vendor.brand?.name ?? null,
       validItems,
       unavailableItems,
     };
@@ -577,6 +590,7 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
             id: true,
             brandId: true,
             name: true,
+            brand: { select: { name: true } },
             contactPhone: true,
             logoUrl: true,
             addressText: true,
@@ -627,13 +641,19 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    return order;
+    return {
+      ...order,
+      vendor: { ...order.vendor, brandName: order.vendor?.brand?.name ?? null },
+    };
   }
 
   /**
    * 4. Customer Order History (paginated)
    */
-  async getCustomerOrderHistory(customerId: string, pagination: PaginationQueryDto): Promise<PaginatedResult<Order>> {
+  async getCustomerOrderHistory(
+    customerId: string,
+    pagination: PaginationQueryDto,
+  ): Promise<PaginatedResult<OrderHistoryRow>> {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.order.findMany({
         where: { customerId },
@@ -646,6 +666,7 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
               id: true,
               name: true,
               logoUrl: true,
+              brand: { select: { name: true } },
             },
           },
           orderItems: true,
@@ -654,7 +675,11 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
       this.prisma.order.count({ where: { customerId } }),
     ]);
 
-    return toPaginatedResult(items, total, pagination);
+    const rows = items.map((o) => ({
+      ...o,
+      vendor: { ...o.vendor, brandName: o.vendor?.brand?.name ?? null },
+    }));
+    return toPaginatedResult(rows, total, pagination);
   }
 
   /**

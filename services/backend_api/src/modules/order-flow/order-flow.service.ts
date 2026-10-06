@@ -17,6 +17,7 @@ import { assertClaimable, assertTransition } from '../orders/order-state.machine
 import { DeliveryFeeService } from '../promotions/pricing/delivery-fee.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { haversineKm } from '../../common/utils/haversine';
+import { outletDisplayName } from '../../common/utils/outlet-display-name';
 
 interface DispatchSettingValue {
   rider_search_timeout_seconds?: number;
@@ -86,7 +87,13 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
    * role-wide push when the geo index has no candidates yet (cold start).
    */
   private async notifyNearbyRiders(
-    vendor: { id: string; name: string; latitude: number | null; longitude: number | null },
+    vendor: {
+      id: string;
+      name: string;
+      brandName?: string | null;
+      latitude: number | null;
+      longitude: number | null;
+    },
     orderId: string,
     orderNumber: string,
     radiusKm: number,
@@ -105,7 +112,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
 
     const payload = {
       title: 'New Delivery Opportunity! 📦',
-      body: `Order ${orderNumber} available near ${vendor.name}. Tap to accept.`,
+      body: `Order ${orderNumber} available near ${outletDisplayName(vendor.brandName ?? null, vendor.name)}. Tap to accept.`,
       data: { orderId, type: 'DISPATCH_BROADCAST' },
     };
 
@@ -278,7 +285,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        vendor: true,
+        vendor: { include: { brand: { select: { name: true } } } },
         orderItems: true,
         customer: { select: { fullName: true, phone: true } },
       },
@@ -313,7 +320,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
         orderId: order.id,
         orderNumber: order.orderNumber,
         vendorId: order.vendorId,
-        vendorName: order.vendor.name,
+        vendorName: outletDisplayName(order.vendor.brand?.name, order.vendor.name),
         itemCount: order.orderItems.reduce((acc, i) => acc + i.quantity, 0),
         totalAmount: Number(order.totalAmount),
         paymentMethod: order.paymentMethod,
@@ -342,7 +349,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
         orderId: order.id,
         orderNumber: order.orderNumber,
         vendorId: order.vendorId,
-        vendorName: order.vendor.name,
+        vendorName: outletDisplayName(order.vendor.brand?.name, order.vendor.name),
         vendorAddress: order.vendor.addressText,
         deliveryArea: deliveryAddress,
         itemCount: order.orderItems.reduce((acc, i) => acc + i.quantity, 0),
@@ -355,7 +362,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
       });
 
       await this.notifyNearbyRiders(
-        order.vendor,
+        { ...order.vendor, brandName: order.vendor.brand?.name ?? null },
         order.id,
         order.orderNumber,
         OrderFlowService.INITIAL_PUSH_RADIUS_KM,
@@ -372,7 +379,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
         orderId: order.id,
         orderNumber: order.orderNumber,
         vendorId: order.vendorId,
-        vendorName: order.vendor.name,
+        vendorName: outletDisplayName(order.vendor.brand?.name, order.vendor.name),
         itemCount: order.orderItems.reduce((acc, i) => acc + i.quantity, 0),
         totalAmount: Number(order.totalAmount),
         paymentMethod: order.paymentMethod,
@@ -404,7 +411,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { vendor: true, orderItems: true },
+      include: { vendor: { include: { brand: { select: { name: true } } } }, orderItems: true },
     });
 
     if (!order || order.riderId) return; // already assigned or not found
@@ -425,7 +432,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
         orderId: order.id,
         orderNumber: order.orderNumber,
         vendorId: order.vendorId,
-        vendorName: order.vendor.name,
+        vendorName: outletDisplayName(order.vendor.brand?.name, order.vendor.name),
         vendorAddress: order.vendor.addressText,
         deliveryArea: deliveryAddress,
         itemCount: order.orderItems.reduce((acc, i) => acc + i.quantity, 0),
@@ -506,7 +513,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
 
         const order = await tx.order.findUnique({
           where: { id: orderId },
-          include: { vendor: true, orderItems: true },
+          include: { vendor: { include: { brand: { select: { name: true } } } }, orderItems: true },
         });
 
         if (!order) {
@@ -557,7 +564,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
         const updated = await tx.order.findUniqueOrThrow({
           where: { id: orderId },
           include: {
-            vendor: true,
+            vendor: { include: { brand: { select: { name: true } } } },
             orderItems: true,
           },
         });
@@ -589,7 +596,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
           orderId: updatedOrder.id,
           orderNumber: updatedOrder.orderNumber,
           vendorId: updatedOrder.vendorId,
-          vendorName: updatedOrder.vendor.name,
+          vendorName: outletDisplayName(updatedOrder.vendor?.brand?.name, updatedOrder.vendor?.name),
           riderAssigned: true,
           riderName: rider.user.fullName,
           riderPhone: rider.user.phone,
@@ -627,7 +634,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
       this.notificationsService
         .sendToUser(updatedOrder.customerId, {
           title: 'Rider Assigned! 🛵',
-          body: `${rider.user.fullName} is delivering your order from ${updatedOrder.vendor.name}.`,
+          body: `${rider.user.fullName} is delivering your order from ${outletDisplayName(updatedOrder.vendor?.brand?.name, updatedOrder.vendor?.name)}.`,
           data: { orderId: updatedOrder.id, status: updatedOrder.status },
         })
         .catch((err: unknown) => {
@@ -681,7 +688,9 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
         ],
       },
       include: {
-        vendor: { select: { id: true, name: true, addressText: true, latitude: true, longitude: true } },
+        vendor: {
+          select: { id: true, name: true, addressText: true, latitude: true, longitude: true, brand: { select: { name: true } } },
+        },
         orderItems: true,
       },
     });
@@ -710,7 +719,7 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
             orderId: order.id,
             orderNumber: order.orderNumber,
             vendorId: order.vendorId,
-            vendorName: order.vendor.name,
+            vendorName: outletDisplayName(order.vendor.brand?.name, order.vendor.name),
             vendorAddress: order.vendor.addressText,
             deliveryArea: deliveryAddress,
             itemCount: order.orderItems.reduce((acc, i) => acc + i.quantity, 0),
@@ -729,10 +738,10 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
             tier: 1,
             agingSeconds,
             searchRadiusKm: 6,
-            vendorName: order.vendor.name,
+            vendorName: outletDisplayName(order.vendor.brand?.name, order.vendor.name),
           });
 
-          await this.notifyNearbyRiders(order.vendor, order.id, order.orderNumber, 6);
+          await this.notifyNearbyRiders({ ...order.vendor, brandName: order.vendor.brand?.name ?? null }, order.id, order.orderNumber, 6);
 
           this.logger.warn(
             `[Escalation Tier 1] Order ${order.orderNumber} unassigned for ${agingSeconds}s. Priority push ring expanded to 6km.`,
@@ -754,10 +763,10 @@ export class OrderFlowService implements OnModuleInit, OnModuleDestroy {
             tier: 2,
             agingSeconds,
             searchRadiusKm: 10,
-            vendorName: order.vendor.name,
+            vendorName: outletDisplayName(order.vendor.brand?.name, order.vendor.name),
           });
 
-          await this.notifyNearbyRiders(order.vendor, order.id, order.orderNumber, 10);
+          await this.notifyNearbyRiders({ ...order.vendor, brandName: order.vendor.brand?.name ?? null }, order.id, order.orderNumber, 10);
 
           this.logger.error(
             `[Escalation Tier 2 - CRITICAL] Order ${order.orderNumber} unassigned for ${agingSeconds}s! High priority alert emitted to admin_hq.`,

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
+import { outletLabel } from '../../utils/outletDisplayName';
 import { useVendorOutlet } from '../../contexts/VendorOutletContext';
 import { useKDSOrders } from '../../hooks/useKDSOrders';
 import { KDSOrderCard } from '../../components/kds/KDSOrderCard';
@@ -62,7 +63,11 @@ export const VendorDashboardPage: React.FC = () => {
   } = useKDSOrders(targetVendorId);
 
   const totalActive = newOrders.length + inPreparationOrders.length + readyOrders.length;
-  const outletDisplayName = activeOutlet?.name || user?.vendorName || t('kds.title');
+  const headerOutletName = activeOutlet
+    ? outletLabel(activeOutlet)
+    : user?.vendorName
+      ? outletLabel({ name: user.vendorName, brandName: user.brandName })
+      : t('kds.title');
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -110,7 +115,7 @@ export const VendorDashboardPage: React.FC = () => {
 
       <PageHeader
         title={t('kds.title')}
-        description={`${outletDisplayName} • ${t('kds.subtitle')}`}
+        description={`${headerOutletName} • ${t('kds.subtitle')}`}
         icon={<ClipboardList className="h-5 w-5 text-amber-500" />}
         badge={
           <Badge variant="primary" size="md">

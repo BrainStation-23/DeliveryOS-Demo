@@ -71,7 +71,7 @@ async function runLiveTrackingTest() {
     });
 
     const gulshanOutlet = await prisma.vendor.findFirst({
-      where: { name: { contains: 'Gulshan Branch' } },
+      where: { name: 'Gulshan', brand: { name: 'Burger King' } },
       include: { products: true },
     });
     const inCoverageAddress = await prisma.customerAddress.findFirst({

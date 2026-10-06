@@ -1,3 +1,4 @@
+import '../../../core/utils/outlet_display_name.dart';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -281,7 +282,10 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
           return RiderCompletedTrip(
             orderId: m['id']?.toString() ?? '',
             orderNumber: m['orderNumber']?.toString() ?? 'ORD',
-            storeName: m['vendorName']?.toString() ?? 'Store',
+            storeName: outletDisplayName(
+              m['brandName']?.toString(),
+              m['vendorName']?.toString() ?? 'Store',
+            ),
             customerAddress: m['customerAddress']?.toString() ?? '',
             completedAt: m['deliveredAt'] != null
                 ? DateTime.tryParse(m['deliveredAt'].toString()) ?? DateTime.now()

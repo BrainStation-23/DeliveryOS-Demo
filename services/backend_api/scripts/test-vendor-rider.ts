@@ -73,15 +73,15 @@ async function runVendorRiderTest() {
 
     // Outlets & Products
     const gulshanOutlet = await prisma.vendor.findFirst({
-      where: { name: { contains: 'Gulshan Branch' } },
+      where: { name: 'Gulshan', brand: { name: 'Burger King' } },
       include: { products: true },
     });
     const dhanmondiOutlet = await prisma.vendor.findFirst({
-      where: { name: { contains: 'Dhanmondi Branch' } },
+      where: { name: 'Dhanmondi', brand: { name: 'Burger King' } },
       include: { products: true },
     });
     const freshmartOutlet = await prisma.vendor.findFirst({
-      where: { name: { contains: 'FreshMart' } },
+      where: { name: 'Banani', brand: { name: 'KFC' } },
       include: { products: true },
     });
 
@@ -97,7 +97,7 @@ async function runVendorRiderTest() {
     // -------------------------------------------------------------------------
     console.log('🛡️  1. Testing PARTICULAR_OUTLET Scope Enforcement...');
 
-    // Branch manager tries to toggle stock on FreshMart product -> Should throw 403
+    // Branch manager tries to toggle stock on KFC (other brand) product -> Should throw 403
     const unauthorizedStockRes = await fetch(`${baseUrl}/vendor/products/${freshmartProduct.id}/stock`, {
       method: 'PATCH',
       headers: {
@@ -107,7 +107,7 @@ async function runVendorRiderTest() {
       body: JSON.stringify({ isInStock: false }),
     });
     const unauthorizedStockJson = await unauthorizedStockRes.json();
-    console.log(`   Branch Manager -> FreshMart Product: status=${unauthorizedStockRes.status}, message="${unauthorizedStockJson.message}"`);
+    console.log(`   Branch Manager -> KFC Product: status=${unauthorizedStockRes.status}, message="${unauthorizedStockJson.message}"`);
     if (unauthorizedStockRes.status !== 403) {
       throw new Error('Expected 403 Forbidden when managing outside assigned outlet');
     }
@@ -117,7 +117,7 @@ async function runVendorRiderTest() {
       headers: { Authorization: `Bearer ${branchManager.token}` },
     });
     const unauthorizedOrdersJson = await unauthorizedOrdersRes.json();
-    console.log(`   Branch Manager -> FreshMart Live Orders: status=${unauthorizedOrdersRes.status}, message="${unauthorizedOrdersJson.message}"`);
+    console.log(`   Branch Manager -> KFC Live Orders: status=${unauthorizedOrdersRes.status}, message="${unauthorizedOrdersJson.message}"`);
     if (unauthorizedOrdersRes.status !== 403) {
       throw new Error('Expected 403 Forbidden when accessing live orders for unassigned outlet');
     }
@@ -146,7 +146,7 @@ async function runVendorRiderTest() {
       throw new Error('Expected 200 OK for Brand Owner accessing sister branch Dhanmondi');
     }
 
-    // Brand owner tries to toggle stock on FreshMart (different brand) -> Should fail 403
+    // Brand owner tries to toggle stock on KFC (different brand) -> Should fail 403
     const brandFreshmartRes = await fetch(`${baseUrl}/vendor/products/${freshmartProduct.id}/stock`, {
       method: 'PATCH',
       headers: {
@@ -155,7 +155,7 @@ async function runVendorRiderTest() {
       },
       body: JSON.stringify({ isInStock: false }),
     });
-    console.log(`   Brand Owner -> FreshMart Product (Unowned Brand): status=${brandFreshmartRes.status}`);
+    console.log(`   Brand Owner -> KFC Product (Unowned Brand): status=${brandFreshmartRes.status}`);
     if (brandFreshmartRes.status !== 403) {
       throw new Error('Expected 403 Forbidden for Brand Owner accessing another brand outlet');
     }

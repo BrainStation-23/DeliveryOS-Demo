@@ -18,7 +18,7 @@ async function runVendorDiscoveryTest() {
 
   const prisma = new PrismaClient();
   const gulshanStore = await prisma.vendor.findFirst({
-    where: { name: 'Burger Point — Gulshan Branch' },
+    where: { name: 'Gulshan', brand: { name: 'Burger King' } },
   });
 
   if (!gulshanStore) {
@@ -27,10 +27,15 @@ async function runVendorDiscoveryTest() {
 
   // The discovery test asserts specific fixtures appear in nearby results; make
   // sure prior test runs that toggled vendor state don't break the invariant.
-  const fixtures = ['Burger Point — Gulshan Branch', 'FreshMart Daily — Gulshan Hub'];
+  const fixtures = [
+    { name: 'Gulshan', brand: 'Burger King' },
+    { name: 'Gulshan', brand: 'Shwapno' },
+  ];
   const originalStates = new Map<string, boolean>();
-  for (const name of fixtures) {
-    const vendor = await prisma.vendor.findFirst({ where: { name } });
+  for (const fixture of fixtures) {
+    const vendor = await prisma.vendor.findFirst({
+      where: { name: fixture.name, brand: { name: fixture.brand } },
+    });
     if (vendor) {
       originalStates.set(vendor.id, vendor.isActive);
       if (!vendor.isActive) {
@@ -70,14 +75,15 @@ async function runVendorDiscoveryTest() {
     const nearbyJson = await nearbyRes.json();
     console.log(`   Response: status=${nearbyRes.status}, count=${nearbyJson.data?.length}`);
 
-    const storeNames = nearbyJson.data?.map((s: any) => s.name) || [];
+    // Two-field contract: rows carry the bare name + brandName; compose "Brand - Outlet" like the apps do.
+    const storeNames = nearbyJson.data?.map((s: any) => (s.brandName ? `${s.brandName} - ${s.name}` : s.name)) || [];
     console.log(`   Found Outlets: ${storeNames.join(', ')}`);
 
-    const hasGulshan = storeNames.includes('Burger Point — Gulshan Branch');
-    const hasFreshMart = storeNames.includes('FreshMart Daily — Gulshan Hub');
-    const hasDhanmondi = storeNames.includes('Burger Point — Dhanmondi Branch');
+    const hasGulshan = storeNames.includes('Burger King - Gulshan');
+    const hasShwapno = storeNames.includes('Shwapno - Gulshan');
+    const hasDhanmondi = storeNames.includes('Burger King - Dhanmondi');
 
-    if (!hasGulshan || !hasFreshMart) {
+    if (!hasGulshan || !hasShwapno) {
       throw new Error('Nearby stores in Gulshan/Banani zone were not returned');
     }
     if (hasDhanmondi) {
@@ -96,8 +102,8 @@ async function runVendorDiscoveryTest() {
     const itemNames = searchJson.data?.items?.map((i: any) => i.name) || [];
     console.log(`   Matched Dishes: ${itemNames.join(', ')}`);
 
-    if (!itemNames.includes('Smoky BBQ Burger')) {
-      throw new Error('Smoky BBQ Burger was not found in search results');
+    if (!itemNames.includes('Whopper')) {
+      throw new Error('Whopper was not found in search results');
     }
     console.log('   ✅ Instant search correctly found matching outlets and dish items!\n');
 

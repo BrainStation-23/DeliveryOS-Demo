@@ -1,4 +1,5 @@
 import '../../../../core/utils/numeric_parser.dart';
+import '../../../../core/utils/outlet_display_name.dart';
 
 class OrderItemSummary {
   final String productId;
@@ -78,7 +79,10 @@ class PastOrder {
       id: json['id'] as String? ?? '',
       orderNumber: json['orderNumber'] as String? ?? json['order_number'] as String? ?? '#ORD-2026',
       vendorId: json['vendorId'] as String? ?? json['vendor_id'] as String? ?? vendor['id'] as String? ?? '',
-      vendorName: vendor['name'] as String? ?? json['vendorName'] as String? ?? 'Outlet',
+      vendorName: outletDisplayName(
+        vendor['brandName'] as String?,
+        vendor['name'] as String? ?? json['vendorName'] as String? ?? 'Outlet',
+      ),
       status: json['status'] as String? ?? 'DELIVERED',
       totalAmount: parseDouble(json['totalAmount'] ?? json['total_amount']),
       createdAt: rawDate != null

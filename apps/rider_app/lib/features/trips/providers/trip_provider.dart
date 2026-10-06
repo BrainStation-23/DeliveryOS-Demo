@@ -1,3 +1,4 @@
+import '../../../core/utils/outlet_display_name.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -74,7 +75,11 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
         // the call buttons disabled instead of dialing a fake number.
         final store = TripStoreMeta(
           id: data['vendorId']?.toString() ?? 'store-01',
-          name: data['vendorName']?.toString() ?? 'Restaurant',
+          name: data['displayName']?.toString() ??
+              outletDisplayName(
+                data['brandName']?.toString(),
+                data['vendorName']?.toString() ?? 'Restaurant',
+              ),
           address: data['vendorAddress']?.toString() ?? 'Dhaka',
           phone: '',
           latitude: MapDefaults.centerLatitude,

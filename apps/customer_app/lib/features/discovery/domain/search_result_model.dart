@@ -1,3 +1,4 @@
+import '../../../core/utils/outlet_display_name.dart';
 class SearchOutlet {
   final String id;
   final String name;
@@ -6,16 +7,8 @@ class SearchOutlet {
   final String addressText;
   final double distanceKm;
 
-  /// Canonical outlet representation: "Brand - Outlet" — shown once when the
-  /// outlet name already carries the brand (no "X - X" doubling).
-  String get displayName {
-    final brand = (brandName ?? '').trim();
-    if (brand.isEmpty) return name;
-    if (name == brand || name.startsWith('$brand ') || name.startsWith('$brand—')) {
-      return name;
-    }
-    return '$brand - $name';
-  }
+  /// Canonical outlet representation: "Brand - Outlet", composed at render time.
+  String get displayName => outletDisplayName(brandName, name);
 
   SearchOutlet({
     required this.id,
@@ -50,7 +43,10 @@ class SearchItem {
   final bool isInStock;
   final String vendorId;
   final String vendorName;
+  final String? brandName;
   final double distanceKm;
+
+  String get vendorDisplayName => outletDisplayName(brandName, vendorName);
 
   SearchItem({
     required this.id,
@@ -62,6 +58,7 @@ class SearchItem {
     required this.isInStock,
     required this.vendorId,
     required this.vendorName,
+    this.brandName,
     required this.distanceKm,
   });
 
@@ -79,6 +76,7 @@ class SearchItem {
           json['vendorId'] as String? ?? json['vendor_id'] as String? ?? '',
       vendorName:
           json['vendorName'] as String? ?? json['vendor_name'] as String? ?? '',
+      brandName: json['brandName'] as String? ?? json['brand_name'] as String?,
       distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 0.0,
     );
   }

@@ -17,6 +17,7 @@ import {
 import adminApi, { AnalyticsOverview } from '../../services/adminApi';
 import { useSocketQueryInvalidation } from '../../hooks/useSocketSubscription';
 import { DatePreset, resolveDateRange } from '../../utils/dateRange';
+import { outletDisplayName } from '../../utils/outletDisplayName';
 import { PageHeader } from '../../components/common/PageHeader';
 import { DateRangeFilterToolbar } from '../../components/common/DateRangeFilterToolbar';
 import { TrendStatCard } from '../../components/common/TrendStatCard';
@@ -260,8 +261,7 @@ export const AdminDashboardPage: React.FC = () => {
                   {index + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">{outlet.vendorName}</p>
-                  <p className="truncate text-[11px] text-slate-500">{outlet.brandName || 'Independent'}</p>
+                  <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">{outletDisplayName(outlet.brandName, outlet.vendorName)}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{outlet.orders} orders</p>

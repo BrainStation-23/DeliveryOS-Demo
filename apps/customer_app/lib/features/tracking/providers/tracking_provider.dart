@@ -1,3 +1,4 @@
+import '../../../core/utils/outlet_display_name.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -234,7 +235,10 @@ class TrackingNotifier extends Notifier<OrderTrackingState> {
 
         final storeMeta = StoreMeta(
           id: vendor['id'] as String? ?? state.store.id,
-          name: vendor['name'] as String? ?? state.store.name,
+          name: outletDisplayName(
+            vendor['brandName'] as String?,
+            vendor['name'] as String? ?? state.store.name,
+          ),
           address: vendor['addressText'] as String? ?? state.store.address,
           phone: vendor['contactPhone'] as String? ?? vendor['phone'] as String? ?? state.store.phone,
           latitude: parseDouble(vendor['latitude'], state.store.latitude),

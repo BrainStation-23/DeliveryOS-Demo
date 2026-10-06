@@ -51,7 +51,7 @@ async function runWebSocketTrackingTest() {
 
     // Ensure the outlet runs VENDOR_FIRST so order:new fires immediately on checkout
     const flowOutlet = await prisma.vendor.findFirst({
-      where: { name: { contains: 'Gulshan Branch' } },
+      where: { name: 'Gulshan', brand: { name: 'Burger King' } },
       select: { id: true },
     });
     await fetch(`${baseUrl}/admin/vendors/${flowOutlet!.id}`, {
@@ -112,7 +112,7 @@ async function runWebSocketTrackingTest() {
     console.log('⚡ 2. Testing order:new Event Emission & Latency Benchmark...');
 
     const gulshanOutlet = await prisma.vendor.findFirst({
-      where: { name: { contains: 'Gulshan Branch' } },
+      where: { name: 'Gulshan', brand: { name: 'Burger King' } },
       include: { products: true },
     });
     const inCoverageAddress = await prisma.customerAddress.findFirst({

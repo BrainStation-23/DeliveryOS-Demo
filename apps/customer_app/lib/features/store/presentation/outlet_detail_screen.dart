@@ -49,7 +49,7 @@ class _OutletDetailScreenState extends ConsumerState<OutletDetailScreen> {
   }) {
     final result = ref.read(cartProvider.notifier).addItem(
           vendorId: catalog.id,
-          vendorName: catalog.name,
+          vendorName: catalog.displayName,
           vendorDeliveryRadiusKm: catalog.deliveryRadiusKm,
           product: product,
           selectedVariant: selectedVariant,
@@ -61,11 +61,11 @@ class _OutletDetailScreenState extends ConsumerState<OutletDetailScreen> {
     if (result == AddToCartResult.vendorConflict) {
       showVendorConflictDialog(
         context: context,
-        newVendorName: catalog.name,
+        newVendorName: catalog.displayName,
         onConfirmReplace: () {
           ref.read(cartProvider.notifier).addItem(
                 vendorId: catalog.id,
-                vendorName: catalog.name,
+                vendorName: catalog.displayName,
                 vendorDeliveryRadiusKm: catalog.deliveryRadiusKm,
                 product: product,
                 selectedVariant: selectedVariant,
@@ -314,7 +314,7 @@ class _OutletDetailScreenState extends ConsumerState<OutletDetailScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        catalog.name,
+                        catalog.displayName,
                         style: AppTypography.headlineMedium.copyWith(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,

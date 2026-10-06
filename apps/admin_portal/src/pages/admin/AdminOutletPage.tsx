@@ -25,6 +25,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { resolveMediaUrl } from '../../utils/mediaUrl';
 import { extractApiError } from '../../utils/apiError';
 import { canDeleteOutlet } from '../../utils/outletDeletionGuard';
+import { outletDisplayName } from '../../utils/outletDisplayName';
 import { useSocketQueryInvalidation } from '../../hooks/useSocketSubscription';
 import { StaffProfileDialog } from './components/staff/StaffProfileDialog';
 import { ProductDialog } from './components/products/ProductDialog';
@@ -183,7 +184,7 @@ export const AdminOutletPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={vendor.brandName ? `${vendor.brandName} — ${vendor.name}` : vendor.name}
+        title={outletDisplayName(vendor.brandName, vendor.name)}
         leading={
           <Button
             variant="outline"

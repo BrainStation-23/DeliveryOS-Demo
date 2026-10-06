@@ -1,3 +1,4 @@
+import '../../../core/utils/outlet_display_name.dart';
 import '../../../core/constants/map_defaults.dart';
 import '../../../core/utils/numeric_parser.dart';
 
@@ -189,7 +190,11 @@ class TripOrder {
       status: status,
       store: TripStoreMeta(
         id: storeRaw['id'] as String? ?? json['vendorId'] as String? ?? 'store-01',
-        name: storeRaw['name'] as String? ?? "Restaurant",
+        name: storeRaw['displayName'] as String? ??
+            outletDisplayName(
+              storeRaw['brandName'] as String?,
+              storeRaw['name'] as String? ?? "Restaurant",
+            ),
         address: storeRaw['addressText'] as String? ?? storeRaw['address'] as String? ?? 'Banani, Dhaka',
         phone: storeRaw['contactPhone'] as String? ?? storeRaw['phone'] as String? ?? '',
         latitude: parseDouble(storeRaw['latitude'], MapDefaults.centerLatitude),

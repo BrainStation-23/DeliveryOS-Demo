@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Store, Lock } from 'lucide-react';
 import { useVendorOutlet } from '../../contexts/VendorOutletContext';
+import { outletLabel } from '../../utils/outletDisplayName';
 
 export const OutletSwitcher: React.FC<{ className?: string }> = ({ className }) => {
   const { t } = useTranslation();
@@ -11,7 +12,11 @@ export const OutletSwitcher: React.FC<{ className?: string }> = ({ className }) 
   if (outlets.length === 0) return null;
 
   if (!isMultiBranch) {
-    const outletName = activeOutlet?.name || outlets[0]?.name || t('outlet.primaryStore');
+    const outletName = activeOutlet
+      ? outletLabel(activeOutlet)
+      : outlets[0]
+        ? outletLabel(outlets[0])
+        : t('outlet.primaryStore');
     return (
       <div
         className={`inline-flex items-center gap-1.5 sm:gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 sm:px-3 h-9 text-xs font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-800/80 dark:text-slate-200 shrink-0 shadow-sm ${
@@ -29,7 +34,9 @@ export const OutletSwitcher: React.FC<{ className?: string }> = ({ className }) 
   const currentSelectionLabel =
     activeOutletId === 'ALL'
       ? t('outlet.allOutletsConsolidated')
-      : activeOutlet?.name || t('outlet.selectedBranch');
+      : activeOutlet
+      ? outletLabel(activeOutlet)
+      : t('outlet.selectedBranch');
 
   return (
     <div className={`relative inline-flex items-center gap-1.5 shrink-0 ${className || ''}`}>
@@ -57,7 +64,7 @@ export const OutletSwitcher: React.FC<{ className?: string }> = ({ className }) 
             value={outlet.id}
             className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 py-1"
           >
-            {outlet.name}{' '}
+            {outletLabel(outlet)}{' '}
             {outlet.isActive === false
               ? `(${t('outlet.suspendedBadge', { defaultValue: 'Suspended' })})`
               : outlet.isBusy
