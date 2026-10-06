@@ -27,7 +27,7 @@
     "passwordPlaceholder": "123456",
     "loginButton": "লগ ইন",
     "signingIn": "যাচাই করা হচ্ছে...",
-    "brandOwner": "বার্গার পয়েন্ট ব্র্যান্ড মালিক",
+    "brandOwner": "ব্র্যান্ড মালিক",
     "loginFailed": "ভুল ফোন নম্বর অথবা পাসওয়ার্ড",
     "unauthorizedSubtitle": "পোর্টালের এই অংশে প্রবেশের জন্য আপনার অনুমতি নেই।"
   },
@@ -40,7 +40,8 @@
     }
   },
   "roles": {
-    "VENDOR_ADMIN": "স্টোর কর্মী"
+    "VENDOR_ADMIN": "স্টোর কর্মী",
+    "BRAND_OWNER": "ব্র্যান্ড মালিক"
   },
   "outlet": {
     "label": "আউটলেট:",

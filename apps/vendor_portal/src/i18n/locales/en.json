@@ -27,7 +27,7 @@
     "passwordPlaceholder": "123456",
     "loginButton": "Sign In",
     "signingIn": "Authenticating...",
-    "brandOwner": "Burger Point Brand Owner",
+    "brandOwner": "Brand Owner",
     "loginFailed": "Invalid phone number or password",
     "unauthorizedSubtitle": "You do not have permission to access this portal section."
   },
@@ -40,7 +40,8 @@
     }
   },
   "roles": {
-    "VENDOR_ADMIN": "Store Staff"
+    "VENDOR_ADMIN": "Store Staff",
+    "BRAND_OWNER": "Brand Owner"
   },
   "outlet": {
     "label": "Outlet:",

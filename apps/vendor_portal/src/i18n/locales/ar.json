@@ -27,7 +27,7 @@
     "passwordPlaceholder": "123456",
     "loginButton": "تسجيل الدخول",
     "signingIn": "جارٍ التحقق...",
-    "brandOwner": "مالك العلامة التجارية برجر بوينت",
+    "brandOwner": "مالك العلامة التجارية",
     "loginFailed": "رقم الهاتف أو كلمة المرور غير صحيحة",
     "unauthorizedSubtitle": "ليس لديك صلاحية للوصول إلى هذا القسم من البوابة."
   },
@@ -40,7 +40,8 @@
     }
   },
   "roles": {
-    "VENDOR_ADMIN": "موظف المتجر"
+    "VENDOR_ADMIN": "موظف المتجر",
+    "BRAND_OWNER": "مالك العلامة التجارية"
   },
   "outlet": {
     "label": "الفرع:",

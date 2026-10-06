@@ -5,6 +5,7 @@ import { LogOut } from 'lucide-react';
 interface SidebarUserProfileProps {
   displayName: string;
   roleTitle: string;
+  brandName?: string | null;
   phone?: string;
   onLogout: () => void;
   isCollapsed?: boolean;
@@ -13,6 +14,7 @@ interface SidebarUserProfileProps {
 export const SidebarUserProfile: React.FC<SidebarUserProfileProps> = ({
   displayName,
   roleTitle,
+  brandName,
   phone,
   onLogout,
   isCollapsed = false,
@@ -24,7 +26,7 @@ export const SidebarUserProfile: React.FC<SidebarUserProfileProps> = ({
       <div className="shrink-0 mt-auto border-t border-slate-100 p-2.5 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col items-center gap-2">
         <div
           className="h-8 w-8 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 flex items-center justify-center font-bold text-xs shrink-0 cursor-default"
-          title={`${displayName}\n${roleTitle}${phone ? ` • ${phone}` : ''}`}
+          title={`${displayName}\n${roleTitle}${brandName ? ` · ${brandName}` : ''}${phone ? ` • ${phone}` : ''}`}
         >
           {displayName.charAt(0) || 'V'}
         </div>
@@ -54,8 +56,16 @@ export const SidebarUserProfile: React.FC<SidebarUserProfileProps> = ({
           >
             {displayName}
           </p>
-          <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 truncate leading-tight">
-            {roleTitle}
+          <p
+            className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 truncate leading-tight"
+            title={brandName ? `${roleTitle} · ${brandName}` : roleTitle}
+          >
+            <span>{roleTitle}</span>
+            {brandName && (
+              <span className="font-normal text-slate-500 dark:text-slate-400">
+                {' '}· {brandName}
+              </span>
+            )}
           </p>
           {phone && (
             <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate font-mono mt-0.5">

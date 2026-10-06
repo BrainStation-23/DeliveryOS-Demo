@@ -23,6 +23,7 @@ import {
   PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { PermissionScope } from '../types/auth';
 import { VendorOutletProvider, useVendorOutlet } from '../contexts/VendorOutletContext';
 import { OutletSwitcher } from '../components/vendor/OutletSwitcher';
 import { OutletSuspendedScreen } from '../components/vendor/OutletSuspendedScreen';
@@ -106,10 +107,10 @@ const VendorLayoutInner: React.FC = () => {
       };
     }
     const fallbackRole =
-      user?.outletScope === 'ALL_OUTLETS_MASTER'
-        ? t('auth.brandOwner') || 'Brand Owner'
+      user?.outletScope === PermissionScope.ALL_OUTLETS_MASTER
+        ? t('roles.BRAND_OWNER', { defaultValue: t('auth.brandOwner', { defaultValue: 'Brand Owner' }) })
         : user?.role === 'VENDOR_ADMIN'
-        ? t('roles.VENDOR_ADMIN') || 'Store Manager'
+        ? t('roles.VENDOR_ADMIN', { defaultValue: 'Store Staff' })
         : user?.role || 'Staff';
     return {
       displayName: rawName,
@@ -118,6 +119,19 @@ const VendorLayoutInner: React.FC = () => {
   };
 
   const { displayName, roleTitle } = parseUserIdentity();
+
+  const resolvedBrandName =
+    user?.brandName ||
+    activeOutlet?.brandName ||
+    outlets.find((o) => o.brandName)?.brandName ||
+    null;
+
+  const isBrandOwner =
+    user?.outletScope === PermissionScope.ALL_OUTLETS_MASTER ||
+    roleTitle === t('roles.BRAND_OWNER', { defaultValue: 'Brand Owner' }) ||
+    roleTitle.toLowerCase().includes('brand owner');
+
+  const brandNameForDisplay = isBrandOwner ? resolvedBrandName : null;
 
   const toggleSound = () => {
     const nextMuted = !isMuted;
@@ -182,6 +196,7 @@ const VendorLayoutInner: React.FC = () => {
         <SidebarUserProfile
           displayName={displayName}
           roleTitle={roleTitle}
+          brandName={brandNameForDisplay}
           phone={user?.phone}
           onLogout={handleLogout}
           isCollapsed={isCollapsed}
@@ -367,6 +382,7 @@ const VendorLayoutInner: React.FC = () => {
               <SidebarUserProfile
                 displayName={displayName}
                 roleTitle={roleTitle}
+                brandName={brandNameForDisplay}
                 phone={user?.phone}
                 onLogout={handleLogout}
               />

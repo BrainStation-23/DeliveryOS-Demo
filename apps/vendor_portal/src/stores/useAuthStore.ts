@@ -87,7 +87,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       let outletScope = userData.outletScope;
       let managedVendorIds = userData.managedVendorIds;
 
-      if (userData.role === UserRole.VENDOR_ADMIN && !outletScope) {
+      if (userData.role === UserRole.VENDOR_ADMIN && (!outletScope || !brandName)) {
         try {
           const staffProfileRes = await apiClient.get('/api/v1/vendor/me', {
             headers: { Authorization: `Bearer ${accessToken}` },

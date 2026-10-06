@@ -71,6 +71,24 @@ describe('useAuthStore', () => {
     expect(connectSocketMock).toHaveBeenCalled();
   });
 
+  it('login populates brandName and scope from staff profile when missing', async () => {
+    postMock.mockResolvedValue(authPayload);
+    getMock.mockResolvedValue({
+      data: {
+        outlet_scope: 'ALL_OUTLETS_MASTER',
+        brandName: 'Burger King',
+        vendor_id: 'v1',
+        managedVendorIds: ['v1', 'v2'],
+      },
+    });
+
+    await useAuthStore.getState().login('+8801700000003', '123456');
+
+    const state = useAuthStore.getState();
+    expect(state.user?.brandName).toBe('Burger King');
+    expect(state.user?.outletScope).toBe('ALL_OUTLETS_MASTER');
+  });
+
   it('logout revokes refresh token, clears storage including active outlet, and disconnects socket', async () => {
     storage.set('deliveryos_vendor_token', 'token-123');
     storage.set('deliveryos_vendor_refresh', 'refresh-token-1');

@@ -27,8 +27,8 @@ vi.mock('./useAuthStore', () => ({
 import { useVendorOutletStore } from './useVendorOutletStore';
 
 const outlets = [
-  { id: 'outlet-1', name: 'Gulshan', addressText: 'Gulshan 1', isBusy: false, isActive: true, defaultPrepTimeMinutes: 15 },
-  { id: 'outlet-2', name: 'Dhanmondi', addressText: 'Road 5', isBusy: true, isActive: true, defaultPrepTimeMinutes: 20 },
+  { id: 'outlet-1', name: 'Gulshan', addressText: 'Gulshan 1', isBusy: false, isActive: true, defaultPrepTimeMinutes: 15, brandName: 'Burger King' },
+  { id: 'outlet-2', name: 'Dhanmondi', addressText: 'Road 5', isBusy: true, isActive: true, defaultPrepTimeMinutes: 20, brandName: 'Burger King' },
 ];
 
 describe('useVendorOutletStore', () => {
@@ -110,6 +110,8 @@ describe('useVendorOutletStore', () => {
     expect(useVendorOutletStore.getState().getActiveOutlet()).toBeNull();
 
     useVendorOutletStore.setState({ activeOutletId: 'outlet-2' });
-    expect(useVendorOutletStore.getState().getActiveOutlet()?.name).toBe('Dhanmondi');
+    const active = useVendorOutletStore.getState().getActiveOutlet();
+    expect(active?.name).toBe('Dhanmondi');
+    expect(active?.brandName).toBe('Burger King');
   });
 });
