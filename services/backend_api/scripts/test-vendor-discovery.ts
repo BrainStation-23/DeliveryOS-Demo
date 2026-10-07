@@ -100,10 +100,21 @@ async function runVendorDiscoveryTest() {
     console.log(`   Outlets matched: ${searchJson.data?.outlets?.length}, Items matched: ${searchJson.data?.items?.length}`);
 
     const itemNames = searchJson.data?.items?.map((i: any) => i.name) || [];
+    const itemOutlets = searchJson.data?.items?.map((i: any) => i.vendorName) || [];
     console.log(`   Matched Dishes: ${itemNames.join(', ')}`);
 
-    if (!itemNames.includes('Whopper')) {
-      throw new Error('Whopper was not found in search results');
+    // Canonical seed contract (b29ca42): "Burger" matches the Burger King
+    // brand name and KFC's burger items; Whopper's name/description carry no
+    // "burger" substring, so it can only be found via its own outlet catalog.
+    const outletNames = searchJson.data?.outlets?.map((o: any) => `${o.brandName} - ${o.name}`) || [];
+    if (!outletNames.some((name: string) => name.includes('Burger King'))) {
+      throw new Error(`Burger King outlet was not found in search results (got: ${outletNames.join(', ')})`);
+    }
+    if (!itemNames.includes('Zinger Burger') || !itemNames.includes('Tendercrisp Burger')) {
+      throw new Error(`KFC burger items were not found in search results (got: ${itemNames.join(', ')})`);
+    }
+    if (itemOutlets.some((outlet: string) => outlet === 'Dhanmondi' || outlet === 'Uttara')) {
+      throw new Error('Out-of-coverage outlets (Dhanmondi/Uttara) leaked into item search results');
     }
     console.log('   ✅ Instant search correctly found matching outlets and dish items!\n');
 
