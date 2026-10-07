@@ -8,6 +8,7 @@ export class RedisService implements OnModuleDestroy {
   // before Nest's onModuleInit hooks and already needs the client.
   private readonly client: Redis;
   private readonly adapterClients: Redis[] = [];
+  private readonly subscriberClients: Redis[] = [];
 
   constructor() {
     const redisUrl = requiredEnv('REDIS_URL');
@@ -28,6 +29,32 @@ export class RedisService implements OnModuleDestroy {
     const [pub, sub] = [this.client.duplicate(), this.client.duplicate()];
     this.adapterClients.push(pub, sub);
     return [pub, sub];
+  }
+
+  async publish(channel: string, message: string): Promise<number> {
+    return this.client.publish(channel, message);
+  }
+
+  /** Pub/sub subscription on a dedicated connection (ioredis subscriber mode
+   *  cannot multiplex with the command connection). Returns an unsubscribe
+   *  function; the connection is torn down with the module. */
+  async subscribe(channel: string, handler: (message: string) => void): Promise<() => Promise<void>> {
+    const subscriber = this.client.duplicate();
+    this.subscriberClients.push(subscriber);
+    await subscriber.subscribe(channel);
+    subscriber.on('message', (msgChannel: string, message: string) => {
+      if (msgChannel === channel) handler(message);
+    });
+    return async () => {
+      try {
+        await subscriber.unsubscribe(channel);
+      } catch {
+        // Teardown must stay idempotent: RedisService may already have
+        // disconnected this connection, and a throwing destroy hook would
+        // abort the remaining onModuleDestroy chain (e.g. Prisma pool).
+      }
+      subscriber.disconnect();
+    };
   }
 
   async get(key: string): Promise<string | null> {
@@ -121,8 +148,14 @@ export class RedisService implements OnModuleDestroy {
     for (const client of this.adapterClients) {
       client.disconnect();
     }
+    // Graceful quit, not a hard disconnect: dropping a subscriber socket with
+    // queued commands makes ioredis flush its pipeline with rejections that
+    // escape as unhandled errors during shutdown.
+    for (const client of this.subscriberClients) {
+      client.quit().catch(() => undefined);
+    }
     if (this.client) {
-      await this.client.quit();
+      await this.client.quit().catch(() => undefined);
     }
   }
 }

@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { RedisService } from '../../../common/redis/redis.service';
 
 import { roundMoney } from '../../../common/utils/currency.util';
 import { computeRiderEarnings } from '../../../common/utils/rider-earnings';
@@ -51,8 +52,12 @@ export const DEFAULT_DELIVERY_ECONOMICS: DeliveryEconomicsConfig = {
   eta_fallback_minutes: 10,
 };
 
+/** Pub/sub channel fanning pricing-cache invalidation to every backend
+ *  replica (ADR-015 horizontal scaling — in-memory caches must not diverge). */
+export const PRICING_INVALIDATE_CHANNEL = 'deliveryos:pricing:invalidate';
+
 @Injectable()
-export class DeliveryFeeService {
+export class DeliveryFeeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DeliveryFeeService.name);
 
   private readonly defaultConfig: DeliveryFeeConfig = DEFAULT_DELIVERY_FEE_CONFIG;
@@ -60,14 +65,41 @@ export class DeliveryFeeService {
   private readonly defaultEconomics: DeliveryEconomicsConfig = DEFAULT_DELIVERY_ECONOMICS;
 
   private cachedFeeConfig: { config: DeliveryFeeConfig; expiresAt: number } | null = null;
+
   private cachedEconomics: { config: DeliveryEconomicsConfig; expiresAt: number } | null = null;
 
-  constructor(private readonly prisma: PrismaService) {}
+  private unsubscribePricing?: () => Promise<void>;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
+
+  async onModuleInit(): Promise<void> {
+    this.unsubscribePricing = await this.redis.subscribe(PRICING_INVALIDATE_CHANNEL, () => {
+      this.clearLocalCache();
+    });
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.unsubscribePricing?.();
+  }
 
   /**
-   * Clears in-memory cache for pricing and economics configurations.
+   * Clears the local pricing and economics caches, then broadcasts the
+   * invalidation so every replica drops its copy too.
    */
   invalidateCache(): void {
+    this.clearLocalCache();
+    // Fire-and-forget: the local cache is already cleared, so a Redis outage
+    // must never fail the admin settings update that triggered invalidation.
+    this.redis.publish(PRICING_INVALIDATE_CHANNEL, 'invalidate').catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Failed to broadcast pricing cache invalidation: ${msg}`);
+    });
+  }
+
+  private clearLocalCache(): void {
     this.cachedFeeConfig = null;
     this.cachedEconomics = null;
     this.logger.log('Delivery fee and economics cache invalidated.');
