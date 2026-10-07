@@ -179,6 +179,46 @@ void main() {
       expect(limitReachedDuty.canAcceptCodTrips, isFalse);
       expect(limitReachedDuty.isCashLimitReached, isTrue);
     });
+
+    test('refreshApprovalStatus refreshes server approval state without artificial delay', () async {
+      final mockDio = createMockDio(
+        adapter: MockScriptedAdapter(
+          responses: {
+            '/rider/profile': {
+              'message': 'ok',
+              'data': {
+                'id': 'r-1',
+                'userId': 'u-1',
+                'status': 'PENDING_APPROVAL',
+                'vehicleType': 'motorcycle',
+                'user': {'fullName': 'Shafiqul Islam', 'phone': '+8801700998877'},
+              },
+            },
+          },
+        ),
+      );
+
+      final container = createMockRiderContainer(storage: storage, dio: mockDio);
+      addTearDown(container.dispose);
+
+      container.read(riderAuthProvider.notifier).state = RiderAuthState(
+        isPendingApproval: true,
+        profile: RiderProfileData.pilotPending(),
+      );
+
+      final stopwatch = Stopwatch()..start();
+      await container.read(riderAuthProvider.notifier).refreshApprovalStatus();
+      stopwatch.stop();
+
+      // The refresh resolves straight from the server mock; the former fixed
+      // 600ms wait would push this over the budget.
+      expect(stopwatch.elapsedMilliseconds, lessThan(500));
+
+      final state = container.read(riderAuthProvider);
+      expect(state.isPendingApproval, isTrue);
+      expect(state.isLoading, isFalse);
+      expect(state.error, contains('still under review'));
+    });
   });
 
   group('Auth & Duty UI & Widgets', () {

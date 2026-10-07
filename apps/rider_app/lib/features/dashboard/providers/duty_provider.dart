@@ -9,6 +9,7 @@ import '../../../core/services/background_location_service.dart';
 import '../../../core/storage/local_storage.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../earnings/domain/earnings_models.dart';
 import '../domain/duty_models.dart';
 
 class RiderDutyNotifier extends Notifier<RiderDutyState> {
@@ -33,15 +34,16 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
 
     final initialCodCash = profile?.cashInHand ?? 0.0;
     final initialTodayEarnings = profile?.earningsBalance ?? 0.0;
-    final initialWeeklyEarnings = initialTodayEarnings;
 
+    // Weekly figures are server-only: they start at zero and are replaced by
+    // the earnings summary fetch — never seeded from today's snapshot.
     final initialState = RiderDutyState(
       isOnline: isOnlineStored && (profile?.isApproved ?? false),
       isBeaconing: isOnlineStored && (profile?.isApproved ?? false),
       todayTrips: profile?.completedTripsCount ?? 0,
       todayEarnings: initialTodayEarnings,
-      weeklyTrips: profile?.completedTripsCount ?? 0,
-      weeklyEarnings: initialWeeklyEarnings,
+      weeklyTrips: 0,
+      weeklyEarnings: 0.0,
       codCashInHand: initialCodCash,
       cashSafetyLimit: profile?.maxCashLimit ?? 5000.0,
       completedTrips: const [],
@@ -55,7 +57,7 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
     }
 
     if (profile?.isApproved ?? false) {
-      Future.microtask(() => fetchDailyTrips());
+      Future.microtask(() => refreshEarningsData());
     }
 
     return initialState;
@@ -312,6 +314,37 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
       }
     } catch (_) {
       // Retain offline cache/state
+    }
+  }
+
+  /// Refreshes both server-computed earnings windows: the completed-trips
+  /// history (today tab detail list) and the today/week aggregate summary.
+  Future<void> refreshEarningsData() async {
+    await Future.wait([fetchDailyTrips(), fetchEarningsSummary()]);
+  }
+
+  Future<void> fetchEarningsSummary() async {
+    try {
+      final dio = ref.read(dioClientProvider);
+      final response = await dio.get(ApiConstants.earningsSummary);
+      if (!ref.mounted) return;
+      if (response.statusCode == 200 &&
+          response.data is Map &&
+          response.data['data'] is Map<String, dynamic>) {
+        final summary = RiderEarningsSummary.fromJson(
+          response.data['data'] as Map<String, dynamic>,
+        );
+        // Local increments between refreshes are optimistic overlays only;
+        // the server summary is the reconciled truth for both windows.
+        state = state.copyWith(
+          todayEarnings: summary.today.earnings,
+          todayTrips: summary.today.trips,
+          weeklyEarnings: summary.week.earnings,
+          weeklyTrips: summary.week.trips,
+        );
+      }
+    } catch (_) {
+      // Keep the last known server figures — never fabricate weekly data locally
     }
   }
 

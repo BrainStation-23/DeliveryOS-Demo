@@ -22,7 +22,7 @@ class _RiderEarningsScreenState extends ConsumerState<RiderEarningsScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(riderDutyProvider.notifier).fetchDailyTrips());
+    Future.microtask(() => ref.read(riderDutyProvider.notifier).refreshEarningsData());
   }
 
   @override
@@ -60,7 +60,7 @@ class _RiderEarningsScreenState extends ConsumerState<RiderEarningsScreen> {
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () => ref.read(riderDutyProvider.notifier).fetchDailyTrips(),
+          onRefresh: () => ref.read(riderDutyProvider.notifier).refreshEarningsData(),
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [

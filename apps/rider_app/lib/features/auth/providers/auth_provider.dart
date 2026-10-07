@@ -254,7 +254,6 @@ class RiderAuthNotifier extends Notifier<RiderAuthState> {
 
   Future<void> refreshApprovalStatus() async {
     state = state.copyWith(isLoading: true, clearError: true);
-    await Future.delayed(const Duration(milliseconds: 600));
 
     final success = await fetchProfile();
     if (!success && state.isPendingApproval) {

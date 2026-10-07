@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rider_app/core/network/dio_client.dart';
@@ -25,6 +26,52 @@ class MockSuccessAdapter implements HttpClientAdapter {
     return ResponseBody.fromString(
       bodyString,
       statusCode,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+/// Path-scripted adapter: the first matching path fragment decides the
+/// response — a decoded JSON body, or a thrown [DioException] for error paths.
+class MockScriptedAdapter implements HttpClientAdapter {
+  final Map<String, dynamic> responses;
+  final Map<String, DioException> errors;
+
+  MockScriptedAdapter({
+    this.responses = const {},
+    this.errors = const {},
+  });
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    for (final entry in errors.entries) {
+      if (options.path.contains(entry.key)) {
+        throw entry.value;
+      }
+    }
+    for (final entry in responses.entries) {
+      if (options.path.contains(entry.key)) {
+        return ResponseBody.fromString(
+          jsonEncode(entry.value),
+          200,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
+      }
+    }
+    return ResponseBody.fromString(
+      '{"message": "No scripted response for ${options.path}"}',
+      404,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
       },
