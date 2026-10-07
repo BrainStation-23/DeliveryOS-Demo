@@ -11,8 +11,7 @@ export class CouponController {
 
   @Post('validate')
   @HttpCode(HttpStatus.OK)
-  // Public endpoint: a tight per-IP budget throttles coupon-code enumeration
-  // probing far below the global 100 req/min default.
+  // Public endpoint: tight per-IP budget against coupon-code enumeration.
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Validate a coupon code against current cart subtotal' })
   @ApiResponse({ status: 200, description: 'Coupon is valid and discount calculated' })

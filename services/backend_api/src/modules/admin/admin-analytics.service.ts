@@ -318,8 +318,7 @@ export class AdminAnalyticsService {
           where: { createdAt: { gte: from, lte: to } },
           _sum: { commissionAmount: true },
         }),
-        // Window-average of placed→delivered latency, aggregated in SQL — the
-        // delivered pairs themselves are never fetched into JS memory.
+        // SQL window-average; the delivered pairs are never fetched into JS.
         this.prisma.$queryRaw<Array<{ avgMinutes: number | null }>>`
           SELECT AVG(EXTRACT(EPOCH FROM (o.delivered_at - o.placed_at)) / 60) AS "avgMinutes"
           FROM orders o

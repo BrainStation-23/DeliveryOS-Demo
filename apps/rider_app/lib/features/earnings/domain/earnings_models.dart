@@ -27,8 +27,8 @@ class RiderEarningsWindow {
   }
 }
 
-/// Server truth for the earnings screen. Weekly figures must only ever come
-/// from this response — deriving them from today's snapshot is fabrication.
+/// Server truth for the earnings screen; weekly figures come only from this
+/// response, never derived from today's snapshot.
 class RiderEarningsSummary {
   final RiderEarningsWindow today;
   final RiderEarningsWindow week;

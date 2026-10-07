@@ -86,8 +86,7 @@ export class DeliveryFeeService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Clears the local pricing and economics caches, then broadcasts the
-   * invalidation so every replica drops its copy too.
+   * Clears the local caches and broadcasts so every replica drops its copy.
    */
   invalidateCache(): void {
     this.clearLocalCache();

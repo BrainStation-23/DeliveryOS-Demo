@@ -59,7 +59,6 @@ export function buildLedgerWhere(query: GetFinanceLedgerQueryDto): Prisma.Commis
   return where;
 }
 
-/** Shared relation payload for every ledger read (page + export stream). */
 const LEDGER_INCLUDE = {
   order: {
     select: {

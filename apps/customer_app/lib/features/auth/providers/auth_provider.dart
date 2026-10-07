@@ -14,8 +14,6 @@ class AuthNotifier extends Notifier<AuthState> {
   @override
   AuthState build() {
     final dio = ref.watch(dioClientProvider);
-    // Without the cancel, every rebuild of this notifier would stack another
-    // listener onto the shared DioClient and leak it for the app's lifetime.
     final cancelSessionExpiredSubscription = dio.onSessionExpired((message) {
       final msg = message ?? 'Session expired. Please log in again.';
       final notice = parseAccountSuspension(message: msg);

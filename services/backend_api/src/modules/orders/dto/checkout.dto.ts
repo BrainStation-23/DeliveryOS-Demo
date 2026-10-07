@@ -21,9 +21,9 @@ export enum DeliveryMethod {
   TAKEAWAY = 'TAKEAWAY',
 }
 
-/** Defensive request-bound ceilings so a single checkout payload can never
- *  push float/subtotal math or the checkout transaction into absurd work
- *  before the Decimal columns would reject the result. */
+/** Request ceilings: a single checkout payload must never push subtotal math
+ *  or the checkout transaction into absurd work before the Decimal columns
+ *  would reject the result. */
 export const MAX_ITEMS_PER_CHECKOUT = 50;
 export const MAX_QUANTITY_PER_ITEM = 99;
 

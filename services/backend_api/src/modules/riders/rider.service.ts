@@ -21,7 +21,7 @@ import { haversineKm } from '../../common/utils/haversine';
 import { startOfRegionToday } from '../../common/utils/region-time';
 import type { OrderAddressSnapshot } from '../orders/order.service';
 
-/** Server-truth earnings for one rolling window, keyed off delivered orders. */
+/** One earnings window (today or trailing week) from trip ledgers over delivered orders. */
 export interface RiderEarningsWindowStats {
   earnings: number;
   trips: number;
@@ -586,9 +586,8 @@ export class RiderService {
   }
 
   /**
-   * 8. Earnings Summary — today vs trailing 7 region-local days.
-   * Aggregated from rider_trip_ledgers over delivered orders so the rider app
-   * never has to derive (or fabricate) weekly figures from today's snapshot.
+   * 8. Earnings Summary — today vs trailing 7 region-local days, aggregated
+   * from rider_trip_ledgers over delivered orders.
    */
   async getEarningsSummary(userId: string): Promise<RiderEarningsSummary> {
     const rider = await this.getRiderProfile(userId);

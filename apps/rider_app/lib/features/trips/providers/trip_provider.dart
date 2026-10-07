@@ -438,8 +438,7 @@ class RiderTripNotifier extends Notifier<RiderTripState> {
           tripRecord: completedRecord,
         );
 
-    // Reconcile the optimistic wallet overlay (including weekly aggregates)
-    // against the server-computed earnings windows.
+    // Reconcile the optimistic wallet overlay against server earnings windows.
     unawaited(ref.read(riderDutyProvider.notifier).fetchEarningsSummary());
 
     // Leave order socket room

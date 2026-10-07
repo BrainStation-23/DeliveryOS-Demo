@@ -35,8 +35,7 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
     final initialCodCash = profile?.cashInHand ?? 0.0;
     final initialTodayEarnings = profile?.earningsBalance ?? 0.0;
 
-    // Weekly figures are server-only: they start at zero and are replaced by
-    // the earnings summary fetch — never seeded from today's snapshot.
+    // Weekly figures are server-only — never seeded from today's snapshot.
     final initialState = RiderDutyState(
       isOnline: isOnlineStored && (profile?.isApproved ?? false),
       isBeaconing: isOnlineStored && (profile?.isApproved ?? false),
@@ -334,8 +333,7 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
         final summary = RiderEarningsSummary.fromJson(
           response.data['data'] as Map<String, dynamic>,
         );
-        // Local increments between refreshes are optimistic overlays only;
-        // the server summary is the reconciled truth for both windows.
+        // Server summary is the reconciled truth over local optimistic increments.
         state = state.copyWith(
           todayEarnings: summary.today.earnings,
           todayTrips: summary.today.trips,
@@ -344,7 +342,7 @@ class RiderDutyNotifier extends Notifier<RiderDutyState> {
         );
       }
     } catch (_) {
-      // Keep the last known server figures — never fabricate weekly data locally
+      // Keep the last known server figures; weekly data is never derived locally
     }
   }
 

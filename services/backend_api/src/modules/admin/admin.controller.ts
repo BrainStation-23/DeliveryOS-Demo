@@ -662,8 +662,6 @@ export class AdminController {
     @Query() query: GetFinanceLedgerQueryDto = new GetFinanceLedgerQueryDto(),
     @Res() res: Response,
   ) {
-    // Keyset-paginated stream: only one batch of rows is ever resident, so
-    // exports scale with dataset size instead of exhausting heap.
     const lines: string[] = [LEDGER_CSV_HEADER];
     for await (const row of this.adminFinanceService.streamFinanceLedgerRows(query)) {
       lines.push(ledgerRowToCsvLine(row));

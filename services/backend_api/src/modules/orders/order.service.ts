@@ -397,7 +397,7 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
             },
           });
 
-          // Create Order Items (single round-trip; snapshots are frozen above)
+          // Create Order Items
           await tx.orderItem.createMany({
             data: itemsToCreate.map((item) => ({
               orderId: newOrder.id,
@@ -521,7 +521,7 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
     }> = [];
     const unavailableItems: Array<{ productId: string; name: string; reason: string }> = [];
 
-    // One batched catalog fetch for every line item (N+1 otherwise on large carts).
+    // One batched catalog fetch per cart (per-item findUnique was N+1).
     const itemProductIds = [...new Set(previousOrder.orderItems.map((item) => item.productId))];
     const productsById = new Map(
       itemProductIds.length
