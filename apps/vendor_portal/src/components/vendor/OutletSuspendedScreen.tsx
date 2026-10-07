@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { Ban, ShieldAlert, Store, ArrowRight, AlertTriangle } from 'lucide-react';
 import { AccessibleOutlet } from '../../stores/useVendorOutletStore';
 import { Badge } from '../ui/Badge';
-import { Button } from '../ui/Button';
 
 interface OutletSuspendedScreenProps {
   outlet: AccessibleOutlet;

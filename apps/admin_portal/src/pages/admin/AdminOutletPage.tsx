@@ -8,7 +8,6 @@ import {
   Power,
   Plus,
   UserRound,
-  Flame,
   PauseCircle,
   PlayCircle,
   AlertTriangle,
@@ -546,7 +545,6 @@ export const AdminOutletPage: React.FC = () => {
           setIsCategoryDialogOpen(false);
           setCategoryDialogTarget(null);
         }}
-        onError={setActionError}
       />
 
       <ConfirmDialog

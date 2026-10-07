@@ -114,4 +114,23 @@ describe('useVendorOutletStore', () => {
     expect(active?.name).toBe('Dhanmondi');
     expect(active?.brandName).toBe('Burger King');
   });
+
+  it('refetchOutlets refreshes isBusy after a rush-pause toggle without query invalidation', async () => {
+    getAccessibleOutletsMock.mockResolvedValue(outlets);
+    await useVendorOutletStore.getState().refetchOutlets();
+
+    useVendorOutletStore.setState({ activeOutletId: 'outlet-1' });
+    expect(useVendorOutletStore.getState().getActiveOutlet()?.isBusy).toBe(false);
+
+    // Server-side rush pause applied — the store refetch is the only refresh
+    // path the toggle relies on.
+    getAccessibleOutletsMock.mockResolvedValue(
+      outlets.map((o) => (o.id === 'outlet-1' ? { ...o, isBusy: true } : o)),
+    );
+    await useVendorOutletStore.getState().refetchOutlets();
+
+    const active = useVendorOutletStore.getState().getActiveOutlet();
+    expect(active?.id).toBe('outlet-1');
+    expect(active?.isBusy).toBe(true);
+  });
 });

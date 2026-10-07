@@ -2,7 +2,7 @@ import axios from 'axios';
 import { PrismaClient } from '../../../services/backend_api/node_modules/@prisma/client';
 
 if (typeof process.loadEnvFile === 'function') {
-  try { process.loadEnvFile('../../.env'); } catch {}
+  try { process.loadEnvFile('../../.env'); } catch { /* env file is optional in CI */ }
 }
 
 function assert(condition: boolean, message: string) {
@@ -75,8 +75,8 @@ async function runMultiTierVerification() {
       await axios.get(`${API_BASE}/vendor/settings?vendorId=${dhanmondiVendorId}`, {
         headers: bmHeaders,
       });
-    } catch (err: any) {
-      if (err.response && err.response.status === 403) {
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 403) {
         foreignAccessDenied = true;
       }
     }

@@ -13,7 +13,7 @@ export interface MediaAsset {
   createdAt: string;
 }
 
-export interface PaginatedMedia extends Paginated<MediaAsset> {}
+export type PaginatedMedia = Paginated<MediaAsset>;
 
 export const mediaApi = {
   async uploadMedia(file: File | Blob, width?: number, height?: number, name?: string): Promise<MediaAsset> {

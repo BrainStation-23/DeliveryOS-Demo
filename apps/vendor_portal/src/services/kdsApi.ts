@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import { KDSOrder, OutletCatalog, KDSOrderItem, Category, Product, ProductVariant } from '../types/kds';
+import { KDSOrder, OutletCatalog, KDSOrderItem, Category } from '../types/kds';
 import { LedgerItem } from '../types/ledger';
 
 export interface RawBackendOrderItem {

@@ -97,7 +97,7 @@ describe('useAuthStore', () => {
 
     useAuthStore.setState({
       token: 'token-123',
-      user: { id: 'u1', fullName: 'Manager' } as any,
+      user: { id: 'u1', fullName: 'Manager', phone: '+8801700000002', role: UserRole.VENDOR_ADMIN },
       isAuthenticated: true,
     });
 

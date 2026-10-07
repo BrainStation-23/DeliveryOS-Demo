@@ -8,10 +8,7 @@ import {
   Check,
   CheckCircle,
   ChevronDown,
-  Clock,
   Copy,
-  CreditCard,
-  ExternalLink,
   Eye,
   Home,
   Mail,
@@ -19,7 +16,6 @@ import {
   Phone,
   Receipt,
   ShoppingBag,
-  Store,
   Tag,
   TrendingUp,
 } from 'lucide-react';

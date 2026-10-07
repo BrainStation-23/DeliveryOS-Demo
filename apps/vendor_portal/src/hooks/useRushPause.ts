@@ -25,7 +25,7 @@ export function useRushPause(targetOutletId?: string) {
   const { activeOutlet, outlets, refetchOutlets } = useVendorOutlet();
   const [isTogglingRush, setIsTogglingRush] = useState(false);
 
-  const { effectiveOutletId, targetOutlet, isBusy, canToggle } = resolveTargetOutletState(
+  const { effectiveOutletId, targetOutlet } = resolveTargetOutletState(
     targetOutletId,
     activeOutlet,
     outlets,
@@ -43,7 +43,6 @@ export function useRushPause(targetOutletId?: string) {
       await Promise.all([
         refetchOutlets(),
         queryClient.invalidateQueries({ queryKey: ['vendor-settings'] }),
-        queryClient.invalidateQueries({ queryKey: ['vendor-outlets'] }),
       ]);
     } catch (err) {
       console.error('Failed to toggle rush pause:', err);

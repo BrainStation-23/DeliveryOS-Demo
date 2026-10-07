@@ -95,6 +95,11 @@ export const AdminOrdersPage: React.FC = () => {
 
   const safeOrders = Array.isArray(orders) ? orders : [];
 
+  const openAssignModal = (order: AdminOrder) => {
+    setSelectedOrder(order);
+    setIsAssignModalOpen(true);
+  };
+
   useEffect(() => {
     if (orderNumberParam) {
       setSearchQuery(orderNumberParam);
@@ -156,11 +161,6 @@ export const AdminOrdersPage: React.FC = () => {
     },
     onError: (err) => setActionError(extractApiError(err, 'Order cancellation failed. Please retry.')),
   });
-
-  const openAssignModal = (order: AdminOrder) => {
-    setSelectedOrder(order);
-    setIsAssignModalOpen(true);
-  };
 
   const clearSearch = () => {
     setSearchQuery('');

@@ -11,7 +11,6 @@ import { CustomerDetailsDrawer } from './components/customers/CustomerDetailsDra
 import { CustomerRow } from '../../services/adminApi';
 import { DatePreset, resolveDateRange } from '../../utils/dateRange';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
-import { extractApiError } from '../../utils/apiError';
 import { formatCurrency, formatDateTime } from '../../utils/formatters';
 
 const PAGE_SIZE = 20;

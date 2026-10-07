@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Flame, PauseCircle, PlayCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { PauseCircle, PlayCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import { Badge } from '../../../../components/ui/Badge';
 import { useRushPause } from '../../../../hooks/useRushPause';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Store, MapPin, Phone, Percent, ShieldCheck } from 'lucide-react';
+import { Store, MapPin, Phone, Percent } from 'lucide-react';
 import { Badge } from '../../../../components/ui/Badge';
 import { AccessibleOutlet } from '../../../../contexts/VendorOutletContext';
 import { cn } from '../../../../utils/cn';

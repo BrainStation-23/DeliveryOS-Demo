@@ -2,7 +2,7 @@ import axios from 'axios';
 import { PrismaClient } from '../../../services/backend_api/node_modules/@prisma/client';
 
 if (typeof process.loadEnvFile === 'function') {
-  try { process.loadEnvFile('../../.env'); } catch {}
+  try { process.loadEnvFile('../../.env'); } catch { /* env file is optional in CI */ }
 }
 
 function assert(condition: boolean, message: string) {

@@ -5,18 +5,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { VENDOR_NAV_ITEMS, findActiveVendorNavItem } from '../config/vendorNavigation';
 import {
   ShoppingBag,
-  Store,
-  ClipboardList,
   Package,
-  Receipt,
   Volume2,
   VolumeX,
   Menu,
   X,
   BellRing,
   AlertTriangle,
-  Flame,
-  PauseCircle,
   Ban,
   CheckCircle2,
   PanelLeftClose,
@@ -49,7 +44,6 @@ const VendorLayoutInner: React.FC = () => {
     const handleVendorStatus = () => {
       refetchOutlets();
       queryClient.invalidateQueries({ queryKey: ['vendor-settings'] });
-      queryClient.invalidateQueries({ queryKey: ['vendor-outlets'] });
     };
     socket.on('vendor:status:changed', handleVendorStatus);
     return () => {

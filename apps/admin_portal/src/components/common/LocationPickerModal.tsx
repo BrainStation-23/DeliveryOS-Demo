@@ -5,10 +5,8 @@ import {
   Crosshair,
   Search,
   Check,
-  X,
   Compass,
   AlertCircle,
-  Loader2,
 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';

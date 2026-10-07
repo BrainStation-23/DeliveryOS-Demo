@@ -13,7 +13,6 @@ export interface CategoryDialogProps {
   /** null = create; otherwise rename this category. */
   editing: { id: string; name: string } | null;
   onClose: () => void;
-  onError: (message: string) => void;
 }
 
 /** Category create/rename dialog for an outlet's menu. */
@@ -22,7 +21,6 @@ export const CategoryDialog: React.FC<CategoryDialogProps> = ({
   vendorId,
   editing,
   onClose,
-  onError,
 }) => {
   const queryClient = useQueryClient();
   const [name, setName] = useState('');

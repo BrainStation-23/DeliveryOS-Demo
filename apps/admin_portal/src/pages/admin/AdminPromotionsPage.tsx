@@ -6,7 +6,6 @@ import { Button } from '../../components/ui/Button';
 import { Alert } from '../../components/ui/Alert';
 import { Modal } from '../../components/ui/Modal';
 import { Tabs } from '../../components/ui/Tabs';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { SearchInput } from '../../components/common/SearchInput';
 import { PageHeader } from '../../components/common/PageHeader';
 import { extractApiError } from '../../utils/apiError';
