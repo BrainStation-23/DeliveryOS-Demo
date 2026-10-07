@@ -7,8 +7,9 @@
  *
  * Coverage: all 4 system settings, 5 outlet types (Cafe deactivated with
  * assigned outlets → ADR-019 customer-hiding demo), 9 real Dhaka brands /
- * 18 outlets with mixed flow modes, 2-tier vendor staff, ~120 products with
- * variants (out-of-stock + inactive-category cases), all banner link types
+ * 18 outlets with mixed flow modes, 2-tier vendor staff, ~120 products each
+ * carrying ≥1 variation (ADR-017; out-of-stock + inactive-category cases are
+ * seeded as display-only and never ordered), all banner link types
  * and schedule states, 9 coupon cases, ~450 orders across 30 days with
  * realistic weekend/diurnal timing, every cancellation actor × stage ×
  * payment outcome using the exact service reason formats, takeaway orders,
@@ -872,7 +873,9 @@ async function main() {
       id: string;
       name: string;
       price: number;
-      variants: Array<{ id: string; name: string; price: number }>;
+      isInStock: boolean;
+      categoryActive: boolean;
+      variants: Array<{ id: string; name: string; price: number; isInStock: boolean }>;
     }>;
   }
   const outletCtxs: OutletCtx[] = [];
@@ -925,22 +928,30 @@ async function main() {
             sortOrder: pi + 1,
           },
         });
-        const variants: Array<{ id: string; name: string; price: number }> = [];
-        if (p.variants?.length) {
-          for (const [vi, v] of p.variants.entries()) {
-            const row = await prisma.productVariant.create({
-              data: {
-                productId: product.id,
-                name: v.name,
-                price: v.price,
-                isInStock: !v.outOfStock,
-                sortOrder: vi + 1,
-              },
-            });
-            variants.push({ id: row.id, name: row.name, price: Number(row.price) });
-          }
+        const variationSpecs = p.variants?.length
+          ? p.variants
+          : [{ name: 'Regular', price: p.price, outOfStock: p.outOfStock }];
+        const variants: Array<{ id: string; name: string; price: number; isInStock: boolean }> = [];
+        for (const [vi, v] of variationSpecs.entries()) {
+          const row = await prisma.productVariant.create({
+            data: {
+              productId: product.id,
+              name: v.name,
+              price: v.price,
+              isInStock: !v.outOfStock,
+              sortOrder: vi + 1,
+            },
+          });
+          variants.push({ id: row.id, name: row.name, price: Number(row.price), isInStock: row.isInStock });
         }
-        ctx.products.push({ id: product.id, name: product.name, price: p.price, variants });
+        ctx.products.push({
+          id: product.id,
+          name: product.name,
+          price: p.price,
+          isInStock: !p.outOfStock,
+          categoryActive: !cat.inactive,
+          variants,
+        });
       }
     }
 
@@ -1303,14 +1314,23 @@ async function main() {
   function planItems(outlet: OutletCtx, typeSlug: string): PlannedOrder['items'] {
     const isFood = typeSlug === 'restaurant' || typeSlug === 'cafe';
     const count = randInt(1, isFood ? 3 : 5);
+    const orderable = outlet.products.filter(
+      (p) => p.categoryActive && p.isInStock && p.variants.some((v) => v.isInStock),
+    );
+    const pool = orderable.length > 0 ? orderable : outlet.products;
     const items: PlannedOrder['items'] = [];
     for (let i = 0; i < count; i++) {
-      const product = pick(outlet.products);
+      const product = pick(pool);
       if (items.some((it) => it.product.id === product.id)) continue;
-      const variant = product.variants.length > 0 && rand() < 0.6 ? pick(product.variants) : null;
+      const liveVariants = product.variants.filter((v) => v.isInStock);
+      const variant = pick(liveVariants.length > 0 ? liveVariants : product.variants);
       items.push({ product, variant, qty: randInt(1, isFood ? 3 : 5) });
     }
-    if (items.length === 0) items.push({ product: outlet.products[0], variant: null, qty: 1 });
+    if (items.length === 0) {
+      const fallback = pool[0];
+      const variant = fallback.variants.find((v) => v.isInStock) ?? fallback.variants[0];
+      items.push({ product: fallback, variant, qty: 1 });
+    }
     return items;
   }
 
@@ -2069,6 +2089,21 @@ async function main() {
     if (o.status === OrderStatus.READY_FOR_PICKUP && o.orderFlowMode !== OrderFlowMode.VENDOR_FIRST && !o.riderId) {
       fail(`unclaimed READY_FOR_PICKUP order ${o.orderNumber} must belong to a VENDOR_FIRST outlet`);
     }
+  }
+  const catalog = await prisma.product.findMany({
+    select: { name: true, basePrice: true, variants: { orderBy: { sortOrder: 'asc' } } },
+  });
+  for (const p of catalog) {
+    if (p.variants.length === 0) fail(`product "${p.name}" has no variants (ADR-017 violation)`);
+    if (Number(p.variants[0].price) !== Number(p.basePrice)) {
+      fail(`product "${p.name}" basePrice ${p.basePrice} != first variation price ${p.variants[0].price}`);
+    }
+  }
+  const itemsWithoutVariant = await prisma.orderItem.count({
+    where: { variantSnapshot: { equals: Prisma.DbNull } },
+  });
+  if (itemsWithoutVariant > 0) {
+    fail(`${itemsWithoutVariant} order items are missing a variant snapshot`);
   }
   const ledgerTotals = await prisma.commissionLedger.aggregate({
     _sum: { grossAmount: true, commissionAmount: true, netVendorPayable: true },
