@@ -53,13 +53,13 @@ In [`deploy/nginx.local.conf`](../../deploy/nginx.local.conf):
 ```nginx
 # Super Admin Portal (Root)
 location / {
-    proxy_pass http://admin_portal:80;
+    proxy_pass http://admin_portal:8080;
     proxy_set_header Host $host;
 }
 
 # Vendor KDS Portal (Subpath)
 location /vendor/ {
-    proxy_pass http://vendor_portal:80/vendor/;
+    proxy_pass http://vendor_portal:8080/vendor/;
     proxy_set_header Host $host;
 }
 ```

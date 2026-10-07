@@ -130,7 +130,6 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
     "timeoutSeconds": 90,
     "paymentMethod": "CASH_ON_DELIVERY" | "ONLINE_GATEWAY",
     "isCod": true,
-    "riderEarnings": 40.0,
     "distanceKm": 3.4
   }
 ```
@@ -238,6 +237,19 @@ Upon authenticated handshake, sockets are auto-assigned to primary rooms based o
     "totalAmount": 540.0
   }
   ```
+
+#### `vendor:status:changed`
+- **Direction**: Server ➔ Vendor Room & Admin HQ
+- **Target Rooms**: `vendor_{vendorId}`, `admin_hq`
+- **Trigger**: Outlet governance status (`isActive`) or intake-pause state (`isBusy`) changes — admin open/close toggles, vendor rush-hour pause/resume.
+- **Payload**:
+  ```json
+  {
+    "event": "vendor:status:changed",
+    "data": { "vendorId": "uuid", "isActive": true, "isBusy": false, "timestamp": "ISO-8601" }
+  }
+  ```
+- **Consumers**: vendor portal refreshes its outlet store (suspension screen / rush banner); admin console refreshes outlet governance state.
 
 #### Connection Lifecycle & Acknowledgements
 - **`connected`**: Emitted to the client after successful JWT handshake (includes `message`, `userId`, `role`).

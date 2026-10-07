@@ -7,7 +7,7 @@
 
 ## Context
 
-Financial accounting ledgers (`commission_ledgers`, `vendor_settlement_ledgers`, `rider_trip_ledgers`, `cash_deposits`) represent legal and audit records of monetary transactions across merchants, couriers, and the platform. Cascade deletions or unconstrained entity drops could destroy audit trails or cause ledger discrepancies between order totals and settlement batches.
+Financial accounting ledgers (`commission_ledgers`, `rider_trip_ledgers`, `settlement_batches`, `cash_deposits`) represent legal and audit records of monetary transactions across merchants, couriers, and the platform. Cascade deletions or unconstrained entity drops could destroy audit trails or cause ledger discrepancies between order totals and settlement batches.
 
 ## Decision
 

@@ -26,7 +26,7 @@ Without atomic concurrency control:
 ## Considered Options
 1. **Pessimistic Database Locking (`SELECT FOR UPDATE`)**: Lock rows at the relational database level. *(Rejected: High row lock contention under peak load)*.
 2. **Optimistic Concurrency Control (Version column)**: Check entity version at write. *(Rejected: Requires rollbacks and multiple database roundtrips)*.
-3. **Redis Atomic Distributed Mutex (`SET key val PX 5000 NX`) (Chosen)**: In-memory single-cycle atomic lock before database commit.
+3. **Redis Atomic Distributed Mutex (`SET key val EX 10 NX`) (Chosen)**: In-memory single-cycle atomic lock before database commit.
 
 ---
 
@@ -45,10 +45,10 @@ sequenceDiagram
     CourierA->>API: POST /rider/orders/ORD_101/claim
     CourierB->>API: POST /rider/orders/ORD_101/claim
     
-    API->>Redis: SET lock:order:claim:ORD_101 CourierA PX 5000 NX
+    API->>Redis: SET lock:order:claim:ORD_101 CourierA NX EX 10
     Redis-->>API: OK - Lock Acquired
     
-    API->>Redis: SET lock:order:claim:ORD_101 CourierB PX 5000 NX
+    API->>Redis: SET lock:order:claim:ORD_101 CourierB NX EX 10
     Redis-->>API: nil - Lock Refused
     
     API-->>CourierB: HTTP 409 Conflict - Already claimed
@@ -63,7 +63,7 @@ sequenceDiagram
 ### Positive Consequences
 - **Absolute Concurrency Safety**: Guaranteed single assignment regardless of concurrent claim spikes.
 - **Zero Database Load for Rejected Claims**: Non-winning requests are rejected in $<1$ ms by Redis before touching PostgreSQL.
-- **Self-Healing TTL**: The 5-second TTL (`PX 5000`) guarantees lock expiration even if the worker container abruptly crashes.
+- **Self-Healing TTL**: The 10-second TTL (`EX 10`) guarantees lock expiration even if the worker container abruptly crashes.
 
 ### Negative Consequences & Mitigations
 - *Trade-off*: Dependency on Redis availability for order claiming.

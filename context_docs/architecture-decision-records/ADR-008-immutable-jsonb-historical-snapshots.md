@@ -57,7 +57,7 @@ Chosen option: **Immutable JSONB Snapshots**.
 Implemented in [`order.service.ts`](../../services/backend_api/src/modules/orders/order.service.ts):
 ```typescript
 export interface OrderAddressSnapshot {
-  deliveryMethod: 'DELIVERY' | 'TAKEAWAY';
+  deliveryMethod: 'HOME_DELIVERY' | 'TAKEAWAY';
   vendorAddress?: string;
   addressId?: string;
   addressLine?: string;

@@ -59,7 +59,7 @@ Governed by the `order_flow_config` system setting ([ADR-002](../architecture-de
   - Direct turn-by-turn navigation handoff to Google Maps / Apple Maps.
   - One-tap direct store phone dialer button (`tel:`).
   - Visual parcel label: `LOOK FOR PACKAGE BAG - Order #...`.
-  - Action: `"ORDER PICKED UP ➔ START DELIVERY"` calls `POST /orders/:id/pickup` (transitions to `DISPATCHED`).
+  - Action: `"ORDER PICKED UP ➔ START DELIVERY"` calls `PATCH /rider/orders/:id/pickup` (transitions to `DISPATCHED`).
 
 ### Step 2: Deliver to Customer (`ActiveTripScreen` Step 2)
 - One-tap navigation to customer delivery coordinates.
@@ -70,7 +70,7 @@ Governed by the `order_flow_config` system setting ([ADR-002](../architecture-de
 ### Step 3: Complete Handover & Cash Verification (`ActiveTripScreen` Step 3)
 - **Prepaid Online Orders**: Green banner indicating zero cash collection.
 - **Cash on Delivery (COD) Orders**: Amber banner indicating exact cash amount in local currency with mandatory verification checkbox: *"I have collected ৳[Amount] in cash from customer"*. Button remains disabled until checked.
-- Action: `"COMPLETE DELIVERY"` calls `POST /orders/:id/deliver` with `codCashCollected: true`, recording delivery and updating ledgers.
+- Action: `"COMPLETE DELIVERY"` calls `PATCH /rider/orders/:id/deliver` with `codCashCollected: true`, recording delivery and updating ledgers.
 
 ---
 

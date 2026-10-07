@@ -83,7 +83,7 @@ When generating code, you must strictly uphold these inviolable business rules:
 - **Architecture**: Feature-First Clean Architecture (Presentation, Domain, Data).
 - **State Management**: Riverpod 3.x (`NotifierProvider` / `AsyncNotifier`).
 - **Localization**: Dart-map `AppLocalizations` (en/ar/bn) with auto-mirroring RTL directionality for Arabic. (The web portals use JSON dictionaries in `src/i18n/locales/`.)
-- **Battery Preservation**: Throttled GPS beaconing (every 5–8 seconds only when rider status is `Online`).
+- **Battery Preservation**: Throttled GPS beaconing while on duty — rider telemetry streams over WebSocket at ≥5 s intervals (HTTP sync fallback throttled to ≥30 s), never unfiltered.
 
 ### 3.6 Code Cleanliness & Commenting Standards
 - **Zero Trivial Comments**: Do NOT add code-level comments on basic code, straightforward getters/setters, routine boilerplate, standard UI widgets/layouts, trivial mappings, or obvious logic.

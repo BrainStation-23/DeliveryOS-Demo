@@ -66,7 +66,7 @@ services:
     container_name: deliveryos_admin_portal
     restart: always
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:8080"
     networks:
       - deliveryos_network
 
@@ -78,7 +78,7 @@ services:
     container_name: deliveryos_vendor_portal
     restart: always
     ports:
-      - "3001:80"
+      - "127.0.0.1:3001:8080"
     networks:
       - deliveryos_network
 
@@ -122,10 +122,10 @@ http {
         server backend:4000;
     }
     upstream admin_portal_svc {
-        server admin_portal:80;
+        server admin_portal:8080;
     }
     upstream vendor_portal_svc {
-        server vendor_portal:80;
+        server vendor_portal:8080;
     }
 
     server {
@@ -190,10 +190,10 @@ REDIS_PORT=6380
 REDIS_PASSWORD="redispassword"
 
 # JWT Authentication Secrets
-JWT_ACCESS_SECRET="super-secret-access-token-key-min-32-chars-long"
-JWT_ACCESS_EXPIRATION="15m"
+JWT_SECRET="super-secret-access-token-key-min-32-chars-long"
+JWT_EXPIRES_IN="15m"
 JWT_REFRESH_SECRET="super-secret-refresh-token-key-min-32-chars-long"
-JWT_REFRESH_EXPIRATION="30d"
+JWT_REFRESH_EXPIRES_IN="30d"
 
 # Regional Settings & CORS
 REGION_MODE="BD" # "BD" (Asia/Dhaka) | "KSA" (Asia/Riyadh)

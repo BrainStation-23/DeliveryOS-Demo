@@ -80,9 +80,9 @@ DeliveryOS connects merchants, customers, and delivery couriers through 4 unifie
 - **Duty State**: Online/offline shift toggle with **In-Flight Duty Lock** (couriers cannot go offline while carrying active orders).
 - **Broadcast Modal**: 45-second animated countdown with haptic vibration, system alert chime, store name, distance, delivery area, and payout.
 - **Sequential Fulfillment**:
-  - *Step 1*: Claim broadcast and travel to store (`POST /orders/:id/pickup`).
+  - *Step 1*: Claim broadcast and travel to store (`PATCH /rider/orders/:id/pickup`).
   - *Step 2*: Navigate to customer doorstep coordinates.
-  - *Step 3*: Verify physical delivery and check mandatory COD cash collection box (`POST /orders/:id/deliver`).
+  - *Step 3*: Verify physical delivery and check mandatory COD cash collection box (`PATCH /rider/orders/:id/deliver`).
 - **Doorstep SOP**: 5-minute digital countdown timer and two-call protocol for unresponsive customers before returning parcel to Dispatch HQ.
 - **Wallet & Cash Limit**: Daily earnings ledger with real-time tracking of collected COD cash against configured safety limit (`max_cash_limit`).
 

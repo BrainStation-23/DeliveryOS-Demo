@@ -29,12 +29,24 @@ Capability detail: [`FEATURES.md`](FEATURES.md) • Architectural rationale: [AD
 ### [Unreleased]
 
 #### Added
+- **Rider Earnings Summary Endpoint & Real Weekly Figures**:
+  - Added `GET /api/v1/rider/earnings/summary` aggregating `rider_trip_ledgers` over delivered orders into `today` and trailing-7-region-local-day `week` windows (`{ earnings, trips, codCollected }`).
+  - Rider app earnings screen now renders server-truth weekly figures (previously seeded from today's snapshot) and reconciles both windows after each delivery.
+- **Portal ESLint Gates**: flat ESLint configs (typescript-eslint + react-hooks) with `npm run lint` in both portals; zero errors, genuine findings fixed (unused imports, an `as any`, empty catches).
+- **Node Toolchain Pin**: root `.nvmrc` (`20.18.0`) matching the CI runner.
 - **Outlet Types Drill-down & Assigned Outlets Roster**:
   - Added `GET /api/v1/admin/outlet-types/:id/outlets` endpoint returning assigned store outlets with brand context, contact, address, and product/order counts.
   - Interactive drill-down modal (`AssignedOutletsModal`) from Outlet Types table rows linking directly to outlet management.
   - Dedicated `Outlet Types` management tab on `Brands & Outlets` console (`/vendors?tab=outlet_types`), migrating governance out of System Settings.
 
 #### Changed
+- **Backend Memory-Bound Safety at Scale**:
+  - Admin analytics timeseries and avg-delivery-latency now aggregate in SQL (`date_trunc` UTC buckets + `AVG`) per ADR-018's escape hatch — window order rows are never loaded into JS memory.
+  - Finance ledger CSV export streams keyset-paginated batches (500 rows/round-trip) instead of materializing the entire filtered set (and its per-page summaries).
+  - Pricing/economics config cache invalidation fans out to all replicas via the `deliveryos:pricing:invalidate` Redis pub/sub channel (ADR-015 alignment for `--scale backend=N`).
+- **Checkout Request Ceilings**: `quantity` capped at 99 per item and items at 50 per order (`MAX_QUANTITY_PER_ITEM` / `MAX_ITEMS_PER_CHECKOUT`) so absurd payloads fail validation before touching subtotal math or the checkout transaction.
+- **Batched Catalog Reads**: reorder validation fetches all line-item products in one query; order items insert via a single `createMany` inside the checkout transaction.
+- **Coupon Probing Throttle**: public `POST /coupons/validate` tightened to 10 req/min per IP (was global 100/min).
 - **Fresh Production Launch Posture Alignment**:
   - Removed all legacy compatibility shims, dead aliases, and fallback pathways across backend, portals, mobile apps, and scripts for a clean-slate fresh production launch.
   - Purged deprecated `vertical` query parameter from `GetNearbyVendorsDto` in favor of dynamic `typeSlug` (`OutletType`).
@@ -42,6 +54,20 @@ Capability detail: [`FEATURES.md`](FEATURES.md) • Architectural rationale: [AD
   - Removed SharedPreferences token migration logic in Customer and Rider Flutter mobile apps; tokens persist directly to Keystore/Keychain via `FlutterSecureStorage`.
   - Renamed integration test commands in `package.json` (`track1:test` -> `business-integrity:test`, `track3:test` -> `vendor-kds-resilience:test`) and purged all legacy command aliases.
   - Synchronized full living documentation suite (`QUICK_REFERENCE.md`, `TID-01` through `TID-07`, `BRD-00` through `BRD-07`, `README.md`, `deploy/RELEASE.md`) with authoritative codebase state.
+
+#### Fixed
+- **Realtime / Correctness Fixes**:
+  - Admin portal `useSocketQueryInvalidation` no longer unsubscribes/resubscribes on every render (stable serialized effect key; call sites unchanged).
+  - Customer app `AuthNotifier` no longer accumulates Dio session-expired listeners across provider rebuilds; checkout awaits the coverage check directly instead of a 2 s / 20 ms polling loop.
+  - Removed the fake 600 ms delay in rider approval-status refresh; suspension-reason parsing deduplicated into one tested helper.
+  - `account_suspended_card.dart` migrated to `AppColors` error tokens (12 hardcoded color violations eliminated, with a source-scan regression test).
+  - Removed misleading no-op `['vendor-outlets']` query invalidations in vendor portal (outlet refresh goes through the store's real refetch path).
+  - Deleted dead admin `CollapsibleSection` component; extracted + fixed genuine lint findings across both portals.
+- **Living-Docs Truth Sync (doc-vs-code drift)**:
+  - WS catalog completed: `order:assigned` + `vendor:status:changed` added to `QUICK_REFERENCE.md`; `vendor:status:changed` documented in `TID-04` (11 server→client business events total).
+  - `deploy/RELEASE.md` env checklist corrected to real keys (`SSLCOMMERZ_STORE_PASSWORD`, `SMS_SSLW_API_TOKEN`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `SSLCOMMERZ_BASE_URL`); nonexistent `vendor_settlement_ledgers` table reference replaced (`ADR-022`, `RELEASE.md`).
+  - ADR corrections: chime frequencies (587.33/880 Hz, ADR-007), claim-mutex TTL `EX 10` (ADR-004), portal container port 8080 (ADR-005/TID-07), `HOME_DELIVERY` enum (ADR-008), JWT env names (TID-07), `dispatch:broadcast` duplicate payload key (TID-04).
+  - BRD corrections: OTP rate limit 3/5 min (BRD-04), rider pickup/deliver paths `PATCH /rider/orders/:id/...` (BRD-00/BRD-06); FEATURES admin route count 63 → 61 and test counts refreshed (backend 350, admin 198, vendor 48).
 
 ### [1.8.0] - 2026-10-05 — Production Readiness Audit & Enterprise Hardening
 

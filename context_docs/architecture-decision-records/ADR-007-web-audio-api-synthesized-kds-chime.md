@@ -36,8 +36,8 @@ Chosen option: **Native Web Audio API Oscillator Synthesis**.
 ```mermaid
 flowchart LR
     Ctx["AudioContext: Web Audio API"]
-    Osc1["Oscillator 1: Sine 880 Hz - Root A5"]
-    Osc2["Oscillator 2: Triangle 1320 Hz - Fifth E6"]
+    Osc1["Oscillator 1: Sine 587.33 Hz - Root D5"]
+    Osc2["Oscillator 2: Triangle 880 Hz - Fifth A5"]
     Gain["GainNode: Exponential Decay Envelope"]
     Speakers["Destination: Device Speakers"]
 
@@ -73,10 +73,10 @@ export function playOrderAlarmChime(): void {
     const gain = ctx.createGain();
 
     osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(880, ctx.currentTime);
+    osc1.frequency.setValueAtTime(587.33, ctx.currentTime);
 
     osc2.type = 'triangle';
-    osc2.frequency.setValueAtTime(1320, ctx.currentTime);
+    osc2.frequency.setValueAtTime(880, ctx.currentTime);
 
     gain.gain.setValueAtTime(0.001, ctx.currentTime);
     gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.05);

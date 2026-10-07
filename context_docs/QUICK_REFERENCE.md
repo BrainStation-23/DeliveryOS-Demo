@@ -118,7 +118,7 @@ DeliveryFeeConfig.mode: 'FIXED_FLAT' | 'DISTANCE_TIERED'        // configured in
 | `order:seq:<YYYYMMDD>` (48h) | Daily order-number INCR counter (`ORD-YYYYMMDD-NNNN`) |
 | `auth:user:<userId>` (30s) | JWT-guard user cache (invalidated on logout) |
 
-**Socket.IO `/events`** — full catalog in `TID-04`. Client→server: `order:join`, `order:leave`, `rider:location:update`. Server→client: `connected`, `error`, `order:new`, `order:status:changed`, `order:rider:moved`, `order:cancelled`, `order:payment:verified`, `dispatch:broadcast`, `dispatch:escalated`, `order:delivery_failed`, `rider:location`. Acks: `order:joined`, `order:left` (reply to `order:join`/`order:leave`). Alias: `rider:location_update` is accepted for `rider:location:update`.
+**Socket.IO `/events`** — full catalog in `TID-04`. Client→server: `order:join`, `order:leave`, `rider:location:update`. Server→client: `connected`, `error`, `order:new`, `order:status:changed`, `order:rider:moved`, `order:cancelled`, `order:payment:verified`, `order:assigned`, `dispatch:broadcast`, `dispatch:escalated`, `order:delivery_failed`, `rider:location`, `vendor:status:changed`. Acks: `order:joined`, `order:left` (reply to `order:join`/`order:leave`). Alias: `rider:location_update` is accepted for `rider:location:update`.
 
 ---
 

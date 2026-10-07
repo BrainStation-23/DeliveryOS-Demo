@@ -22,7 +22,7 @@ Functional specifications, screen states, user inputs, business guards, outputs,
 - **Inputs**: Phone number with country prefix (`+880` / `+966`), 6-digit SMS OTP.
 - **Business Rules**:
   - **Guest Browsing Invariant**: Customers may browse outlets, search dishes, and assemble a cart without logging in. Authentication is enforced only when tapping Checkout or saving an address.
-  - Rate limiting: Max 3 OTP requests per 15 minutes per phone number.
+  - Rate limiting: Max 3 OTP requests per 5 minutes per phone number (Redis `ratelimit:otp:<phone>`, 300 s window).
 - **Outputs**: Verified session token (JWT) stored in secure local storage; user profile hydrated.
 - **Edge Cases**: Invalid OTP surfaces inline validation error; countdown timer controls OTP resend.
 

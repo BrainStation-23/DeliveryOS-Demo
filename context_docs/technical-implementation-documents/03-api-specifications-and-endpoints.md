@@ -146,6 +146,7 @@ RESTful API contracts, request/response DTO schemas, authentication guards, and 
   - *Body*: `{ "reason": "Customer unreachable at delivery address" }`.
   - *Action*: Status-conditional `DISPATCHED → READY_FOR_PICKUP` reset (a concurrent cancellation cannot be overwritten), unlocks courier, reports doorstep failure, and alerts Dispatch HQ.
 - **`GET /rider/trips`**: Returns completed delivery trips, payout earnings, and collected cash.
+- **`GET /rider/earnings/summary`**: Server-truth earnings windows — `today` and trailing-7-day `week` (region-local day boundaries per `startOfRegionToday`), each `{ earnings, trips, codCollected }` aggregated from `rider_trip_ledgers` over delivered orders. The week window also carries its `from`/`to` ISO bounds.
 - **`POST /rider/cash/deposit`**: Body `{ "amount": 2500.0, "notes": "Banani Hub" }`.
 - **`GET /rider/cash/deposits`**: Returns the signed-in rider's cash-deposit history (newest first) with verification statuses.
 

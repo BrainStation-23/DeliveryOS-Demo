@@ -11,7 +11,7 @@ Before deploying any version to production, verify each gate:
 - [ ] **Quality Gates Passed**: Root `npm run verify` exits 0 with 100% test integrity (329+ Jest tests, 204+ Vitest tests, 142+ Flutter tests).
 - [ ] **Realtime Matrix Parity**: `npm run verify:realtime` reports 100% bidirectional parity between backend Socket.IO emitters and client listeners.
 - [ ] **Database Backup**: Execute `./scripts/backup-db.sh` to generate a fresh, compressed database snapshot (`deliveryos_backup_<timestamp>.sql.gz`) with offsite sync.
-- [ ] **Environment Configuration**: Validate that all production secrets are exported (`JWT_SECRET`, `JWT_REFRESH_SECRET`, `SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWD`, `SSLCOMMERZ_IS_SANDBOX=false`, `SSLWIRELESS_API_TOKEN`, `FCM_CREDENTIALS_JSON`).
+- [ ] **Environment Configuration**: Validate that all production secrets are exported (`JWT_SECRET`, `JWT_REFRESH_SECRET`, `SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWORD`, `SSLCOMMERZ_BASE_URL` (live), `SMS_SSLW_API_TOKEN`, `FIREBASE_SERVICE_ACCOUNT_JSON`).
 - [ ] **Nginx Edge Invariants**: Confirm `deploy/nginx-templates/default.conf.template` uses dynamic Docker DNS resolution (`resolver 127.0.0.11 valid=10s ipv6=off;`) with variable proxy pass to prevent 502 Bad Gateway upon container recreation.
 
 ---
@@ -37,7 +37,7 @@ curl -s http://localhost:4000/api/v1/health | jq .
 
 ### Zero-Downtime Schema Evolution Policy
 - **Additive Only**: When modifying schema post-launch, never drop columns or rename existing active fields during an active deployment. Add new columns as optional or with non-breaking defaults.
-- **Foreign Key Immutability**: Financial ledgers (`vendor_settlement_ledgers`, `rider_trip_ledgers`, `commission_ledgers`) enforce `RESTRICT` on delete to guarantee immutable accounting trails (ADR-022).
+- **Foreign Key Immutability**: Financial ledgers (`commission_ledgers`, `rider_trip_ledgers`, `settlement_batches`) enforce `RESTRICT` on delete to guarantee immutable accounting trails (ADR-022).
 
 ### Migration Execution
 ```bash

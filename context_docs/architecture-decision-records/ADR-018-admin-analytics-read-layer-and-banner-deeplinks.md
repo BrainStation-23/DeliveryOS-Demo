@@ -24,7 +24,7 @@ The Super Admin console had no analytics surface beyond the `GET /admin/overview
 
 ## Decision Outcome
 
-1. **Analytics read layer**: `AdminAnalyticsController` (`admin/analytics`) + `AdminAnalyticsService` provide `GET /admin/analytics/overview` (window capped at 90 days, day/hour buckets, KPI cards with deltas vs the preceding equal-length window, status mix, timeseries, top outlets/riders) and `GET /admin/analytics/orders-summary`. Window math and bucketing live in pure exported functions (`resolveAnalyticsWindow`, `bucketOrderTimeseries`, `percentDelta`) that are unit-tested directly.
+1. **Analytics read layer**: `AdminAnalyticsController` (`admin/analytics`) + `AdminAnalyticsService` provide `GET /admin/analytics/overview` (window capped at 90 days, day/hour buckets, KPI cards with deltas vs the preceding equal-length window, status mix, timeseries, top outlets/riders) and `GET /admin/analytics/orders-summary`. Window math lives in pure exported functions (`resolveAnalyticsWindow`, `percentDelta`) that are unit-tested directly; timeseries buckets are aggregated in SQL via `date_trunc` (UTC calendar buckets) and dense-filled/merged by the pure `assembleOrderTimeseries`.
 2. **Sibling read services** follow the same pattern for new domains: `AdminCustomersService` (`admin/customers` directory + detail, read-only), `AdminFleetService` (paginated enriched roster + unified rider detail), `AdminFinanceService` (unified per-order ledger joining commission + rider trip entries, with page-spanning summary and CSV export). Mutations stay in `AdminService`.
 3. **Charting**: `recharts` is the portal's chart dependency (single new primary frontend dependency). Chart colors are centralized in `components/charts/chartTheme.ts` mirroring the Tailwind primary tokens so SVG stroke literals can never silently drift from the design system.
 4. **Banner deeplink completion**: `Banner.targetUrl` (nullable `VarChar(500)`, additive migration) + server-side deeplink integrity validation on create/update (EXTERNAL ⇔ absolute http(s) `targetUrl`; OUTLET/CATEGORY ⇔ existing `targetId`). `GET /banners/active` returns `targetUrl` plus a resolved `targetName` so the customer app routes CATEGORY banners to discovery without extra lookups. The app resolves taps through a pure `resolveBannerAction` mapper (OUTLET → outlet page, CATEGORY → seeded search, EXTERNAL → `url_launcher` http/https only, everything else → generic search).
@@ -39,7 +39,7 @@ The Super Admin console had no analytics surface beyond the `GET /admin/overview
 
 ### Negative Consequences & Trade-offs
 
-- Timeseries bucketing fetches the window's order facts and buckets in JS — acceptable at pilot scale (bounded by the 90-day cap); a SQL `date_trunc` rollup is the escape hatch if windows grow.
+- Timeseries and avg-delivery-latency metrics are aggregated in SQL (`date_trunc` + `AVG`) — the window's order rows are never loaded into JS memory, so windows stay O(1) heap regardless of order volume.
 - `recharts` adds ~124 KB gzip to the dashboard chunk (lazy-loaded route, never in the vendor bundle).
 
 ## Technical Implementation Details
@@ -51,7 +51,7 @@ The Super Admin console had no analytics surface beyond the `GET /admin/overview
 
 ## Compliance & Verification
 
-- Backend: `npx jest src/modules/admin` covers analytics windowing/bucketing, roster enrichment, customer aggregation, ledger joins, product-delete 409 guard, banner deeplink validation, and economics upsert (75 admin tests; full suite 265+).
+- Backend: `npx jest src/modules/admin` covers analytics windowing/bucketing, roster enrichment, customer aggregation, ledger joins, product-delete 409 guard, banner deeplink validation, and economics upsert (80 admin tests; full suite 350).
 - Portal: Vitest covers trend formatting/badges and promotions filters; `npm run build` keeps the dashboard chart chunk route-split.
 - Mobile: `flutter test test/banner_deeplink_test.dart` covers all four deeplink outcomes including non-http degradation.
 - Docs: TID-03 §2.2/§2.5, BRD-07 module tree, and FEATURES.md §5/§9 updated in the same change.
