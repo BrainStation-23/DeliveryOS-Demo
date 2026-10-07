@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:customer_app/core/constants/constants.dart';
@@ -36,6 +38,9 @@ void main() {
       expect(AppColors.warningDark, const Color(0xFFD97706));
       expect(AppColors.errorLight, const Color(0xFFFEE2E2));
       expect(AppColors.errorDark, const Color(0xFFDC2626));
+      expect(AppColors.errorText, const Color(0xFF991B1B));
+      expect(AppColors.errorTextMedium, const Color(0xFFB91C1C));
+      expect(AppColors.errorTextDark, const Color(0xFF7F1D1D));
       expect(AppColors.infoLight, const Color(0xFFEFF6FF));
       expect(AppColors.infoBlue, const Color(0xFF2563EB));
 
@@ -108,6 +113,15 @@ void main() {
       expect(AppRadius.borderMd, const BorderRadius.all(Radius.circular(12.0)));
       expect(AppRadius.borderLg, const BorderRadius.all(Radius.circular(16.0)));
       expect(AppRadius.borderFull, const BorderRadius.all(Radius.circular(999.0)));
+    });
+
+    test('AccountSuspendedCard uses only design-token colors (no hardcoded values)', () {
+      final source = File('lib/features/auth/presentation/widgets/account_suspended_card.dart')
+          .readAsStringSync();
+
+      expect(source, isNot(contains('Color(0x')));
+      expect(source, isNot(contains(RegExp(r'\bColors\.'))));
+      expect(source, contains('AppColors.'));
     });
   });
 }

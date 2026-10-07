@@ -20,15 +20,15 @@ class AccountSuspendedCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
+        color: AppColors.errorContainer,
         borderRadius: AppRadius.borderLg,
         border: Border.all(
-          color: const Color(0xFFFCA5A5),
+          color: AppColors.errorBorderLight,
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.red.withValues(alpha: 0.05),
+            color: AppColors.error.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -60,13 +60,13 @@ class AccountSuspendedCard extends StatelessWidget {
                       'Account Suspended',
                       style: AppTypography.titleMedium.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF991B1B),
+                        color: AppColors.errorText,
                       ),
                     ),
                     Text(
                       'Access restricted by administration',
                       style: AppTypography.labelSmall.copyWith(
-                        color: const Color(0xFFB91C1C),
+                        color: AppColors.errorTextMedium,
                       ),
                     ),
                   ],
@@ -74,7 +74,7 @@ class AccountSuspendedCard extends StatelessWidget {
               ),
               if (onDismiss != null)
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFFB91C1C)),
+                  icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.errorTextMedium),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   onPressed: onDismiss,
@@ -87,16 +87,16 @@ class AccountSuspendedCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(AppSpacing.sm + 2),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surface,
                 borderRadius: AppRadius.borderMd,
-                border: Border.all(color: const Color(0xFFFECACA)),
+                border: Border.all(color: AppColors.errorBorder),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFFB91C1C)),
+                      const Icon(Icons.info_outline_rounded, size: 14, color: AppColors.errorTextMedium),
                       const SizedBox(width: 4),
                       Text(
                         'REASON FOR SUSPENSION',
@@ -104,7 +104,7 @@ class AccountSuspendedCard extends StatelessWidget {
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
-                          color: const Color(0xFF991B1B),
+                          color: AppColors.errorText,
                         ),
                       ),
                     ],
@@ -125,7 +125,7 @@ class AccountSuspendedCard extends StatelessWidget {
             Text(
               message!,
               style: AppTypography.bodySmall.copyWith(
-                color: const Color(0xFF7F1D1D),
+                color: AppColors.errorTextDark,
               ),
             ),
           ],
@@ -133,7 +133,7 @@ class AccountSuspendedCard extends StatelessWidget {
           Text(
             'If you believe this is a mistake, please reach out to customer support at support@deliveryos.com.',
             style: AppTypography.labelSmall.copyWith(
-              color: const Color(0xFF991B1B).withValues(alpha: 0.85),
+              color: AppColors.errorText.withValues(alpha: 0.85),
             ),
           ),
         ],

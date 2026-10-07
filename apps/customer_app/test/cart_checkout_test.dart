@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:customer_app/core/localization/app_localizations.dart';
 import 'package:customer_app/core/localization/language_provider.dart';
+import 'package:customer_app/core/network/dio_client.dart';
 import 'package:customer_app/core/storage/local_storage.dart';
 import 'package:customer_app/features/cart/domain/cart_item_model.dart';
 import 'package:customer_app/features/cart/presentation/cart_screen.dart';
@@ -222,6 +225,76 @@ void main() {
       expect(state.couponDiscount, 50.0);
       expect(state.discountedSubtotal, 370.0); // 420 - 50
       expect(state.totalPayable, 430.0); // 370 + 60 fee
+    });
+  });
+
+  group('Checkout Coverage Await', () {
+    test('checkout awaits the in-flight coverage verification instead of racing it', () async {
+      final coverageGate = Completer<void>();
+      final dio = Dio();
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) async {
+            if (options.path.contains('/vendors/validate-address-coverage')) {
+              await coverageGate.future;
+              return handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: 200,
+                  data: {
+                    'status': 'success',
+                    'data': {'isActive': true, 'isBusy': false, 'estimatedDeliveryFee': 60.0},
+                  },
+                ),
+              );
+            }
+            return handler.resolve(
+              Response(requestOptions: options, statusCode: 200, data: {'status': 'success', 'data': {}}),
+            );
+          },
+        ),
+      );
+      final client = DioClient(dio: dio);
+
+      final container = ProviderContainer(
+        overrides: [
+          localStorageProvider.overrideWithValue(storage),
+          dioClientProvider.overrideWithValue(client),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(cartProvider.notifier);
+      notifier.addItem(
+        vendorId: 'vendor-banani',
+        vendorName: "Sultan's Dine - Banani",
+        vendorDeliveryRadiusKm: 5.0,
+        vendorLat: 23.7925,
+        vendorLng: 90.4078,
+        product: sampleProduct1,
+        quantity: 1,
+        unitPrice: 420.0,
+      );
+
+      var checkoutFinished = false;
+      final checkoutFuture = notifier.checkout().then((result) {
+        checkoutFinished = true;
+        return result;
+      });
+
+      // While the coverage request is gated, checkout must still be pending
+      // (it is awaiting the same in-flight verification, not polling a flag).
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(checkoutFinished, isFalse);
+
+      coverageGate.complete();
+      final result = await checkoutFuture;
+
+      // Coverage resolved in-bounds, so checkout proceeded past the gate and
+      // stopped at the (unauthenticated) login guard — not at the cart guard.
+      expect(checkoutFinished, isTrue);
+      expect(result['success'], isFalse);
+      expect(result['message'], 'Please login to place your order.');
     });
   });
 

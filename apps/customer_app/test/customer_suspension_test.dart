@@ -12,6 +12,8 @@ import 'package:customer_app/features/auth/domain/user_model.dart';
 import 'package:customer_app/features/auth/presentation/phone_input_screen.dart';
 import 'package:customer_app/features/auth/providers/auth_provider.dart';
 
+import 'mock_dio_client.dart';
+
 class TestSuspendedAuthNotifier extends AuthNotifier {
   void setSuspendedError(String message, {String? reason}) {
     state = AuthState(
@@ -61,7 +63,6 @@ void main() {
       client.onSessionExpired((message) {
         receivedMessage = message;
       });
-
       final dioError = DioException(
         requestOptions: RequestOptions(
           path: '/api/v1/orders',
@@ -89,6 +90,26 @@ void main() {
       expect(storage.getRefreshToken(), isNull);
       expect(receivedMessage, 'Your account has been suspended: Payment abuse. Please contact support.');
       expect(handler.lastError, isNotNull);
+    });
+
+    test('repeated AuthNotifier rebuild cycles do not accumulate session-expired listeners', () async {
+      final client = createTestMockDioClient();
+      final container = ProviderContainer(
+        overrides: [
+          localStorageProvider.overrideWithValue(storage),
+          dioClientProvider.overrideWithValue(client),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(authProvider);
+      expect(client.sessionExpiredListenerCount, 1);
+
+      for (var i = 0; i < 5; i++) {
+        container.invalidate(authProvider);
+        container.read(authProvider);
+        expect(client.sessionExpiredListenerCount, 1);
+      }
     });
 
     test('AuthNotifier sendOtp sets error message and extracts suspension reason on 403', () async {

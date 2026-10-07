@@ -126,15 +126,23 @@ class DioClient {
     }
   }
 
-  /// Subscribe to session expiration events (e.g. 401 unrecoverable, account suspended).
-  void onSessionExpired(void Function(String?) listener) {
+  /// Subscribe to session expiration events (e.g. 401 unrecoverable, account
+  /// suspended). Returns a cancel closure that MUST be invoked on teardown —
+  /// otherwise rebuilds leak listeners into this client instance.
+  void Function() onSessionExpired(void Function(String?) listener) {
     _sessionExpiredListeners.add(listener);
+    return () => _sessionExpiredListeners.remove(listener);
   }
 
   /// Subscribe to token rotations (e.g. to re-handshake the realtime socket).
-  void onTokenRefresh(void Function(String) listener) {
+  /// Returns a cancel closure; see [onSessionExpired].
+  void Function() onTokenRefresh(void Function(String) listener) {
     _refreshListeners.add(listener);
+    return () => _refreshListeners.remove(listener);
   }
+
+  /// Test seam: number of live session-expiry subscriptions.
+  int get sessionExpiredListenerCount => _sessionExpiredListeners.length;
 
   Dio get dio => _dio;
 

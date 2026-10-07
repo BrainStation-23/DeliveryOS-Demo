@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/localization/language_provider.dart';
+import '../domain/suspension_notice.dart';
 import '../domain/user_model.dart';
 
 final dioClientProvider = Provider<DioClient>((ref) {
@@ -13,22 +14,19 @@ class AuthNotifier extends Notifier<AuthState> {
   @override
   AuthState build() {
     final dio = ref.watch(dioClientProvider);
-    dio.onSessionExpired((message) {
+    // Without the cancel, every rebuild of this notifier would stack another
+    // listener onto the shared DioClient and leak it for the app's lifetime.
+    final cancelSessionExpiredSubscription = dio.onSessionExpired((message) {
       final msg = message ?? 'Session expired. Please log in again.';
-      final isSuspended = msg.toLowerCase().contains('suspend');
-      String? reason;
-      if (isSuspended && msg.contains('suspended:')) {
-        final start = msg.indexOf('suspended:') + 10;
-        final end = msg.indexOf('. Please contact');
-        reason = (end > start ? msg.substring(start, end) : msg.substring(start)).trim();
-      }
+      final notice = parseAccountSuspension(message: msg);
       state = AuthState(
         status: AuthStatus.unauthenticated,
         errorMessage: msg,
-        isSuspended: isSuspended,
-        suspensionReason: reason,
+        isSuspended: notice.isSuspended,
+        suspensionReason: notice.reason,
       );
     });
+    ref.onDispose(cancelSessionExpiredSubscription);
     return AuthState.initial();
   }
 
@@ -91,24 +89,18 @@ class AuthNotifier extends Notifier<AuthState> {
       final msg = isMap && resData['message'] != null
           ? resData['message'].toString()
           : 'Could not send the OTP code. Please check your connection and try again.';
-      final isSuspended = dioErr.response?.statusCode == 403 ||
-          (isMap && resData['error'] == 'ACCOUNT_SUSPENDED') ||
-          msg.toLowerCase().contains('suspend');
-
-      String? reason;
-      if (isMap && resData['reason'] != null) {
-        reason = resData['reason'].toString();
-      } else if (msg.contains('suspended:')) {
-        final start = msg.indexOf('suspended:') + 10;
-        final end = msg.indexOf('. Please contact');
-        reason = (end > start ? msg.substring(start, end) : msg.substring(start)).trim();
-      }
+      final notice = parseAccountSuspension(
+        message: msg,
+        statusCode: dioErr.response?.statusCode,
+        errorCode: isMap ? resData['error']?.toString() : null,
+        explicitReason: isMap ? resData['reason']?.toString() : null,
+      );
 
       state = state.copyWith(
         status: AuthStatus.error,
         errorMessage: msg,
-        isSuspended: isSuspended,
-        suspensionReason: reason,
+        isSuspended: notice.isSuspended,
+        suspensionReason: notice.reason,
       );
       return false;
     } catch (e) {
@@ -168,24 +160,18 @@ class AuthNotifier extends Notifier<AuthState> {
       final msg = isMap && resData['message'] != null
           ? resData['message'].toString()
           : 'Invalid OTP code';
-      final isSuspended = dioErr.response?.statusCode == 403 ||
-          (isMap && resData['error'] == 'ACCOUNT_SUSPENDED') ||
-          msg.toLowerCase().contains('suspend');
-
-      String? reason;
-      if (isMap && resData['reason'] != null) {
-        reason = resData['reason'].toString();
-      } else if (msg.contains('suspended:')) {
-        final start = msg.indexOf('suspended:') + 10;
-        final end = msg.indexOf('. Please contact');
-        reason = (end > start ? msg.substring(start, end) : msg.substring(start)).trim();
-      }
+      final notice = parseAccountSuspension(
+        message: msg,
+        statusCode: dioErr.response?.statusCode,
+        errorCode: isMap ? resData['error']?.toString() : null,
+        explicitReason: isMap ? resData['reason']?.toString() : null,
+      );
 
       state = state.copyWith(
         status: AuthStatus.error,
         errorMessage: msg,
-        isSuspended: isSuspended,
-        suspensionReason: reason,
+        isSuspended: notice.isSuspended,
+        suspensionReason: notice.reason,
       );
       return false;
     } catch (e) {

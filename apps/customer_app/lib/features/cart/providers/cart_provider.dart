@@ -16,6 +16,10 @@ enum AddToCartResult {
 }
 
 class CartNotifier extends Notifier<CartState> {
+  // Latest in-flight coverage verification, if any. Checkout awaits it
+  // directly instead of polling isCheckingCoverage.
+  Future<void>? _inFlightCoverageCheck;
+
   @override
   CartState build() {
     return CartState();
@@ -140,7 +144,13 @@ class CartNotifier extends Notifier<CartState> {
     state = state.copyWith(paymentMethod: method);
   }
 
-  Future<void> validateCoverage({double? customLat, double? customLng}) async {
+  Future<void> validateCoverage({double? customLat, double? customLng}) {
+    final check = _runCoverageCheck(customLat: customLat, customLng: customLng);
+    _inFlightCoverageCheck = check;
+    return check;
+  }
+
+  Future<void> _runCoverageCheck({double? customLat, double? customLng}) async {
     if (state.deliveryMethod == DeliveryMethod.takeaway) {
       state = state.copyWith(isWithinCoverage: true, clearCoverageError: true);
       return;
@@ -273,12 +283,9 @@ class CartNotifier extends Notifier<CartState> {
     String? customerNotes,
     String? deliveryAddressId,
   }) async {
-    if (state.isCheckingCoverage) {
-      int waitMs = 0;
-      while (state.isCheckingCoverage && waitMs < 2000) {
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-        waitMs += 20;
-      }
+    final pendingCoverageCheck = _inFlightCoverageCheck;
+    if (pendingCoverageCheck != null) {
+      await pendingCoverageCheck;
     }
 
     if (!state.canCheckout) {
