@@ -22,7 +22,11 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
 import { AdminService } from './admin.service';
 import { AdminFleetService } from './admin-fleet.service';
-import { AdminFinanceService, FinanceLedgerRow } from './admin-finance.service';
+import {
+  AdminFinanceService,
+  LEDGER_CSV_HEADER,
+  ledgerRowToCsvLine,
+} from './admin-finance.service';
 import { AdminCancelOrderDto } from './dto/admin-cancel-order.dto';
 import { ListCashDepositsQueryDto } from './dto/list-cash-deposits.query.dto';
 import { VerifyCashDepositDto } from './dto/verify-cash-deposit.dto';
@@ -658,16 +662,14 @@ export class AdminController {
     @Query() query: GetFinanceLedgerQueryDto = new GetFinanceLedgerQueryDto(),
     @Res() res: Response,
   ) {
-    const rows: FinanceLedgerRow[] = [];
-    // Page through the filtered set so exports are not silently capped at one page.
-    for (let page = 1; ; page += 1) {
-      const pageQuery = Object.assign(new GetFinanceLedgerQueryDto(), query, { page });
-      const result = await this.adminFinanceService.getFinanceLedger(pageQuery);
-      rows.push(...result.items);
-      if (page >= result.totalPages || result.items.length === 0) break;
+    // Keyset-paginated stream: only one batch of rows is ever resident, so
+    // exports scale with dataset size instead of exhausting heap.
+    const lines: string[] = [LEDGER_CSV_HEADER];
+    for await (const row of this.adminFinanceService.streamFinanceLedgerRows(query)) {
+      lines.push(ledgerRowToCsvLine(row));
     }
 
-    const csvContent = this.adminFinanceService.generateLedgerCsv(rows);
+    const csvContent = lines.join('\n');
     const filename = `finance-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

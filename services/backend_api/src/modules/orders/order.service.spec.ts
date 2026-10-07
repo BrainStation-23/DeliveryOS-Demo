@@ -11,12 +11,20 @@ import {
   PermissionScope,
   UserRole,
 } from '@prisma/client';
-import { DeliveryMethod } from './dto/checkout.dto';
+import {
+  CheckoutDto,
+  CheckoutItemDto,
+  DeliveryMethod,
+  MAX_ITEMS_PER_CHECKOUT,
+  MAX_QUANTITY_PER_ITEM,
+} from './dto/checkout.dto';
 import { OrderService } from './order.service';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 
 type MockPrisma = {
   order: { findUnique: jest.Mock; findMany: jest.Mock; updateMany: jest.Mock; update: jest.Mock; create: jest.Mock };
-  orderItem: { create: jest.Mock };
+  orderItem: { create: jest.Mock; createMany: jest.Mock };
   payment: { updateMany: jest.Mock };
   commissionLedger: { deleteMany: jest.Mock; create: jest.Mock };
   riderTripLedger: { deleteMany: jest.Mock };
@@ -89,6 +97,7 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
       },
       orderItem: {
         create: jest.fn().mockResolvedValue({ id: 'item-1' }),
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       payment: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -323,13 +332,15 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
           },
         ],
       });
-      prisma.product.findUnique.mockResolvedValue({
-        id: 'p-1',
-        name: 'Burger',
-        basePrice: '150.00',
-        isInStock: true,
-        variants: [{ id: 'v-cheese', name: 'Double Patty', isInStock: false }],
-      });
+      prisma.product.findMany.mockResolvedValue([
+        {
+          id: 'p-1',
+          name: 'Burger',
+          basePrice: '150.00',
+          isInStock: true,
+          variants: [{ id: 'v-cheese', name: 'Double Patty', isInStock: false }],
+        },
+      ]);
 
       const result = await orderService.validateReorder('customer-a', { previousOrderId: 'order-1' });
       expect(result.hasStockChanges).toBe(true);
@@ -615,6 +626,44 @@ describe('OrderService - Security Scoping & Cancellation State Claims', () => {
       await orderService.sweepStaleOrders();
 
       expect(prisma.order.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('CheckoutDto validation guards (request-bound ceilings)', () => {
+    const buildDto = (items: Array<Partial<CheckoutItemDto>>): CheckoutDto =>
+      plainToInstance(CheckoutDto, {
+        vendorId: 'b1a2c3d4-5555-4abc-8888-1234567890ab',
+        items,
+      });
+
+    it('accepts a well-formed payload at the exact ceilings', async () => {
+      const dto = buildDto(
+        Array.from({ length: MAX_ITEMS_PER_CHECKOUT }, () => ({
+          productId: 'b1a2c3d4-5555-4abc-8888-1234567890ab',
+          quantity: MAX_QUANTITY_PER_ITEM,
+        })),
+      );
+      const errors = await validate(dto, { whitelist: true });
+      expect(errors).toHaveLength(0);
+    });
+
+    it('rejects quantity above the per-item ceiling', async () => {
+      const dto = buildDto([
+        { productId: 'b1a2c3d4-5555-4abc-8888-1234567890ab', quantity: MAX_QUANTITY_PER_ITEM + 1 },
+      ]);
+      const errors = await validate(dto, { whitelist: true });
+      expect(errors.map((e) => e.property)).toContain('items');
+    });
+
+    it('rejects an oversized item list', async () => {
+      const dto = buildDto(
+        Array.from({ length: MAX_ITEMS_PER_CHECKOUT + 1 }, () => ({
+          productId: 'b1a2c3d4-5555-4abc-8888-1234567890ab',
+          quantity: 1,
+        })),
+      );
+      const errors = await validate(dto, { whitelist: true });
+      expect(errors.map((e) => e.property)).toContain('items');
     });
   });
 });

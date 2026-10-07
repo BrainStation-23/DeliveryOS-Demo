@@ -3,7 +3,7 @@ import { OrderStatus } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import {
   AdminAnalyticsService,
-  bucketOrderTimeseries,
+  assembleOrderTimeseries,
   MAX_ANALYTICS_SPAN_DAYS,
   percentDelta,
   resolveAnalyticsWindow,
@@ -73,36 +73,50 @@ describe('percentDelta', () => {
   });
 });
 
-describe('bucketOrderTimeseries', () => {
+describe('assembleOrderTimeseries', () => {
   const from = new Date('2026-10-01T00:00:00.000Z');
   const to = new Date('2026-10-03T00:00:00.000Z');
   const window = { from, to, prevFrom: from, prevTo: to };
 
-  const facts = [
-    { placedAt: new Date('2026-10-01T10:00:00.000Z'), status: OrderStatus.DELIVERED, totalAmount: new Prisma.Decimal('100.50') },
-    { placedAt: new Date('2026-10-01T11:00:00.000Z'), status: OrderStatus.CANCELLED, totalAmount: new Prisma.Decimal('50') },
-    { placedAt: new Date('2026-10-02T23:30:00.000Z'), status: OrderStatus.PLACED, totalAmount: new Prisma.Decimal('200') },
-  ];
-
-  it('buckets by day and excludes cancelled orders from revenue', () => {
-    const points = bucketOrderTimeseries(facts, window, 'day');
+  it('merges SQL aggregates onto dense day buckets with 2-decimal revenue', () => {
+    const points = assembleOrderTimeseries(
+      [
+        { bucketStart: new Date('2026-10-01T00:00:00.000Z'), orders: 2, revenue: new Prisma.Decimal('100.506'), cancelled: 1 },
+        { bucketStart: new Date('2026-10-02T00:00:00.000Z'), orders: 1, revenue: 200, cancelled: 0 },
+      ],
+      window,
+      'day',
+    );
     expect(points).toHaveLength(2);
-    expect(points[0]).toMatchObject({ orders: 2, revenue: 100.5, cancelled: 1 });
+    expect(points[0]).toMatchObject({ orders: 2, revenue: 100.51, cancelled: 1 });
     expect(points[1]).toMatchObject({ orders: 1, revenue: 200, cancelled: 0 });
   });
 
-  it('produces one bucket per hour for hourly granularity', () => {
-    const points = bucketOrderTimeseries(facts, window, 'hour');
+  it('produces one bucket per hour for hourly granularity and zeroes empties', () => {
+    const points = assembleOrderTimeseries(
+      [{ bucketStart: new Date('2026-10-01T10:00:00.000Z'), orders: 1, revenue: 100.5, cancelled: 0 }],
+      window,
+      'hour',
+    );
     expect(points).toHaveLength(48);
     expect(points[10]).toMatchObject({ orders: 1, revenue: 100.5, cancelled: 0 });
-    expect(points.reduce((sum, p) => sum + p.orders, 0)).toBe(3);
+    expect(points.reduce((sum, p) => sum + p.orders, 0)).toBe(1);
+  });
+
+  it('aligns the first bucket to the calendar boundary when the window opens mid-bucket', () => {
+    const midDayWindow = { from: new Date('2026-10-01T12:30:00.000Z'), to, prevFrom: from, prevTo: to };
+    const points = assembleOrderTimeseries([], midDayWindow, 'day');
+    expect(points).toHaveLength(2);
+    expect(points[0].bucketStart).toBe('2026-10-01T00:00:00.000Z');
+    expect(points.every((p) => p.orders === 0)).toBe(true);
   });
 
   it('never emits buckets after the window end', () => {
-    const factsAfterWindow = [
-      { placedAt: new Date('2026-10-05T00:00:00.000Z'), status: OrderStatus.PLACED, totalAmount: new Prisma.Decimal('1') },
-    ];
-    const points = bucketOrderTimeseries(factsAfterWindow, window, 'day');
+    const points = assembleOrderTimeseries(
+      [{ bucketStart: new Date('2026-10-05T00:00:00.000Z'), orders: 1, revenue: 1, cancelled: 0 }],
+      window,
+      'day',
+    );
     expect(points).toHaveLength(2);
     expect(points.every((p) => p.orders === 0)).toBe(true);
   });
@@ -111,7 +125,8 @@ describe('bucketOrderTimeseries', () => {
 describe('AdminAnalyticsService', () => {
   let service: AdminAnalyticsService;
   let prisma: {
-    order: { groupBy: jest.Mock; findMany: jest.Mock; count: jest.Mock; aggregate: jest.Mock };
+    $queryRaw: jest.Mock;
+    order: { groupBy: jest.Mock; count: jest.Mock; aggregate: jest.Mock };
     riderTripLedger: { groupBy: jest.Mock };
     commissionLedger: { aggregate: jest.Mock };
     vendor: { count: jest.Mock; findMany: jest.Mock };
@@ -121,6 +136,20 @@ describe('AdminAnalyticsService', () => {
 
   beforeEach(() => {
     prisma = {
+      $queryRaw: jest.fn().mockImplementation((strings: readonly string[]) => {
+        const sql = strings.join('');
+        if (sql.includes('date_trunc')) {
+          return [
+            {
+              bucket: new Date('2026-09-01T00:00:00.000Z'),
+              orders: 1,
+              revenue: new Prisma.Decimal('100'),
+              cancelled: 0,
+            },
+          ];
+        }
+        return [{ avgMinutes: 60 }];
+      }),
       order: {
         groupBy: jest.fn().mockImplementation((args: { by: string[] }) => {
           if (args.by[0] === 'status') {
@@ -128,16 +157,6 @@ describe('AdminAnalyticsService', () => {
           }
           return [
             { vendorId: 'vendor-1', _count: { _all: 4 }, _sum: { totalAmount: new Prisma.Decimal('400') } },
-          ];
-        }),
-        findMany: jest.fn().mockImplementation((args: { select: Record<string, unknown> }) => {
-          if (args.select.deliveredAt) {
-            return [
-              { placedAt: new Date('2026-09-01T10:00:00.000Z'), deliveredAt: new Date('2026-09-01T11:00:00.000Z') },
-            ];
-          }
-          return [
-            { placedAt: new Date('2026-09-01T10:00:00.000Z'), status: OrderStatus.DELIVERED, totalAmount: new Prisma.Decimal('100') },
           ];
         }),
         count: jest.fn().mockResolvedValue(6),

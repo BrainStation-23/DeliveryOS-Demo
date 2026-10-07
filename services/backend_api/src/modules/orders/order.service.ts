@@ -397,20 +397,20 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
             },
           });
 
-          // Create Order Items
-          for (const item of itemsToCreate) {
-            await tx.orderItem.create({
-              data: {
-                orderId: newOrder.id,
-                productId: item.productId,
-                productNameSnapshot: item.productNameSnapshot,
-                unitPrice: item.unitPrice,
-                quantity: item.quantity,
-                totalPrice: item.totalPrice,
-                variantSnapshot: item.variantSnapshot ? (item.variantSnapshot as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
-              },
-            });
-          }
+          // Create Order Items (single round-trip; snapshots are frozen above)
+          await tx.orderItem.createMany({
+            data: itemsToCreate.map((item) => ({
+              orderId: newOrder.id,
+              productId: item.productId,
+              productNameSnapshot: item.productNameSnapshot,
+              unitPrice: item.unitPrice,
+              quantity: item.quantity,
+              totalPrice: item.totalPrice,
+              variantSnapshot: item.variantSnapshot
+                ? (item.variantSnapshot as unknown as Prisma.InputJsonValue)
+                : Prisma.JsonNull,
+            })),
+          });
 
           // Create Commission Ledger
           await tx.commissionLedger.create({
@@ -521,11 +521,21 @@ export class OrderService implements OnModuleInit, OnModuleDestroy {
     }> = [];
     const unavailableItems: Array<{ productId: string; name: string; reason: string }> = [];
 
+    // One batched catalog fetch for every line item (N+1 otherwise on large carts).
+    const itemProductIds = [...new Set(previousOrder.orderItems.map((item) => item.productId))];
+    const productsById = new Map(
+      itemProductIds.length
+        ? (
+            await this.prisma.product.findMany({
+              where: { id: { in: itemProductIds } },
+              include: { variants: true },
+            })
+          ).map((product) => [product.id, product])
+        : [],
+    );
+
     for (const item of previousOrder.orderItems) {
-      const product = await this.prisma.product.findUnique({
-        where: { id: item.productId },
-        include: { variants: true },
-      });
+      const product = productsById.get(item.productId);
 
       if (!product || !product.isInStock) {
         unavailableItems.push({

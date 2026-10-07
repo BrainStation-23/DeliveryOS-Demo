@@ -59,6 +59,19 @@ export function buildLedgerWhere(query: GetFinanceLedgerQueryDto): Prisma.Commis
   return where;
 }
 
+/** Shared relation payload for every ledger read (page + export stream). */
+const LEDGER_INCLUDE = {
+  order: {
+    select: {
+      orderNumber: true,
+      placedAt: true,
+      rider: { select: { user: { select: { fullName: true } } } },
+    },
+  },
+  vendor: { select: { name: true, brand: { select: { name: true } } } },
+  settlementBatch: { select: { batchNumber: true } },
+} as const;
+
 @Injectable()
 export class AdminFinanceService {
   constructor(private readonly prisma: PrismaService) {}
@@ -71,55 +84,19 @@ export class AdminFinanceService {
     const [ledgers, total] = await this.prisma.$transaction([
       this.prisma.commissionLedger.findMany({
         where,
-        orderBy: { order: { placedAt: 'desc' } },
+        // Secondary id sort makes page ordering deterministic for tied placedAt
+        orderBy: [{ order: { placedAt: 'desc' } }, { id: 'asc' }],
         skip: query.skip,
         take: query.limit,
-        include: {
-          order: {
-            select: {
-              orderNumber: true,
-              placedAt: true,
-              rider: { select: { user: { select: { fullName: true } } } },
-            },
-          },
-          vendor: { select: { name: true, brand: { select: { name: true } } } },
-          settlementBatch: { select: { batchNumber: true } },
-        },
+        include: LEDGER_INCLUDE,
       }),
       this.prisma.commissionLedger.count({ where }),
     ]);
 
-    const orderIds = ledgers.map((l) => l.orderId);
-    const tripLedgers = orderIds.length
-      ? await this.prisma.riderTripLedger.findMany({
-          where: { orderId: { in: orderIds } },
-          select: { orderId: true, deliveryEarnings: true, codCollected: true },
-        })
-      : [];
-    const tripByOrder = new Map(tripLedgers.map((t) => [t.orderId, t]));
-
-    const items: FinanceLedgerRow[] = ledgers.map((l) => {
-      const trip = tripByOrder.get(l.orderId);
-      return {
-        id: l.id,
-        orderId: l.orderId,
-        orderNumber: l.order.orderNumber,
-        placedAt: l.order.placedAt,
-        vendorId: l.vendorId,
-        vendorName: l.vendor?.name || 'Store',
-        brandName: l.vendor?.brand?.name || null,
-        riderName: l.order.rider?.user?.fullName || null,
-        grossAmount: Number(l.grossAmount),
-        commissionRate: Number(l.commissionRate),
-        commissionAmount: Number(l.commissionAmount),
-        netVendorPayable: Number(l.netVendorPayable),
-        riderEarnings: trip ? Number(trip.deliveryEarnings) : null,
-        codCollected: trip ? Number(trip.codCollected) : null,
-        settlementStatus: l.settlementStatus,
-        batchNumber: l.settlementBatch?.batchNumber || null,
-        settledAt: l.settledAt,
-      };
-    });
+    const tripByOrder = await this.tripLedgersByOrder(ledgers.map((l) => l.orderId));
+    const items: FinanceLedgerRow[] = ledgers.map((l) =>
+      this.mapLedgerRow(l, tripByOrder.get(l.orderId)),
+    );
 
     // Summary spans the entire filtered set, not just the current page.
     const [commissionAgg, riderAgg] = await Promise.all([
@@ -161,46 +138,124 @@ export class AdminFinanceService {
     };
   }
 
+  /** Keyset-paginated cursor stream of ledger rows for CSV export. Yields at
+   *  most `batchSize` rows per database round-trip so exports of any size
+   *  hold one batch in memory instead of the entire filtered set. */
+  async *streamFinanceLedgerRows(
+    query: GetFinanceLedgerQueryDto,
+    batchSize = 500,
+  ): AsyncGenerator<FinanceLedgerRow> {
+    const baseWhere = buildLedgerWhere(query);
+    let keyset: { placedAt: Date; id: string } | null = null;
+
+    for (;;) {
+      const where: Prisma.CommissionLedgerWhereInput = keyset
+        ? {
+            AND: [
+              baseWhere,
+              {
+                OR: [
+                  { order: { placedAt: { lt: keyset.placedAt } } },
+                  { AND: [{ order: { placedAt: keyset.placedAt } }, { id: { gt: keyset.id } }] },
+                ],
+              },
+            ],
+          }
+        : baseWhere;
+
+      const ledgers = await this.prisma.commissionLedger.findMany({
+        where,
+        orderBy: [{ order: { placedAt: 'desc' } }, { id: 'asc' }],
+        take: batchSize,
+        include: LEDGER_INCLUDE,
+      });
+      if (ledgers.length === 0) return;
+
+      const tripByOrder = await this.tripLedgersByOrder(ledgers.map((l) => l.orderId));
+      for (const ledger of ledgers) {
+        yield this.mapLedgerRow(ledger, tripByOrder.get(ledger.orderId));
+      }
+      if (ledgers.length < batchSize) return;
+
+      const last = ledgers[ledgers.length - 1];
+      keyset = { placedAt: last.order.placedAt, id: last.id };
+    }
+  }
+
+  private async tripLedgersByOrder(orderIds: string[]) {
+    if (orderIds.length === 0) return new Map<string, never>();
+    const tripLedgers = await this.prisma.riderTripLedger.findMany({
+      where: { orderId: { in: orderIds } },
+      select: { orderId: true, deliveryEarnings: true, codCollected: true },
+    });
+    return new Map(tripLedgers.map((t) => [t.orderId, t]));
+  }
+
+  private mapLedgerRow(
+    l: Prisma.CommissionLedgerGetPayload<{ include: typeof LEDGER_INCLUDE }>,
+    trip: { orderId: string; deliveryEarnings: Prisma.Decimal; codCollected: Prisma.Decimal } | undefined,
+  ): FinanceLedgerRow {
+    return {
+      id: l.id,
+      orderId: l.orderId,
+      orderNumber: l.order.orderNumber,
+      placedAt: l.order.placedAt,
+      vendorId: l.vendorId,
+      vendorName: l.vendor?.name || 'Store',
+      brandName: l.vendor?.brand?.name || null,
+      riderName: l.order.rider?.user?.fullName || null,
+      grossAmount: Number(l.grossAmount),
+      commissionRate: Number(l.commissionRate),
+      commissionAmount: Number(l.commissionAmount),
+      netVendorPayable: Number(l.netVendorPayable),
+      riderEarnings: trip ? Number(trip.deliveryEarnings) : null,
+      codCollected: trip ? Number(trip.codCollected) : null,
+      settlementStatus: l.settlementStatus,
+      batchNumber: l.settlementBatch?.batchNumber || null,
+      settledAt: l.settledAt,
+    };
+  }
+
   /** RFC 4180 CSV for the unified per-order ledger (mirrors settlement export). */
   generateLedgerCsv(rows: FinanceLedgerRow[]): string {
-    const header = [
-      'Order Number',
-      'Placed At',
-      'Outlet',
-      'Brand',
-      'Rider',
-      'Gross (BDT)',
-      'Commission Rate (%)',
-      'Commission (BDT)',
-      'Net Vendor Payable (BDT)',
-      'Rider Earnings (BDT)',
-      'COD Collected (BDT)',
-      'Settlement Status',
-      'Batch',
-      'Settled At',
-    ].join(',');
-
-    const escape = (value: string): string => `"${value.replace(/"/g, '""')}"`;
-
-    const lines = rows.map((r) =>
-      [
-        escape(r.orderNumber),
-        escape(r.placedAt.toISOString()),
-        escape(r.vendorName),
-        escape(r.brandName || 'Independent'),
-        escape(r.riderName || '—'),
-        r.grossAmount.toFixed(2),
-        r.commissionRate.toFixed(2),
-        r.commissionAmount.toFixed(2),
-        r.netVendorPayable.toFixed(2),
-        r.riderEarnings !== null ? r.riderEarnings.toFixed(2) : '—',
-        r.codCollected !== null ? r.codCollected.toFixed(2) : '—',
-        escape(r.settlementStatus),
-        escape(r.batchNumber || '—'),
-        escape(r.settledAt ? r.settledAt.toISOString() : '—'),
-      ].join(','),
-    );
-
-    return [header, ...lines].join('\n');
+    return [LEDGER_CSV_HEADER, ...rows.map(ledgerRowToCsvLine)].join('\n');
   }
+}
+
+export const LEDGER_CSV_HEADER = [
+  'Order Number',
+  'Placed At',
+  'Outlet',
+  'Brand',
+  'Rider',
+  'Gross (BDT)',
+  'Commission Rate (%)',
+  'Commission (BDT)',
+  'Net Vendor Payable (BDT)',
+  'Rider Earnings (BDT)',
+  'COD Collected (BDT)',
+  'Settlement Status',
+  'Batch',
+  'Settled At',
+].join(',');
+
+export function ledgerRowToCsvLine(r: FinanceLedgerRow): string {
+  const escape = (value: string): string => `"${value.replace(/"/g, '""')}"`;
+
+  return [
+    escape(r.orderNumber),
+    escape(r.placedAt.toISOString()),
+    escape(r.vendorName),
+    escape(r.brandName || 'Independent'),
+    escape(r.riderName || '—'),
+    r.grossAmount.toFixed(2),
+    r.commissionRate.toFixed(2),
+    r.commissionAmount.toFixed(2),
+    r.netVendorPayable.toFixed(2),
+    r.riderEarnings !== null ? r.riderEarnings.toFixed(2) : '—',
+    r.codCollected !== null ? r.codCollected.toFixed(2) : '—',
+    escape(r.settlementStatus),
+    escape(r.batchNumber || '—'),
+    escape(r.settledAt ? r.settledAt.toISOString() : '—'),
+  ].join(',');
 }

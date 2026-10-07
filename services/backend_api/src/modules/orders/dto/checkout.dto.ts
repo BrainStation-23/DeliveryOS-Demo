@@ -1,4 +1,5 @@
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsEnum,
@@ -7,6 +8,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -19,16 +21,23 @@ export enum DeliveryMethod {
   TAKEAWAY = 'TAKEAWAY',
 }
 
+/** Defensive request-bound ceilings so a single checkout payload can never
+ *  push float/subtotal math or the checkout transaction into absurd work
+ *  before the Decimal columns would reject the result. */
+export const MAX_ITEMS_PER_CHECKOUT = 50;
+export const MAX_QUANTITY_PER_ITEM = 99;
+
 export class CheckoutItemDto {
   @ApiProperty({ example: 'b1a2c3d4-5555-4abc-8888-1234567890ab', description: 'Product UUID' })
   @IsUUID()
   @IsNotEmpty()
   productId!: string;
 
-  @ApiProperty({ example: 2, description: 'Quantity of this item (min 1)' })
+  @ApiProperty({ example: 2, minimum: 1, maximum: MAX_QUANTITY_PER_ITEM, description: 'Quantity of this item (min 1)' })
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_QUANTITY_PER_ITEM)
   quantity!: number;
 
   @ApiPropertyOptional({ example: 'v1a2c3d4-6666-4abc-8888-1234567890ab', description: 'Selected ProductVariant UUID' })
@@ -68,9 +77,10 @@ export class CheckoutDto {
   @IsString()
   customerNotes?: string;
 
-  @ApiProperty({ type: [CheckoutItemDto], description: 'List of order items from this outlet' })
+  @ApiProperty({ type: [CheckoutItemDto], maxItems: MAX_ITEMS_PER_CHECKOUT, description: 'List of order items from this outlet' })
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(MAX_ITEMS_PER_CHECKOUT)
   @ValidateNested({ each: true })
   @Type(() => CheckoutItemDto)
   items!: CheckoutItemDto[];

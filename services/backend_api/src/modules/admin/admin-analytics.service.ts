@@ -24,10 +24,13 @@ export interface TimeseriesPoint {
   cancelled: number;
 }
 
-interface OrderFact {
-  placedAt: Date;
-  status: OrderStatus;
-  totalAmount: Prisma.Decimal;
+/** One SQL date_trunc bucket of order facts (ADR-018's documented escape
+ *  hatch — the window is never loaded row-by-row into JS memory). */
+export interface OrderTimeseriesAggregate {
+  bucketStart: Date;
+  orders: number;
+  revenue: Prisma.Decimal | number;
+  cancelled: number;
 }
 
 /** Resolves the requested analytics window and the equal-length preceding
@@ -60,36 +63,26 @@ export function percentDelta(current: number, previous: number): number | null {
   return Math.round(((current - previous) / previous) * 1000) / 10;
 }
 
-/** Buckets raw order facts into equal time buckets for charting. Pure — the
- *  caller pre-fetches only placedAt/status/totalAmount for the window. */
-export function bucketOrderTimeseries(
-  orders: OrderFact[],
+/** Dense-fills calendar buckets (UTC epoch-aligned, i.e. exactly Postgres
+ *  date_trunc(... AT TIME ZONE 'UTC') over the window and merges the SQL
+ *  pre-aggregated rows onto them. Pure — chart shape is computed in JS only. */
+export function assembleOrderTimeseries(
+  aggregates: OrderTimeseriesAggregate[],
   window: AnalyticsWindow,
   granularity: 'day' | 'hour',
 ): TimeseriesPoint[] {
   const bucketMs = granularity === 'hour' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-  const points: TimeseriesPoint[] = [];
+  const byKey = new Map(aggregates.map((a) => [a.bucketStart.getTime(), a]));
 
-  for (
-    let bucketStart = window.from.getTime();
-    bucketStart < window.to.getTime();
-    bucketStart += bucketMs
-  ) {
-    const bucketEnd = bucketStart + bucketMs;
-    const inBucket = orders.filter((o) => {
-      const t = o.placedAt.getTime();
-      return t >= bucketStart && t < bucketEnd && t < window.to.getTime();
-    });
+  const points: TimeseriesPoint[] = [];
+  const firstBucket = Math.floor(window.from.getTime() / bucketMs) * bucketMs;
+  for (let bucketStart = firstBucket; bucketStart < window.to.getTime(); bucketStart += bucketMs) {
+    const agg = byKey.get(bucketStart);
     points.push({
       bucketStart: new Date(bucketStart).toISOString(),
-      orders: inBucket.length,
-      revenue:
-        Math.round(
-          inBucket
-            .filter((o) => o.status !== OrderStatus.CANCELLED)
-            .reduce((sum, o) => sum + Number(o.totalAmount), 0) * 100,
-        ) / 100,
-      cancelled: inBucket.filter((o) => o.status === OrderStatus.CANCELLED).length,
+      orders: agg?.orders ?? 0,
+      revenue: Math.round(Number(agg?.revenue ?? 0) * 100) / 100,
+      cancelled: agg?.cancelled ?? 0,
     });
   }
 
@@ -127,17 +120,25 @@ export class AdminAnalyticsService {
     const current = await this.collectWindowMetrics(window.from, window.to);
     const previous = await this.collectWindowMetrics(window.prevFrom, window.prevTo);
 
-    const [statusCountsRaw, orderFacts, topOutletsRaw, topRidersRaw, activeOutlets, onlineRiders] =
+    const [statusCountsRaw, timeseriesRows, topOutletsRaw, topRidersRaw, activeOutlets, onlineRiders] =
       await Promise.all([
         this.prisma.order.groupBy({
           by: ['status'],
           where: { placedAt: { gte: window.from, lte: window.to } },
           _count: { _all: true },
         }),
-        this.prisma.order.findMany({
-          where: { placedAt: { gte: window.from, lte: window.to } },
-          select: { placedAt: true, status: true, totalAmount: true },
-        }),
+        this.prisma.$queryRaw<
+          Array<{ bucket: Date; orders: number; revenue: Prisma.Decimal; cancelled: number }>
+        >`
+          SELECT
+            date_trunc(${granularity}::text, o.placed_at AT TIME ZONE 'UTC') AS bucket,
+            COUNT(*)::int AS orders,
+            COALESCE(SUM(CASE WHEN o.status <> 'CANCELLED' THEN o.total_amount ELSE 0 END), 0) AS revenue,
+            COUNT(*) FILTER (WHERE o.status = 'CANCELLED')::int AS cancelled
+          FROM orders o
+          WHERE o.placed_at >= ${window.from} AND o.placed_at <= ${window.to}
+          GROUP BY 1
+        `,
         this.prisma.order.groupBy({
           by: ['vendorId'],
           where: {
@@ -209,7 +210,16 @@ export class AdminAnalyticsService {
       },
       snapshots: { activeOutlets, onlineRiders },
       statusCounts,
-      timeseries: bucketOrderTimeseries(orderFacts, window, granularity),
+      timeseries: assembleOrderTimeseries(
+        timeseriesRows.map((row) => ({
+          bucketStart: row.bucket,
+          orders: row.orders,
+          revenue: row.revenue,
+          cancelled: row.cancelled,
+        })),
+        window,
+        granularity,
+      ),
       topOutlets: topOutletsRaw.map((o) => ({
         vendorId: o.vendorId,
         vendorName: outletNameById.get(o.vendorId)?.name || 'Store',
@@ -295,7 +305,7 @@ export class AdminAnalyticsService {
     const placedAt: Prisma.DateTimeFilter = { gte: from, lte: to };
     const notCancelled = { placedAt, status: { not: OrderStatus.CANCELLED } };
 
-    const [totalOrders, deliveredRaw, cancelled, volumeRaw, ledgers, deliveredPairs, newCustomers] =
+    const [totalOrders, deliveredRaw, cancelled, volumeRaw, ledgers, avgDeliveryRaw, newCustomers] =
       await Promise.all([
         this.prisma.order.count({ where: { placedAt } }),
         this.prisma.order.aggregate({
@@ -308,10 +318,16 @@ export class AdminAnalyticsService {
           where: { createdAt: { gte: from, lte: to } },
           _sum: { commissionAmount: true },
         }),
-        this.prisma.order.findMany({
-          where: { placedAt, status: OrderStatus.DELIVERED },
-          select: { placedAt: true, deliveredAt: true },
-        }),
+        // Window-average of placed→delivered latency, aggregated in SQL — the
+        // delivered pairs themselves are never fetched into JS memory.
+        this.prisma.$queryRaw<Array<{ avgMinutes: number | null }>>`
+          SELECT AVG(EXTRACT(EPOCH FROM (o.delivered_at - o.placed_at)) / 60) AS "avgMinutes"
+          FROM orders o
+          WHERE o.placed_at >= ${from}
+            AND o.placed_at <= ${to}
+            AND o.status = 'DELIVERED'
+            AND o.delivered_at IS NOT NULL
+        `,
         this.prisma.user.count({
           where: { role: 'CUSTOMER', createdAt: { gte: from, lte: to } },
         }),
@@ -320,9 +336,7 @@ export class AdminAnalyticsService {
     const deliveredOrders = deliveredRaw._count._all;
     const nonCancelledOrders = totalOrders - cancelled;
     const grossVolume = Math.round(Number(volumeRaw._sum.totalAmount ?? 0) * 100) / 100;
-    const deliveryMinutes = deliveredPairs
-      .filter((o) => o.deliveredAt)
-      .map((o) => (o.deliveredAt as Date).getTime() - o.placedAt.getTime());
+    const avgMinutes = avgDeliveryRaw[0]?.avgMinutes;
 
     return {
       totalOrders,
@@ -333,10 +347,8 @@ export class AdminAnalyticsService {
       deliveryFees: Math.round(Number(volumeRaw._sum.deliveryFee ?? 0) * 100) / 100,
       avgOrderValue: nonCancelledOrders > 0 ? Math.round((grossVolume / nonCancelledOrders) * 100) / 100 : 0,
       avgDeliveryMinutes:
-        deliveryMinutes.length > 0
-          ? Math.round(
-              (deliveryMinutes.reduce((sum, ms) => sum + ms, 0) / deliveryMinutes.length / 60000) * 10,
-            ) / 10
+        avgMinutes !== null && avgMinutes !== undefined
+          ? Math.round(avgMinutes * 10) / 10
           : null,
       newCustomers,
     };
