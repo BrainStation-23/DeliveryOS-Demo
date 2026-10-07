@@ -18,7 +18,20 @@ import { OrderFlowService } from '../order-flow/order-flow.service';
 import { assertTransition } from '../orders/order-state.machine';
 import { DeliveryFeeService } from '../promotions/pricing/delivery-fee.service';
 import { haversineKm } from '../../common/utils/haversine';
+import { startOfRegionToday } from '../../common/utils/region-time';
 import type { OrderAddressSnapshot } from '../orders/order.service';
+
+/** Server-truth earnings for one rolling window, keyed off delivered orders. */
+export interface RiderEarningsWindowStats {
+  earnings: number;
+  trips: number;
+  codCollected: number;
+}
+
+export interface RiderEarningsSummary {
+  today: RiderEarningsWindowStats;
+  week: RiderEarningsWindowStats & { from: string; to: string };
+}
 
 @Injectable()
 export class RiderService {
@@ -570,6 +583,46 @@ export class RiderService {
         deliveredAt: order.deliveredAt,
       };
     });
+  }
+
+  /**
+   * 8. Earnings Summary — today vs trailing 7 region-local days.
+   * Aggregated from rider_trip_ledgers over delivered orders so the rider app
+   * never has to derive (or fabricate) weekly figures from today's snapshot.
+   */
+  async getEarningsSummary(userId: string): Promise<RiderEarningsSummary> {
+    const rider = await this.getRiderProfile(userId);
+
+    const now = new Date();
+    const todayStart = startOfRegionToday();
+    const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
+
+    const [todayAgg, weekAgg] = await Promise.all([
+      this.prisma.riderTripLedger.aggregate({
+        where: { riderId: rider.id, order: { deliveredAt: { gte: todayStart, lte: now } } },
+        _count: { _all: true },
+        _sum: { deliveryEarnings: true, codCollected: true },
+      }),
+      this.prisma.riderTripLedger.aggregate({
+        where: { riderId: rider.id, order: { deliveredAt: { gte: weekStart, lte: now } } },
+        _count: { _all: true },
+        _sum: { deliveryEarnings: true, codCollected: true },
+      }),
+    ]);
+
+    const round = (value: number): number => Math.round(value * 100) / 100;
+    const toStats = (
+      agg: typeof todayAgg,
+    ): RiderEarningsWindowStats => ({
+      earnings: round(Number(agg._sum.deliveryEarnings ?? 0)),
+      trips: agg._count._all,
+      codCollected: round(Number(agg._sum.codCollected ?? 0)),
+    });
+
+    return {
+      today: toStats(todayAgg),
+      week: { ...toStats(weekAgg), from: weekStart.toISOString(), to: now.toISOString() },
+    };
   }
 
   private async calculateRiderEarnings(deliveryFee: Prisma.Decimal | number): Promise<number> {

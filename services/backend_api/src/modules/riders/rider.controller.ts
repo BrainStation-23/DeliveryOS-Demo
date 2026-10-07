@@ -149,6 +149,17 @@ export class RiderController {
     };
   }
 
+  @Get('earnings/summary')
+  @ApiOperation({ summary: 'Server-truth earnings for today and the trailing 7 region-local days' })
+  @ApiResponse({ status: 200, description: 'Rider earnings summary (today + week windows)' })
+  async getEarningsSummary(@CurrentUser() user: User) {
+    const summary = await this.riderService.getEarningsSummary(user.id);
+    return {
+      message: 'Rider earnings summary retrieved',
+      data: summary,
+    };
+  }
+
   @Post('orders/:id/report-issue')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Report delivery issue or unreachable customer at doorstep' })

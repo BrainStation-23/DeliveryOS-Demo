@@ -1,4 +1,5 @@
-import { OrderStatus, PaymentMethod, PaymentStatus, SettlementStatus } from '@prisma/client';
+import { OrderStatus, PaymentMethod, PaymentStatus, Prisma, SettlementStatus } from '@prisma/client';
+import { startOfRegionToday } from '../../common/utils/region-time';
 import { RiderService } from './rider.service';
 
 type MockPrisma = {
@@ -498,6 +499,68 @@ describe('RiderService - Phase 2 Operations & Dispatch Integrity', () => {
           amountCollected: 500.0,
         }),
       ).rejects.toThrow('Order is not awaiting delivery confirmation');
+    });
+  });
+
+  describe('getEarningsSummary (server-truth today/week earnings)', () => {
+    it('aggregates today and trailing-7-day windows from trip ledgers over delivered orders', async () => {
+      prisma.rider.findUnique.mockResolvedValue({
+        id: 'rider-1',
+        userId: 'user-rider-1',
+        user: { fullName: 'Rahim Courier', status: 'ACTIVE' },
+      });
+
+      const todayStart = startOfRegionToday();
+      const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
+
+      prisma.riderTripLedger.aggregate.mockImplementation(
+        async (args: { where: { riderId: string; order?: { deliveredAt: { gte: Date } } } }) => {
+          if (!args.where.order) {
+            // lifetime aggregate from getRiderProfile
+            return { _sum: { deliveryEarnings: new Prisma.Decimal('1000') } };
+          }
+          // The week window opens strictly before today's window.
+          if (args.where.order.deliveredAt.gte.getTime() < todayStart.getTime()) {
+            return {
+              _count: { _all: 21 },
+              _sum: { deliveryEarnings: new Prisma.Decimal('845.55'), codCollected: new Prisma.Decimal('3200') },
+            };
+          }
+          return {
+            _count: { _all: 3 },
+            _sum: { deliveryEarnings: new Prisma.Decimal('120.25'), codCollected: new Prisma.Decimal('500') },
+          };
+        },
+      );
+
+      const summary = await service.getEarningsSummary('user-rider-1');
+
+      expect(summary.today).toEqual({ earnings: 120.25, trips: 3, codCollected: 500 });
+      expect(summary.week.earnings).toBe(845.55);
+      expect(summary.week.trips).toBe(21);
+      expect(summary.week.codCollected).toBe(3200);
+      // startOfRegionToday() carries sub-second offset drift between two calls,
+      // so compare the service's window origin within a one-second tolerance.
+      expect(Math.abs(new Date(summary.week.from).getTime() - weekStart.getTime())).toBeLessThan(1000);
+      expect(new Date(summary.week.to).getTime()).toBeLessThanOrEqual(Date.now());
+      expect(prisma.riderTripLedger.aggregate).toHaveBeenCalledTimes(3);
+    });
+
+    it('returns zeros when the rider has no delivered trips in either window', async () => {
+      prisma.rider.findUnique.mockResolvedValue({
+        id: 'rider-1',
+        userId: 'user-rider-1',
+        user: { fullName: 'Rahim Courier', status: 'ACTIVE' },
+      });
+      prisma.riderTripLedger.aggregate.mockResolvedValue({
+        _count: { _all: 0 },
+        _sum: { deliveryEarnings: null, codCollected: null },
+      });
+
+      const summary = await service.getEarningsSummary('user-rider-1');
+
+      expect(summary.today).toEqual({ earnings: 0, trips: 0, codCollected: 0 });
+      expect(summary.week).toMatchObject({ earnings: 0, trips: 0, codCollected: 0 });
     });
   });
 });
