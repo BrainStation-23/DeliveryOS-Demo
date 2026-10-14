@@ -125,21 +125,26 @@ h1 .w{display:inline-block;opacity:0;transform:translateY(26px);animation:rise .
 .stat:hover{border-color:var(--hairline-2);transform:translateY(-2px)}
 .stat b{font-size:24px;font-weight:800;letter-spacing:-.02em;display:block}
 .stat span{font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
-/* collage — flat cards, hairline frames, single soft shadow */
-.collage-wrap{perspective:1100px;display:flex;justify-content:center}
-.collage{position:relative;width:min(560px,100%);height:520px;transform-style:preserve-3d;transition:transform .5s ease-out}
-.ccard{position:absolute;cursor:zoom-in;border:1px solid var(--hairline-2);background:var(--surface);border-radius:var(--r-lg);padding:8px;box-shadow:var(--overlay);transition:transform .45s var(--ease),border-color .3s}
-.ccard:hover{transform:translateY(-6px) scale(1.02)!important;z-index:9;border-color:var(--muted)}
+/* collage — flat cards, hairline frames, single soft shadow.
+   Two layers per card: .cfloat owns the gentle float (transform-only, so it
+   stays on the compositor and pauses on hover — a card never drifts under
+   the cursor), .ccard owns the hover lift. */
+.collage-wrap{display:flex;justify-content:center}
+.collage{position:relative;width:min(560px,100%);height:520px}
+.cfloat{position:absolute;animation:floatY 7s ease-in-out infinite;will-change:transform}
+.c-admin{width:66%;left:17%;top:128px;z-index:2}
+.c-cust{width:31%;left:0;top:56px;z-index:3;animation-duration:6s;animation-delay:-1.5s}
+.c-rider{width:31%;right:0;top:100px;z-index:3;animation-duration:8s;animation-delay:-3s}
+.cfloat:hover{animation-play-state:paused;z-index:9}
+@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-11px)}}
+.ccard{position:relative;cursor:zoom-in;border:1px solid var(--hairline-2);background:var(--surface);border-radius:var(--r-lg);padding:8px;box-shadow:var(--overlay);transition:transform .4s var(--ease),border-color .3s}
+.cfloat:hover .ccard{transform:translateY(-6px);border-color:var(--muted)}
 .ccard img{border-radius:10px;width:100%}
-.c-admin{width:66%;left:17%;top:128px;z-index:2;animation:float 7s ease-in-out infinite}
-.c-cust{width:31%;left:0;top:56px;z-index:3;animation:float 6s ease-in-out -1.5s infinite}
-.c-rider{width:31%;right:0;top:100px;z-index:3;animation:float 8s ease-in-out -3s infinite}
-@keyframes float{0%,100%{margin-top:0}50%{margin-top:-11px}}
 .tag{position:absolute;top:-13px;left:14px;z-index:4;font-size:10.5px;font-weight:700;letter-spacing:.05em;background:var(--surface);border:1px solid var(--hairline-2);color:var(--muted);padding:4px 11px;border-radius:999px;display:flex;gap:6px;align-items:center;box-shadow:var(--overlay)}
 .tag .live{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.75)}}
-.fchip{position:absolute;z-index:5;font-size:11.5px;font-weight:600;background:var(--surface);border:1px solid var(--hairline-2);padding:7px 12px;border-radius:10px;display:flex;gap:7px;align-items:center;animation:float 6.5s ease-in-out infinite;box-shadow:var(--overlay);color:var(--body)}
-.f1{top:22px;left:4%;animation-delay:-2s}
+.fchip{position:absolute;z-index:5;pointer-events:none;font-size:11.5px;font-weight:600;background:var(--surface);border:1px solid var(--hairline-2);padding:7px 12px;border-radius:10px;display:flex;gap:7px;align-items:center;animation:floatY 6.5s ease-in-out infinite;will-change:transform;box-shadow:var(--overlay);color:var(--body)}
+.f1{top:24px;left:0;right:0;margin-inline:auto;width:fit-content;animation-delay:-2s}
 .f2{bottom:52px;left:0;color:var(--teal)}
 .f3{bottom:26px;right:2%;color:var(--amber);animation-delay:-4s}
 .scroll-hint{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:7px;color:var(--faint);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase}
@@ -427,18 +432,18 @@ footer{border-top:1px solid var(--hairline);padding:30px 0 40px;background:var(-
     </div>
     <div class="collage-wrap" data-reveal style="--d:.15s">
       <div class="collage" id="collage">
-        <div class="ccard c-admin" data-lb="1">
+        <div class="cfloat c-admin"><div class="ccard" data-lb="1">
           <span class="tag"><span class="live"></span> CONTROL TOWER · LIVE</span>
           <img src="screenshots/Admin/1-Dashboard.png" alt="Admin analytics dashboard" loading="eager">
-        </div>
-        <div class="ccard c-cust" data-lb="20">
+        </div></div>
+        <div class="cfloat c-cust"><div class="ccard" data-lb="20">
           <span class="tag">📱 CUSTOMER</span>
           <img src="screenshots/Customer/2-Customer-Home.png" alt="Customer app home feed" loading="eager">
-        </div>
-        <div class="ccard c-rider" data-lb="38">
+        </div></div>
+        <div class="cfloat c-rider"><div class="ccard" data-lb="38">
           <span class="tag" style="color:var(--teal)">🛵 COURIER</span>
           <img src="screenshots/Rider/3-Rider-Home.png" alt="Courier duty dashboard" loading="eager">
-        </div>
+        </div></div>
         <span class="fchip f1">🔔 <i>New order · inbound</i></span>
         <span class="fchip f2">📡 <i>Courier GPS · live</i></span>
         <span class="fchip f3">✅ <i>COD collected</i></span>
@@ -1004,19 +1009,6 @@ steps.forEach((s, i) => s.addEventListener('click', () => stages[i] && stages[i]
 /* ============ MARQUEE — duplicate for a seamless loop ============ */
 const mq = $('#mqTrack');
 mq.innerHTML += mq.innerHTML;
-
-/* ============ HERO TILT (pointer devices only) ============ */
-const collage = $('#collage');
-if (!reduced && matchMedia('(pointer: fine)').matches) {
-  const wrap = collage.parentElement;
-  wrap.addEventListener('pointermove', e => {
-    const r = wrap.getBoundingClientRect();
-    const x = (e.clientX - r.left) / r.width - 0.5;
-    const y = (e.clientY - r.top) / r.height - 0.5;
-    collage.style.transform = `rotateY(${x * 5}deg) rotateX(${ -y * 5}deg)`;
-  });
-  wrap.addEventListener('pointerleave', () => { collage.style.transform = ''; });
-}
 </script>
 </body>
 </html>
