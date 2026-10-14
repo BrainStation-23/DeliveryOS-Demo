@@ -15,7 +15,7 @@
   <img alt="Docker" src="https://img.shields.io/badge/deploy-Docker%20%2B%20Nginx-2496ED?logo=docker&logoColor=white">
 </p>
 
-> 🎬 **Interactive tour — start here:** open **[`index.html`](index.html)** in a browser (double-click it, or serve this folder) — a scroll-animated, click-to-zoom walkthrough with **all 45 screens**. Self-contained: no server or internet needed.
+> 🎬 **Interactive tour — start here:** **[brainstation-23.github.io/DeliveryOS-Demo](https://brainstation-23.github.io/DeliveryOS-Demo/)** — scroll-animated, click-to-zoom, 45+ screens. The page is self-contained; `index.html` in this repo also runs offline from a double-click.
 > 🧭 Prefer reading? Five minutes, below.
 > 🔧 Engineering? → **[TECHNICAL.md](TECHNICAL.md)**
 
@@ -33,8 +33,8 @@ One system for the whole delivery loop: discovery, checkout, kitchen prep, couri
 | **Built for** | delivery startups · restaurant chains & cloud kitchens · supermarkets & pharmacies · fleet operators |
 | **Delivers** | anything hyperlocal — business categories are data, not code |
 | **Runs on** | iOS + Android (Flutter) · two web portals · one API engine · all containerized |
-| **Speaks** | English · Bengali · Arabic (full RTL) |
-| **Handles money** | `BDT ৳` & `SAR ر.س` · exact 2-decimal math · double-entry ledgers |
+| **Speaks** | English · Bengali · Arabic built-in (full RTL) · any language via one translation file |
+| **Handles money** | `BDT ৳` & `SAR ر.س` built-in · any currency via config · exact 2-decimal math · double-entry ledgers |
 | **Rebrands** | yes — [White-Label Ready](#-white-label-ready) |
 
 ---
@@ -64,7 +64,7 @@ One event updates every screen that cares — instantly, no refresh.
 
 ## 📦 The Order Journey: From Craving to Doorstep
 
-Follow one order: Ayesha, in Gulshan, Dhaka, orders dinner from Burger Point on a Friday night.
+Follow one order across all four apps — a burger, a grocery basket or a pharmacy refill; the flow is identical for every vertical.
 
 ```mermaid
 flowchart TD
@@ -340,7 +340,7 @@ Every transition is guarded, timestamped and broadcast to all four apps.
 - Money is never approximate — 2-decimal database types, double-entry ledgers.
 - COD cash cannot pile up — limits, hub deposits, settlement offset.
 - Exactly one claimer per order — a 10-second distributed lock.
-- Store hours follow the local wall clock (Dhaka / Riyadh), never server time.
+- Store hours follow the outlet's local wall clock, never server time — correct in any timezone.
 - Online orders release only after a signed bank webhook confirms payment.
 
 ---
@@ -521,5 +521,5 @@ Alongside the code lives a spec suite that stays in lockstep with it:
 
 <p align="center">
   <sub><b>DeliveryOS</b> — delivery as an operating system.<br/>
-  🎬 <a href="index.html"><b>Interactive tour</b></a> (index.html) · 45 screens in <code>/screenshots</code> · engineering deep dive in <a href="TECHNICAL.md"><b>TECHNICAL.md</b></a></sub>
+  🎬 <a href="https://brainstation-23.github.io/DeliveryOS-Demo/"><b>Interactive tour</b></a> · 45+ screens · gallery in <code>/screenshots</code> · engineering deep dive in <a href="TECHNICAL.md"><b>TECHNICAL.md</b></a></sub>
 </p>

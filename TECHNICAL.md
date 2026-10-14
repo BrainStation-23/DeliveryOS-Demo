@@ -1,6 +1,6 @@
 # DeliveryOS — Technical Deep Dive
 
-Engineering companion to the [product tour](README.md) and the [interactive walkthrough](index.html). It covers the architecture, the algorithms behind the core flows, and the controls this project deliberately cares about.
+Engineering companion to the [product tour](README.md) and the [interactive walkthrough](https://brainstation-23.github.io/DeliveryOS-Demo/). It covers the architecture, the algorithms behind the core flows, and the controls this project deliberately cares about.
 
 The authoritative specs (BRD/TID/ADR suites) live in the engineering monorepo under `context_docs/`. This document condenses them; where the two disagree, the specs and the code win.
 
@@ -713,4 +713,4 @@ The engineering monorepo keeps code and specs in lockstep through a three-phase 
 
 ---
 
-[Product tour → README.md](README.md) · [Interactive walkthrough → index.html](index.html)
+[Product tour → README.md](README.md) · [Interactive tour](https://brainstation-23.github.io/DeliveryOS-Demo/)
