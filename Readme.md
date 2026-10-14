@@ -55,10 +55,10 @@ One event updates every screen that cares — instantly, no refresh.
 
 | Screen | Who · What |
 | :---: | :--- |
-| <img src="screenshots/Admin/1-Dashboard.png" width="440" alt="Admin Console dashboard"><br/><sub><b>🖥️ Super Admin Console</b></sub> | Operators & dispatchers — radar, analytics, orders, fleet, promotions, finance, manual overrides |
-| <img src="screenshots/Merchant/1-Merchant-Dashboard.png" width="440" alt="Outlet KDS board"><br/><sub><b>🍳 Outlet Portal</b></sub> | Store staff & brand owners — order board, prep timers, stock toggles, sales ledgers |
-| <img src="screenshots/Customer/2-Customer-Home.png" width="240" alt="Customer app home feed"><br/><sub><b>📱 Customer App</b></sub> | Shoppers — discover, cart, pay, track live |
-| <img src="screenshots/Rider/3-Rider-Home.png" width="240" alt="Rider app dashboard"><br/><sub><b>🛵 Rider App</b></sub> | Couriers — duty, trip alerts, guided delivery, COD cash |
+| <img src="screenshots-opt/thumbs/Admin/1-Dashboard.webp" width="440" alt="Admin Console dashboard"><br/><sub><b>🖥️ Super Admin Console</b></sub> | Operators & dispatchers — radar, analytics, orders, fleet, promotions, finance, manual overrides |
+| <img src="screenshots-opt/thumbs/Merchant/1-Merchant-Dashboard.webp" width="440" alt="Outlet KDS board"><br/><sub><b>🍳 Outlet Portal</b></sub> | Store staff & brand owners — order board, prep timers, stock toggles, sales ledgers |
+| <img src="screenshots-opt/thumbs/Customer/2-Customer-Home.webp" width="240" alt="Customer app home feed"><br/><sub><b>📱 Customer App</b></sub> | Shoppers — discover, cart, pay, track live |
+| <img src="screenshots-opt/thumbs/Rider/3-Rider-Home.webp" width="240" alt="Rider app dashboard"><br/><sub><b>🛵 Rider App</b></sub> | Couriers — duty, trip alerts, guided delivery, COD cash |
 
 ---
 
@@ -89,18 +89,18 @@ flowchart TD
 - Customize items, apply a coupon, pick COD or online, review the full bill.
 
 <p align="center">
-  <img src="screenshots/Customer/1-Customer-Map.png" width="240" alt="Customer map location picker" />
+  <img src="screenshots-opt/thumbs/Customer/1-Customer-Map.webp" width="240" alt="Customer map location picker" />
   &nbsp;&nbsp;
-  <img src="screenshots/Customer/2-Customer-Home.png" width="240" alt="Customer home feed" />
+  <img src="screenshots-opt/thumbs/Customer/2-Customer-Home.webp" width="240" alt="Customer home feed" />
 </p>
 <p align="center"><sub><b>Left:</b> map picker — place search, saved places, current location. · <b>Right:</b> home feed — banners, chips, distance-sorted cards.</sub></p>
 
 <p align="center">
-  <img src="screenshots/Customer/4-Customer-Outlet-Details.png" width="240" alt="Outlet storefront" />
+  <img src="screenshots-opt/thumbs/Customer/4-Customer-Outlet-Details.webp" width="240" alt="Outlet storefront" />
   &nbsp;&nbsp;
-  <img src="screenshots/Customer/5-Customer-Item-Details.png" width="240" alt="Item customizer" />
+  <img src="screenshots-opt/thumbs/Customer/5-Customer-Item-Details.webp" width="240" alt="Item customizer" />
   &nbsp;&nbsp;
-  <img src="screenshots/Customer/6-Customer-Cart.png" width="240" alt="Cart and checkout" />
+  <img src="screenshots-opt/thumbs/Customer/6-Customer-Cart.webp" width="240" alt="Cart and checkout" />
 </p>
 <p align="center"><sub><b>Left:</b> storefront — pinned search, live cart steppers. · <b>Middle:</b> customizer — variants, instructions. · <b>Right:</b> guarded checkout.</sub></p>
 
@@ -114,7 +114,7 @@ flowchart TD
 - Kitchen overloaded? One click pauses incoming orders.
 
 <p align="center">
-  <img src="screenshots/Merchant/2-Merchant-Order-Details.png" width="640" alt="Outlet order ticket" />
+  <img src="screenshots-opt/thumbs/Merchant/2-Merchant-Order-Details.webp" width="640" alt="Outlet order ticket" />
 </p>
 <p align="center"><sub><b>Order ticket</b> — line items, customer notes, one-tap accept with prep-time pills.</sub></p>
 
@@ -129,9 +129,9 @@ flowchart TD
 - Customer not answering? Built-in SOP: call twice, knock, wait a timed 5 minutes, release.
 
 <p align="center">
-  <img src="screenshots/Rider/4-Rider-New-Order.png" width="240" alt="Rider dispatch alert" />
+  <img src="screenshots-opt/thumbs/Rider/4-Rider-New-Order.webp" width="240" alt="Rider dispatch alert" />
   &nbsp;&nbsp;
-  <img src="screenshots/Rider/6-Rider-Order-Details.png" width="240" alt="Rider active trip steps" />
+  <img src="screenshots-opt/thumbs/Rider/6-Rider-Order-Details.webp" width="240" alt="Rider active trip steps" />
 </p>
 <p align="center"><sub><b>Left:</b> 45-second dispatch alert. · <b>Right:</b> the guided three-step trip.</sub></p>
 
@@ -146,9 +146,9 @@ flowchart TD
 - Free cancellation until prep starts — refund and coupon restore automatically.
 
 <p align="center">
-  <img src="screenshots/Customer/7-Customer-Live-Tracking.png" width="240" alt="Customer live tracking" />
+  <img src="screenshots-opt/thumbs/Customer/7-Customer-Live-Tracking.webp" width="240" alt="Customer live tracking" />
   &nbsp;&nbsp;
-  <img src="screenshots/Customer/11_Customer_Order_Details.png" width="240" alt="Customer order receipt" />
+  <img src="screenshots-opt/thumbs/Customer/11_Customer_Order_Details.webp" width="240" alt="Customer order receipt" />
 </p>
 <p align="center"><sub><b>Left:</b> live radar map + timeline. · <b>Right:</b> the immutable digital receipt.</sub></p>
 
@@ -162,16 +162,16 @@ flowchart TD
 - Settlement batches pay outlets, netting COD cash so nobody is paid twice.
 
 <p align="center">
-  <img src="screenshots/Rider/8-Rider-Earnings.png" width="240" alt="Rider earnings" />
+  <img src="screenshots-opt/thumbs/Rider/8-Rider-Earnings.webp" width="240" alt="Rider earnings" />
   &nbsp;&nbsp;
-  <img src="screenshots/Rider/9-Rider-Home-Cash-Reached.png" width="240" alt="Rider cash limit alert" />
+  <img src="screenshots-opt/thumbs/Rider/9-Rider-Home-Cash-Reached.webp" width="240" alt="Rider cash limit alert" />
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="screenshots/Admin/16-Cash-Drops.png" width="440" alt="Admin cash deposit verification" />
+  <img src="screenshots-opt/thumbs/Admin/16-Cash-Drops.webp" width="440" alt="Admin cash deposit verification" />
 </p>
 <p align="center"><sub><b>Left:</b> earnings + COD in hand. · <b>Middle:</b> cash-limit alert. · <b>Right:</b> admin deposit verification queue.</sub></p>
 
 <p align="center">
-  <img src="screenshots/Admin/15-Outlet-Settlements.png" width="640" alt="Admin settlements" />
+  <img src="screenshots-opt/thumbs/Admin/15-Outlet-Settlements.webp" width="640" alt="Admin settlements" />
 </p>
 <p align="center"><sub><b>Settlements</b> — payout batches, audit trails, accounting-ready CSV export.</sub></p>
 
@@ -206,12 +206,12 @@ flowchart TD
 
 <table>
   <tr>
-    <td width="33%" align="center"><img src="screenshots/Customer/0-Customer-On-Board.png" width="240"><br/><sub><b>Onboarding</b></sub></td>
-    <td width="33%" align="center"><img src="screenshots/Customer/8_Customer_Profile.png" width="240"><br/><sub><b>Profile</b> — name, avatar, hotline</sub></td>
-    <td width="33%" align="center"><img src="screenshots/Customer/9_Customer_Saved_Location.png" width="240"><br/><sub><b>Saved places</b> — home, work, custom pins</sub></td>
+    <td width="33%" align="center"><img src="screenshots-opt/thumbs/Customer/0-Customer-On-Board.webp" width="240"><br/><sub><b>Onboarding</b></sub></td>
+    <td width="33%" align="center"><img src="screenshots-opt/thumbs/Customer/8_Customer_Profile.webp" width="240"><br/><sub><b>Profile</b> — name, avatar, hotline</sub></td>
+    <td width="33%" align="center"><img src="screenshots-opt/thumbs/Customer/9_Customer_Saved_Location.webp" width="240"><br/><sub><b>Saved places</b> — home, work, custom pins</sub></td>
   </tr>
   <tr>
-    <td align="center" colspan="3"><img src="screenshots/Customer/10_Customer_Order_List.png" width="240"><br/><sub><b>Order history</b> — status badges, re-order, live-tracking CTA</sub></td>
+    <td align="center" colspan="3"><img src="screenshots-opt/thumbs/Customer/10_Customer_Order_List.webp" width="240"><br/><sub><b>Order history</b> — status badges, re-order, live-tracking CTA</sub></td>
   </tr>
 </table>
 
@@ -226,12 +226,12 @@ flowchart TD
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/Merchant/0-Merchant-Login.png" width="440"><br/><sub><b>Staff sign-in</b> — phone + OTP, scoped to a branch or whole brand</sub></td>
-    <td width="50%" align="center"><img src="screenshots/Merchant/3-Merchant-Menu.png" width="440"><br/><sub><b>Catalog & stock</b> — one-click sold-out toggles</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Merchant/0-Merchant-Login.webp" width="440"><br/><sub><b>Staff sign-in</b> — phone + OTP, scoped to a branch or whole brand</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Merchant/3-Merchant-Menu.webp" width="440"><br/><sub><b>Catalog & stock</b> — one-click sold-out toggles</sub></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/Merchant/4-Merchant-Order-List.png" width="440"><br/><sub><b>Sales ledger</b> — date filters, KPI cards</sub></td>
-    <td width="50%" align="center"><img src="screenshots/Merchant/5-Merchant-Settings.png" width="440"><br/><sub><b>Operations</b> — rush pause, prep time, weekly hours</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Merchant/4-Merchant-Order-List.webp" width="440"><br/><sub><b>Sales ledger</b> — date filters, KPI cards</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Merchant/5-Merchant-Settings.webp" width="440"><br/><sub><b>Operations</b> — rush pause, prep time, weekly hours</sub></td>
   </tr>
 </table>
 
@@ -247,14 +247,14 @@ flowchart TD
 
 <table>
   <tr>
-    <td width="33%" align="center"><img src="screenshots/Rider/0-Rider-Demo-Login.png" width="240"><br/><sub><b>Sign-in</b> — phone + OTP</sub></td>
-    <td width="33%" align="center"><img src="screenshots/Rider/1-Rider-Signup.png" width="240"><br/><sub><b>Application</b> — join the fleet</sub></td>
-    <td width="33%" align="center"><img src="screenshots/Rider/2-Rider-Pending-Application.png" width="240"><br/><sub><b>Approval gate</b> — document review</sub></td>
+    <td width="33%" align="center"><img src="screenshots-opt/thumbs/Rider/0-Rider-Demo-Login.webp" width="240"><br/><sub><b>Sign-in</b> — phone + OTP</sub></td>
+    <td width="33%" align="center"><img src="screenshots-opt/thumbs/Rider/1-Rider-Signup.webp" width="240"><br/><sub><b>Application</b> — join the fleet</sub></td>
+    <td width="33%" align="center"><img src="screenshots-opt/thumbs/Rider/2-Rider-Pending-Application.webp" width="240"><br/><sub><b>Approval gate</b> — document review</sub></td>
   </tr>
   <tr>
-    <td width="33%" align="center"><img src="screenshots/Rider/3-Rider-Home.png" width="240"><br/><sub><b>Duty dashboard</b> — online/offline toggle</sub></td>
-    <td width="33%" align="center"><img src="screenshots/Rider/5-Rider-New-Order-Home.png" width="240"><br/><sub><b>Active trip</b> — pinned on Home</sub></td>
-    <td width="33%" align="center"><img src="screenshots/Rider/7-Rider-Profile.png" width="240"><br/><sub><b>Profile</b> — identity & vehicle</sub></td>
+    <td width="33%" align="center"><img src="screenshots-opt/thumbs/Rider/3-Rider-Home.webp" width="240"><br/><sub><b>Duty dashboard</b> — online/offline toggle</sub></td>
+    <td width="33%" align="center"><img src="screenshots-opt/thumbs/Rider/5-Rider-New-Order-Home.webp" width="240"><br/><sub><b>Active trip</b> — pinned on Home</sub></td>
+    <td width="33%" align="center"><img src="screenshots-opt/thumbs/Rider/7-Rider-Profile.webp" width="240"><br/><sub><b>Profile</b> — identity & vehicle</sub></td>
   </tr>
 </table>
 
@@ -272,35 +272,35 @@ flowchart TD
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/Admin/0-Admin-Login-Screen.png" width="440"><br/><sub><b>Sign-in</b> — phone + OTP</sub></td>
-    <td width="50%" align="center"><img src="screenshots/Admin/2-Order-History.png" width="440"><br/><sub><b>Order history</b> — tabs, glance cards, unassigned-only filter</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Admin/0-Admin-Login-Screen.webp" width="440"><br/><sub><b>Sign-in</b> — phone + OTP</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Admin/2-Order-History.webp" width="440"><br/><sub><b>Order history</b> — tabs, glance cards, unassigned-only filter</sub></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/Admin/3-Order-Details.png" width="440"><br/><sub><b>Order details</b> — lifecycle timeline, money breakdown</sub></td>
-    <td width="50%" align="center"><img src="screenshots/Admin/4-Rider-Fleet.png" width="440"><br/><sub><b>Fleet</b> — radar, unassigned pool, roster</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Admin/3-Order-Details.webp" width="440"><br/><sub><b>Order details</b> — lifecycle timeline, money breakdown</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Admin/4-Rider-Fleet.webp" width="440"><br/><sub><b>Fleet</b> — radar, unassigned pool, roster</sub></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/Admin/5-Rider-Details.png" width="440"><br/><sub><b>Courier details</b> — stats, cash, governance</sub></td>
-    <td width="50%" align="center"><img src="screenshots/Admin/6-Brand-List.png" width="440"><br/><sub><b>Brands & outlets</b> — owners, per-outlet rosters</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Admin/5-Rider-Details.webp" width="440"><br/><sub><b>Courier details</b> — stats, cash, governance</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Admin/6-Brand-List.webp" width="440"><br/><sub><b>Brands & outlets</b> — owners, per-outlet rosters</sub></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/Admin/7-Outlet-Details.png" width="440"><br/><sub><b>Outlet page</b> — catalog, category governance, hours</sub></td>
-    <td width="50%" align="center"><img src="screenshots/Admin/8-Outlet-Locaiton-Define.png" width="440"><br/><sub><b>Location picker</b> — pin the outlet on the map</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Admin/7-Outlet-Details.webp" width="440"><br/><sub><b>Outlet page</b> — catalog, category governance, hours</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Admin/8-Outlet-Locaiton-Define.webp" width="440"><br/><sub><b>Location picker</b> — pin the outlet on the map</sub></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/Admin/9-Outlet-Item-Edit.png" width="440"><br/><sub><b>Product editor</b> — variations with absolute prices</sub></td>
-    <td width="50%" align="center"><img src="screenshots/Admin/10-Staff-Account-List.png" width="440"><br/><sub><b>Staff accounts</b> — roles, instant lockout</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Admin/9-Outlet-Item-Edit.webp" width="440"><br/><sub><b>Product editor</b> — variations with absolute prices</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Admin/10-Staff-Account-List.webp" width="440"><br/><sub><b>Staff accounts</b> — roles, instant lockout</sub></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/Admin/11-Customer-Details.png" width="440"><br/><sub><b>Customer directory</b> — lifetime metrics</sub></td>
-    <td width="50%" align="center"><img src="screenshots/Admin/12-Promotional-Banner.png" width="440"><br/><sub><b>Banners</b> — schedule, deep-link the carousel</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Admin/11-Customer-Details.webp" width="440"><br/><sub><b>Customer directory</b> — lifetime metrics</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Admin/12-Promotional-Banner.webp" width="440"><br/><sub><b>Banners</b> — schedule, deep-link the carousel</sub></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><img src="screenshots/Admin/13-Coupon-Code.png" width="440"><br/><sub><b>Coupons</b> — flat or %, caps, usage limits</sub></td>
-    <td width="50%" align="center"><img src="screenshots/Admin/14-Media-Zone.png" width="440"><br/><sub><b>Media library</b> — crop, resize, reuse</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Admin/13-Coupon-Code.webp" width="440"><br/><sub><b>Coupons</b> — flat or %, caps, usage limits</sub></td>
+    <td width="50%" align="center"><img src="screenshots-opt/thumbs/Admin/14-Media-Zone.webp" width="440"><br/><sub><b>Media library</b> — crop, resize, reuse</sub></td>
   </tr>
   <tr>
-    <td align="center" colspan="2"><img src="screenshots/Admin/17-Admin%20System%20Settings.png" width="440"><br/><sub><b>System settings</b> — dispatch timing, fee engine, order limits</sub></td>
+    <td align="center" colspan="2"><img src="screenshots-opt/thumbs/Admin/17-Admin%20System%20Settings.webp" width="440"><br/><sub><b>System settings</b> — dispatch timing, fee engine, order limits</sub></td>
   </tr>
 </table>
 
